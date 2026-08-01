@@ -145,8 +145,13 @@ jobs:
 
       - run: pnpm exec playwright install --with-deps chromium
 
+      # `--wait` over the whole project fails when a one-shot container exits,
+      # even successfully (minio-init, migrate). Start everything first, then
+      # wait only on the long-running services.
       - name: Start the stack with fake providers
-        run: docker compose up -d --build --wait --wait-timeout 300
+        run: |
+          docker compose up -d --build
+          docker compose up -d --wait --wait-timeout 300 api web worker image-worker
 
       - run: pnpm test:e2e
 

@@ -92,7 +92,11 @@ All commands run on 2026-08-01.
 
 ### Runtime
 
-`docker compose up -d --build --wait` reached healthy on all seven services.
+`docker compose up -d --build` followed by
+`docker compose up -d --wait api web worker image-worker` reached healthy on all
+seven services. (`--wait` over the whole project fails when the one-shot
+`minio-init` and `migrate` containers exit, even with status 0 — CI was fixed to
+wait on the long-running services only.)
 
 ```json
 GET /api/health → 200

@@ -28,7 +28,12 @@ pnpm 11+ and Python 3.12+.
 
 ```bash
 cp .env.example .env        # placeholders only; no real key is needed
-docker compose up -d --build --wait
+docker compose up -d --build
+
+# Optional: block until the long-running services report healthy.
+# (Waiting on the whole project fails when the one-shot minio-init and
+# migrate containers exit, even successfully.)
+docker compose up -d --wait api web worker image-worker
 ```
 
 Then open:
@@ -110,7 +115,8 @@ cd apps/worker && ../../.venv/bin/python -m mypy . && ../../.venv/bin/python -m 
 
 # Infrastructure
 docker compose config --quiet
-docker compose up -d --build --wait
+docker compose up -d --build
+docker compose up -d --wait api web worker image-worker
 ```
 
 `pnpm test:e2e` expects the stack to be running. If you changed the host ports,
