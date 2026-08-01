@@ -13,6 +13,9 @@ healthy, no paid API call made.
 **Next: Phase 2 — Domain and persistence.** Not started. Do not begin without an
 explicit instruction.
 
+The roadmap now supports three idea-input modes and private Telegram remote
+control. Phase 1 remains complete; no completed work was reopened.
+
 ---
 
 ## Phase 1 — Foundation ✅
@@ -39,73 +42,120 @@ explicit instruction.
 
 ## Phase 2 — Domain and persistence
 
+- [ ] Add `IdeaMode`: `market-led`, `user-idea`, and `hybrid`
+- [ ] Preserve the user's original idea verbatim and separately store the
+      researched/optimized concept
 - [ ] Entities and value objects: `User`, `ShopConnection`, `ResearchRun`,
       `ResearchEvidence`, `KeywordCluster`, `ProductIdea`, `DesignPrompt`,
-      `ArtworkJob`, `Asset`, `Approval`, `ProductionJob`, `Mockup`, `IpReview`,
-      `ListingDraft`, `Package`, `ProviderUsage`, `AuditEvent`
+      `ArtworkJob`, `Asset`, `Approval`, `ProductionJob`, `Mockup`,
+      `IpReview`, `ListingDraft`, `Package`, `ProviderUsage`,
+      `AuditEvent`
+- [ ] Add Telegram entities/value objects for bot configuration, authorized
+      owner identity, message/action correlation, and notification delivery
 - [ ] UUID primary keys, UTC timestamps, `Decimal`/minor-unit money
 - [ ] SQLAlchemy 2 typed mappings and repositories
 - [ ] Alembic migrations, reversible and tested against a fresh database
 - [ ] Unique constraints on idempotency keys; one decision per immutable version
 - [ ] Persist the workflow state machine with compare-and-set transitions
 - [ ] Audit log, provider usage ledger, idempotency records
-- [ ] Outbox pattern for job dispatch
+- [ ] Outbox pattern for job dispatch and Telegram notifications
 - [ ] Unit and integration tests for every invariant and cost calculation
 
 ## Phase 3 — Authentication and settings
 
 - [ ] Single-owner auth with Argon2id
       ([ADR-0002](docs/adr/0002-single-owner-authentication.md))
-- [ ] Sessions, CSRF protection on mutating routes
-- [ ] Encrypted token storage with a versioned key
+- [ ] Sessions and CSRF protection on mutating routes
+- [ ] Encrypted provider, Etsy, and Telegram secret/token storage with a
+      versioned key
 - [ ] Provider settings that never return a secret
-- [ ] Budget and quality defaults
+- [ ] Budget, quality, target-country, language, style, and product-use defaults
+- [ ] Settings for schedules and notification preferences
 
-## Phase 4 — Research and idea approval
+## Phase 4 — Telegram remote control
 
-- [ ] Research brief UI and API
-- [ ] Real research and OpenAI synthesis adapters (first paid provider)
-- [ ] Evidence, keyword clusters, scoring, prompt generation
-- [ ] Ranked idea screen and **gate 1**
-- [ ] Cost estimates and low-confidence labelling
-- [ ] Relax the `PROVIDER_MODE=live` startup rejection
+- [ ] Private Telegram Bot API adapter and secure webhook endpoint
+- [ ] Verify Telegram's webhook secret and allow only the configured owner ID
+- [ ] Commands for status, submitting an idea, pausing, resuming, and stopping
+      automation
+- [ ] Inline buttons for approve, reject, regenerate, edit, and open dashboard
+- [ ] Idempotent callback handling, expired-action handling, and audit records
+- [ ] Notifications for failures, budget limits, approvals, and completed jobs
+- [ ] Fake-adapter integration tests; no real Telegram messages in normal tests
 
-## Phase 5 — Artwork generation and approval
+## Phase 5 — Idea input, research, and approval
 
-- [ ] OpenAI Image and Recraft adapters
-- [ ] Queued generation with retry, idempotency and cost capture
-- [ ] Object storage and provenance
-- [ ] Comparison UI and **gate 2**
+- [ ] Let the owner choose `market-led`, `user-idea`, or `hybrid`
+- [ ] Dashboard form and Telegram command for submitting a personal idea
+- [ ] Preserve the original concept while producing a separately optimized
+      market position
+- [ ] Research seasonal and evergreen demand using at least three buyer-intent
+      query angles
+- [ ] Real research and OpenAI structured-synthesis adapters (first paid
+      providers)
+- [ ] Evidence, keyword clusters, scoring, confidence, and prompt generation
+- [ ] Generate a complete design prompt and negative prompt for every idea
+- [ ] Ranked idea screen, Telegram summary, and **gate 1**
+- [ ] Cost estimates, budget enforcement, and low-confidence labelling
+- [ ] Relax the `PROVIDER_MODE=live` startup rejection only for configured
+      Phase 5 providers
 
-## Phase 6 — Production pipeline
+## Phase 6 — Artwork generation and approval
 
-- [ ] Alpha and background workflow, safe trim, upscale
-- [ ] Deterministic SVG typography
-- [ ] Mockup templates
-- [ ] PNG QA report
+- [ ] OpenAI Image and optional Recraft adapters
+- [ ] Queued generation with retry, idempotency, and cost capture
+- [ ] Object storage and complete asset provenance
+- [ ] Dashboard comparison plus Telegram previews and **gate 2**
+- [ ] Approve, reject, or regenerate without duplicate billing
 
-## Phase 7 — SEO, legal review, and package
+## Phase 7 — PNG production pipeline
 
-- [ ] Title, description, ≤13 valid tags, AI disclosure
-- [ ] Preliminary IP records and acknowledgement
-- [ ] Licence, instructions, manifest, ZIP
+- [ ] Alpha/background workflow, safe trim, and upscale
+- [ ] Deterministic SVG typography for approved slogans
+- [ ] Mockup templates for supported product types
+- [ ] Validate dimensions, transparency, margins, spelling, and cropped edges
+- [ ] Generate and persist a PNG QA report
+- [ ] Send production completion and preview links through Telegram
+
+## Phase 8 — SEO, risk review, and download package
+
+- [ ] Generate Etsy title, description, no more than 13 valid tags, and required
+      AI disclosure
+- [ ] Store preliminary IP-risk checks, warnings, and human acknowledgement
+- [ ] Create licence, customer instructions, manifest, PNG files, and ZIP
 - [ ] Listing editor with optimistic concurrency and **gate 3**
+- [ ] Send the complete listing/package review to Telegram
+- [ ] Never claim legal clearance, profitability, or guaranteed ranking
 
-## Phase 8 — Etsy integration
+## Phase 9 — Etsy integration
 
 - [ ] OAuth with PKCE and state
-- [ ] Draft listing, image and digital-file upload
+- [ ] Create Etsy draft listings and upload preview images and digital files
 - [ ] Rate-limit handling and resumable partial failure
+- [ ] Enforce final approval before draft creation
+- [ ] Send the draft URL and result to the dashboard and Telegram
+- [ ] Keep publication manual; the application must never activate a listing
 
-## Phase 9 — Operations
+## Phase 10 — Deployment, scheduling, and monitoring
 
-- [ ] Dashboards, alerts, backups, restore test
-- [ ] Spend caps and monthly usage report
-- [ ] Security review, dependency audit, retention controls
+- [ ] Deploy the web, API, workers, PostgreSQL, Redis, and object storage for
+      continuous operation
+- [ ] Scheduled research for seasonal and evergreen opportunities
+- [ ] Dashboards, error alerts, health monitoring, backups, and restore test
+- [ ] Spend caps, monthly usage reports, and cost alerts
+- [ ] Telegram daily/weekly reports for jobs, drafts, costs, and available Etsy
+      performance data
+- [ ] Security review, dependency audit, retention controls, and runbook
 
-## Phase 10 — Optional SaaS expansion
+## Phase 11 — Optional SaaS expansion
 
 Not before the private tool has real usage evidence.
+
+- [ ] Tenant isolation, team roles, and separate Etsy shops
+- [ ] Subscription billing, quotas, and usage metering
+- [ ] Etsy Personal/Commercial Access requirements
+- [ ] Data export/deletion and support tooling
+- [ ] Abuse prevention and public legal pages
 
 ---
 
