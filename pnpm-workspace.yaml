@@ -1,0 +1,10 @@
+packages:
+  - "apps/web"
+  - "apps/image-worker"
+  - "packages/*"
+
+# Only these dependencies may run install scripts. Everything else is blocked,
+# so a compromised transitive package cannot execute code at install time.
+allowBuilds:
+  esbuild: true
+  sharp: true

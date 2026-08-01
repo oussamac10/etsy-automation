@@ -1,0 +1,6 @@
+{
+  // Nuxt generates the compiler options, path aliases and auto-import types.
+  // Do not add an `include` here: it would replace Nuxt's, dropping
+  // .nuxt/nuxt.d.ts and with it every auto-imported symbol.
+  "extends": "./.nuxt/tsconfig.json"
+}

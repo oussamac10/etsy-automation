@@ -1,0 +1,65 @@
+# --- Secrets: never commit ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+.claude/settings.local.json
+
+# --- Node ---
+node_modules/
+.pnpm-store/
+dist/
+build/
+.output/
+.nuxt/
+.nitro/
+.cache/
+coverage/
+*.tsbuildinfo
+.eslintcache
+
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# --- Docker / infra local state ---
+.docker-data/
+minio-data/
+postgres-data/
+
+# --- Test artifacts ---
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# --- Generated / binary assets ---
+*.zip
+!tests/fixtures/**/*.zip
+tmp/
+scratch/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.playwright-mcp/
+
+# Stray Playwright screenshots
+*-dashboard.png
+page-*.png

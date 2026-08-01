@@ -1,0 +1,216 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# CI must never call a paid API or create an Etsy resource (infra/CLAUDE.md).
+env:
+  APP_ENV: local
+  PROVIDER_MODE: fake
+  PAID_SMOKE_TEST_ENABLED: "false"
+  SECRET_KEY: ci-only-secret-key
+  ENCRYPTION_KEY: ci-only-encryption-key
+  DATABASE_URL: postgresql+asyncpg://etsy:etsy@localhost:5432/etsy_automation
+  REDIS_URL: redis://localhost:6379/0
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "apps/api[dev]" -e "apps/worker[dev]"
+
+      - name: Ruff format
+        run: |
+          python -m ruff format --check apps/api
+          python -m ruff format --check apps/worker
+
+      - name: Ruff lint
+        run: |
+          python -m ruff check apps/api
+          python -m ruff check apps/worker
+
+      - name: mypy
+        run: |
+          cd apps/api && python -m mypy .
+          cd ../worker && python -m mypy .
+
+      - name: pytest
+        run: |
+          cd apps/api && python -m pytest
+          cd ../worker && python -m pytest
+
+  migrations:
+    name: Alembic against a fresh database
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.10-bookworm
+        env:
+          POSTGRES_USER: etsy
+          POSTGRES_PASSWORD: etsy
+          POSTGRES_DB: etsy_automation
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U etsy"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e "apps/api[dev]"
+
+      - name: Upgrade then downgrade
+        working-directory: apps/api
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
+  node:
+    name: Node (lint, typecheck, vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+  compose:
+    name: Compose validation and container build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate compose file
+        run: docker compose config --quiet
+
+      - name: Build images
+        run: docker compose build
+
+  e2e:
+    name: End-to-end against the real stack
+    runs-on: ubuntu-latest
+    needs: [compose]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start the stack with fake providers
+        run: docker compose up -d --build --wait --wait-timeout 300
+
+      - run: pnpm test:e2e
+
+      - name: Service logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
+
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  security:
+    name: Secret scan and dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Fail if a .env file is committed
+        run: |
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env is tracked; secrets must never be committed."
+            exit 1
+          fi
+
+      - name: Scan the working tree for credential-shaped strings
+        run: |
+          # Provider key prefixes. .env.example is excluded: it holds empty keys.
+          if git grep -nIE '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})' \
+               -- ':!.env.example' ':!.github/workflows/ci.yml'; then
+            echo "::error::A credential-shaped string is committed."
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: pnpm audit
+        run: pnpm audit --audit-level high
+        continue-on-error: true
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          pip install -e "apps/api[dev]" -e "apps/worker[dev]"
+          pip-audit --skip-editable
+        continue-on-error: true

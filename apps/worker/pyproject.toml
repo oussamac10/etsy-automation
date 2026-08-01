@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "etsy-automation-worker"
+version = "0.1.0"
+description = "Dramatiq background worker for the Etsy PNG automation platform."
+requires-python = ">=3.12"
+# The worker reuses the API's domain, ports and settings. It is installed from
+# the local path in development (see scripts/dev-setup.sh) rather than published.
+dependencies = []  # installed alongside etsy-automation-api; see scripts/dev-setup.sh
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.16.1",
+    "mypy==2.3.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+worker = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "ASYNC", "S", "RUF"]
+ignore = ["S101"]
+
+[tool.ruff.lint.isort]
+# The worker imports the API package from the same repository.
+known-first-party = ["worker", "app"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["worker"]
+
+[[tool.mypy.overrides]]
+module = ["dramatiq.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers"
