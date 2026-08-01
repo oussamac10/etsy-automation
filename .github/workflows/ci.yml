@@ -52,10 +52,45 @@ jobs:
           cd apps/api && python -m mypy .
           cd ../worker && python -m mypy .
 
+      # Unit tests only; the integration suite has its own job with a database.
       - name: pytest
         run: |
-          cd apps/api && python -m pytest
+          cd apps/api && python -m pytest --ignore=tests/integration
           cd ../worker && python -m pytest
+
+  integration:
+    name: Integration tests against PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.10-bookworm
+        env:
+          POSTGRES_USER: etsy
+          POSTGRES_PASSWORD: etsy
+          POSTGRES_DB: etsy_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U etsy"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://etsy:etsy@localhost:5432/etsy_test
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e "apps/api[dev]" -e "apps/worker[dev]"
+
+      # The suite migrates down to base and back up per session, so this also
+      # proves the migration works on a database that already has a schema.
+      - name: pytest (integration)
+        working-directory: apps/api
+        run: python -m pytest tests/integration
 
   migrations:
     name: Alembic against a fresh database

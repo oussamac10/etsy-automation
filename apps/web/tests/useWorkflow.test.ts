@@ -39,8 +39,10 @@ describe("parseWorkflow", () => {
 
 describe("FALLBACK_STATES", () => {
   it("is the shared domain pipeline", () => {
-    expect(FALLBACK_STATES[0]).toBe("RESEARCHING");
-    expect(FALLBACK_STATES.at(-1)).toBe("ETSY_DRAFT_CREATED");
-    expect(FALLBACK_STATES).toHaveLength(8);
+    // Phase 2 extended the pipeline: it starts at DRAFT, and PUBLISHED /
+    // CANCELLED sit after the happy path rather than on it.
+    expect(FALLBACK_STATES[0]).toBe("DRAFT");
+    expect(FALLBACK_STATES).toContain("ETSY_DRAFT_CREATED");
+    expect(FALLBACK_STATES).toHaveLength(16);
   });
 });

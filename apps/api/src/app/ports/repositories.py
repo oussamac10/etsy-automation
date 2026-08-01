@@ -1,0 +1,239 @@
+"""Repository interfaces.
+
+Use cases depend on these protocols, never on SQLAlchemy. The SQL-backed
+implementations live in ``app/infrastructure/repositories``; an in-memory
+implementation would satisfy the same contract, which is what makes the use
+cases testable without a database.
+
+Note the deliberate gaps: there is no ``update`` on the approval, audit or idea
+revision repositories, and no ``delete`` anywhere. Append-only is expressed by
+the absence of the method, not by a comment asking callers to behave.
+"""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Protocol, runtime_checkable
+
+from app.domain.enums import AuditAction, CostStatus, ProviderName
+from app.domain.money import Money
+from app.domain.workflow import ApprovalDecision, ApprovalGate, RunStatus
+from app.infrastructure.models import (
+    Approval,
+    AuditEvent,
+    OriginalIdea,
+    OriginalIdeaRevision,
+    ProductConcept,
+    ProductWorkflow,
+    ProviderUsage,
+    User,
+    WorkflowTransition,
+)
+
+
+@runtime_checkable
+class UserRepository(Protocol):
+    async def add(self, *, email: str, display_name: str) -> User: ...
+
+    async def get(self, user_id: uuid.UUID) -> User | None: ...
+
+    async def get_by_email(self, email: str) -> User | None: ...
+
+
+@runtime_checkable
+class WorkflowRepository(Protocol):
+    async def add(self, workflow: ProductWorkflow) -> ProductWorkflow: ...
+
+    async def get(self, workflow_id: uuid.UUID) -> ProductWorkflow | None: ...
+
+    async def list(
+        self,
+        *,
+        owner_id: uuid.UUID | None = None,
+        state: RunStatus | None = None,
+        include_archived: bool = False,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Sequence[ProductWorkflow]: ...
+
+    async def count(
+        self,
+        *,
+        owner_id: uuid.UUID | None = None,
+        state: RunStatus | None = None,
+        include_archived: bool = False,
+    ) -> int: ...
+
+    async def transition(
+        self,
+        workflow: ProductWorkflow,
+        *,
+        to_state: RunStatus,
+        expected_version: int,
+        reason: str,
+        actor: str = "system",
+    ) -> WorkflowTransition:
+        """Compare-and-set state change.
+
+        Raises ``ConcurrentModificationError`` when ``expected_version`` no
+        longer matches, and ``IllegalTransitionError`` when the domain refuses
+        the move. Writes the transition row; the caller writes the audit event.
+        """
+        ...
+
+    async def transitions(self, workflow_id: uuid.UUID) -> Sequence[WorkflowTransition]: ...
+
+
+@runtime_checkable
+class IdeaRepository(Protocol):
+    """The original idea is write-once; revisions are append-only."""
+
+    async def add(self, idea: OriginalIdea) -> OriginalIdea: ...
+
+    async def get_for_workflow(self, workflow_id: uuid.UUID) -> OriginalIdea | None: ...
+
+    async def add_revision(
+        self,
+        idea: OriginalIdea,
+        *,
+        revised_text: str,
+        slogan: str | None = None,
+        note: str | None = None,
+        actor: str = "owner",
+    ) -> OriginalIdeaRevision:
+        """Record a new wording without touching ``original_text``."""
+        ...
+
+    async def revisions(self, idea_id: uuid.UUID) -> Sequence[OriginalIdeaRevision]: ...
+
+
+@runtime_checkable
+class ConceptRepository(Protocol):
+    async def add(self, concept: ProductConcept) -> ProductConcept: ...
+
+    async def get(self, concept_id: uuid.UUID) -> ProductConcept | None: ...
+
+    async def list_for_workflow(
+        self, workflow_id: uuid.UUID, *, include_archived: bool = True
+    ) -> Sequence[ProductConcept]: ...
+
+    async def add_prompt_version(
+        self,
+        concept: ProductConcept,
+        *,
+        positive_prompt: str,
+        negative_prompt: str,
+        typography_instructions: str | None = None,
+        exact_slogan: str | None = None,
+        change_note: str | None = None,
+    ) -> object:
+        """Append prompt version N+1. Earlier versions are never modified."""
+        ...
+
+
+@runtime_checkable
+class ApprovalRepository(Protocol):
+    """Append-only. There is no update and no delete, by design."""
+
+    async def record(
+        self,
+        *,
+        workflow: ProductWorkflow,
+        gate: ApprovalGate,
+        decision: ApprovalDecision,
+        previous_state: RunStatus,
+        resulting_state: RunStatus,
+        actor: str,
+        target_type: str,
+        target_id: uuid.UUID | None = None,
+        target_version: int | None = None,
+        comment: str | None = None,
+        revision_request: str | None = None,
+        decided_at: datetime | None = None,
+    ) -> Approval: ...
+
+    async def history(
+        self, workflow_id: uuid.UUID, *, gate: ApprovalGate | None = None
+    ) -> Sequence[Approval]: ...
+
+    async def latest(self, workflow_id: uuid.UUID, gate: ApprovalGate) -> Approval | None: ...
+
+
+@runtime_checkable
+class CostRepository(Protocol):
+    async def record_estimate(
+        self,
+        *,
+        workflow_id: uuid.UUID,
+        provider: ProviderName,
+        service: str,
+        operation: str,
+        estimated: Money,
+        input_units: int = 0,
+        output_units: int = 0,
+        unit_kind: str = "units",
+        idempotency_key: str | None = None,
+        price_reference: dict[str, object] | None = None,
+    ) -> ProviderUsage: ...
+
+    async def reconcile(
+        self,
+        usage_id: uuid.UUID,
+        *,
+        actual: Money,
+        input_units: int | None = None,
+        output_units: int | None = None,
+    ) -> ProviderUsage:
+        """Replace the estimate with what the provider actually reported."""
+        ...
+
+    async def list_for_workflow(self, workflow_id: uuid.UUID) -> Sequence[ProviderUsage]: ...
+
+    async def total_for_workflow(
+        self, workflow_id: uuid.UUID, *, currency: str = "USD"
+    ) -> Money: ...
+
+    async def total_for_provider(
+        self,
+        provider: ProviderName,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        currency: str = "USD",
+    ) -> Money: ...
+
+    async def total_in_period(
+        self,
+        *,
+        since: datetime,
+        until: datetime,
+        currency: str = "USD",
+        status: CostStatus | None = None,
+    ) -> Money: ...
+
+
+@runtime_checkable
+class AuditRepository(Protocol):
+    """Append-only. Entries are never updated or deleted by application flows."""
+
+    async def record(
+        self,
+        *,
+        action: AuditAction,
+        entity_type: str,
+        summary: str,
+        workflow_id: uuid.UUID | None = None,
+        entity_id: uuid.UUID | None = None,
+        approval_id: uuid.UUID | None = None,
+        actor: str = "system",
+        correlation_id: str | None = None,
+        before: dict[str, object] | None = None,
+        after: dict[str, object] | None = None,
+        metadata: dict[str, object] | None = None,
+    ) -> AuditEvent: ...
+
+    async def for_workflow(
+        self, workflow_id: uuid.UUID, *, limit: int = 200
+    ) -> Sequence[AuditEvent]: ...

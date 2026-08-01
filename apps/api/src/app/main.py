@@ -15,7 +15,7 @@ from starlette.responses import Response
 
 from app import __version__
 from app.api.problems import register_exception_handlers
-from app.api.routes import health, workflow
+from app.api.routes import health, workflow, workflows
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import configure_logging, get_logger
 from app.settings import Settings, get_settings
@@ -96,6 +96,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application.include_router(health.router, prefix="/api")
     application.include_router(workflow.router, prefix="/api/v1")
+    application.include_router(workflows.router, prefix="/api/v1")
 
     return application
 

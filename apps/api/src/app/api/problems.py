@@ -14,6 +14,20 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.domain.errors import (
+    BudgetExceededError,
+    ConcurrentModificationError,
+    DomainError,
+    EntityNotFoundError,
+    ImmutableFieldError,
+    InvalidIdeaModeError,
+)
+from app.domain.workflow import (
+    GateNotApprovedError,
+    GateNotSatisfiedError,
+    IllegalTransitionError,
+)
+
 PROBLEM_CONTENT_TYPE = "application/problem+json"
 PROBLEM_BASE_URI = "https://etsy-automation.invalid/problems"
 
@@ -52,7 +66,67 @@ def problem_response(
     return JSONResponse(status_code=status_code, content=body, media_type=PROBLEM_CONTENT_TYPE)
 
 
+#: Domain errors mapped to a status code and a problem type. Everything else
+#: falls through to the generic 500 handler, so an unmapped rule cannot leak its
+#: message to a client by accident.
+DOMAIN_ERROR_STATUS: dict[type[Exception], tuple[int, str]] = {
+    EntityNotFoundError: (status.HTTP_404_NOT_FOUND, "not-found"),
+    ImmutableFieldError: (status.HTTP_409_CONFLICT, "immutable-field"),
+    ConcurrentModificationError: (status.HTTP_409_CONFLICT, "concurrent-modification"),
+    GateNotSatisfiedError: (status.HTTP_409_CONFLICT, "gate-not-satisfied"),
+    GateNotApprovedError: (status.HTTP_409_CONFLICT, "gate-not-approved"),
+    IllegalTransitionError: (status.HTTP_409_CONFLICT, "illegal-transition"),
+    InvalidIdeaModeError: (status.HTTP_422_UNPROCESSABLE_CONTENT, "invalid-idea-mode"),
+    BudgetExceededError: (status.HTTP_409_CONFLICT, "budget-exceeded"),
+}
+
+
+def _domain_error_mapping(exc: Exception) -> tuple[int, str] | None:
+    for error_type, mapping in DOMAIN_ERROR_STATUS.items():
+        if isinstance(exc, error_type):
+            return mapping
+    return None
+
+
 def register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(DomainError)
+    async def _domain_error(request: Request, exc: DomainError) -> JSONResponse:
+        """Domain rules become problem details.
+
+        The message is safe to show: these errors are written for the person who
+        triggered them and never contain a provider payload or a connection
+        string. Anything not in the mapping is re-raised so the generic handler
+        can hide it instead of guessing.
+        """
+        mapping = _domain_error_mapping(exc)
+        if mapping is None:
+            raise exc
+        status_code, problem_type = mapping
+
+        extra: dict[str, Any] = {}
+        if isinstance(exc, ConcurrentModificationError):
+            extra = {
+                "expected_version": exc.expected_version,
+                "actual_version": exc.actual_version,
+            }
+        elif isinstance(exc, IllegalTransitionError):
+            extra = {
+                "current_state": exc.current.value,
+                "requested_state": exc.requested.value,
+            }
+        elif isinstance(exc, GateNotSatisfiedError | GateNotApprovedError):
+            extra = {"gate": exc.gate.value, "current_state": exc.current.value}
+
+        return problem_response(
+            title=type(exc).__name__.removesuffix("Error"),
+            status_code=status_code,
+            detail=str(exc),
+            problem_type=problem_type,
+            instance=str(request.url.path),
+            correlation_id=getattr(request.state, "correlation_id", None),
+            extra=extra,
+        )
+
     @app.exception_handler(StarletteHTTPException)
     async def _http_exception(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         return problem_response(
@@ -67,7 +141,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         return problem_response(
             title="Request validation failed",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             problem_type="validation-error",
             instance=str(request.url.path),
             correlation_id=getattr(request.state, "correlation_id", None),

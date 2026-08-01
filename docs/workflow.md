@@ -5,33 +5,53 @@ The state machine is authoritative. It is implemented in
 `packages/domain/src/workflow.ts`, and exposed read-only at
 `GET /api/v1/workflow`.
 
+> **Phase 2 extended the pipeline from eight states to sixteen.** This page is
+> the summary; the complete transition table, the rejection/revision routing and
+> the stage guards are in
+> [`workflow-state-machine.md`](workflow-state-machine.md).
+
 ## The pipeline
 
 ```text
-RESEARCHING
-  → IDEA_REVIEW          ← human gate 1
+DRAFT
+  → RESEARCH_QUEUED
+  → RESEARCHING
+  → IDEA_REVIEW           ← human gate 1
+  → IDEA_APPROVED
+  → ART_QUEUED
   → ART_GENERATION
-  → ART_REVIEW           ← human gate 2
+  → ART_REVIEW            ← human gate 2
+  → ARTWORK_APPROVED
   → PRODUCTION
   → IP_REVIEW
-  → LISTING_REVIEW       ← human gate 3
+  → LISTING_REVIEW        ← human gate 3
+  → READY_FOR_ETSY_DRAFT
   → ETSY_DRAFT_CREATED
 ```
 
-`ETSY_DRAFT_CREATED` is the end. There is no `PUBLISHED`, `ACTIVE` or `LIVE`
-state, and no code path that could reach one — `EtsyGateway` has no publish
-method. Publishing is always a separate action a person takes in Etsy.
+Two states sit off the happy path: `CANCELLED` (reachable from any live state)
+and `PUBLISHED`.
+
+`ETSY_DRAFT_CREATED` is where the **application's** work ends. `PUBLISHED` exists
+only so the owner can record that they published the draft in Etsy themselves —
+it is reachable from `ETSY_DRAFT_CREATED` and nowhere else, no gate approval
+targets it, and `EtsyGateway` still has no publish method. Publishing is always
+an action a person takes in Etsy.
 
 ## Transition rules
 
-Movement is strictly linear: a state may only advance to its immediate
-successor. `advance()` refuses to move backwards, refuses to skip, and refuses
-to leave a gated state at all.
+The happy path advances one state at a time. On top of that, any live workflow
+may be cancelled, and queued work may be withdrawn before it runs. `advance()`
+refuses to skip, refuses to move backwards, refuses to leave a terminal state,
+and refuses to leave a gated state at all.
 
 ```python
-advance(RunStatus.RESEARCHING, RunStatus.IDEA_REVIEW)     # ok
-advance(RunStatus.ART_GENERATION, RunStatus.PRODUCTION)   # IllegalTransitionError — skips ART_REVIEW
-advance(RunStatus.IDEA_REVIEW, RunStatus.ART_GENERATION)  # IllegalTransitionError — gated
+advance(RunStatus.RESEARCHING, RunStatus.IDEA_REVIEW)      # ok
+advance(RunStatus.RESEARCH_QUEUED, RunStatus.DRAFT)        # ok — job withdrawn
+advance(RunStatus.PRODUCTION, RunStatus.CANCELLED)         # ok — owner cancels
+advance(RunStatus.ART_GENERATION, RunStatus.PRODUCTION)    # IllegalTransitionError — skips ART_REVIEW
+advance(RunStatus.IDEA_REVIEW, RunStatus.IDEA_APPROVED)    # IllegalTransitionError — gated
+advance(RunStatus.PUBLISHED, RunStatus.LISTING_REVIEW)     # IllegalTransitionError — terminal
 ```
 
 The last case matters most: the only way out of a review state is
@@ -41,30 +61,50 @@ in a document.
 
 ## The three human gates
 
-| Gate | Decided from | Approval advances to | Rejection |
-|---|---|---|---|
-| `IDEA_APPROVAL` | `IDEA_REVIEW` | `ART_GENERATION` | stays in `IDEA_REVIEW` |
-| `ARTWORK_APPROVAL` | `ART_REVIEW` | `PRODUCTION` | stays in `ART_REVIEW` |
-| `LISTING_APPROVAL` | `LISTING_REVIEW` | `ETSY_DRAFT_CREATED` | stays in `LISTING_REVIEW` |
+| Gate | Decided from | Approved → | Rejected → | Revision requested → |
+|---|---|---|---|---|
+| `IDEA_APPROVAL` | `IDEA_REVIEW` | `IDEA_APPROVED` | `DRAFT` | `RESEARCH_QUEUED` |
+| `ARTWORK_APPROVAL` | `ART_REVIEW` | `ARTWORK_APPROVED` | `IDEA_APPROVED` | `ART_QUEUED` |
+| `LISTING_APPROVAL` | `LISTING_REVIEW` | `READY_FOR_ETSY_DRAFT` | `ARTWORK_APPROVED` | `PRODUCTION` |
+
+A rejection says "not this artefact" and returns the workflow to the stage that
+produced it. A revision request says "this artefact, but changed" and returns to
+the nearest state that can produce a new version. Neither ever advances the
+workflow, and neither dispatches a paid child job.
 
 ```python
-apply_approval(RunStatus.IDEA_REVIEW, ApprovalGate.IDEA_APPROVAL, approved=True)
-# → RunStatus.ART_GENERATION
+apply_approval(IDEA_REVIEW, IDEA_APPROVAL, decision=APPROVED)
+# → RunStatus.IDEA_APPROVED
 
-apply_approval(RunStatus.IDEA_REVIEW, ApprovalGate.IDEA_APPROVAL, approved=False)
-# → RunStatus.IDEA_REVIEW   (the owner iterates; no artwork job is dispatched)
+apply_approval(IDEA_REVIEW, IDEA_APPROVAL, decision=REJECTED)
+# → RunStatus.DRAFT   (research is redone; no artwork job is dispatched)
 
-apply_approval(RunStatus.IP_REVIEW, ApprovalGate.LISTING_APPROVAL, approved=True)
+apply_approval(IDEA_REVIEW, IDEA_APPROVAL, decision=PENDING)
+# → IllegalTransitionError   (a pending request is not a decision)
+
+apply_approval(IP_REVIEW, LISTING_APPROVAL, decision=APPROVED)
 # → GateNotSatisfiedError   (IP review cannot be skipped)
 ```
 
-A rejection is not a failure. It leaves the run where it is so the owner can
-revise, and it means no paid child job is dispatched — a rejected idea can never
-generate artwork, and rejected artwork can never enter production.
+A rejection is not a failure — the workflow is healthy, the artefact was not
+wanted. Either way no paid child job is dispatched: a rejected idea can never
+generate artwork, and rejected artwork can never enter production. Three guards
+enforce that from anywhere in the codebase:
 
-From Phase 2 an approval records the **immutable version or hash** of what was
-approved, not just an entity ID, so editing something after approval invalidates
-the approval instead of silently inheriting it.
+```python
+require_idea_approved(state)      # Artwork generation needs gate 1
+require_artwork_approved(state)   # Production needs gate 2
+require_listing_approved(state)   # Etsy draft creation needs gate 3
+```
+
+An approval records the **version** of what was reviewed (`target_type`,
+`target_id`, `target_version`), not just an entity ID. The columns are populated
+from Phase 2; the check that rejects an approval whose target has since been
+edited lands with the listing editor in Phase 8.
+
+Approval history is append-only: changing your mind writes another row, and
+`is_approved()` reads the *most recent* decision, so a later rejection or
+revision request actually revokes the gate.
 
 ### Gate 3 is two decisions
 
@@ -85,7 +125,7 @@ already approved and always knows where to resume.
 | `ART_GENERATION_FAILED` | `ART_GENERATION` | `ART_GENERATION` |
 | `PRODUCTION_FAILED` | `PRODUCTION` | `PRODUCTION` |
 | `IP_REVIEW_FAILED` | `IP_REVIEW` | `IP_REVIEW` |
-| `ETSY_DRAFT_FAILED` | `LISTING_REVIEW` | `LISTING_REVIEW` |
+| `ETSY_DRAFT_FAILED` | `READY_FOR_ETSY_DRAFT` | `READY_FOR_ETSY_DRAFT` |
 
 ```python
 state = fail(RunStatus.ART_GENERATION, FailureStatus.ART_GENERATION_FAILED)
@@ -130,9 +170,24 @@ Approvals, audit events, provider usage and provenance records are never deleted
 through normal application flows. Every provider call, approval, retry and
 external ID is recorded with a correlation ID.
 
+From Phase 2 this is structural rather than a rule: those tables have no
+`updated_at`, and their repositories expose no update or delete method. Audit
+metadata passes through the same redaction the logger uses before it is written.
+
+Every state change also writes a `WorkflowTransition` row, so
+`GET /api/v1/workflows/{id}/timeline` can replay what happened without
+reconstructing it from the audit log.
+
 ## Implementation status
 
-Phase 1 implements the state machine, its invariants, the failure/retry model,
-the retry policy and idempotency-key derivation, all covered by unit tests.
-Persistence of runs, approvals and the audit log arrives in Phase 2; the gates
-become real UI in Phases 4, 5 and 7.
+Phase 1 implemented the state machine, its invariants, the failure/retry model,
+the retry policy and idempotency-key derivation.
+
+Phase 2 extended the machine to sixteen states, added the stage guards
+(`require_idea_approved`, `require_artwork_approved`, `require_listing_approved`)
+and persisted all of it: workflows with an optimistic-lock version, an
+append-only transition timeline, append-only approvals, the cost ledger and the
+audit log. Every transition and gate outcome is covered by tests, and compare-
+and-set rejects a decision made against a stale version.
+
+The gates become real UI in Phases 5, 6 and 8.

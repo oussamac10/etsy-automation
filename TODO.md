@@ -7,11 +7,14 @@ Current state and the next step. Phase detail lives in
 
 **Phase 1 — Foundation: complete.**
 See [`docs/progress/phase-1-foundation.md`](docs/progress/phase-1-foundation.md).
-169 tests passing, lint and strict type checks clean, all seven Compose services
-healthy, no paid API call made.
 
-**Next: Phase 2 — Domain and persistence.** Not started. Do not begin without an
-explicit instruction.
+**Phase 2 — Domain and persistence: complete.**
+See [`docs/progress/phase-2-domain-database.md`](docs/progress/phase-2-domain-database.md).
+18 tables, one reversible migration, 351 tests passing, lint and strict type
+checks clean, no paid API call made.
+
+**Next: Phase 3 — Authentication and settings.** Not started. Do not begin
+without an explicit instruction.
 
 The roadmap now supports three idea-input modes and private Telegram remote
 control. Phase 1 remains complete; no completed work was reopened.
@@ -40,29 +43,41 @@ control. Phase 1 remains complete; no completed work was reopened.
 - [x] `.env.example`, `.gitignore`, README, architecture and workflow docs
 - [x] `.claude/skills/etsy-png-idea-research/SKILL.md`
 
-## Phase 2 — Domain and persistence
+## Phase 2 — Domain and persistence ✅
 
-- [ ] Add `IdeaMode`: `market-led`, `user-idea`, and `hybrid`
-- [ ] Preserve the user's original idea verbatim and separately store the
+- [x] Add `IdeaMode`: `market-led`, `user-idea`, and `hybrid`
+- [x] Preserve the user's original idea verbatim and separately store the
       researched/optimized concept
-- [ ] Entities and value objects: `User`, `ShopConnection`, `ResearchRun`,
-      `ResearchEvidence`, `KeywordCluster`, `ProductIdea`, `DesignPrompt`,
-      `ArtworkJob`, `Asset`, `Approval`, `ProductionJob`, `Mockup`,
-      `IpReview`, `ListingDraft`, `Package`, `ProviderUsage`,
-      `AuditEvent`
-- [ ] Add Telegram entities/value objects for bot configuration, authorized
-      owner identity, message/action correlation, and notification delivery
-- [ ] UUID primary keys, UTC timestamps, `Decimal`/minor-unit money
-- [ ] SQLAlchemy 2 typed mappings and repositories
-- [ ] Alembic migrations, reversible and tested against a fresh database
-- [ ] Unique constraints on idempotency keys; one decision per immutable version
-- [ ] Persist the workflow state machine with compare-and-set transitions
-- [ ] Audit log, provider usage ledger, idempotency records
-- [ ] Outbox pattern for job dispatch and Telegram notifications
-- [ ] Unit and integration tests for every invariant and cost calculation
+- [x] Entities and value objects: `User`, `ProductWorkflow`, `OriginalIdea`(+
+      revisions), `ResearchRun`, `ResearchEvidence`, `KeywordCluster`,
+      `ProductConcept`, `DesignPrompt`, `ArtworkJob`, `Asset`, `Approval`,
+      `ProductionJob`, `ListingDraft`, `ProviderUsage`, `AuditEvent`,
+      `WorkflowTransition`, `WorkflowFailure`
+      ([name mapping](docs/domain-model.md#naming-the-specs-areas-mapped-to-entities))
+- [x] UUID primary keys, UTC timestamps, `Decimal`/minor-unit money
+- [x] SQLAlchemy 2 typed mappings and repositories
+- [x] Alembic migration, reversible and tested against a fresh database
+- [x] Unique constraints on idempotency keys; approvals record the reviewed
+      version
+- [x] Persist the workflow state machine with compare-and-set transitions
+- [x] Audit log and provider usage ledger
+- [x] Unit and integration tests for every invariant and cost calculation
+- [x] Minimal workflow API and deterministic development fixtures
+
+Deferred from this phase, with reasons in the progress report:
+
+- [ ] `ShopConnection` — needs encrypted tokens (Phase 3)
+- [ ] Telegram entities — Phase 4
+- [ ] `Mockup`, `Package`, standalone `IpReview` — Phase 7/8
+- [ ] Outbox pattern — needs a real dispatcher (Phase 4/5)
+- [ ] Run the integration suite in CI (`TEST_DATABASE_URL` wiring)
 
 ## Phase 3 — Authentication and settings
 
+Starting point: `owner_id` is recorded on every workflow but **not enforced**,
+and secrets have nowhere to live yet.
+
+- [ ] Enforce ownership on every workflow route (the column and index exist)
 - [ ] Single-owner auth with Argon2id
       ([ADR-0002](docs/adr/0002-single-owner-authentication.md))
 - [ ] Sessions and CSRF protection on mutating routes

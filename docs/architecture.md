@@ -31,7 +31,8 @@ api/routes  →  application/use_cases  →  domain
 ```
 
 - **Routes** parse, authenticate, authorise, call one use case, and map the
-  result. No business logic.
+  result. No business logic. (Authorisation arrives in Phase 3; Phase 2 routes
+  record ownership without enforcing it.)
 - **Use cases** own orchestration and transaction boundaries.
 - **Domain** (`app/domain/`) owns invariants and state transitions. It imports
   no framework, no ORM, no HTTP client and no provider SDK.
@@ -40,6 +41,28 @@ api/routes  →  application/use_cases  →  domain
 
 The dependency arrow always points inwards. A provider SDK type must never
 appear in a domain signature.
+
+### Persistence (Phase 2)
+
+Eighteen tables behind repository protocols. The full model, its constraints and
+an ER diagram are in [`domain-model.md`](domain-model.md).
+
+- **Models** (`app/infrastructure/models/`) are SQLAlchemy 2 typed mappings. They
+  use the domain enums as PostgreSQL enum types, so the vocabulary is enforced by
+  the database rather than by convention.
+- **Repositories** (`app/infrastructure/repositories/`) implement protocols in
+  `app/ports/repositories.py`. Nothing above this layer sees a `Session`, a
+  `select()` or an attribute assignment.
+- **`UnitOfWork`** gives one session and one transaction per use case, so an
+  entity, its transition and its audit event either all land or none do. No
+  provider call ever happens inside that boundary.
+- **Append-only** tables (approvals, audit events, idea revisions, transitions,
+  failures) express it structurally: the repositories have no update or delete
+  method, and the tables carry no `updated_at`.
+
+Money is integer minor units in `BIGINT` columns, wrapped by
+`app/domain/money.py`. The SQL expression for "what has this cost" lives next to
+the Python property so the two cannot drift.
 
 ### Ports defined in Phase 1
 
@@ -144,8 +167,13 @@ Recorded as ADRs in [`adr/`](adr/):
   authentication with Argon2id
 - [ADR-0003](adr/0003-two-workers.md) — Two worker processes rather than one
 
-## What Phase 1 does not include
+## What is not built yet
 
-No entities or tables beyond the Alembic baseline, no authentication, no
-research, no artwork generation, no production pipeline, no Etsy integration,
-and no real provider adapter. Those are Phases 2–8.
+Phase 2 added the data foundation. Still absent: authentication and ownership
+enforcement (Phase 3), Telegram (Phase 4), research execution and real provider
+adapters (Phase 5), artwork generation (Phase 6), the production pipeline
+(Phase 7), SEO and packaging (Phase 8), Etsy integration (Phase 9) and
+deployment (Phase 10).
+
+The tables for artwork, production and listings exist and are empty by design —
+the phases that own them fill them in.

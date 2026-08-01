@@ -20,19 +20,27 @@ end-to-end); `ruff check`, `ruff format --check`, `mypy --strict`, `eslint
 --max-warnings=0`, `tsc`/`vue-tsc` and `docker compose config` are clean. No
 paid API was called.
 
-## Phase 2 — Domain and persistence
+## Phase 2 — Domain and persistence ✅ complete 2026-08-02
 
-- [ ] Core entities, value objects, and persisted workflow state machine
-- [ ] `IdeaMode` with `market-led`, `user-idea`, and `hybrid`
-- [ ] Immutable original user idea plus separately optimized concept/version
-- [ ] Telegram configuration, authorized owner, action, and delivery records
-- [ ] PostgreSQL repositories and reversible Alembic migrations
-- [ ] Audit log, provider usage ledger, idempotency records, and outbox
-- [ ] Unit and integration tests
+- [x] Core entities, value objects, and persisted workflow state machine
+- [x] `IdeaMode` with `market-led`, `user-idea`, and `hybrid`
+- [x] Immutable original user idea plus separately optimized concept/version
+- [x] PostgreSQL repositories and a reversible Alembic migration
+- [x] Audit log and provider usage ledger
+- [x] Unit and integration tests
+
+Deferred with reasons: Telegram records (Phase 4), `ShopConnection` (Phase 3,
+needs encrypted tokens), and the outbox (Phase 4/5, needs a real dispatcher).
 
 Acceptance: every gate/state invariant and cost calculation is tested; every
 research run records its input mode; a supplied idea can be retrieved exactly as
 entered after an optimized version is created.
+
+Evidence: `docs/progress/phase-2-domain-database.md`. 18 tables; migration
+`0002_phase_2_domain` upgrades, downgrades and re-upgrades cleanly with no model
+drift; 351 tests pass (261 API, 23 worker, 67 TypeScript unit); `ruff`,
+`mypy --strict`, `eslint --max-warnings=0`, `tsc`/`vue-tsc` and
+`docker compose config` are clean. No paid API was called.
 
 ## Phase 3 — Authentication and settings
 

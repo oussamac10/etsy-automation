@@ -27,12 +27,15 @@ test.describe("dashboard", () => {
     }
   });
 
-  test("shows the eight workflow states in order", async ({ page }) => {
+  test("shows the workflow states in order", async ({ page }) => {
     await page.goto("/");
     const items = page.getByTestId("workflow-states").getByRole("listitem");
-    await expect(items).toHaveCount(8);
-    await expect(items.first()).toContainText("RESEARCHING");
-    await expect(items.last()).toContainText("ETSY_DRAFT_CREATED");
+    // Phase 2 extended the pipeline to sixteen states: fourteen on the happy
+    // path plus PUBLISHED and CANCELLED, which leave it.
+    await expect(items).toHaveCount(16);
+    await expect(items.first()).toContainText("DRAFT");
+    await expect(items.nth(13)).toContainText("ETSY_DRAFT_CREATED");
+    await expect(items.last()).toContainText("CANCELLED");
   });
 
   test("states the three human gates", async ({ page }) => {

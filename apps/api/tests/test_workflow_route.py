@@ -12,8 +12,12 @@ def test_workflow_endpoint_describes_the_pipeline(settings: Settings) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["states"][0] == "RESEARCHING"
-    assert body["states"][-1] == "ETSY_DRAFT_CREATED"
+    # Phase 2 extended the pipeline: it now starts at DRAFT, and PUBLISHED /
+    # CANCELLED sit after the happy path rather than on it.
+    assert body["states"][0] == "DRAFT"
+    assert "RESEARCHING" in body["states"]
+    assert body["states"][-1] == "CANCELLED"
+    assert "ETSY_DRAFT_CREATED" in body["states"]
     assert len(body["gates"]) == 3
     assert body["publishes_automatically"] is False
     assert "safe" not in body["risk_levels"]

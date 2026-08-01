@@ -13,11 +13,17 @@ design or phrase is free of third-party rights.
 
 ## Status
 
-**Phase 1 — Foundation: complete.** The monorepo, services, health checks,
-tooling, CI and fake providers are in place. There is no research, artwork,
-production or Etsy integration yet — those arrive in Phases 4–8. See
-[`docs/PHASES.md`](docs/PHASES.md) and
-[`docs/progress/phase-1-foundation.md`](docs/progress/phase-1-foundation.md).
+**Phase 1 — Foundation: complete.** Monorepo, services, health checks, tooling,
+CI and fake providers.
+
+**Phase 2 — Domain and database: complete.** The full domain model, PostgreSQL
+persistence, migrations, repositories, the persisted workflow state machine,
+approval history, the cost ledger and the audit log — plus a minimal workflow API
+and development fixtures.
+
+There is no authentication, research, artwork generation or Etsy integration yet;
+those arrive in Phases 3–9. See [`docs/PHASES.md`](docs/PHASES.md) and the
+progress reports in [`docs/progress/`](docs/progress/).
 
 ---
 
@@ -94,6 +100,13 @@ Migrations are an explicit step, never implicit on startup:
 
 ```bash
 cd apps/api && ../../.venv/bin/alembic upgrade head
+```
+
+Seed deterministic development data — one workflow per idea mode, clearly marked
+as fixtures and containing no real market claims:
+
+```bash
+cd apps/api && ../../.venv/bin/python -m app.fixtures.dev_seed
 ```
 
 ---
@@ -200,7 +213,10 @@ before dispatch and reconciled against recorded usage afterwards.
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Product rules and engineering constraints (authoritative) |
 | [`docs/architecture.md`](docs/architecture.md) | Services, layering, data flow, decisions |
+| [`docs/domain-model.md`](docs/domain-model.md) | Entities, relationships, constraints, ER diagram |
 | [`docs/workflow.md`](docs/workflow.md) | The state machine, gates and failure handling |
+| [`docs/workflow-state-machine.md`](docs/workflow-state-machine.md) | The complete transition table |
+| [`docs/idea-modes-flow.md`](docs/idea-modes-flow.md) | The three idea modes and the approval flow |
 | [`docs/PHASES.md`](docs/PHASES.md) | Phase plan and acceptance criteria |
 | [`docs/API_COSTS.md`](docs/API_COSTS.md) | Provider prices and the budget model |
 | [`docs/adr/`](docs/adr/) | Architecture decision records |

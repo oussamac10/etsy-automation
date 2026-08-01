@@ -14,6 +14,10 @@ from alembic import context
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy.pool import NullPool
 
+# Importing the models package registers every table on Base.metadata, which is
+# what autogenerate diffs against. Without it, autogenerate would happily
+# produce a migration that drops the whole schema.
+import app.infrastructure.models  # noqa: F401  (imported for its side effect)
 from app.infrastructure.database import Base
 
 config = context.config
