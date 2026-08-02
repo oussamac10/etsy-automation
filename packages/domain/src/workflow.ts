@@ -2,9 +2,9 @@
  * Shared workflow vocabulary for the TypeScript side of the monorepo.
  *
  * The *authoritative* state machine is implemented in Python
- * (`apps/api/src/app/domain/workflow.py`). This module mirrors it so the web
+ * (`backend/app/domain/workflow.py`). This module mirrors it so the web
  * app and image worker can be typed against the same names. A contract test
- * (`apps/api/tests/test_workflow_contract.py`) fails if the two drift.
+ * (`backend/tests/test_workflow_contract.py`) fails if the two drift.
  */
 
 /** Workflow states, in the order the workflow advances through them. */

@@ -46,7 +46,7 @@ export default tseslint.config(
     },
   },
 
-  // Vue SFCs in apps/web
+  // Vue SFCs in frontend
   ...vue.configs["flat/recommended"],
   {
     files: ["**/*.vue"],

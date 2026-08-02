@@ -12,7 +12,7 @@ Conventions used everywhere:
   fails at the database rather than at read time. Adding a member needs a
   migration — deliberate, because these are the words the product is defined in.
 - **Money as integer minor units** in `BIGINT` columns, never a float. See
-  [`app/domain/money.py`](../apps/api/src/app/domain/money.py).
+  [`app/domain/money.py`](../backend/app/domain/money.py).
 - **Append-only tables carry no `updated_at`.** The absence of the column is the
   point: there is no supported way to update an approval, an audit event or an
   idea revision, so the schema does not offer one.

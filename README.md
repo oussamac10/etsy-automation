@@ -81,7 +81,7 @@ pnpm install
 
 # Python (one virtualenv for the API and the worker)
 python3.12 -m venv .venv
-.venv/bin/pip install -e "apps/api[dev]" -e "apps/worker[dev]"
+.venv/bin/pip install -e "backend[dev]" -e "workers/general-worker[dev]"
 ```
 
 Run the pieces individually (PostgreSQL, Redis and MinIO still come from
@@ -90,8 +90,8 @@ Compose):
 ```bash
 docker compose up -d postgres redis minio minio-init
 
-cd apps/api && ../../.venv/bin/uvicorn app.main:create_app --factory --reload
-cd apps/worker && ../../.venv/bin/dramatiq worker.main
+cd backend && ../.venv/bin/uvicorn app.main:create_app --factory --reload
+cd workers/general-worker && ../../.venv/bin/dramatiq worker.main
 pnpm dev:image-worker
 pnpm dev:web
 ```
@@ -99,14 +99,14 @@ pnpm dev:web
 Migrations are an explicit step, never implicit on startup:
 
 ```bash
-cd apps/api && ../../.venv/bin/alembic upgrade head
+cd backend && ../.venv/bin/alembic upgrade head
 ```
 
 Seed deterministic development data — one workflow per idea mode, clearly marked
 as fixtures and containing no real market claims:
 
 ```bash
-cd apps/api && ../../.venv/bin/python -m app.fixtures.dev_seed
+cd backend && ../.venv/bin/python -m app.fixtures.dev_seed
 ```
 
 ---
@@ -121,10 +121,10 @@ pnpm test            # Vitest unit tests
 pnpm test:e2e        # Playwright against a running stack
 
 # Python
-.venv/bin/python -m ruff format --check apps/api apps/worker
-.venv/bin/python -m ruff check apps/api apps/worker
-cd apps/api    && ../../.venv/bin/python -m mypy . && ../../.venv/bin/python -m pytest
-cd apps/worker && ../../.venv/bin/python -m mypy . && ../../.venv/bin/python -m pytest
+.venv/bin/python -m ruff format --check backend workers/general-worker
+.venv/bin/python -m ruff check backend workers/general-worker
+cd backend && ../.venv/bin/python -m mypy . && ../.venv/bin/python -m pytest
+cd workers/general-worker && ../../.venv/bin/python -m mypy . && ../../.venv/bin/python -m pytest
 
 # Infrastructure
 docker compose config --quiet
@@ -144,15 +144,15 @@ E2E_WEB_URL=http://localhost:3300 E2E_API_URL=http://localhost:8800 pnpm test:e2
 ## Repository layout
 
 ```text
-apps/
-  api/            FastAPI service — routes, domain, ports, fake providers, Alembic
-  worker/         Dramatiq worker — retry policy, idempotency keys, broker wiring
+backend/        FastAPI service — routes, domain, ports, fake providers, migrations
+workers/
+  general-worker/ Dramatiq worker — retry policy, idempotency keys, broker wiring
   image-worker/   Node/Fastify service wrapping Sharp
-  web/            Nuxt 3 + Vue 3 + Pinia + Tailwind
+frontend/       Nuxt 3 + Vue 3 + Pinia + Tailwind
 packages/
   domain/         Shared TypeScript workflow vocabulary and Etsy tag rules
   image-pipeline/ Sharp-based validation and inspection library
-infra/docker/     Dockerfiles
+infrastructure/ System-wide environment & CI rules
 docs/             Architecture, workflow, costs, phases, progress reports
 tests/e2e/        Playwright end-to-end suite
 .claude/skills/   Agent skills, including etsy-png-idea-research

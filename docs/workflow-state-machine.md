@@ -1,7 +1,7 @@
 # Workflow state machine
 
 The complete transition table and the rules around it. Implemented in
-[`apps/api/src/app/domain/workflow.py`](../apps/api/src/app/domain/workflow.py),
+[`backend/app/domain/workflow.py`](../backend/app/domain/workflow.py),
 mirrored for TypeScript in `packages/domain/src/workflow.ts`, and exposed
 read-only at `GET /api/v1/workflow`.
 

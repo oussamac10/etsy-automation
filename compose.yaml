@@ -95,7 +95,7 @@ services:
   image-worker:
     build:
       context: .
-      dockerfile: infra/docker/image-worker.Dockerfile
+      dockerfile: workers/image-worker/Dockerfile
     environment:
       APP_ENV: ${APP_ENV:-local}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -117,8 +117,8 @@ services:
   migrate:
     build:
       context: .
-      dockerfile: infra/docker/api.Dockerfile
-    working_dir: /srv/apps/api
+      dockerfile: backend/Dockerfile
+    working_dir: /srv/backend
     environment:
       <<: *python-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-etsy}:${POSTGRES_PASSWORD:-etsy_local_password}@postgres:5432/${POSTGRES_DB:-etsy_automation}
@@ -131,7 +131,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: infra/docker/api.Dockerfile
+      dockerfile: backend/Dockerfile
     environment: *python-env
     ports:
       - "${API_PORT:-8000}:8000"
@@ -154,7 +154,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: infra/docker/api.Dockerfile
+      dockerfile: workers/general-worker/Dockerfile
     environment: *python-env
     command: ["dramatiq", "worker.main", "--processes", "1", "--threads", "4"]
     depends_on:
@@ -174,7 +174,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: infra/docker/web.Dockerfile
+      dockerfile: frontend/Dockerfile
     environment:
       NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8000}
     ports:

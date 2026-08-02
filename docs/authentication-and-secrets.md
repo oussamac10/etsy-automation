@@ -199,4 +199,4 @@ startup validation rejects outside `APP_ENV=local`.
 - `docs/adr/0002-single-owner-authentication.md` — the decision and its
   alternatives
 - `docs/progress/phase-3-auth-settings.md` — what Phase 3 delivered and verified
-- `apps/api/src/app/infrastructure/security.py` — hashing, tokens, cipher, mask
+- `backend/app/infrastructure/security.py` — hashing, tokens, cipher, mask

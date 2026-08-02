@@ -253,7 +253,7 @@ docker compose config
 
 ## Frontend work
 
-For every task affecting `apps/web`, load and follow the official
+For every task affecting `frontend`, load and follow the official
 `frontend-design` skill.
 
 Also follow these project requirements:

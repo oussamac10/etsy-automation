@@ -7,14 +7,17 @@ This package contains the durable instructions Claude Code needs to build the ap
 ```text
 etsy-png-automation/
 ├── CLAUDE.md
-├── apps/
-│   ├── web/CLAUDE.md
-│   ├── api/CLAUDE.md
-│   └── worker/CLAUDE.md
+├── backend/
+│   └── CLAUDE.md
+├── frontend/
+│   └── CLAUDE.md
+├── workers/
+│   ├── general-worker/CLAUDE.md
+│   └── image-worker/CLAUDE.md
 ├── packages/
 │   ├── domain/CLAUDE.md
 │   └── image-pipeline/CLAUDE.md
-├── infra/CLAUDE.md
+├── infrastructure/CLAUDE.md
 ├── tests/CLAUDE.md
 └── docs/
     ├── API_COSTS.md

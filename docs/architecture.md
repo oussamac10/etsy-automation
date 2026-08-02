@@ -94,9 +94,9 @@ does not exist in the type system, which is stronger than a policy comment.
 ## The TypeScript/Python boundary
 
 The workflow state machine is authoritative in Python
-(`apps/api/src/app/domain/workflow.py`). `packages/domain/src/workflow.ts`
+(`backend/app/domain/workflow.py`). `packages/domain/src/workflow.ts`
 mirrors the names so the web app and image worker are typed against the same
-vocabulary, and `apps/api/tests/test_workflow_contract.py` parses the TypeScript
+vocabulary, and `backend/tests/test_workflow_contract.py` parses the TypeScript
 file and fails if the two drift.
 
 The web app does not hard-code the pipeline. It reads `GET /api/v1/workflow`, so
@@ -123,8 +123,8 @@ across a network request.
 Configuration comes from environment variables and is validated at startup, in
 every runtime:
 
-- `apps/api/src/app/settings.py` (Pydantic Settings)
-- `apps/image-worker/src/config.ts` (zod)
+- `backend/app/settings.py` (Pydantic Settings)
+- `workers/image-worker/src/config.ts` (zod)
 
 Both fail the process on an invalid environment rather than surfacing an
 `undefined` at request time. Two rules are enforced in code:

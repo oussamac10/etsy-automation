@@ -1,6 +1,6 @@
 ---
 name: alembic-migrations
-description: Write, test, and run Alembic schema migrations safely in the Python FastAPI workspace. Use this when schema models in apps/api/app/models are added, updated, or deleted.
+description: Write, test, and run Alembic schema migrations safely in the Python FastAPI workspace. Use this when schema models in backend/app/infrastructure/models.py are added, updated, or deleted.
 ---
 
 # Alembic Database Migrations Skill
@@ -14,7 +14,7 @@ Ensure all database schema changes are fully reversible, documented, and do not 
 4. **UUID Primary Keys**: Use `UUID` types as primary keys across all tables.
 
 ## Execution Workflow
-- Create a migration: `cd apps/api && ../../.venv/bin/alembic revision --autogenerate -m "description"`
-- Review the generated script in `apps/api/alembic/versions/` before running it.
-- Run migrations: `cd apps/api && ../../.venv/bin/alembic upgrade head`
-- Test rollback: `cd apps/api && ../../.venv/bin/alembic downgrade -1` followed by upgrading back to head.
+- Create a migration: `cd backend && ../.venv/bin/alembic revision --autogenerate -m "description"`
+- Review the generated script in `backend/migrations/versions/` before running it.
+- Run migrations: `cd backend && ../.venv/bin/alembic upgrade head`
+- Test rollback: `cd backend && ../.venv/bin/alembic downgrade -1` followed by upgrading back to head.

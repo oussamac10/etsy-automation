@@ -1,7 +1,7 @@
 # Workflow
 
 The state machine is authoritative. It is implemented in
-`apps/api/src/app/domain/workflow.py`, mirrored for TypeScript in
+`backend/app/domain/workflow.py`, mirrored for TypeScript in
 `packages/domain/src/workflow.ts`, and exposed read-only at
 `GET /api/v1/workflow`.
 

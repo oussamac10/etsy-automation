@@ -29,8 +29,8 @@ control. Phases 1 and 2 remain complete; no completed work was reopened.
 
 ## Phase 1 — Foundation ✅
 
-- [x] Monorepo: pnpm workspaces (`apps/web`, `apps/image-worker`, `packages/*`)
-      plus two Python projects (`apps/api`, `apps/worker`)
+- [x] Monorepo: pnpm workspaces (`frontend`, `workers/image-worker`, `packages/*`)
+      plus two Python projects (`backend`, `workers/general-worker`)
 - [x] Nuxt 3 + Vue 3 + TypeScript + Pinia + Tailwind 4
 - [x] FastAPI + Pydantic 2 + SQLAlchemy 2 + Alembic + asyncpg
 - [x] Dramatiq worker on Redis ([ADR-0001](docs/adr/0001-queue-dramatiq.md))
