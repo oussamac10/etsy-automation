@@ -19,6 +19,32 @@
       "headers": {
         "Authorization": "Bearer ${GITHUB_TOKEN}"
       }
+    },
+    "postgres": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-postgres@latest",
+        "--connection-string",
+        "postgresql://postgres:postgres@localhost:5432/etsy_automation"
+      ]
+    },
+    "minio": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-s3",
+        "--endpoint",
+        "http://localhost:9000",
+        "--bucket",
+        "etsy-automation-local"
+      ],
+      "env": {
+        "AWS_ACCESS_KEY_ID": "minioadmin",
+        "AWS_SECRET_ACCESS_KEY": "minioadmin"
+      }
     }
   }
 }

@@ -251,6 +251,21 @@ python -m pytest
 docker compose config
 ```
 
+## Frontend work
+
+For every task affecting `apps/web`, load and follow the official
+`frontend-design` skill.
+
+Also follow these project requirements:
+
+- Preserve routes, API contracts, validation and existing behavior.
+- Reuse existing components and design tokens.
+- Keep API and domain logic outside presentation components.
+- Design mobile-first and meet WCAG AA accessibility.
+- Respect reduced-motion preferences.
+- Run frontend linting, type checking and relevant tests.
+- Verify phone, tablet and desktop layouts.
+
 ## Claude working protocol
 
 Before editing:
