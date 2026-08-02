@@ -24,10 +24,30 @@ from app.infrastructure.repositories import (
     SqlUserRepository,
     SqlWorkflowRepository,
 )
+from app.ports.repositories import (
+    ApprovalRepository,
+    AuditRepository,
+    ConceptRepository,
+    CostRepository,
+    IdeaRepository,
+    UserRepository,
+    WorkflowRepository,
+)
 
 
 class UnitOfWork:
     """Async context manager holding one session and its repositories."""
+
+    # Declared as the ports, bound to the SQL adapters in ``__aenter__``. A use
+    # case that reaches for something only the SQLAlchemy implementation has
+    # fails type checking here rather than tying the layer to the database.
+    users: UserRepository
+    workflows: WorkflowRepository
+    ideas: IdeaRepository
+    concepts: ConceptRepository
+    approvals: ApprovalRepository
+    costs: CostRepository
+    audit: AuditRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory

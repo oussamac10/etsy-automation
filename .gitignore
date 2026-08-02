@@ -63,3 +63,6 @@ Thumbs.db
 # Stray Playwright screenshots
 *-dashboard.png
 page-*.png
+
+# Graphify
+graphify-out/

@@ -23,6 +23,7 @@ from app.domain.workflow import ApprovalDecision, ApprovalGate, RunStatus
 from app.infrastructure.models import (
     Approval,
     AuditEvent,
+    DesignPrompt,
     OriginalIdea,
     OriginalIdeaRevision,
     ProductConcept,
@@ -74,13 +75,25 @@ class WorkflowRepository(Protocol):
         expected_version: int,
         reason: str,
         actor: str = "system",
+        gate: ApprovalGate | None = None,
+        decision: ApprovalDecision | None = None,
     ) -> WorkflowTransition:
         """Compare-and-set state change.
 
         Raises ``ConcurrentModificationError`` when ``expected_version`` no
         longer matches, and ``IllegalTransitionError`` when the domain refuses
         the move. Writes the transition row; the caller writes the audit event.
+
+        A caller acting on a human decision passes ``gate`` and ``decision``:
+        that is the only way to leave a review state, so a gate cannot be
+        bypassed by a plain transition.
         """
+        ...
+
+    async def record_initial_state(
+        self, workflow: ProductWorkflow, *, actor: str = "system"
+    ) -> WorkflowTransition:
+        """The first timeline row, with a null ``from_state``."""
         ...
 
     async def transitions(self, workflow_id: uuid.UUID) -> Sequence[WorkflowTransition]: ...
@@ -128,9 +141,18 @@ class ConceptRepository(Protocol):
         typography_instructions: str | None = None,
         exact_slogan: str | None = None,
         change_note: str | None = None,
-    ) -> object:
+        intended_product_uses: list[str] | None = None,
+        style_notes: str | None = None,
+        palette: str | None = None,
+        post_generation_checklist: list[str] | None = None,
+        generation_metadata: dict[str, object] | None = None,
+    ) -> DesignPrompt:
         """Append prompt version N+1. Earlier versions are never modified."""
         ...
+
+    async def next_prompt_version(self, concept_id: uuid.UUID) -> int: ...
+
+    async def prompts(self, concept_id: uuid.UUID) -> Sequence[DesignPrompt]: ...
 
 
 @runtime_checkable
@@ -159,6 +181,10 @@ class ApprovalRepository(Protocol):
     ) -> Sequence[Approval]: ...
 
     async def latest(self, workflow_id: uuid.UUID, gate: ApprovalGate) -> Approval | None: ...
+
+    async def is_approved(self, workflow_id: uuid.UUID, gate: ApprovalGate) -> bool:
+        """True only when the *most recent* decision at the gate is APPROVED."""
+        ...
 
 
 @runtime_checkable
@@ -189,7 +215,17 @@ class CostRepository(Protocol):
         """Replace the estimate with what the provider actually reported."""
         ...
 
+    async def void(self, usage_id: uuid.UUID) -> ProviderUsage:
+        """Release a reservation for an operation that never ran."""
+        ...
+
+    async def find_by_idempotency_key(self, key: str) -> ProviderUsage | None: ...
+
     async def list_for_workflow(self, workflow_id: uuid.UUID) -> Sequence[ProviderUsage]: ...
+
+    async def total_by_operation(
+        self, workflow_id: uuid.UUID, *, currency: str = "USD"
+    ) -> dict[str, Money]: ...
 
     async def total_for_workflow(
         self, workflow_id: uuid.UUID, *, currency: str = "USD"
@@ -212,6 +248,10 @@ class CostRepository(Protocol):
         currency: str = "USD",
         status: CostStatus | None = None,
     ) -> Money: ...
+
+    async def would_exceed_budget(self, *, current: Money, projected: Money, limit: Money) -> bool:
+        """Compare-before-dispatch helper."""
+        ...
 
 
 @runtime_checkable
@@ -237,3 +277,5 @@ class AuditRepository(Protocol):
     async def for_workflow(
         self, workflow_id: uuid.UUID, *, limit: int = 200
     ) -> Sequence[AuditEvent]: ...
+
+    async def for_entity(self, entity_type: str, entity_id: uuid.UUID) -> Sequence[AuditEvent]: ...

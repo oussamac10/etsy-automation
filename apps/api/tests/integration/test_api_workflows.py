@@ -177,6 +177,38 @@ class TestSubmitIdea:
         assert response.status_code == 422
         assert response.json()["type"].endswith("/invalid-idea-mode")
 
+    async def test_a_refused_submission_leaves_no_trace(
+        self,
+        client: httpx.AsyncClient,
+        session_factory: async_sessionmaker[AsyncSession],
+        owner_id: uuid.UUID,
+    ) -> None:
+        """The request's unit of work is rolled back, not half-written.
+
+        The route no longer opens the transaction itself, so this is the
+        end-to-end proof that the dependency still rolls back on the way out.
+        """
+        workflow = (
+            await client.post("/api/v1/workflows", json=_payload(owner_id, IdeaMode.MARKET_LED))
+        ).json()
+        workflow_id = uuid.UUID(workflow["id"])
+
+        async with UnitOfWork(session_factory) as uow:
+            events_before = len(await uow.audit.for_workflow(workflow_id))
+
+        assert (
+            await client.post(
+                f"/api/v1/workflows/{workflow_id}/ideas",
+                json={"original_text": "I have an idea after all"},
+            )
+        ).status_code == 422
+
+        async with UnitOfWork(session_factory) as uow:
+            assert await uow.ideas.get_for_workflow(workflow_id) is None
+            # No audit row either: the refusal is not a thing that happened to
+            # the workflow, and a partial write would say it was.
+            assert len(await uow.audit.for_workflow(workflow_id)) == events_before
+
     async def test_second_submission_is_a_conflict(
         self, client: httpx.AsyncClient, owner_id: uuid.UUID
     ) -> None:
