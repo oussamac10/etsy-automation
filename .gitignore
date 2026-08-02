@@ -64,5 +64,11 @@ Thumbs.db
 *-dashboard.png
 page-*.png
 
+# --- Local agent-tool output (shared config stays tracked) ---
 # Graphify
 graphify-out/
+# Headroom writes a per-session marker next to the tracked skills.
+.claude/.headroom_wrap_marker.json
+# Serena: project.yml is shared configuration; its caches and notes are local.
+.serena/cache/
+.serena/memories/
