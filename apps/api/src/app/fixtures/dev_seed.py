@@ -11,6 +11,10 @@ shape of the domain:
   idea gate that was rejected and then approved, so the append-only history has
   something to show.
 
+Two users are seeded, not one: the second owner has a workflow of their own so
+ownership isolation can be demonstrated locally and asserted in tests. Both use
+the same obvious placeholder password and refuse to exist outside ``local``.
+
 Run with::
 
     python -m app.fixtures.dev_seed
@@ -27,6 +31,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.application.auth import create_owner
 from app.application.unit_of_work import UnitOfWork
 from app.domain.enums import (
     AuditAction,
@@ -68,10 +73,20 @@ DEV_DATA_MARKER = "[DEV FIXTURE — not real market data]"
 #: Fixed IDs make the seed idempotent and give tests something to assert on.
 FIXTURE_IDS: dict[str, uuid.UUID] = {
     "owner": uuid.UUID("00000000-0000-4000-8000-000000000001"),
+    "second_owner": uuid.UUID("00000000-0000-4000-8000-000000000002"),
     "workflow_market_led": uuid.UUID("00000000-0000-4000-8000-000000000010"),
     "workflow_user_idea": uuid.UUID("00000000-0000-4000-8000-000000000020"),
     "workflow_hybrid": uuid.UUID("00000000-0000-4000-8000-000000000030"),
+    "workflow_second_owner": uuid.UUID("00000000-0000-4000-8000-000000000040"),
 }
+
+#: The same placeholder convention as ``.env.example``. Not a credential: the
+#: seed refuses to run outside ``APP_ENV=local``, and nothing in production is
+#: created from this module.
+DEV_PASSWORD = "dev-only-insecure-password-change-me"  # noqa: S105 - placeholder, local only
+
+DEV_OWNER_EMAIL = "dev-owner@example.invalid"
+DEV_SECOND_OWNER_EMAIL = "dev-second-owner@example.invalid"
 
 SEED_EPOCH = datetime(2026, 1, 15, 9, 0, tzinfo=UTC)
 
@@ -89,18 +104,15 @@ HYBRID_IDEA_TEXT = (
 )
 
 
-async def _seed_owner(uow: UnitOfWork) -> User:
-    existing = await uow.users.get(FIXTURE_IDS["owner"])
-    if existing is not None:
-        return existing
-    owner = User(
-        id=FIXTURE_IDS["owner"],
-        email="dev-owner@example.invalid",
-        display_name=f"Development Owner {DEV_DATA_MARKER}",
+async def _seed_owner(uow: UnitOfWork, *, key: str, email: str, label: str) -> User:
+    """One fixture owner, with a password so the login flow is usable locally."""
+    return await create_owner(
+        uow,
+        email=email,
+        display_name=f"{label} {DEV_DATA_MARKER}",
+        password=DEV_PASSWORD,
+        user_id=FIXTURE_IDS[key],
     )
-    uow.session.add(owner)
-    await uow.session.flush()
-    return owner
 
 
 def _evidence(run_id: uuid.UUID, index: int, angle: str) -> ResearchEvidence:
@@ -562,6 +574,29 @@ async def _seed_hybrid(uow: UnitOfWork, owner: User) -> ProductWorkflow:
     return workflow
 
 
+async def _seed_second_owner(uow: UnitOfWork, owner: User) -> ProductWorkflow:
+    """A workflow the first owner must never be able to see.
+
+    Exists purely so ownership isolation is observable — locally and in the
+    integration tests — rather than only asserted in a unit test.
+    """
+    workflow = ProductWorkflow(
+        id=FIXTURE_IDS["workflow_second_owner"],
+        owner_id=owner.id,
+        idea_mode=IdeaMode.MARKET_LED,
+        name=f"Second owner's private workflow {DEV_DATA_MARKER}",
+        target_country="US",
+        output_language="en",
+        target_buyer="Belongs to the second fixture owner only",
+        intended_product_uses=["sticker"],
+        state=RunStatus.DRAFT,
+        version=1,
+    )
+    await uow.workflows.add(workflow)
+    await uow.workflows.record_initial_state(workflow, actor="fixture")
+    return workflow
+
+
 async def _decide(
     uow: UnitOfWork,
     workflow: ProductWorkflow,
@@ -620,16 +655,26 @@ async def seed_development_data(
     Returns the fixed IDs so a caller can look them up without guessing.
     """
     async with UnitOfWork(session_factory) as uow:
-        owner = await _seed_owner(uow)
+        owner = await _seed_owner(
+            uow, key="owner", email=DEV_OWNER_EMAIL, label="Development Owner"
+        )
+        second = await _seed_owner(
+            uow,
+            key="second_owner",
+            email=DEV_SECOND_OWNER_EMAIL,
+            label="Second Development Owner",
+        )
 
         existing = await uow.workflows.get(FIXTURE_IDS["workflow_market_led"])
         if existing is not None:
             # Already seeded. Re-running must not duplicate the history.
+            await uow.commit()
             return FIXTURE_IDS
 
         await _seed_market_led(uow, owner)
         await _seed_user_idea(uow, owner)
         await _seed_hybrid(uow, owner)
+        await _seed_second_owner(uow, second)
         await uow.commit()
 
     return FIXTURE_IDS

@@ -3,21 +3,21 @@
 The minimum needed to prove the Phase 2 domain works end to end. Routes parse,
 call one use case and map the result; every rule lives below this layer.
 
-**No authentication yet.** Ownership is recorded on each workflow but not
-enforced: any caller may create a workflow for any owner ID and read any
-workflow. Phase 3 adds single-owner authentication (ADR-0002) and will reject
-requests whose caller is not the owner. Do not deploy this phase to a public
-address.
+Every route requires a session and is scoped to the authenticated owner
+(Phase 3, ADR-0002). The owner ID is never read from a request body or query
+string; it comes from the session, so a caller cannot act as someone else by
+asking to. A workflow belonging to another owner answers ``404``, not ``403``:
+see ``docs/authentication-and-secrets.md``.
 """
 
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Query, Response, status
 
+from app.api.dependencies import CurrentUser, UowDep
 from app.api.schemas import (
     ApprovalResponse,
     CreateWorkflowRequest,
@@ -30,25 +30,9 @@ from app.api.schemas import (
     WorkflowResponse,
 )
 from app.application import workflows as use_cases
-from app.application.unit_of_work import UnitOfWork
 from app.domain.workflow import RunStatus
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
-
-
-async def get_uow(request: Request) -> AsyncIterator[UnitOfWork]:
-    """One unit of work per request, built from the app's session factory.
-
-    The dependency owns the lifecycle so no handler repeats it: the session is
-    opened before the handler runs and closed after it returns. Whether the work
-    is committed stays with the use case; an exception leaving the handler is
-    re-raised inside this generator, so ``__aexit__`` rolls back before closing.
-    """
-    async with UnitOfWork(request.app.state.session_factory) as uow:
-        yield uow
-
-
-UowDep = Annotated[UnitOfWork, Depends(get_uow)]
 
 
 @router.post(
@@ -58,12 +42,14 @@ UowDep = Annotated[UnitOfWork, Depends(get_uow)]
     summary="Create a product workflow",
 )
 async def create_workflow(
-    payload: CreateWorkflowRequest, uow: UowDep, response: Response
+    payload: CreateWorkflowRequest, user: CurrentUser, uow: UowDep, response: Response
 ) -> WorkflowResponse:
     workflow = await use_cases.create_workflow(
         uow,
         use_cases.CreateWorkflowCommand(
-            owner_id=payload.owner_id,
+            # From the session. `CreateWorkflowRequest` has no owner field, so a
+            # client cannot even ask to create a workflow for someone else.
+            owner_id=user.id,
             idea_mode=payload.idea_mode,
             name=payload.name,
             target_country=payload.target_country,
@@ -80,16 +66,17 @@ async def create_workflow(
 
 @router.get("", response_model=WorkflowListResponse, summary="List product workflows")
 async def list_workflows(
+    user: CurrentUser,
     uow: UowDep,
-    owner_id: uuid.UUID | None = None,
     state: RunStatus | None = None,
     include_archived: bool = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> WorkflowListResponse:
+    """Always the caller's own workflows. There is no ``owner_id`` filter."""
     items, total = await use_cases.list_workflows(
         uow,
-        owner_id=owner_id,
+        owner_id=user.id,
         state=state,
         include_archived=include_archived,
         limit=limit,
@@ -109,8 +96,8 @@ async def list_workflows(
     summary="Fetch one workflow",
     responses={404: {"description": "No workflow with that ID"}},
 )
-async def get_workflow(workflow_id: uuid.UUID, uow: UowDep) -> WorkflowResponse:
-    workflow = await use_cases.get_workflow(uow, workflow_id)
+async def get_workflow(workflow_id: uuid.UUID, user: CurrentUser, uow: UowDep) -> WorkflowResponse:
+    workflow = await use_cases.get_workflow(uow, workflow_id, owner_id=user.id)
     return WorkflowResponse.model_validate(workflow)
 
 
@@ -126,12 +113,13 @@ async def get_workflow(workflow_id: uuid.UUID, uow: UowDep) -> WorkflowResponse:
     },
 )
 async def submit_idea(
-    workflow_id: uuid.UUID, payload: SubmitIdeaRequest, uow: UowDep
+    workflow_id: uuid.UUID, payload: SubmitIdeaRequest, user: CurrentUser, uow: UowDep
 ) -> OriginalIdeaResponse:
     idea = await use_cases.submit_original_idea(
         uow,
         use_cases.SubmitIdeaCommand(
             workflow_id=workflow_id,
+            owner_id=user.id,
             original_text=payload.original_text,
             slogan=payload.slogan,
             desired_style=payload.desired_style,
@@ -150,13 +138,8 @@ async def submit_idea(
     summary="Fetch the preserved original idea",
     responses={404: {"description": "No workflow, or no idea submitted"}},
 )
-async def get_idea(workflow_id: uuid.UUID, uow: UowDep) -> OriginalIdeaResponse:
-    await use_cases.get_workflow(uow, workflow_id)
-    idea = await uow.ideas.get_for_workflow(workflow_id)
-    if idea is None:
-        from app.domain.errors import EntityNotFoundError
-
-        raise EntityNotFoundError("OriginalIdea", workflow_id)
+async def get_idea(workflow_id: uuid.UUID, user: CurrentUser, uow: UowDep) -> OriginalIdeaResponse:
+    idea = await use_cases.get_original_idea(uow, workflow_id, owner_id=user.id)
     return OriginalIdeaResponse.model_validate(idea)
 
 
@@ -166,9 +149,9 @@ async def get_idea(workflow_id: uuid.UUID, uow: UowDep) -> OriginalIdeaResponse:
     summary="Transitions, approvals and audit events in one ordered list",
     responses={404: {"description": "No workflow with that ID"}},
 )
-async def get_timeline(workflow_id: uuid.UUID, uow: UowDep) -> TimelineResponse:
-    workflow = await use_cases.get_workflow(uow, workflow_id)
-    entries = await use_cases.get_timeline(uow, workflow_id)
+async def get_timeline(workflow_id: uuid.UUID, user: CurrentUser, uow: UowDep) -> TimelineResponse:
+    workflow = await use_cases.get_workflow(uow, workflow_id, owner_id=user.id)
+    entries = await use_cases.get_timeline(uow, workflow_id, owner_id=user.id)
     return TimelineResponse(
         workflow_id=workflow.id,
         state=workflow.state,
@@ -195,14 +178,15 @@ async def get_timeline(workflow_id: uuid.UUID, uow: UowDep) -> TimelineResponse:
     },
 )
 async def decide_gate(
-    workflow_id: uuid.UUID, payload: GateDecisionRequest, uow: UowDep
+    workflow_id: uuid.UUID, payload: GateDecisionRequest, user: CurrentUser, uow: UowDep
 ) -> ApprovalResponse:
     approval = await use_cases.decide_gate(
         uow,
         workflow_id,
+        owner_id=user.id,
         gate=payload.gate,
         decision=payload.decision,
-        actor=payload.actor,
+        actor=user.email,
         target_type=payload.target_type,
         target_id=payload.target_id,
         target_version=payload.target_version,

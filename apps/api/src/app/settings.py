@@ -13,6 +13,8 @@ from typing import Literal
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.infrastructure.security import MIN_ENCRYPTION_KEY_LENGTH
+
 AppEnv = Literal["local", "staging", "production"]
 ProviderMode = Literal["fake", "live"]
 
@@ -44,7 +46,23 @@ class Settings(BaseSettings):
     secret_key: SecretStr = Field(alias="SECRET_KEY")
     encryption_key: SecretStr = Field(alias="ENCRYPTION_KEY")
     encryption_key_version: int = Field(default=1, ge=1, alias="ENCRYPTION_KEY_VERSION")
+    #: The key being retired. Set both of these during a rotation so rows written
+    #: under the old key stay readable until `python -m app.rotate_encryption_key`
+    #: has re-encrypted them; unset them afterwards.
+    encryption_key_previous: SecretStr | None = Field(default=None, alias="ENCRYPTION_KEY_PREVIOUS")
+    encryption_key_previous_version: int | None = Field(
+        default=None, ge=1, alias="ENCRYPTION_KEY_PREVIOUS_VERSION"
+    )
     cors_allowed_origins: str = Field(default="http://localhost:3000", alias="CORS_ALLOWED_ORIGINS")
+
+    # --- Session cookie (ADR-0002) -----------------------------------------
+    session_cookie_name: str = Field(default="etsy_session", alias="SESSION_COOKIE_NAME")
+    #: 12 hours. Long enough for a working session, short enough that a stolen
+    #: cookie is not indefinitely useful.
+    session_ttl_hours: int = Field(default=12, ge=1, le=720, alias="SESSION_TTL_HOURS")
+    #: Defaults to False only so plain-HTTP localhost works; the validator below
+    #: forces it on outside `local`, where a cookie sent over HTTP is a bug.
+    session_cookie_secure: bool = Field(default=False, alias="SESSION_COOKIE_SECURE")
 
     database_url: str = Field(alias="DATABASE_URL")
     redis_url: str = Field(alias="REDIS_URL")
@@ -92,12 +110,38 @@ class Settings(BaseSettings):
                         f"{name} still holds the .env.example placeholder; "
                         f"generate a real value for APP_ENV={self.app_env}."
                     )
+        # An application key shorter than this has too little entropy to derive
+        # a credential-encryption key from (app/infrastructure/security.py).
+        if len(self.encryption_key.get_secret_value()) < MIN_ENCRYPTION_KEY_LENGTH:
+            raise ValueError(
+                f"ENCRYPTION_KEY must be at least {MIN_ENCRYPTION_KEY_LENGTH} characters. "
+                'Generate one with: python -c "import secrets;print(secrets.token_urlsafe(48))"'
+            )
+        # Half a rotation is worse than none: the old key without its version
+        # cannot be matched to a row, and the version without the key is a lie.
+        if (self.encryption_key_previous is None) != (self.encryption_key_previous_version is None):
+            raise ValueError(
+                "ENCRYPTION_KEY_PREVIOUS and ENCRYPTION_KEY_PREVIOUS_VERSION must be set together."
+            )
+        if (
+            self.encryption_key_previous_version is not None
+            and self.encryption_key_previous_version >= self.encryption_key_version
+        ):
+            raise ValueError(
+                "ENCRYPTION_KEY_PREVIOUS_VERSION must be lower than ENCRYPTION_KEY_VERSION; "
+                "bump ENCRYPTION_KEY_VERSION when you change ENCRYPTION_KEY."
+            )
         # Phase 1 has no real provider adapters. Refusing "live" here means a
         # stray environment variable cannot start a paid integration early.
         if self.provider_mode == "live":
             raise ValueError(
                 "PROVIDER_MODE=live is not supported yet. Real provider adapters "
                 "arrive in Phase 4/5; keep PROVIDER_MODE=fake."
+            )
+        if self.app_env != "local" and not self.session_cookie_secure:
+            raise ValueError(
+                "SESSION_COOKIE_SECURE must be true outside APP_ENV=local; a "
+                "session cookie sent over plain HTTP is interceptable."
             )
         return self
 

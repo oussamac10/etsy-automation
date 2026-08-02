@@ -190,4 +190,11 @@ append-only transition timeline, append-only approvals, the cost ledger and the
 audit log. Every transition and gate outcome is covered by tests, and compare-
 and-set rejects a decision made against a stale version.
 
+Phase 3 put the whole workflow behind a session: every `/api/v1/workflows` route
+now requires an authenticated owner, and an approval can only be recorded on a
+workflow that owner owns. A gate decision on someone else's workflow answers
+`404`, and the audit event records the actor resolved from the session, not a
+name supplied by the caller. See
+[`authentication-and-secrets.md`](authentication-and-secrets.md).
+
 The gates become real UI in Phases 5, 6 and 8.

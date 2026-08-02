@@ -21,9 +21,14 @@ LanguageCode = Annotated[str, Field(min_length=2, max_length=10)]
 
 
 class CreateWorkflowRequest(BaseModel):
+    """No ``owner_id``.
+
+    Ownership comes from the session, so a client cannot express the request
+    "create this for someone else" — which is stronger than validating it away.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
-    owner_id: uuid.UUID
     idea_mode: IdeaMode
     name: Annotated[str, Field(min_length=1, max_length=200)]
     target_country: CountryCode
@@ -120,7 +125,9 @@ class GateDecisionRequest(BaseModel):
 
     gate: ApprovalGate
     decision: ApprovalDecision
-    actor: Annotated[str, Field(min_length=1, max_length=200)] = "owner"
+    # No `actor`: an approval is the evidence a human decided, so the name on it
+    # comes from the session, not from the body. `extra="forbid"` makes sending
+    # one a 422 rather than a silently ignored field.
     comment: Annotated[str | None, Field(max_length=4000)] = None
     revision_request: Annotated[str | None, Field(max_length=4000)] = None
     #: What was reviewed. An approval refers to a version, not just an entity.

@@ -26,21 +26,102 @@ from app.infrastructure.models import (
     DesignPrompt,
     OriginalIdea,
     OriginalIdeaRevision,
+    OwnerSettings,
     ProductConcept,
     ProductWorkflow,
+    ProviderCredential,
     ProviderUsage,
     User,
+    UserSession,
     WorkflowTransition,
 )
 
 
 @runtime_checkable
 class UserRepository(Protocol):
-    async def add(self, *, email: str, display_name: str) -> User: ...
+    """Passwords are hashed above this layer; only hashes cross the boundary."""
+
+    async def add(
+        self,
+        *,
+        email: str,
+        display_name: str,
+        password_hash: str | None = None,
+        is_active: bool = True,
+        user_id: uuid.UUID | None = None,
+    ) -> User: ...
 
     async def get(self, user_id: uuid.UUID) -> User | None: ...
 
     async def get_by_email(self, email: str) -> User | None: ...
+
+    async def set_password_hash(self, user: User, password_hash: str) -> User: ...
+
+
+@runtime_checkable
+class SessionRepository(Protocol):
+    """Server-side sessions (ADR-0002). Keyed by token *hash*, never the token."""
+
+    async def create(
+        self,
+        *,
+        user_id: uuid.UUID,
+        token_hash: str,
+        csrf_token: str,
+        expires_at: datetime,
+        user_agent: str | None = None,
+    ) -> UserSession: ...
+
+    async def get_by_token_hash(self, token_hash: str) -> UserSession | None: ...
+
+    async def touch(self, record: UserSession, *, now: datetime) -> None: ...
+
+    async def revoke(self, record: UserSession, *, now: datetime) -> None: ...
+
+    async def revoke_all_for_user(self, user_id: uuid.UUID, *, now: datetime) -> int: ...
+
+    async def active_for_user(
+        self, user_id: uuid.UUID, *, now: datetime
+    ) -> Sequence[UserSession]: ...
+
+
+@runtime_checkable
+class OwnerSettingsRepository(Protocol):
+    async def get_for_user(self, user_id: uuid.UUID) -> OwnerSettings | None: ...
+
+    async def create_defaults(self, user_id: uuid.UUID) -> OwnerSettings: ...
+
+    async def apply(self, settings: OwnerSettings, changes: dict[str, object]) -> OwnerSettings: ...
+
+
+@runtime_checkable
+class ProviderCredentialRepository(Protocol):
+    """Ciphertext in, ciphertext out. The key never reaches this layer."""
+
+    async def get(
+        self, user_id: uuid.UUID, provider: ProviderName
+    ) -> ProviderCredential | None: ...
+
+    async def list_for_user(self, user_id: uuid.UUID) -> Sequence[ProviderCredential]: ...
+
+    async def list_stale_key_versions(self, current_version: int) -> Sequence[ProviderCredential]:
+        """Rows not yet written under the current key, across all owners."""
+        ...
+
+    async def upsert(
+        self,
+        *,
+        user_id: uuid.UUID,
+        provider: ProviderName,
+        ciphertext: bytes,
+        key_version: int,
+        masked_value: str,
+        label: str | None = None,
+    ) -> tuple[ProviderCredential, bool]:
+        """Store or replace. Returns ``(credential, created)``."""
+        ...
+
+    async def delete(self, credential: ProviderCredential) -> None: ...
 
 
 @runtime_checkable

@@ -64,6 +64,18 @@ Money is integer minor units in `BIGINT` columns, wrapped by
 `app/domain/money.py`. The SQL expression for "what has this cost" lives next to
 the Python property so the two cannot drift.
 
+### Authentication and ownership (Phase 3)
+
+Three more tables — `user_sessions`, `owner_settings`, `provider_credentials` —
+and one rule that shapes every route above them: **the owner comes from the
+session, never from the request**. No use case accepts an owner ID as an
+argument a client can influence, so ownership is not a check a route can forget.
+
+Cross-owner access answers `404`, identical to a nonexistent ID, so the API is
+not an enumeration oracle. Provider secrets are Fernet ciphertext with a stored
+key version; no endpoint decrypts. The full design, including key rotation, is
+in [`authentication-and-secrets.md`](authentication-and-secrets.md).
+
 ### Ports defined in Phase 1
 
 `ResearchProvider`, `TextGenerationProvider`, `ImageGenerationProvider`,
@@ -155,6 +167,10 @@ settings object cannot leak an encryption key.
   the hardened typography path (Phase 6).
 - Errors are RFC 9457 problem documents. Unhandled exceptions return a generic
   message; the detail goes to the log.
+- Passwords are Argon2id hashes; session cookies are `HttpOnly` and `Secure`
+  outside `local`; mutations carry a CSRF token checked against the session row.
+- Provider credentials are encrypted at rest and are never returned by any
+  endpoint — only a masked suffix.
 - Containers run as a non-root user. `allowBuilds` in `pnpm-workspace.yaml`
   limits install scripts to `esbuild` and `sharp`.
 
@@ -169,11 +185,12 @@ Recorded as ADRs in [`adr/`](adr/):
 
 ## What is not built yet
 
-Phase 2 added the data foundation. Still absent: authentication and ownership
-enforcement (Phase 3), Telegram (Phase 4), research execution and real provider
+Phase 2 added the data foundation and Phase 3 the authentication and settings on
+top of it. Still absent: Telegram (Phase 4), research execution and real provider
 adapters (Phase 5), artwork generation (Phase 6), the production pipeline
-(Phase 7), SEO and packaging (Phase 8), Etsy integration (Phase 9) and
-deployment (Phase 10).
+(Phase 7), SEO and packaging (Phase 8), Etsy integration including
+`ShopConnection` (Phase 9) and deployment (Phase 10). The web app has no login
+or settings screens yet; they arrive with the dashboard in Phase 5.
 
 The tables for artwork, production and listings exist and are empty by design —
 the phases that own them fill them in.

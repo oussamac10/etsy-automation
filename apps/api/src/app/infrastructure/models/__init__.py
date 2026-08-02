@@ -20,11 +20,13 @@ Conventions used throughout:
 from app.infrastructure.models.approval import Approval
 from app.infrastructure.models.artwork import ArtworkJob, Asset
 from app.infrastructure.models.audit import AuditEvent, WorkflowFailure
+from app.infrastructure.models.auth import UserSession
 from app.infrastructure.models.base import Base, TimestampMixin, UuidMixin
 from app.infrastructure.models.concept import DesignPrompt, ProductConcept
 from app.infrastructure.models.cost import ProviderUsage
 from app.infrastructure.models.idea import OriginalIdea, OriginalIdeaRevision
 from app.infrastructure.models.listing import ListingDraft, ProductionJob
+from app.infrastructure.models.owner_settings import OwnerSettings, ProviderCredential
 from app.infrastructure.models.research import (
     KeywordCluster,
     ResearchEvidence,
@@ -44,14 +46,17 @@ __all__ = [
     "ListingDraft",
     "OriginalIdea",
     "OriginalIdeaRevision",
+    "OwnerSettings",
     "ProductConcept",
     "ProductWorkflow",
     "ProductionJob",
+    "ProviderCredential",
     "ProviderUsage",
     "ResearchEvidence",
     "ResearchRun",
     "TimestampMixin",
     "User",
+    "UserSession",
     "UuidMixin",
     "WorkflowFailure",
     "WorkflowTransition",

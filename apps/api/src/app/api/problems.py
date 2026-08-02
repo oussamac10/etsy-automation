@@ -15,13 +15,18 @@ from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.domain.errors import (
+    AuthenticationFailedError,
     BudgetExceededError,
     ConcurrentModificationError,
+    CredentialConfigurationError,
+    CsrfValidationError,
     DomainError,
     EntityNotFoundError,
     ImmutableFieldError,
     InvalidIdeaModeError,
+    NotAuthenticatedError,
 )
+from app.domain.owner_settings import BudgetRelationError
 from app.domain.workflow import (
     GateNotApprovedError,
     GateNotSatisfiedError,
@@ -78,6 +83,17 @@ DOMAIN_ERROR_STATUS: dict[type[Exception], tuple[int, str]] = {
     IllegalTransitionError: (status.HTTP_409_CONFLICT, "illegal-transition"),
     InvalidIdeaModeError: (status.HTTP_422_UNPROCESSABLE_CONTENT, "invalid-idea-mode"),
     BudgetExceededError: (status.HTTP_409_CONFLICT, "budget-exceeded"),
+    # Both authentication failures are 401 with the same shape. A different
+    # status or message for "unknown account" would be an enumeration oracle.
+    AuthenticationFailedError: (status.HTTP_401_UNAUTHORIZED, "authentication-failed"),
+    NotAuthenticatedError: (status.HTTP_401_UNAUTHORIZED, "not-authenticated"),
+    CsrfValidationError: (status.HTTP_403_FORBIDDEN, "csrf-failed"),
+    # 503, not 500: the request was fine, the server is misconfigured, and the
+    # owner can fix it by setting a valid ENCRYPTION_KEY.
+    CredentialConfigurationError: (
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "encryption-unavailable",
+    ),
 }
 
 
@@ -125,6 +141,23 @@ def register_exception_handlers(app: FastAPI) -> None:
             instance=str(request.url.path),
             correlation_id=getattr(request.state, "correlation_id", None),
             extra=extra,
+        )
+
+    @app.exception_handler(BudgetRelationError)
+    async def _budget_relation(request: Request, exc: BudgetRelationError) -> JSONResponse:
+        """A cross-field settings rule.
+
+        Not a ``DomainError``: it is a ``ValueError`` raised by the pure domain
+        module so it can also be used from a validator. It still deserves the
+        same 422 shape as any other rejected value.
+        """
+        return problem_response(
+            title="Invalid budget combination",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+            problem_type="invalid-budget-relation",
+            instance=str(request.url.path),
+            correlation_id=getattr(request.state, "correlation_id", None),
         )
 
     @app.exception_handler(StarletteHTTPException)

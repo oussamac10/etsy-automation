@@ -21,6 +21,9 @@ from app.infrastructure.repositories import (
     SqlConceptRepository,
     SqlCostRepository,
     SqlIdeaRepository,
+    SqlOwnerSettingsRepository,
+    SqlProviderCredentialRepository,
+    SqlSessionRepository,
     SqlUserRepository,
     SqlWorkflowRepository,
 )
@@ -30,6 +33,9 @@ from app.ports.repositories import (
     ConceptRepository,
     CostRepository,
     IdeaRepository,
+    OwnerSettingsRepository,
+    ProviderCredentialRepository,
+    SessionRepository,
     UserRepository,
     WorkflowRepository,
 )
@@ -42,6 +48,9 @@ class UnitOfWork:
     # case that reaches for something only the SQLAlchemy implementation has
     # fails type checking here rather than tying the layer to the database.
     users: UserRepository
+    sessions: SessionRepository
+    owner_settings: OwnerSettingsRepository
+    credentials: ProviderCredentialRepository
     workflows: WorkflowRepository
     ideas: IdeaRepository
     concepts: ConceptRepository
@@ -58,6 +67,9 @@ class UnitOfWork:
         session = self._session
 
         self.users = SqlUserRepository(session)
+        self.sessions = SqlSessionRepository(session)
+        self.owner_settings = SqlOwnerSettingsRepository(session)
+        self.credentials = SqlProviderCredentialRepository(session)
         self.workflows = SqlWorkflowRepository(session)
         self.ideas = SqlIdeaRepository(session)
         self.concepts = SqlConceptRepository(session)

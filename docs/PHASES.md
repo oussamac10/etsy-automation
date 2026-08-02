@@ -42,16 +42,36 @@ drift; 351 tests pass (261 API, 23 worker, 67 TypeScript unit); `ruff`,
 `mypy --strict`, `eslint --max-warnings=0`, `tsc`/`vue-tsc` and
 `docker compose config` are clean. No paid API was called.
 
-## Phase 3 — Authentication and settings
+## Phase 3 — Authentication and settings ✅ complete 2026-08-02
 
-- [ ] Single-owner authentication
-- [ ] Provider settings without exposing secrets
-- [ ] Budget, quality, marketplace, language, and style defaults
-- [ ] Encrypted provider, Etsy, and Telegram secret/token storage
-- [ ] Schedule and notification preferences
+- [x] Single-owner authentication (Argon2id, server-side session cookie, CSRF)
+- [x] Ownership enforcement derived from the session, never from the client
+- [x] Provider settings without exposing secrets
+- [x] Budget, quality, marketplace, language, and style defaults
+- [x] Encrypted provider secret storage with a working key rotation
+- [x] Schedule and notification preferences
+
+Deferred with reasons:
+
+- **Etsy and Telegram token storage.** `ShopConnection` needs the OAuth flow it
+  belongs to (scopes, refresh rotation, shop ID), and the Telegram bot token
+  belongs to the adapter in Phase 4. The cipher, the key-version column and the
+  rotation command are in place for both; only the tables are outstanding.
+- **Frontend authentication UI.** This phase has no frontend bullet, and the web
+  app consumes no protected endpoint today (only `/api/health` and the static
+  `/api/v1/workflow`). Login, logout and settings screens land with the
+  dashboard in Phase 5 rather than being invented ahead of the screens they
+  belong to.
 
 Acceptance: unauthorized access is rejected, sensitive values never return
 through APIs, and encrypted secrets can be rotated without data loss.
+
+Evidence: `docs/progress/phase-3-auth-settings.md` and
+`docs/authentication-and-secrets.md`. Migration `0003_phase_3_auth_settings`
+upgrades, downgrades and re-upgrades cleanly on a fresh database; 419 API tests
+pass (233 unit, 186 integration) plus 23 worker, 67 TypeScript unit and 11
+end-to-end; `ruff`, `mypy --strict`, `eslint --max-warnings=0`, `tsc`/`vue-tsc`
+and `docker compose config` are clean. No paid API was called.
 
 ## Phase 4 — Telegram remote control
 

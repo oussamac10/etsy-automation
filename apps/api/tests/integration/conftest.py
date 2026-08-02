@@ -15,9 +15,11 @@ The whole schema is created from the Alembic migrations, not from
 from __future__ import annotations
 
 import os
+import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -130,3 +132,94 @@ async def owner(uow: UnitOfWork) -> User:
     user = await uow.users.add(email="owner@example.invalid", display_name="Owner")
     await uow.commit()
     return user
+
+
+# --- Authenticated HTTP clients (Phase 3) ----------------------------------
+
+#: Two accounts, so every ownership rule can be tested against a real second
+#: person rather than a hypothetical one.
+OWNER_EMAIL = "api-owner@example.invalid"
+OTHER_EMAIL = "api-other@example.invalid"
+TEST_PASSWORD = "integration-test-password"
+
+
+@pytest.fixture
+async def api_app(
+    settings: object,
+    session_factory: async_sessionmaker[AsyncSession],
+    clean_database: None,
+) -> object:
+    """The real app, wired to the test database.
+
+    ``ASGITransport`` skips the lifespan, so the session factory and the
+    credential cipher are set here instead.
+    """
+    from app.api.dependencies import build_credential_cipher
+    from app.main import create_app
+
+    app = create_app(settings)  # type: ignore[arg-type]
+    app.state.session_factory = session_factory
+    app.state.credential_cipher = build_credential_cipher(settings)  # type: ignore[arg-type]
+    return app
+
+
+@pytest.fixture
+async def accounts(
+    session_factory: async_sessionmaker[AsyncSession], clean_database: None
+) -> dict[str, uuid.UUID]:
+    """Create both test accounts with real Argon2 hashes."""
+    from app.application.auth import create_owner
+
+    async with UnitOfWork(session_factory) as unit:
+        first = await create_owner(
+            unit, email=OWNER_EMAIL, display_name="API Owner", password=TEST_PASSWORD
+        )
+        second = await create_owner(
+            unit, email=OTHER_EMAIL, display_name="Other Owner", password=TEST_PASSWORD
+        )
+        await unit.commit()
+        return {"owner": first.id, "other": second.id}
+
+
+async def open_client(app: object, email: str | None = None) -> httpx.AsyncClient:
+    """An HTTP client, signed in when an email is given.
+
+    The CSRF token is copied from the login response into a default header,
+    which is exactly what the browser client does.
+    """
+    transport = httpx.ASGITransport(app=app)  # type: ignore[arg-type]
+    client = httpx.AsyncClient(transport=transport, base_url="http://testserver")
+    if email is not None:
+        response = await client.post(
+            "/api/v1/auth/login", json={"email": email, "password": TEST_PASSWORD}
+        )
+        assert response.status_code == 200, response.text
+        client.headers["x-csrf-token"] = client.cookies["etsy_csrf"]
+    return client
+
+
+@pytest.fixture
+async def anon_client(api_app: object) -> AsyncIterator[httpx.AsyncClient]:
+    client = await open_client(api_app)
+    yield client
+    await client.aclose()
+
+
+@pytest.fixture
+async def client(
+    api_app: object, accounts: dict[str, uuid.UUID]
+) -> AsyncIterator[httpx.AsyncClient]:
+    """Signed in as the first owner."""
+    signed_in = await open_client(api_app, OWNER_EMAIL)
+    yield signed_in
+    await signed_in.aclose()
+
+
+@pytest.fixture
+async def other_client(
+    api_app: object, accounts: dict[str, uuid.UUID]
+) -> AsyncIterator[httpx.AsyncClient]:
+    """Signed in as a *different* owner, for isolation tests."""
+    signed_in = await open_client(api_app, OTHER_EMAIL)
+    yield signed_in
+    await signed_in.aclose()

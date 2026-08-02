@@ -124,6 +124,54 @@ class TestSeeding:
             assert events
 
 
+class TestTwoOwners:
+    """The seed exists to make ownership rules testable, so it seeds two people."""
+
+    async def test_both_owners_exist_and_can_sign_in(
+        self, seeded: async_sessionmaker[AsyncSession]
+    ) -> None:
+        from app.fixtures.dev_seed import DEV_OWNER_EMAIL, DEV_PASSWORD, DEV_SECOND_OWNER_EMAIL
+        from app.infrastructure.security import verify_password
+
+        async with UnitOfWork(seeded) as uow:
+            for email in (DEV_OWNER_EMAIL, DEV_SECOND_OWNER_EMAIL):
+                user = await uow.users.get_by_email(email)
+                assert user is not None
+                assert user.is_active
+                assert user.password_hash is not None
+                assert DEV_PASSWORD not in user.password_hash
+                assert verify_password(user.password_hash, DEV_PASSWORD)
+
+    async def test_each_owner_owns_their_own_workflows(
+        self, seeded: async_sessionmaker[AsyncSession]
+    ) -> None:
+        async with UnitOfWork(seeded) as uow:
+            first = FIXTURE_IDS["owner"]
+            second = FIXTURE_IDS["second_owner"]
+            assert first != second
+
+            owned = {w.id for w in await uow.workflows.list(owner_id=first)}
+            other = {w.id for w in await uow.workflows.list(owner_id=second)}
+
+            assert FIXTURE_IDS["workflow_second_owner"] in other
+            assert owned and other
+            assert not owned & other
+
+    async def test_no_provider_credential_is_seeded(
+        self, seeded: async_sessionmaker[AsyncSession]
+    ) -> None:
+        """A fixture must never carry a provider secret, real or otherwise."""
+        import sqlalchemy
+
+        from app.infrastructure.models import ProviderCredential
+
+        async with UnitOfWork(seeded) as uow:
+            count = await uow.session.scalar(
+                sqlalchemy.select(sqlalchemy.func.count()).select_from(ProviderCredential)
+            )
+        assert count == 0
+
+
 class TestFixturesAreHonest:
     async def test_every_workflow_is_marked_as_development_data(
         self, seeded: async_sessionmaker[AsyncSession]

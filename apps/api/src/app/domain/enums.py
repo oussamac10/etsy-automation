@@ -136,10 +136,30 @@ class CostStatus(StrEnum):
     VOIDED = "voided"
 
 
+class QualityTier(StrEnum):
+    """How much the owner is willing to spend on a generation.
+
+    ``DRAFT`` is the economical setting used for alternatives; ``FINAL`` is
+    chosen explicitly. There is no automatic upgrade between them: the product
+    rule is that a run never silently moves to a more expensive model.
+    """
+
+    DRAFT = "draft"
+    STANDARD = "standard"
+    FINAL = "final"
+
+
 class AuditAction(StrEnum):
     """The audit vocabulary. Append-only; entries are never updated or deleted."""
 
     ENTITY_CREATED = "entity_created"
+    #: Security-relevant events. The payload never carries a credential.
+    LOGIN_SUCCEEDED = "login_succeeded"
+    LOGIN_FAILED = "login_failed"
+    LOGOUT = "logout"
+    SETTINGS_UPDATED = "settings_updated"
+    CREDENTIAL_STORED = "credential_stored"
+    CREDENTIAL_DELETED = "credential_deleted"
     IDEA_REVISED = "idea_revised"
     WORKFLOW_TRANSITION = "workflow_transition"
     APPROVAL_DECISION = "approval_decision"

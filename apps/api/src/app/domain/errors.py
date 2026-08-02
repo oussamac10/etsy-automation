@@ -66,6 +66,49 @@ class InvalidIdeaModeError(DomainError):
         self.reason = reason
 
 
+class AuthenticationFailedError(DomainError):
+    """Login was refused. Maps to 401.
+
+    Carries no structured attribute and one fixed message on purpose: a wrong
+    password, an unknown email and a disabled account must be indistinguishable
+    to the caller, or the endpoint becomes an account-enumeration oracle.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("Invalid email or password.")
+
+
+class NotAuthenticatedError(DomainError):
+    """A protected operation was attempted with no valid session. Maps to 401."""
+
+    def __init__(self, reason: str = "Authentication is required.") -> None:
+        super().__init__(reason)
+
+
+class CsrfValidationError(DomainError):
+    """A cookie-authenticated mutation arrived without a matching CSRF token.
+
+    Maps to 403. Separate from :class:`NotAuthenticatedError` because the client
+    fix is different: re-send the token, not log in again.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("Missing or invalid CSRF token.")
+
+
+class CredentialConfigurationError(DomainError):
+    """A provider credential could not be encrypted or decrypted. Maps to 503.
+
+    Raised when ``ENCRYPTION_KEY`` is missing, too short, or does not match the
+    key version a stored row was written with. Never contains the key or the
+    credential.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 class BudgetExceededError(DomainError):
     """A projected cost would breach a budget ceiling. Maps to 409."""
 

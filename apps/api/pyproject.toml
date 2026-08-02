@@ -23,6 +23,10 @@ dependencies = [
     "dramatiq[redis]==2.2.0",
     "httpx==0.28.1",
     "cryptography==50.0.0",
+    # Argon2id password hashing (ADR-0002). The reference implementation; there
+    # is no Argon2 in the standard library and hashlib's scrypt is not the
+    # algorithm the ADR chose.
+    "argon2-cffi==25.1.0",
     "structlog==26.1.0",
     "python-dotenv==1.2.2",
 ]

@@ -13,11 +13,17 @@ See [`docs/progress/phase-2-domain-database.md`](docs/progress/phase-2-domain-da
 18 tables, one reversible migration, 351 tests passing, lint and strict type
 checks clean, no paid API call made.
 
-**Next: Phase 3 — Authentication and settings.** Not started. Do not begin
-without an explicit instruction.
+**Phase 3 — Authentication and settings: complete.**
+See [`docs/progress/phase-3-auth-settings.md`](docs/progress/phase-3-auth-settings.md)
+and [`docs/authentication-and-secrets.md`](docs/authentication-and-secrets.md).
+Three new tables, one reversible migration, 419 API tests passing, lint and
+strict type checks clean, no paid API call made.
+
+**Next: Phase 4 — Telegram remote control.** Not started. Do not begin without
+an explicit instruction.
 
 The roadmap now supports three idea-input modes and private Telegram remote
-control. Phase 1 remains complete; no completed work was reopened.
+control. Phases 1 and 2 remain complete; no completed work was reopened.
 
 ---
 
@@ -66,26 +72,36 @@ control. Phase 1 remains complete; no completed work was reopened.
 
 Deferred from this phase, with reasons in the progress report:
 
-- [ ] `ShopConnection` — needs encrypted tokens (Phase 3)
+- [ ] `ShopConnection` — encryption now exists (Phase 3); the table belongs with
+      the Etsy OAuth flow (Phase 9)
 - [ ] Telegram entities — Phase 4
 - [ ] `Mockup`, `Package`, standalone `IpReview` — Phase 7/8
 - [ ] Outbox pattern — needs a real dispatcher (Phase 4/5)
 - [ ] Run the integration suite in CI (`TEST_DATABASE_URL` wiring)
 
-## Phase 3 — Authentication and settings
+## Phase 3 — Authentication and settings ✅
 
-Starting point: `owner_id` is recorded on every workflow but **not enforced**,
-and secrets have nowhere to live yet.
-
-- [ ] Enforce ownership on every workflow route (the column and index exist)
-- [ ] Single-owner auth with Argon2id
+- [x] Enforce ownership on every workflow route, derived from the session and
+      never from the request body; cross-owner access answers `404`
+- [x] Single-owner auth with Argon2id
       ([ADR-0002](docs/adr/0002-single-owner-authentication.md))
-- [ ] Sessions and CSRF protection on mutating routes
-- [ ] Encrypted provider, Etsy, and Telegram secret/token storage with a
-      versioned key
-- [ ] Provider settings that never return a secret
-- [ ] Budget, quality, target-country, language, style, and product-use defaults
-- [ ] Settings for schedules and notification preferences
+- [x] Sessions and CSRF protection on mutating routes
+- [x] Encrypted provider secret storage with a versioned key and a rotation
+      command that loses nothing
+      ([design](docs/authentication-and-secrets.md))
+- [x] Provider settings that never return a secret
+- [x] Budget, quality, target-country, language, style, and product-use defaults
+- [x] Settings for schedules and notification preferences
+- [x] Two development owners, so ownership isolation is demonstrable
+
+Deferred from this phase, with reasons in the progress report:
+
+- [ ] `ShopConnection` — belongs with the Etsy OAuth flow (Phase 9); the cipher
+      and key-version column are ready for it
+- [ ] Telegram bot token storage — belongs with the adapter (Phase 4)
+- [ ] Frontend login, logout and settings screens — no frontend bullet in this
+      phase and no protected endpoint is called yet; they land with the
+      dashboard (Phase 5)
 
 ## Phase 4 — Telegram remote control
 

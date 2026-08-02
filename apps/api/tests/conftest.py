@@ -16,7 +16,8 @@ TEST_ENV: dict[str, str] = {
     "APP_ENV": "local",
     "LOG_LEVEL": "ERROR",
     "SECRET_KEY": "test-secret-key",
-    "ENCRYPTION_KEY": "test-encryption-key",
+    # Long enough for the ENCRYPTION_KEY length rule. Obviously not a real key.
+    "ENCRYPTION_KEY": "test-encryption-key-not-a-real-key-0123456789",
     "DATABASE_URL": "postgresql+asyncpg://etsy:etsy@localhost:5432/etsy_test",
     "REDIS_URL": "redis://localhost:6379/1",
     "PROVIDER_MODE": "fake",

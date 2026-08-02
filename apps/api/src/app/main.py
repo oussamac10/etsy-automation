@@ -14,8 +14,10 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import Response
 
 from app import __version__
+from app.api.dependencies import CSRF_HEADER, build_credential_cipher
 from app.api.problems import register_exception_handlers
-from app.api.routes import health, workflow, workflows
+from app.api.routes import auth, health, workflow, workflows
+from app.api.routes import settings as settings_routes
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import configure_logging, get_logger
 from app.settings import Settings, get_settings
@@ -53,11 +55,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.session_factory = create_session_factory(engine)
         application.state.redis = redis_client
         application.state.http_client = http_client
+        # Built once. ``None`` when ENCRYPTION_KEY is unusable: the credential
+        # endpoints then answer 503 instead of the whole API failing to start,
+        # and nothing can fall back to storing a secret in the clear.
+        cipher = build_credential_cipher(resolved)
+        application.state.credential_cipher = cipher
 
         logger.info(
             "api_started",
             app_env=resolved.app_env,
             provider_mode=resolved.provider_mode,
+            # The key itself is never logged; whether one is usable is not secret.
+            credential_encryption=("configured" if cipher else "unavailable"),
             version=__version__,
         )
         try:
@@ -89,12 +98,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=resolved.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["authorization", "content-type", CORRELATION_HEADER, "idempotency-key"],
+        allow_headers=[
+            "authorization",
+            "content-type",
+            CORRELATION_HEADER,
+            "idempotency-key",
+            # The browser sends the double-submit token on every mutation.
+            CSRF_HEADER,
+        ],
     )
 
     register_exception_handlers(application)
 
     application.include_router(health.router, prefix="/api")
+    application.include_router(auth.router, prefix="/api/v1")
+    application.include_router(settings_routes.router, prefix="/api/v1")
     application.include_router(workflow.router, prefix="/api/v1")
     application.include_router(workflows.router, prefix="/api/v1")
 

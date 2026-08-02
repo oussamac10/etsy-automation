@@ -46,6 +46,8 @@ class CreateWorkflowCommand:
 @dataclass(frozen=True, slots=True)
 class SubmitIdeaCommand:
     workflow_id: uuid.UUID
+    #: From the session, not the request body.
+    owner_id: uuid.UUID
     original_text: str
     slogan: str | None = None
     desired_style: str | None = None
@@ -66,12 +68,30 @@ class TimelineEntry:
     detail: dict[str, object]
 
 
+async def _owned_workflow(
+    uow: UnitOfWork, workflow_id: uuid.UUID, owner_id: uuid.UUID
+) -> ProductWorkflow:
+    """Load a workflow that belongs to ``owner_id``, or raise 404.
+
+    A workflow owned by someone else raises the *same* ``EntityNotFoundError``
+    as one that does not exist. A 403 would confirm the ID is real, which is
+    existence information the caller is not entitled to. Documented in
+    ``docs/authentication-and-secrets.md``.
+
+    Every read and every mutation goes through here, so ownership is one
+    function rather than a rule each use case has to remember.
+    """
+    workflow = await uow.workflows.get(workflow_id)
+    if workflow is None or workflow.owner_id != owner_id:
+        raise EntityNotFoundError("ProductWorkflow", workflow_id)
+    return workflow
+
+
 async def create_workflow(uow: UnitOfWork, command: CreateWorkflowCommand) -> ProductWorkflow:
     """Create a workflow in ``DRAFT``.
 
-    Ownership is recorded but not yet *enforced*: Phase 3 adds authentication and
-    will reject a request whose caller is not the owner. Until then the owner ID
-    is supplied by the caller.
+    ``command.owner_id`` comes from the authenticated session, never from the
+    request body: the route builds this command from the resolved identity.
     """
     owner = await uow.users.get(command.owner_id)
     if owner is None:
@@ -111,9 +131,7 @@ async def submit_original_idea(uow: UnitOfWork, command: SubmitIdeaCommand) -> O
     said, so a correction is a revision (:func:`revise_original_idea`), never an
     overwrite.
     """
-    workflow = await uow.workflows.get(command.workflow_id)
-    if workflow is None:
-        raise EntityNotFoundError("ProductWorkflow", command.workflow_id)
+    workflow = await _owned_workflow(uow, command.workflow_id, command.owner_id)
 
     # Raises InvalidIdeaModeError when the mode does not accept an idea, or
     # requires one and got nothing usable.
@@ -160,12 +178,14 @@ async def revise_original_idea(
     uow: UnitOfWork,
     workflow_id: uuid.UUID,
     *,
+    owner_id: uuid.UUID,
     revised_text: str,
     slogan: str | None = None,
     note: str | None = None,
     actor: str = "owner",
 ) -> object:
     """Append a revision. ``original_text`` is never modified."""
+    await _owned_workflow(uow, workflow_id, owner_id)
     idea = await uow.ideas.get_for_workflow(workflow_id)
     if idea is None:
         raise EntityNotFoundError("OriginalIdea", workflow_id)
@@ -190,6 +210,7 @@ async def transition_workflow(
     uow: UnitOfWork,
     workflow_id: uuid.UUID,
     *,
+    owner_id: uuid.UUID,
     to_state: RunStatus,
     expected_version: int,
     reason: str,
@@ -200,9 +221,7 @@ async def transition_workflow(
     Raises ``IllegalTransitionError`` for a move the state machine forbids and
     ``ConcurrentModificationError`` when the version has moved on.
     """
-    workflow = await uow.workflows.get(workflow_id)
-    if workflow is None:
-        raise EntityNotFoundError("ProductWorkflow", workflow_id)
+    workflow = await _owned_workflow(uow, workflow_id, owner_id)
 
     from_state = workflow.state
     transition = await uow.workflows.transition(
@@ -230,6 +249,7 @@ async def decide_gate(
     uow: UnitOfWork,
     workflow_id: uuid.UUID,
     *,
+    owner_id: uuid.UUID,
     gate: ApprovalGate,
     decision: ApprovalDecision,
     actor: str,
@@ -245,9 +265,7 @@ async def decide_gate(
     approval that did not move the workflow, or a move with no approval behind
     it, would both be lies about what happened.
     """
-    workflow = await uow.workflows.get(workflow_id)
-    if workflow is None:
-        raise EntityNotFoundError("ProductWorkflow", workflow_id)
+    workflow = await _owned_workflow(uow, workflow_id, owner_id)
 
     previous_state = workflow.state
     # Raises GateNotSatisfiedError when the workflow is not at this gate.
@@ -293,22 +311,37 @@ async def decide_gate(
     return approval
 
 
-async def get_workflow(uow: UnitOfWork, workflow_id: uuid.UUID) -> ProductWorkflow:
-    workflow = await uow.workflows.get(workflow_id)
-    if workflow is None:
-        raise EntityNotFoundError("ProductWorkflow", workflow_id)
-    return workflow
+async def get_workflow(
+    uow: UnitOfWork, workflow_id: uuid.UUID, *, owner_id: uuid.UUID
+) -> ProductWorkflow:
+    return await _owned_workflow(uow, workflow_id, owner_id)
+
+
+async def get_original_idea(
+    uow: UnitOfWork, workflow_id: uuid.UUID, *, owner_id: uuid.UUID
+) -> OriginalIdea:
+    """The preserved idea for a workflow this owner owns."""
+    await _owned_workflow(uow, workflow_id, owner_id)
+    idea = await uow.ideas.get_for_workflow(workflow_id)
+    if idea is None:
+        raise EntityNotFoundError("OriginalIdea", workflow_id)
+    return idea
 
 
 async def list_workflows(
     uow: UnitOfWork,
     *,
-    owner_id: uuid.UUID | None = None,
+    owner_id: uuid.UUID,
     state: RunStatus | None = None,
     include_archived: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[Sequence[ProductWorkflow], int]:
+    """Always owner-scoped.
+
+    ``owner_id`` is required rather than optional: an optional filter is one
+    forgotten argument away from listing every workflow in the database.
+    """
     items = await uow.workflows.list(
         owner_id=owner_id,
         state=state,
@@ -322,11 +355,11 @@ async def list_workflows(
     return items, total
 
 
-async def get_timeline(uow: UnitOfWork, workflow_id: uuid.UUID) -> list[TimelineEntry]:
+async def get_timeline(
+    uow: UnitOfWork, workflow_id: uuid.UUID, *, owner_id: uuid.UUID
+) -> list[TimelineEntry]:
     """Transitions, approvals and audit events merged into one ordered story."""
-    workflow = await uow.workflows.get(workflow_id)
-    if workflow is None:
-        raise EntityNotFoundError("ProductWorkflow", workflow_id)
+    await _owned_workflow(uow, workflow_id, owner_id)
 
     transitions: Sequence[WorkflowTransition] = await uow.workflows.transitions(workflow_id)
     approvals: Sequence[Approval] = await uow.approvals.history(workflow_id)

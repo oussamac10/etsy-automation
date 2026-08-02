@@ -12,7 +12,9 @@ env:
   PROVIDER_MODE: fake
   PAID_SMOKE_TEST_ENABLED: "false"
   SECRET_KEY: ci-only-secret-key
-  ENCRYPTION_KEY: ci-only-encryption-key
+  # At least 32 characters: a shorter application key is refused at startup
+  # (app/settings.py), because a Fernet key is derived from it.
+  ENCRYPTION_KEY: ci-only-encryption-key-not-a-real-key-0123456789
   DATABASE_URL: postgresql+asyncpg://etsy:etsy@localhost:5432/etsy_automation
   REDIS_URL: redis://localhost:6379/0
 

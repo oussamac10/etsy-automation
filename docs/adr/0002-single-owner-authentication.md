@@ -1,6 +1,7 @@
 # ADR-0002 — Single-owner authentication with Argon2id and session cookies
 
-- **Status**: Accepted (implementation in Phase 3)
+- **Status**: Accepted — implemented in Phase 3 (2026-08-02). See
+  `docs/authentication-and-secrets.md` for the delivered design.
 - **Date**: 2026-08-01
 - **Phase**: 1
 
@@ -40,9 +41,12 @@ the choice can change without touching use cases.
 ## Consequences
 
 - The API needs session storage and a CSRF token mechanism on mutating routes.
-- Etsy OAuth refresh and access tokens are encrypted at rest with a versioned
-  application key (`ENCRYPTION_KEY` + `ENCRYPTION_KEY_VERSION`), so the key can
-  be rotated without a migration that decrypts everything at once.
+- Provider credentials are encrypted at rest with a versioned application key
+  (`ENCRYPTION_KEY` + `ENCRYPTION_KEY_VERSION`). Rotation sets
+  `ENCRYPTION_KEY_PREVIOUS` alongside, so both keys decrypt while
+  `python -m app.rotate_encryption_key` re-encrypts each row; nothing has to be
+  decrypted in a migration. Etsy OAuth tokens will reuse the same cipher when
+  `ShopConnection` lands with the Etsy integration phase.
 - Tokens, hashes and keys are never returned by an API response and never
   logged; the redaction processor in `app/infrastructure/logging.py` enforces
   the second half of that.

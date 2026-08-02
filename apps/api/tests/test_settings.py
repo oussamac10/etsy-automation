@@ -10,7 +10,7 @@ def _env(**overrides: str) -> dict[str, str]:
     base = {
         "APP_ENV": "local",
         "SECRET_KEY": "test-secret-key",
-        "ENCRYPTION_KEY": "test-encryption-key",
+        "ENCRYPTION_KEY": "test-encryption-key-not-a-real-key-0123456789",
         "DATABASE_URL": "postgresql+asyncpg://u:p@localhost:5432/db",
         "REDIS_URL": "redis://localhost:6379/0",
     }
@@ -82,6 +82,67 @@ def test_secrets_are_not_printed(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.secret_key.get_secret_value() == "super-sensitive-value"
 
 
+def test_short_encryption_key_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Too little entropy to derive a credential key from."""
+    with pytest.raises(ValidationError, match="ENCRYPTION_KEY must be at least"):
+        _build(monkeypatch, ENCRYPTION_KEY="too-short")
+
+
+def test_session_cookie_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = _build(monkeypatch)
+    assert settings.session_cookie_name == "etsy_session"
+    assert settings.session_ttl_hours == 12
+    # Off locally so plain-HTTP localhost works; forced on everywhere else.
+    assert settings.session_cookie_secure is False
+
+
+def test_insecure_session_cookie_is_refused_outside_local(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValidationError, match="SESSION_COOKIE_SECURE"):
+        _build(
+            monkeypatch,
+            APP_ENV="production",
+            SECRET_KEY="a-real-looking-production-secret-key",
+            SESSION_COOKIE_SECURE="false",
+        )
+
+
 def test_cors_origins_are_split(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = _build(monkeypatch, CORS_ALLOWED_ORIGINS="http://a.test, http://b.test ,")
     assert settings.cors_origins == ["http://a.test", "http://b.test"]
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"ENCRYPTION_KEY_PREVIOUS": "the-retired-key-0123456789012345678901"},
+        {"ENCRYPTION_KEY_PREVIOUS_VERSION": "1", "ENCRYPTION_KEY_VERSION": "2"},
+    ],
+)
+def test_a_rotation_needs_both_halves(
+    monkeypatch: pytest.MonkeyPatch, overrides: dict[str, str]
+) -> None:
+    with pytest.raises(ValidationError, match="together"):
+        _build(monkeypatch, **overrides)
+
+
+def test_a_rotation_must_move_the_version_forward(monkeypatch: pytest.MonkeyPatch) -> None:
+    with pytest.raises(ValidationError, match="lower than ENCRYPTION_KEY_VERSION"):
+        _build(
+            monkeypatch,
+            ENCRYPTION_KEY_PREVIOUS="the-retired-key-0123456789012345678901",
+            ENCRYPTION_KEY_PREVIOUS_VERSION="1",
+            ENCRYPTION_KEY_VERSION="1",
+        )
+
+
+def test_a_valid_rotation_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = _build(
+        monkeypatch,
+        ENCRYPTION_KEY_PREVIOUS="the-retired-key-0123456789012345678901",
+        ENCRYPTION_KEY_PREVIOUS_VERSION="1",
+        ENCRYPTION_KEY_VERSION="2",
+    )
+    assert settings.encryption_key_previous_version == 1
+    assert "retired-key" not in repr(settings)

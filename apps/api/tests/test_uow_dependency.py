@@ -17,8 +17,8 @@ from typing import Any
 import httpx
 from fastapi import FastAPI
 
+from app.api.dependencies import UowDep, get_uow
 from app.api.problems import register_exception_handlers
-from app.api.routes.workflows import UowDep, get_uow
 from app.domain.errors import EntityNotFoundError
 
 

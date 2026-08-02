@@ -95,14 +95,26 @@ a life of its own.
 
 ### `User`
 
-Owner identity. Phase 2 stores **no credential** — no password hash, no session,
-no token. `ProductWorkflow.owner_id` exists now so Phase 3 can enforce ownership
-and Phase 11 can add tenancy without backfilling every row.
+Owner identity. `ProductWorkflow.owner_id` exists so ownership can be enforced
+(Phase 3) and Phase 11 can add tenancy without backfilling every row.
 
 | Column | Notes |
 |---|---|
 | `email` | unique |
-| `display_name`, `is_active` | |
+| `display_name`, `is_active` | an inactive user cannot authenticate |
+| `password_hash` | Argon2id, nullable; a row without one cannot sign in (Phase 3) |
+
+### `UserSession`, `OwnerSettings`, `ProviderCredential` (Phase 3)
+
+| Table | Notes |
+|---|---|
+| `user_sessions` | `token_hash` (unique, SHA-256 — the token itself is never stored), `csrf_token`, `expires_at` (`CHECK expires_at > created_at`), `revoked_at`, `last_seen_at`. `ON DELETE CASCADE` |
+| `owner_settings` | one row per user (`user_id` unique), created on first read. Target market, idea/style preferences, quality floor, budgets in minor units, schedule and notification flags. Nine `CHECK` constraints, including `daily_budget_minor <= monthly_budget_minor` |
+| `provider_credentials` | one row per `(user_id, provider)` (unique). `ciphertext` (Fernet, non-empty), `key_version` (`>= 1`), `masked_value`, `label`. **No column can hold plaintext** |
+
+Credentials are the one place a row is deleted in normal operation: a removed
+credential is not audit data, and the `CREDENTIAL_DELETED` audit event records
+the removal. See [`authentication-and-secrets.md`](authentication-and-secrets.md).
 
 ### `ProductWorkflow`
 
@@ -281,9 +293,11 @@ never trigger it: nothing in the API or the repositories deletes a workflow.
 
 ---
 
-## What Phase 2 does *not* include
+## What Phases 2 and 3 do *not* include
 
-No authentication, no Telegram, no research execution, no provider calls, no
-artwork generation, no image processing, no Etsy OAuth or listing creation, and
-no deployment. The tables for artwork, production and listings exist and are
-empty by design — the phases that own them fill them in.
+No Telegram, no research execution, no provider calls, no artwork generation, no
+image processing, no Etsy OAuth or listing creation, and no deployment. In
+particular there is still no `ShopConnection`: Etsy tokens arrive with the OAuth
+flow in Phase 9, reusing the Phase 3 cipher. The tables for artwork, production
+and listings exist and are empty by design — the phases that own them fill them
+in.

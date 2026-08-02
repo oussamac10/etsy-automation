@@ -11,9 +11,14 @@ together or not at all.
 
 from app.infrastructure.repositories.approval import SqlApprovalRepository
 from app.infrastructure.repositories.audit import SqlAuditRepository
+from app.infrastructure.repositories.auth import SqlSessionRepository
 from app.infrastructure.repositories.concept import SqlConceptRepository
 from app.infrastructure.repositories.cost import SqlCostRepository
 from app.infrastructure.repositories.idea import SqlIdeaRepository
+from app.infrastructure.repositories.owner_settings import (
+    SqlOwnerSettingsRepository,
+    SqlProviderCredentialRepository,
+)
 from app.infrastructure.repositories.user import SqlUserRepository
 from app.infrastructure.repositories.workflow import SqlWorkflowRepository
 
@@ -23,6 +28,9 @@ __all__ = [
     "SqlConceptRepository",
     "SqlCostRepository",
     "SqlIdeaRepository",
+    "SqlOwnerSettingsRepository",
+    "SqlProviderCredentialRepository",
+    "SqlSessionRepository",
     "SqlUserRepository",
     "SqlWorkflowRepository",
 ]
