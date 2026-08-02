@@ -22,6 +22,8 @@ x-python-env: &python-env
   IMAGE_WORKER_URL: http://image-worker:8100
   PROVIDER_MODE: ${PROVIDER_MODE:-fake}
   CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
 
 services:
   postgres:
@@ -170,6 +172,20 @@ services:
       timeout: 10s
       retries: 6
       start_period: 20s
+
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: workers/general-worker/Dockerfile
+    environment: *python-env
+    command: ["python", "-m", "worker.telegram_poller"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   web:
     build:

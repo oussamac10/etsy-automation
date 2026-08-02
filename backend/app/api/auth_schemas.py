@@ -207,3 +207,16 @@ class CredentialResponse(BaseModel):
 
 class CredentialListResponse(BaseModel):
     items: list[CredentialResponse]
+
+
+class TelegramConnectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    paired: bool
+    telegram_username: str | None = None
+    pairing_code_expires_at: datetime | None = None
+
+
+class TelegramPairingCodeResponse(BaseModel):
+    pairing_code: str
+    expires_at: datetime

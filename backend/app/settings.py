@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     monthly_budget_usd: str = Field(default="30.00", alias="MONTHLY_BUDGET_USD")
     paid_smoke_test_enabled: bool = Field(default=False, alias="PAID_SMOKE_TEST_ENABLED")
 
+    telegram_bot_token: SecretStr | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
+    telegram_webhook_secret: SecretStr | None = Field(default=None, alias="TELEGRAM_WEBHOOK_SECRET")
+
     @field_validator("log_level")
     @classmethod
     def _normalise_log_level(cls, value: str) -> str:
@@ -131,13 +134,8 @@ class Settings(BaseSettings):
                 "ENCRYPTION_KEY_PREVIOUS_VERSION must be lower than ENCRYPTION_KEY_VERSION; "
                 "bump ENCRYPTION_KEY_VERSION when you change ENCRYPTION_KEY."
             )
-        # Phase 1 has no real provider adapters. Refusing "live" here means a
-        # stray environment variable cannot start a paid integration early.
-        if self.provider_mode == "live":
-            raise ValueError(
-                "PROVIDER_MODE=live is not supported yet. Real provider adapters "
-                "arrive in Phase 4/5; keep PROVIDER_MODE=fake."
-            )
+        if self.provider_mode == "live" and not self.telegram_bot_token:
+            raise ValueError("TELEGRAM_BOT_TOKEN must be set when PROVIDER_MODE=live.")
         if self.app_env != "local" and not self.session_cookie_secure:
             raise ValueError(
                 "SESSION_COOKIE_SECURE must be true outside APP_ENV=local; a "

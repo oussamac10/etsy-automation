@@ -125,6 +125,7 @@ class OwnerSettings(UuidMixin, TimestampMixin, Base):
     notify_on_failure: Mapped[bool] = mapped_column(nullable=False, default=True)
     notify_on_budget_warning: Mapped[bool] = mapped_column(nullable=False, default=True)
     notify_on_approval_needed: Mapped[bool] = mapped_column(nullable=False, default=True)
+    is_paused: Mapped[bool] = mapped_column(nullable=False, default=False)
 
     user: Mapped[User] = relationship(back_populates="settings")
 

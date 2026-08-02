@@ -16,7 +16,7 @@ from starlette.responses import Response
 from app import __version__
 from app.api.dependencies import CSRF_HEADER, build_credential_cipher
 from app.api.problems import register_exception_handlers
-from app.api.routes import auth, health, workflow, workflows
+from app.api.routes import auth, health, telegram, workflow, workflows
 from app.api.routes import settings as settings_routes
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import configure_logging, get_logger
@@ -60,6 +60,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # and nothing can fall back to storing a secret in the clear.
         cipher = build_credential_cipher(resolved)
         application.state.credential_cipher = cipher
+
+        from app.ports.telegram import TelegramGateway
+        from app.providers.telegram import FakeTelegramGateway, RealTelegramGateway
+
+        telegram_gateway: TelegramGateway
+        if resolved.provider_mode == "live" and resolved.telegram_bot_token:
+            telegram_gateway = RealTelegramGateway(
+                resolved.telegram_bot_token.get_secret_value(),
+                http_client,
+            )
+        else:
+            telegram_gateway = FakeTelegramGateway()
+        application.state.telegram_gateway = telegram_gateway
 
         logger.info(
             "api_started",
@@ -115,6 +128,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(settings_routes.router, prefix="/api/v1")
     application.include_router(workflow.router, prefix="/api/v1")
     application.include_router(workflows.router, prefix="/api/v1")
+    application.include_router(telegram.router, prefix="/api/v1")
 
     return application
 

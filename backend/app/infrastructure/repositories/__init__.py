@@ -19,6 +19,7 @@ from app.infrastructure.repositories.owner_settings import (
     SqlOwnerSettingsRepository,
     SqlProviderCredentialRepository,
 )
+from app.infrastructure.repositories.telegram import SqlTelegramConnectionRepository
 from app.infrastructure.repositories.user import SqlUserRepository
 from app.infrastructure.repositories.workflow import SqlWorkflowRepository
 
@@ -31,6 +32,7 @@ __all__ = [
     "SqlOwnerSettingsRepository",
     "SqlProviderCredentialRepository",
     "SqlSessionRepository",
+    "SqlTelegramConnectionRepository",
     "SqlUserRepository",
     "SqlWorkflowRepository",
 ]

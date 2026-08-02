@@ -17,6 +17,8 @@ from app.api.auth_schemas import (
     CredentialResponse,
     SettingsResponse,
     StoreCredentialRequest,
+    TelegramConnectionResponse,
+    TelegramPairingCodeResponse,
     UpdateSettingsRequest,
 )
 from app.api.dependencies import CipherDep, CurrentUser, UowDep
@@ -168,3 +170,48 @@ async def store_credential(
 )
 async def delete_credential(provider: ProviderName, user: CurrentUser, uow: UowDep) -> None:
     await use_cases.delete_credential(uow, user.id, provider=provider)
+
+
+@router.get(
+    "/telegram",
+    response_model=TelegramConnectionResponse,
+    summary="Get current owner's Telegram connection status",
+)
+async def get_telegram_status(user: CurrentUser, uow: UowDep) -> TelegramConnectionResponse:
+    conn = await uow.telegram_connections.get_by_user_id(user.id)
+    if conn is None or not conn.is_paired:
+        return TelegramConnectionResponse(
+            paired=False,
+            telegram_username=None,
+            pairing_code_expires_at=conn.pairing_code_expires_at if conn else None,
+        )
+    return TelegramConnectionResponse(
+        paired=True,
+        telegram_username=conn.telegram_username,
+        pairing_code_expires_at=None,
+    )
+
+
+@router.post(
+    "/telegram/pairing-code",
+    response_model=TelegramPairingCodeResponse,
+    summary="Generate a short-lived Telegram pairing code",
+)
+async def generate_telegram_pairing_code(
+    user: CurrentUser, uow: UowDep
+) -> TelegramPairingCodeResponse:
+    from app.application.telegram import generate_pairing_code
+
+    code, expires_at = await generate_pairing_code(uow, user.id)
+    return TelegramPairingCodeResponse(pairing_code=code, expires_at=expires_at)
+
+
+@router.delete(
+    "/telegram",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Disconnect the Telegram connection",
+)
+async def disconnect_telegram_bot(user: CurrentUser, uow: UowDep) -> None:
+    from app.application.telegram import disconnect_telegram
+
+    await disconnect_telegram(uow, user.id)

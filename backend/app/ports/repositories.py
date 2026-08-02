@@ -31,6 +31,7 @@ from app.infrastructure.models import (
     ProductWorkflow,
     ProviderCredential,
     ProviderUsage,
+    TelegramConnection,
     User,
     UserSession,
     WorkflowTransition,
@@ -122,6 +123,37 @@ class ProviderCredentialRepository(Protocol):
         ...
 
     async def delete(self, credential: ProviderCredential) -> None: ...
+
+
+@runtime_checkable
+class TelegramConnectionRepository(Protocol):
+    async def get_by_user_id(self, user_id: uuid.UUID) -> TelegramConnection | None: ...
+
+    async def get_by_telegram_user_id(self, telegram_user_id: int) -> TelegramConnection | None: ...
+
+    async def create_or_update_pairing_code(
+        self,
+        *,
+        user_id: uuid.UUID,
+        code_hash: str,
+        expires_at: datetime,
+    ) -> TelegramConnection: ...
+
+    async def get_by_pairing_code_hash(self, code_hash: str) -> TelegramConnection | None: ...
+
+    async def increment_failed_attempts(self, record: TelegramConnection) -> None: ...
+
+    async def pair(
+        self,
+        record: TelegramConnection,
+        *,
+        telegram_user_id: int,
+        telegram_chat_id: int,
+        telegram_username: str | None,
+        paired_at: datetime,
+    ) -> None: ...
+
+    async def disconnect(self, record: TelegramConnection, *, revoked_at: datetime) -> None: ...
 
 
 @runtime_checkable

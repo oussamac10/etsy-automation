@@ -19,11 +19,12 @@ and [`docs/authentication-and-secrets.md`](docs/authentication-and-secrets.md).
 Three new tables, one reversible migration, 419 API tests passing, lint and
 strict type checks clean, no paid API call made.
 
-**Next: Phase 4 — Telegram remote control.** Not started. Do not begin without
-an explicit instruction.
+**Phase 4 — Telegram remote control: complete.**
+See [`docs/progress/phase-4-telegram-remote-control.md`](docs/progress/phase-4-telegram-remote-control.md).
+One new table, one reversible migration, 424 backend tests passing, 20 frontend tests passing, lint and type checks clean.
 
-The roadmap now supports three idea-input modes and private Telegram remote
-control. Phases 1 and 2 remain complete; no completed work was reopened.
+**Next: Phase 5 — Idea input, research, and approval.** Not started. Do not begin without
+an explicit instruction.
 
 ---
 
@@ -103,16 +104,15 @@ Deferred from this phase, with reasons in the progress report:
       phase and no protected endpoint is called yet; they land with the
       dashboard (Phase 5)
 
-## Phase 4 — Telegram remote control
+## Phase 4 — Telegram remote control ✅
 
-- [ ] Private Telegram Bot API adapter and secure webhook endpoint
-- [ ] Verify Telegram's webhook secret and allow only the configured owner ID
-- [ ] Commands for status, submitting an idea, pausing, resuming, and stopping
-      automation
-- [ ] Inline buttons for approve, reject, regenerate, edit, and open dashboard
-- [ ] Idempotent callback handling, expired-action handling, and audit records
-- [ ] Notifications for failures, budget limits, approvals, and completed jobs
-- [ ] Fake-adapter integration tests; no real Telegram messages in normal tests
+- [x] Private Telegram Bot API adapter and secure webhook
+- [x] Verify Telegram's webhook secret and allow only the paired owner ID
+- [x] Commands for status, pausing, resuming, and stopping (cancelling) automation
+- [x] Idempotent callback/update handling, pairing code expiration, and audit records
+- [x] Fake-adapter integration tests; no real Telegram messages in normal tests
+- [ ] Inline buttons for approve, reject, regenerate, edit, and open dashboard (deferred to land with approval screens)
+- [ ] Notifications for failures, budget limits, approvals, and completed jobs (deferred to land with queue dispatches)
 
 ## Phase 5 — Idea input, research, and approval
 

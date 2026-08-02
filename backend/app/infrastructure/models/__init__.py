@@ -32,6 +32,7 @@ from app.infrastructure.models.research import (
     ResearchEvidence,
     ResearchRun,
 )
+from app.infrastructure.models.telegram import TelegramConnection
 from app.infrastructure.models.user import User
 from app.infrastructure.models.workflow import ProductWorkflow, WorkflowTransition
 
@@ -54,6 +55,7 @@ __all__ = [
     "ProviderUsage",
     "ResearchEvidence",
     "ResearchRun",
+    "TelegramConnection",
     "TimestampMixin",
     "User",
     "UserSession",

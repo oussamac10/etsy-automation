@@ -160,6 +160,8 @@ class AuditAction(StrEnum):
     SETTINGS_UPDATED = "settings_updated"
     CREDENTIAL_STORED = "credential_stored"
     CREDENTIAL_DELETED = "credential_deleted"
+    TELEGRAM_PAIRED = "telegram_paired"
+    TELEGRAM_DISCONNECTED = "telegram_disconnected"
     IDEA_REVISED = "idea_revised"
     WORKFLOW_TRANSITION = "workflow_transition"
     APPROVAL_DECISION = "approval_decision"

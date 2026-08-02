@@ -147,20 +147,33 @@ TEST_PASSWORD = "integration-test-password"
 async def api_app(
     settings: object,
     session_factory: async_sessionmaker[AsyncSession],
+    engine: object,
     clean_database: None,
-) -> object:
+) -> AsyncIterator[object]:
     """The real app, wired to the test database.
 
     ``ASGITransport`` skips the lifespan, so the session factory and the
     credential cipher are set here instead.
     """
+    import httpx
+    import redis.asyncio as aioredis
+
     from app.api.dependencies import build_credential_cipher
     from app.main import create_app
+    from app.providers.telegram import FakeTelegramGateway
 
     app = create_app(settings)  # type: ignore[arg-type]
     app.state.session_factory = session_factory
     app.state.credential_cipher = build_credential_cipher(settings)  # type: ignore[arg-type]
-    return app
+    app.state.engine = engine
+    app.state.redis = aioredis.from_url(settings.redis_url, decode_responses=True)  # type: ignore[attr-defined]
+    app.state.http_client = httpx.AsyncClient(timeout=10.0)
+    app.state.telegram_gateway = FakeTelegramGateway()
+
+    yield app
+
+    await app.state.redis.aclose()
+    await app.state.http_client.aclose()
 
 
 @pytest.fixture
