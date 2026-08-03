@@ -21,7 +21,7 @@ strict type checks clean, no paid API call made.
 
 **Phase 4 — Telegram remote control: complete.**
 See [`docs/progress/phase-4-telegram-remote-control.md`](docs/progress/phase-4-telegram-remote-control.md).
-One new table, one reversible migration, 424 backend tests passing, 20 frontend tests passing, lint and type checks clean.
+One new table, one reversible migration, 427 backend tests passing, 30 frontend tests passing, lint and type checks clean.
 
 **Next: Phase 5 — Idea input, research, and approval.** Not started. Do not begin without
 an explicit instruction.

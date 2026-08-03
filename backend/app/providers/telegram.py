@@ -21,6 +21,11 @@ class RealTelegramGateway(TelegramGateway):
         self._http_client = http_client
         self._base_url = f"https://api.telegram.org/bot{bot_token}"
 
+    def _redact(self, text: str) -> str:
+        if not self._bot_token:
+            return text
+        return text.replace(self._bot_token, "[REDACTED_TELEGRAM_TOKEN]")
+
     async def send_message(
         self,
         chat_id: int,
@@ -58,26 +63,26 @@ class RealTelegramGateway(TelegramGateway):
                     kind=ProviderErrorKind.AUTHENTICATION,
                     provider="telegram",
                     operation="send_message",
-                    message=f"Telegram authorization failed: {response.text}",
+                    message=self._redact(f"Telegram authorization failed: {response.text}"),
                 )
             elif response.status_code >= 400:
                 raise ProviderError(
                     kind=ProviderErrorKind.INVALID_REQUEST,
                     provider="telegram",
                     operation="send_message",
-                    message=f"Telegram returned error: {response.text}",
+                    message=self._redact(f"Telegram returned error: {response.text}"),
                 )
         except httpx.RequestError as exc:
             raise ProviderError(
                 kind=ProviderErrorKind.RETRYABLE,
                 provider="telegram",
                 operation="send_message",
-                message=f"Network error: {exc}",
-            ) from exc
+                message=self._redact(f"Network error: {exc}"),
+            ) from None
 
     async def get_updates(
-        self, offset: int | None = None, timeout: int = 30
-    ) -> list[dict[str, Any]]:  # noqa: ASYNC109
+        self, offset: int | None = None, timeout: int = 30  # noqa: ASYNC109
+    ) -> list[dict[str, Any]]:
         url = f"{self._base_url}/getUpdates"
         payload: dict[str, Any] = {"timeout": timeout}
         if offset is not None:
@@ -90,7 +95,7 @@ class RealTelegramGateway(TelegramGateway):
                     kind=ProviderErrorKind.INVALID_REQUEST,
                     provider="telegram",
                     operation="get_updates",
-                    message=f"Telegram returned error: {response.text}",
+                    message=self._redact(f"Telegram returned error: {response.text}"),
                 )
             data = response.json()
             if not data.get("ok"):
@@ -98,7 +103,7 @@ class RealTelegramGateway(TelegramGateway):
                     kind=ProviderErrorKind.INVALID_REQUEST,
                     provider="telegram",
                     operation="get_updates",
-                    message=f"Telegram API response ok=False: {data}",
+                    message=self._redact(f"Telegram API response ok=False: {data}"),
                 )
             result = data.get("result")
             if not isinstance(result, list):
@@ -109,8 +114,8 @@ class RealTelegramGateway(TelegramGateway):
                 kind=ProviderErrorKind.RETRYABLE,
                 provider="telegram",
                 operation="get_updates",
-                message=f"Network error: {exc}",
-            ) from exc
+                message=self._redact(f"Network error: {exc}"),
+            ) from None
 
     async def set_webhook(self, url: str, secret_token: str | None = None) -> None:
         api_url = f"{self._base_url}/setWebhook"
@@ -125,15 +130,15 @@ class RealTelegramGateway(TelegramGateway):
                     kind=ProviderErrorKind.INVALID_REQUEST,
                     provider="telegram",
                     operation="set_webhook",
-                    message=f"Telegram returned error: {response.text}",
+                    message=self._redact(f"Telegram returned error: {response.text}"),
                 )
         except httpx.RequestError as exc:
             raise ProviderError(
                 kind=ProviderErrorKind.RETRYABLE,
                 provider="telegram",
                 operation="set_webhook",
-                message=f"Network error: {exc}",
-            ) from exc
+                message=self._redact(f"Network error: {exc}"),
+            ) from None
 
 
 class FakeTelegramGateway(TelegramGateway):
@@ -162,8 +167,8 @@ class FakeTelegramGateway(TelegramGateway):
         )
 
     async def get_updates(
-        self, offset: int | None = None, timeout: int = 30
-    ) -> list[dict[str, Any]]:  # noqa: ASYNC109
+        self, offset: int | None = None, timeout: int = 30  # noqa: ASYNC109
+    ) -> list[dict[str, Any]]:
         if offset is None:
             return self.mock_updates
         result = [u for u in self.mock_updates if u.get("update_id", 0) >= offset]

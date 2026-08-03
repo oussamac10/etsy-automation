@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -8,43 +7,42 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, 
 
 from app.application.telegram import handle_telegram_command
 from app.application.unit_of_work import UnitOfWork
+from app.infrastructure.logging import get_logger
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
-logger = logging.getLogger("telegram_webhook")
+logger = get_logger("telegram_webhook")
 
 
 async def process_webhook_update(payload: dict[str, Any], state: Any) -> None:
-    print("DEBUG: process_webhook_update started")
     update_id = payload.get("update_id")
     message = payload.get("message")
     if not message or not update_id:
-        print("DEBUG: message or update_id missing")
+        logger.warning("invalid_webhook_payload", reason="message or update_id missing")
         return
 
     chat = message.get("chat")
     from_user = message.get("from")
     text = message.get("text")
     if not chat or not from_user or not text:
-        print("DEBUG: chat/from/text missing")
+        logger.warning("invalid_webhook_payload", reason="chat, from, or text missing")
         return
 
     chat_id = chat.get("id")
     tg_user_id = from_user.get("id")
     username = from_user.get("username")
     if chat_id is None or tg_user_id is None:
-        print("DEBUG: chat_id or tg_user_id missing")
+        logger.warning("invalid_webhook_payload", reason="chat_id or tg_user_id missing")
         return
 
     # Check update ID duplicate in Redis
     redis_key = f"tg_processed_update:{update_id}"
     is_new = await state.redis.set(redis_key, "1", nx=True, ex=86400)
     if not is_new:
-        print("DEBUG: duplicate update_id ignored")
+        logger.info("webhook_update_duplicate_ignored", update_id=update_id)
         return
 
     async with UnitOfWork(state.session_factory) as uow:
         try:
-            print("DEBUG: executing handle_telegram_command")
             response_text = await handle_telegram_command(
                 uow=uow,
                 redis=state.redis,
@@ -58,16 +56,12 @@ async def process_webhook_update(payload: dict[str, Any], state: Any) -> None:
                 text=text,
                 now=datetime.now(UTC),
             )
-            print(f"DEBUG: sending reply: {response_text}")
             await state.telegram_gateway.send_message(
                 chat_id=chat_id,
                 text=response_text,
             )
         except Exception as exc:
-            print(f"DEBUG: exception in command execution: {exc}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("telegram_webhook_command_failed", update_id=update_id, error=str(exc))
 
 
 @router.post(

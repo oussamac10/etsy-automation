@@ -97,26 +97,27 @@ async def handle_telegram_command(
         return (
             "Welcome to <b>Etsy Automation Bot</b>!\n\n"
             "To connect your account, please go to the Settings section on your web dashboard, "
-            "generate a pairing code, and send it to this bot or click `/start <code>`."
+            "generate a pairing code, and send it to this bot or click "
+            "<code>/start &lt;code&gt;</code>."
         )
 
     if command == "/help":
         return (
             "<b>Available Commands:</b>\n"
-            "• `/start` - Start or pair the bot\n"
-            "• `/help` - List supported commands\n"
-            "• `/status` - Show application and worker status\n"
-            "• `/jobs` - List your recent automation jobs\n"
-            "• `/job <id>` - Show details of a specific job\n"
-            "• `/pause` - Pause automation dispatching\n"
-            "• `/resume` - Resume automation dispatching\n"
-            "• `/cancel <id>` - Cancel an active job\n"
-            "• `/disconnect` - Disconnect Telegram bot"
+            "• <code>/start</code> - Start or pair the bot\n"
+            "• <code>/help</code> - List supported commands\n"
+            "• <code>/status</code> - Show application and worker status\n"
+            "• <code>/jobs</code> - List your recent automation jobs\n"
+            "• <code>/job &lt;id&gt;</code> - Show details of a specific job\n"
+            "• <code>/pause</code> - Pause automation dispatching\n"
+            "• <code>/resume</code> - Resume automation dispatching\n"
+            "• <code>/cancel &lt;id&gt;</code> - Cancel an active job\n"
+            "• <code>/disconnect</code> - Disconnect Telegram bot"
         )
 
     if command == "/pair":
         if not arg or not arg.isdigit() or len(arg) != 6:
-            return "Usage: `/pair <code>`"
+            return "Usage: <code>/pair &lt;code&gt;</code>"
         return await _pair_flow(
             uow, redis, arg, telegram_user_id, telegram_chat_id, telegram_username, now
         )
@@ -162,7 +163,7 @@ async def handle_telegram_command(
     if command == "/job":
         job_id = arg.strip()
         if not job_id:
-            return "Usage: `/job <job_id>`"
+            return "Usage: <code>/job &lt;job_id&gt;</code>"
         try:
             wf_uuid = uuid.UUID(job_id)
         except ValueError:
@@ -220,7 +221,7 @@ async def handle_telegram_command(
     if command == "/cancel":
         job_id = arg.strip()
         if not job_id:
-            return "Usage: `/cancel <job_id>`"
+            return "Usage: <code>/cancel &lt;job_id&gt;</code>"
         try:
             wf_uuid = uuid.UUID(job_id)
         except ValueError:

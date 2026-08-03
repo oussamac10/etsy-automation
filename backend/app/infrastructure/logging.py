@@ -39,25 +39,37 @@ def redact_secrets(
     _logger: object, _method: str, event_dict: MutableMapping[str, Any]
 ) -> MutableMapping[str, Any]:
     """Replace the value of any sensitive key anywhere in the event."""
+    import os
+
+    tg_token = os.getenv("TELEGRAM_BOT_TOKEN")
+
+    def _redact_value(val: Any) -> Any:
+        if isinstance(val, str):
+            if tg_token and tg_token in val:
+                return val.replace(tg_token, "[REDACTED_TELEGRAM_TOKEN]")
+            return val
+        elif isinstance(val, dict):
+            return _redact_mapping(val)
+        elif isinstance(val, list):
+            return [_redact_value(item) for item in val]
+        return val
+
+    def _redact_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: (
+                REDACTED
+                if key.lower() in SENSITIVE_KEYS
+                else _redact_value(value)
+            )
+            for key, value in mapping.items()
+        }
+
     for key in list(event_dict):
         if key.lower() in SENSITIVE_KEYS:
             event_dict[key] = REDACTED
-        elif isinstance(event_dict[key], dict):
-            event_dict[key] = _redact_mapping(event_dict[key])
+        else:
+            event_dict[key] = _redact_value(event_dict[key])
     return event_dict
-
-
-def _redact_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
-    return {
-        key: (
-            REDACTED
-            if key.lower() in SENSITIVE_KEYS
-            else _redact_mapping(value)
-            if isinstance(value, dict)
-            else value
-        )
-        for key, value in mapping.items()
-    }
 
 
 def configure_logging(*, level: str = "INFO", json_output: bool = True) -> None:

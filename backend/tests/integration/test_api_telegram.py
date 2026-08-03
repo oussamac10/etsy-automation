@@ -1,6 +1,7 @@
+import asyncio
+from datetime import UTC, datetime
 from typing import Any
 
-import asyncio
 import httpx
 import pytest
 
@@ -264,3 +265,86 @@ class TestTelegramWebhookCommands:
         async with UnitOfWork(session_factory) as uow:
             conn = await uow.telegram_connections.get_by_telegram_user_id(999888)
             assert conn is None
+
+
+class TestTelegramSecurityAndValidation:
+    async def test_help_command_html_validation(self, session_factory: Any, api_app: Any) -> None:
+        import re
+
+        from app.application.telegram import handle_telegram_command
+
+        async with UnitOfWork(session_factory) as uow:
+            # We don't need a paired user for /help since it is allowed anonymously
+            response = await handle_telegram_command(
+                uow=uow,
+                redis=api_app.state.redis,
+                http_client=api_app.state.http_client,
+                engine=api_app.state.engine,
+                settings=api_app.state.settings,
+                telegram_gateway=api_app.state.telegram_gateway,
+                telegram_user_id=12345,
+                telegram_chat_id=12345,
+                telegram_username="test",
+                text="/help",
+                now=datetime.now(UTC),
+            )
+
+        # All tags must be valid Telegram HTML: <b>, </b>, <code>, </code> etc.
+        # Find all occurrences of '<' in the text
+        tags = re.findall(r"<([^>]+)>", response)
+        valid_tags = {"b", "/b", "code", "/code", "i", "/i", "strong", "/strong"}
+        for tag in tags:
+            # Ensure it is a valid tag and NOT a raw placeholder like <id> or <job_id>
+            tag_name = tag.split()[0]
+            assert tag_name in valid_tags, f"Invalid HTML tag or raw placeholder found: <{tag}>"
+
+    async def test_bot_token_redaction_in_errors(self) -> None:
+        from app.ports.errors import ProviderError
+        from app.providers.telegram import RealTelegramGateway
+
+        bot_token = "123456:SECRET_BOT_TOKEN_STRING"
+
+        def mock_raise(request: httpx.Request) -> httpx.Response:
+            raise httpx.RequestError(f"Connection failed for {request.url}", request=request)
+
+        mock_client = httpx.AsyncClient(transport=httpx.MockTransport(mock_raise))
+        gateway = RealTelegramGateway(bot_token, mock_client)
+
+        with pytest.raises(ProviderError) as exc_info:
+            await gateway.send_message(chat_id=12345, text="Hello")
+
+        # The raw secret bot token must NOT appear in the exception representation or message
+        error_msg = str(exc_info.value)
+        assert bot_token not in error_msg
+        assert "[REDACTED_TELEGRAM_TOKEN]" in error_msg
+
+        # Verify no traceback context is chained that contains the token (due to raise from None)
+        assert exc_info.value.__cause__ is None
+
+    def test_bot_token_redaction_in_logs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from app.infrastructure.logging import redact_secrets
+
+        bot_token = "123456:SECRET_BOT_TOKEN_STRING"
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", bot_token)
+
+        # Emulate log message
+        log_event = {
+            "event": f"Connecting to URL https://api.telegram.org/bot{bot_token}/sendMessage",
+            "nested": {
+                "url": f"https://api.telegram.org/bot{bot_token}/getUpdates",
+                "auth": f"Bearer {bot_token}",
+            },
+            "list_field": [f"token:{bot_token}"],
+        }
+
+        redacted = redact_secrets(None, "info", log_event)
+
+        # Assert token is completely scrubbed from all fields
+        assert bot_token not in redacted["event"]
+        assert "[REDACTED_TELEGRAM_TOKEN]" in redacted["event"]
+        assert bot_token not in redacted["nested"]["url"]
+        assert "[REDACTED_TELEGRAM_TOKEN]" in redacted["nested"]["url"]
+        assert bot_token not in redacted["nested"]["auth"]
+        assert "[REDACTED_TELEGRAM_TOKEN]" in redacted["nested"]["auth"]
+        assert bot_token not in redacted["list_field"][0]
+        assert "[REDACTED_TELEGRAM_TOKEN]" in redacted["list_field"][0]

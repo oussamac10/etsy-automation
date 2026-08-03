@@ -73,7 +73,7 @@ pass (233 unit, 186 integration) plus 23 worker, 67 TypeScript unit and 11
 end-to-end; `ruff`, `mypy --strict`, `eslint --max-warnings=0`, `tsc`/`vue-tsc`
 and `docker compose config` are clean. No paid API was called.
 
-## Phase 4 — Telegram remote control ✅ complete 2026-08-02
+## Phase 4 — Telegram remote control ✅ complete 2026-08-03
 
 - [x] Private Telegram bot adapter and secure webhook
 - [x] Webhook-secret verification and owner-ID allow-list
@@ -82,7 +82,7 @@ and `docker compose config` are clean. No paid API was called.
 
 Acceptance: fake-provider E2E and integration tests prove that an unauthorized sender is rejected, duplicate updates process once, and the owner can connect their account and control runs without any real Telegram call.
 
-Evidence: `docs/progress/phase-4-telegram-remote-control.md`. Migration `0004_phase_4_telegram` upgrades and downgrades cleanly; all 5 integration tests pass; frontend dashboard includes pairing card.
+Evidence: `docs/progress/phase-4-telegram-remote-control.md`. Migration `0004_phase_4_telegram` upgrades and downgrades cleanly; 427 backend tests passing, 30 frontend tests passing; frontend dashboard authentication flow and settings page remote control integration complete and verified.
 
 ## Phase 5 — Idea input, research, and approval
 

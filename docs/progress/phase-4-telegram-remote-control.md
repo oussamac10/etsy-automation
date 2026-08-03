@@ -88,16 +88,15 @@ All tests passed with zero linting or type-checking issues.
 - **Backend Pytest Suite**:
 
 ```bash
-106 passed, 8 skipped in 9.24s (targeted)
-424 passed in 49.46s (full backend suite)
+427 passed in 64.43s (full backend suite)
 ```
 
 - **Static Checks**:
   - `ruff check .` -> `All checks passed!`
-  - `mypy .` -> `Success: no issues found in 100 source files`
+  - `mypy backend/app` -> `Success: no issues found in 72 source files`
 - **Frontend Checks**:
   - `pnpm lint` -> `eslint . --max-warnings=0` (Clean, 0 errors/warnings)
   - `pnpm typecheck` -> `nuxt prepare && vue-tsc --noEmit` (Clean, Success)
-  - `pnpm test` -> `4 passed (20 tests)` (All passing)
+  - `pnpm test` -> `30 passed (30 tests)` (All passing)
 - **Docker Compose**:
-  - `docker compose config --quiet` (Valid)
+  - `docker compose config` (Valid)
