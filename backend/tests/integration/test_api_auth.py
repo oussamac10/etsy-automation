@@ -383,6 +383,46 @@ class TestAuditTrail:
             assert AuditAction.LOGOUT in await _audit_actions(uow)
 
 
+class TestRegister:
+    async def test_register_creates_new_user_and_sets_cookies(
+        self, anon_client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+    ) -> None:
+        email = "new-register@example.invalid"
+        response = await anon_client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": email,
+                "display_name": "New Owner",
+                "password": "some-safe-password-12345",
+            },
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["user"]["email"] == email
+        assert "etsy_session" in anon_client.cookies
+        assert "etsy_csrf" in anon_client.cookies
+
+        # Verify in database
+        async with UnitOfWork(session_factory) as uow:
+            db_user = await uow.users.get_by_email(email)
+            assert db_user is not None
+            assert db_user.display_name == "New Owner"
+
+    async def test_register_fails_if_email_exists(
+        self, anon_client: httpx.AsyncClient, accounts: dict[str, uuid.UUID]
+    ) -> None:
+        response = await anon_client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": OWNER_EMAIL,
+                "display_name": "Duplicate Owner",
+                "password": "password-12345",
+            },
+        )
+        assert response.status_code == 400
+        assert "already registered" in response.json()["title"].lower()
+
+
 async def _audit_rows(uow: UnitOfWork) -> list:  # type: ignore[type-arg]
     from app.infrastructure.models import AuditEvent
 

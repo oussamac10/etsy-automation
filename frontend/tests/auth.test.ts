@@ -71,6 +71,24 @@ describe("auth store", () => {
     );
   });
 
+  it("register success sets user", async () => {
+    const mockUser = { id: "123", email: "owner@example.com", is_active: true };
+    const fetchMock = vi.fn().mockResolvedValue({ user: mockUser });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const store = useAuthStore();
+    await store.register("owner@example.com", "John Doe", "password");
+
+    expect(store.user).toEqual(mockUser);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/auth/register",
+      expect.objectContaining({
+        method: "POST",
+        body: { email: "owner@example.com", display_name: "John Doe", password: "password" },
+      })
+    );
+  });
+
   it("logout clears user and resets initialized", async () => {
     const fetchMock = vi.fn().mockResolvedValue({});
     vi.stubGlobal("$fetch", fetchMock);

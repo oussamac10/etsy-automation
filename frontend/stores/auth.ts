@@ -21,7 +21,11 @@ export const useAuthStore = defineStore("auth", {
       this.loading = true;
       try {
         const config = useRuntimeConfig();
-        const apiBase = config.public.apiBase;
+        let apiBase = config.public.apiBase;
+        // SSR server needs to hit the API internally via container host
+        if (import.meta.server) {
+          apiBase = "http://api:8000";
+        }
         // Forward cookies if checking on the server-side during SSR
         const headers = useRequestHeaders(["cookie"]) as Record<string, string>;
         const data = await $fetch<User>(`${apiBase.replace(/\/$/, "")}/api/v1/auth/me`, {
@@ -42,6 +46,16 @@ export const useAuthStore = defineStore("auth", {
       const data = await $fetch<{ user: User }>(`${apiBase.replace(/\/$/, "")}/api/v1/auth/login`, {
         method: "POST",
         body: { email, password },
+        credentials: "include",
+      });
+      this.user = data.user;
+    },
+    async register(email: string, displayName: string, password: string) {
+      const config = useRuntimeConfig();
+      const apiBase = config.public.apiBase;
+      const data = await $fetch<{ user: User }>(`${apiBase.replace(/\/$/, "")}/api/v1/auth/register`, {
+        method: "POST",
+        body: { email, display_name: displayName, password },
         credentials: "include",
       });
       this.user = data.user;

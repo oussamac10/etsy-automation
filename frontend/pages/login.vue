@@ -84,6 +84,13 @@ async function handleLogin() {
           {{ loading ? 'Signing in...' : 'Sign In' }}
         </button>
       </form>
+
+      <footer class="mt-6 text-center text-xs text-slate-500">
+        Don't have an account yet?
+        <NuxtLink to="/register" class="font-medium text-sky-600 hover:text-sky-800 transition-colors">
+          Sign Up
+        </NuxtLink>
+      </footer>
     </div>
   </main>
 </template>

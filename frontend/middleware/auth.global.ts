@@ -7,11 +7,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
     await auth.checkAuth();
   }
 
-  if (!auth.isAuthenticated && to.path !== "/login") {
+  const isAuthPage = to.path === "/login" || to.path === "/register";
+
+  if (!auth.isAuthenticated && !isAuthPage) {
     return navigateTo("/login");
   }
 
-  if (auth.isAuthenticated && to.path === "/login") {
+  if (auth.isAuthenticated && isAuthPage) {
     return navigateTo("/");
   }
 });

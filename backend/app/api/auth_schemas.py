@@ -50,6 +50,14 @@ class LoginRequest(BaseModel):
     password: Annotated[SecretStr, Field(min_length=1, max_length=1024)]
 
 
+class RegisterRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: Annotated[str, Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$")]
+    display_name: Annotated[str, Field(min_length=1, max_length=120)]
+    password: Annotated[SecretStr, Field(min_length=8, max_length=1024)]
+
+
 class CurrentUserResponse(BaseModel):
     """Who is signed in. Deliberately holds no hash, session or token."""
 
