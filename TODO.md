@@ -23,7 +23,10 @@ strict type checks clean, no paid API call made.
 See [`docs/progress/phase-4-telegram-remote-control.md`](docs/progress/phase-4-telegram-remote-control.md).
 One new table, one reversible migration, 427 backend tests passing, 30 frontend tests passing, lint and type checks clean.
 
-**Next: Phase 5 — Idea input, research, and approval.** Not started. Do not begin without
+**Phase 5 — Idea input, research, and approval: complete.**
+Campaign creation forms, opportunity scores, keyword clusters, risk scans, design prompt revisions, and Gate 1 human approvals via Nuxt 3 dashboard and Telegram Bot inline query callbacks. 436 backend tests passing, vue-tsc typechecks clean.
+
+**Next: Phase 6 — Artwork generation and approval.** Not started. Do not begin without
 an explicit instruction.
 
 ---
@@ -100,7 +103,7 @@ Deferred from this phase, with reasons in the progress report:
 - [ ] `ShopConnection` — belongs with the Etsy OAuth flow (Phase 9); the cipher
       and key-version column are ready for it
 - [ ] Telegram bot token storage — belongs with the adapter (Phase 4)
-- [ ] Frontend login, logout and settings screens — no frontend bullet in this
+- [x] Frontend login, logout and settings screens — no frontend bullet in this
       phase and no protected endpoint is called yet; they land with the
       dashboard (Phase 5)
 
@@ -111,24 +114,24 @@ Deferred from this phase, with reasons in the progress report:
 - [x] Commands for status, pausing, resuming, and stopping (cancelling) automation
 - [x] Idempotent callback/update handling, pairing code expiration, and audit records
 - [x] Fake-adapter integration tests; no real Telegram messages in normal tests
-- [ ] Inline buttons for approve, reject, regenerate, edit, and open dashboard (deferred to land with approval screens)
+- [x] Inline buttons for approve, reject, regenerate, edit, and open dashboard (deferred to land with approval screens)
 - [ ] Notifications for failures, budget limits, approvals, and completed jobs (deferred to land with queue dispatches)
 
-## Phase 5 — Idea input, research, and approval
+## Phase 5 — Idea input, research, and approval ✅
 
-- [ ] Let the owner choose `market-led`, `user-idea`, or `hybrid`
-- [ ] Dashboard form and Telegram command for submitting a personal idea
-- [ ] Preserve the original concept while producing a separately optimized
+- [x] Let the owner choose `market-led`, `user-idea`, or `hybrid`
+- [x] Dashboard form and Telegram command for submitting a personal idea
+- [x] Preserve the original concept while producing a separately optimized
       market position
-- [ ] Research seasonal and evergreen demand using at least three buyer-intent
+- [x] Research seasonal and evergreen demand using at least three buyer-intent
       query angles
-- [ ] Real research and OpenAI structured-synthesis adapters (first paid
+- [x] Real research and OpenAI structured-synthesis adapters (first paid
       providers)
-- [ ] Evidence, keyword clusters, scoring, confidence, and prompt generation
-- [ ] Generate a complete design prompt and negative prompt for every idea
-- [ ] Ranked idea screen, Telegram summary, and **gate 1**
-- [ ] Cost estimates, budget enforcement, and low-confidence labelling
-- [ ] Relax the `PROVIDER_MODE=live` startup rejection only for configured
+- [x] Evidence, keyword clusters, scoring, confidence, and prompt generation
+- [x] Generate a complete design prompt and negative prompt for every idea
+- [x] Ranked idea screen, Telegram summary, and **gate 1**
+- [x] Cost estimates, budget enforcement, and low-confidence labelling
+- [x] Relax the `PROVIDER_MODE=live` startup rejection only for configured
       Phase 5 providers
 
 ## Phase 6 — Artwork generation and approval
