@@ -266,6 +266,133 @@ class TestTelegramWebhookCommands:
             conn = await uow.telegram_connections.get_by_telegram_user_id(999888)
             assert conn is None
 
+    async def test_webhook_concept_inline_approval(
+        self,
+        client: httpx.AsyncClient,
+        anon_client: httpx.AsyncClient,
+        api_app: Any,
+        session_factory: Any,
+    ) -> None:
+        # Flush Redis
+        await api_app.state.redis.flushdb()
+
+        # 1. Generate pairing code via settings API
+        code_resp = await client.post("/api/v1/settings/telegram/pairing-code")
+        code = code_resp.json()["pairing_code"]
+
+        # 2. Pair account
+        up_id = 2000000
+        update_payload: dict[str, Any] = {
+            "update_id": up_id,
+            "message": {
+                "message_id": 201,
+                "from": {"id": 888777, "username": "approver_owner"},
+                "chat": {"id": 666555, "type": "private"},
+                "text": code,
+            },
+        }
+        api_app.state.telegram_gateway.sent_messages.clear()
+        response = await anon_client.post("/api/v1/telegram/webhook/none", json=update_payload)
+        assert response.status_code == 200
+        await asyncio.sleep(0.2)
+
+        # 3. Create workflow and a product concept inside IDEA_REVIEW state
+        from app.infrastructure.models.concept import DesignPrompt, ProductConcept
+        async with UnitOfWork(session_factory) as uow:
+            conn = await uow.telegram_connections.get_by_telegram_user_id(888777)
+            assert conn is not None
+            wf = ProductWorkflow(
+                owner_id=conn.user_id,
+                idea_mode="market-led",
+                name="Inline Approval Job",
+                target_marketplace="etsy",
+                target_country="US",
+                output_language="en",
+                state=RunStatus.IDEA_REVIEW,
+            )
+            uow.session.add(wf)
+            await uow.session.flush()
+
+            concept = ProductConcept(
+                workflow_id=wf.id,
+                title="Cute Autumn Cat Mug",
+                description="Autumn themed cat illustration mug design.",
+                origin="market",
+                differentiation="Hand painted watercolor look",
+                seasonality="seasonal",
+                risk_level="low",
+                score=4.5,
+                score_breakdown={"demand": 5, "competition": 4},
+                status="proposed",
+            )
+            uow.session.add(concept)
+            await uow.session.flush()
+
+            prompt = DesignPrompt(
+                concept_id=concept.id,
+                version=1,
+                positive_prompt="Watercolor cute cat scarf",
+                negative_prompt="photorealistic",
+                intended_product_uses=["mug"],
+            )
+            uow.session.add(prompt)
+            await uow.commit()
+            wf_id = wf.id
+            concept_id = concept.id
+
+        # 4. Request job info via /job <id>
+        up_id += 1
+        update_payload["update_id"] = up_id
+        update_payload["message"]["text"] = f"/job {wf_id}"
+        api_app.state.telegram_gateway.sent_messages.clear()
+
+        await anon_client.post("/api/v1/telegram/webhook/none", json=update_payload)
+        await asyncio.sleep(0.2)
+
+        # Check inline keyboard is returned in details response
+        sent = api_app.state.telegram_gateway.sent_messages
+        assert len(sent) == 1
+        assert "Ranked Concepts (Gate 1):" in sent[0]["text"]
+        reply_markup = sent[0].get("reply_markup")
+        assert reply_markup is not None
+        assert "inline_keyboard" in reply_markup
+        inline_buttons = reply_markup["inline_keyboard"]
+        assert len(inline_buttons) == 2
+        assert inline_buttons[0][0]["text"] == "Approve Concept 1"
+        assert inline_buttons[0][0]["callback_data"] == f"approve:{wf_id}:{concept_id}"
+
+        # 5. Simulate clicking Approve Concept 1 via callback query
+        up_id += 1
+        callback_payload: dict[str, Any] = {
+            "update_id": up_id,
+            "callback_query": {
+                "id": "query123",
+                "from": {"id": 888777, "username": "approver_owner"},
+                "message": {
+                    "message_id": 202,
+                    "chat": {"id": 666555, "type": "private"},
+                    "text": "Ranked Concepts (Gate 1):",
+                },
+                "data": f"approve:{wf_id}:{concept_id}",
+            },
+        }
+        api_app.state.telegram_gateway.sent_messages.clear()
+
+        response = await anon_client.post("/api/v1/telegram/webhook/none", json=callback_payload)
+        assert response.status_code == 200
+        await asyncio.sleep(0.2)
+
+        # Assert approval success message is sent
+        sent = api_app.state.telegram_gateway.sent_messages
+        assert len(sent) == 1
+        assert "approved successfully" in sent[0]["text"]
+
+        # Verify state in DB transitioned to IDEA_APPROVED
+        async with UnitOfWork(session_factory) as uow:
+            wf_check = await uow.workflows.get(wf_id)
+            assert wf_check is not None
+            assert wf_check.state == RunStatus.IDEA_APPROVED
+
 
 class TestTelegramSecurityAndValidation:
     async def test_help_command_html_validation(self, session_factory: Any, api_app: Any) -> None:

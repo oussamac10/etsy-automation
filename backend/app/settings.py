@@ -81,6 +81,7 @@ class Settings(BaseSettings):
 
     telegram_bot_token: SecretStr | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     telegram_webhook_secret: SecretStr | None = Field(default=None, alias="TELEGRAM_WEBHOOK_SECRET")
+    tavily_api_key: SecretStr | None = Field(default=None, alias="TAVILY_API_KEY")
 
     @field_validator("log_level")
     @classmethod

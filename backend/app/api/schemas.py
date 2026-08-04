@@ -152,3 +152,100 @@ class ApprovalResponse(BaseModel):
     target_version: int | None
     decided_at: datetime | None
     created_at: datetime
+
+
+class ResearchRunResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    run_number: int
+    status: str
+    confidence: str | None
+    proposed_test: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    failure_reason: str | None
+    query_angles: list[str]
+
+
+class ResearchEvidenceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    run_id: uuid.UUID
+    search_query: str
+    query_angle: str
+    source_url: str
+    source_title: str
+    source_type: str
+    observation: str
+    observed_at: datetime
+
+
+class KeywordClusterResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    run_id: uuid.UUID
+    primary_phrase: str
+    attributes: list[str]
+    recipient_occasion_terms: list[str]
+    use_case_terms: list[str]
+    competition_level: str
+    competition_note: str | None
+    relevance_rank: int
+
+
+class DesignPromptResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    concept_id: uuid.UUID
+    version: int
+    positive_prompt: str
+    negative_prompt: str
+    typography_instructions: str | None
+    exact_slogan: str | None
+    intended_product_uses: list[str]
+    style_notes: str | None
+    palette: str | None
+    post_generation_checklist: list[str]
+    generation_metadata: dict[str, object]
+    change_note: str | None
+    created_at: datetime
+
+
+class ProductConceptResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    original_idea_id: uuid.UUID | None
+    research_run_id: uuid.UUID | None
+    title: str
+    description: str
+    origin: str
+    differentiation: str
+    target_buyer: str | None
+    buyer_use_case: str | None
+    seasonality: str
+    risk_level: str
+    risk_note: str | None
+    score: float | None
+    score_breakdown: dict[str, object]
+    score_explanation: str | None
+    status: str
+    created_at: datetime
+    prompts: list[DesignPromptResponse] = []
+
+
+class ConceptRevisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    positive_prompt: str
+    negative_prompt: str
+    typography_instructions: str | None = None
+    exact_slogan: str | None = None
+    change_note: Annotated[str, Field(min_length=1, max_length=1000)]
+

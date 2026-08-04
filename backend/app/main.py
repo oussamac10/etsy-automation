@@ -74,6 +74,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             telegram_gateway = FakeTelegramGateway()
         application.state.telegram_gateway = telegram_gateway
 
+        # Configure Dramatiq broker
+        from worker.broker import configure_broker  # type: ignore[import-not-found]
+        configure_broker(resolved.redis_url, resolved.queue_namespace)
+
+        # Start Outbox Publisher
+        import os
+        outbox_publisher = None
+        if not os.environ.get("PYTEST_CURRENT_TEST"):
+            from app.infrastructure.outbox_publisher import OutboxPublisher
+            session_factory = create_session_factory(engine)
+            outbox_publisher = OutboxPublisher(session_factory)
+            outbox_publisher.start()
+
         logger.info(
             "api_started",
             app_env=resolved.app_env,
@@ -85,6 +98,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            if outbox_publisher:
+                outbox_publisher.stop()
             await http_client.aclose()
             await redis_client.aclose()
             await engine.dispose()

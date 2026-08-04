@@ -27,6 +27,8 @@ from app.infrastructure.repositories import (
     SqlTelegramConnectionRepository,
     SqlUserRepository,
     SqlWorkflowRepository,
+    SqlOutboxRepository,
+    SqlResearchRepository,
 )
 from app.ports.repositories import (
     ApprovalRepository,
@@ -40,6 +42,8 @@ from app.ports.repositories import (
     TelegramConnectionRepository,
     UserRepository,
     WorkflowRepository,
+    OutboxRepository,
+    ResearchRepository,
 )
 
 
@@ -60,6 +64,8 @@ class UnitOfWork:
     costs: CostRepository
     audit: AuditRepository
     telegram_connections: TelegramConnectionRepository
+    outbox: OutboxRepository
+    research: ResearchRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -80,6 +86,8 @@ class UnitOfWork:
         self.costs = SqlCostRepository(session)
         self.audit = SqlAuditRepository(session)
         self.telegram_connections = SqlTelegramConnectionRepository(session)
+        self.outbox = SqlOutboxRepository(session)
+        self.research = SqlResearchRepository(session)
         return self
 
     async def __aexit__(

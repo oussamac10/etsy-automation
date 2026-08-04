@@ -35,6 +35,7 @@ from app.infrastructure.models.research import (
 from app.infrastructure.models.telegram import TelegramConnection
 from app.infrastructure.models.user import User
 from app.infrastructure.models.workflow import ProductWorkflow, WorkflowTransition
+from app.infrastructure.models.outbox import OutboxMessage
 
 __all__ = [
     "Approval",
@@ -62,4 +63,5 @@ __all__ = [
     "UuidMixin",
     "WorkflowFailure",
     "WorkflowTransition",
+    "OutboxMessage",
 ]

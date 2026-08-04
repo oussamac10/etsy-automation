@@ -19,7 +19,10 @@ TEST_ENV: dict[str, str] = {
     "SECRET_KEY": "test-secret-key",
     # Long enough for the ENCRYPTION_KEY length rule. Obviously not a real key.
     "ENCRYPTION_KEY": "test-encryption-key-not-a-real-key-0123456789",
-    "DATABASE_URL": "postgresql+asyncpg://etsy:etsy@localhost:5432/etsy_test",
+    "DATABASE_URL": os.environ.get(
+        "TEST_DATABASE_URL",
+        "postgresql+asyncpg://etsy:etsy_local_password@localhost:55432/etsy_test",
+    ),
     "REDIS_URL": os.environ.get("TEST_REDIS_URL", "redis://localhost:6379/1"),
     "PROVIDER_MODE": "fake",
     "IMAGE_WORKER_URL": "http://image-worker.invalid:8100",

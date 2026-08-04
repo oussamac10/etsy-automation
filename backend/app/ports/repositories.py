@@ -35,6 +35,10 @@ from app.infrastructure.models import (
     User,
     UserSession,
     WorkflowTransition,
+    OutboxMessage,
+    ResearchRun,
+    ResearchEvidence,
+    KeywordCluster,
 )
 
 
@@ -392,3 +396,44 @@ class AuditRepository(Protocol):
     ) -> Sequence[AuditEvent]: ...
 
     async def for_entity(self, entity_type: str, entity_id: uuid.UUID) -> Sequence[AuditEvent]: ...
+
+
+@runtime_checkable
+class OutboxRepository(Protocol):
+    async def add(self, event_type: str, payload: dict[str, object]) -> OutboxMessage: ...
+
+    async def get_unprocessed(self, *, limit: int = 100) -> Sequence[OutboxMessage]: ...
+
+    async def mark_processed(self, message_id: uuid.UUID) -> None: ...
+
+
+@runtime_checkable
+class ResearchRepository(Protocol):
+    async def add_run(self, workflow_id: uuid.UUID) -> ResearchRun: ...
+
+    async def get_run(self, run_id: uuid.UUID) -> ResearchRun | None: ...
+
+    async def get_latest_run(self, workflow_id: uuid.UUID) -> ResearchRun | None: ...
+
+    async def list_runs_for_workflow(self, workflow_id: uuid.UUID) -> Sequence[ResearchRun]: ...
+
+    async def update_run(
+        self,
+        run_id: uuid.UUID,
+        *,
+        status: object,
+        confidence: object | None = None,
+        proposed_test: str | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        failure_reason: str | None = None,
+        query_angles: list[str] | None = None,
+    ) -> ResearchRun: ...
+
+    async def add_evidence(self, evidence: ResearchEvidence) -> ResearchEvidence: ...
+
+    async def get_evidence_for_run(self, run_id: uuid.UUID) -> Sequence[ResearchEvidence]: ...
+
+    async def add_keyword_cluster(self, cluster: KeywordCluster) -> KeywordCluster: ...
+
+    async def get_keyword_clusters_for_run(self, run_id: uuid.UUID) -> Sequence[KeywordCluster]: ...

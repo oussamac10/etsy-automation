@@ -4,6 +4,7 @@ import hashlib
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 import redis.asyncio as aioredis
@@ -18,6 +19,15 @@ from app.infrastructure.checks import check_database, check_image_worker, check_
 from app.ports.telegram import TelegramGateway
 from app.providers.telegram import escape_html
 from app.settings import Settings
+
+
+class TelegramResponse(str):
+    reply_markup: dict[str, Any] | None
+
+    def __new__(cls, content: str, reply_markup: dict[str, Any] | None = None):
+        obj = super().__new__(cls, content)
+        obj.reply_markup = reply_markup
+        return obj
 
 
 async def generate_pairing_code(uow: UnitOfWork, owner_id: uuid.UUID) -> tuple[str, datetime]:
@@ -173,7 +183,7 @@ async def handle_telegram_command(
         if workflow is None or workflow.owner_id != connection.user_id:
             return "Job not found."
 
-        return (
+        base_details = (
             "<b>Job Details:</b>\n"
             f"ID: <code>{workflow.id}</code>\n"
             f"Name: {escape_html(workflow.name)}\n"
@@ -183,6 +193,42 @@ async def handle_telegram_command(
             f"State: <b>{workflow.state.value}</b>\n"
             f"Version: {workflow.version}"
         )
+
+        if workflow.state == RunStatus.IDEA_REVIEW:
+            concepts = await uow.concepts.list_for_workflow(workflow.id)
+            lines = [
+                base_details,
+                "",
+                "<b>Ranked Concepts (Gate 1):</b>",
+            ]
+            inline_keyboard = []
+            for i, c in enumerate(concepts[:3]):
+                score_val = (c.score if c.score is not None else 0.0)
+                lines.append(
+                    f"{i+1}. <b>{escape_html(c.title)}</b> "
+                    f"(Score: {score_val:.2f} | Risk: {c.risk_level.value})"
+                )
+                prompts = await uow.concepts.prompts(c.id)
+                latest_prompt = prompts[-1] if prompts else None
+                if latest_prompt:
+                    prompt_txt = escape_html(latest_prompt.positive_prompt)
+                    lines.append(f"Prompt: <code>{prompt_txt}</code>")
+                inline_keyboard.append([
+                    {
+                        "text": f"Approve Concept {i+1}",
+                        "callback_data": f"approve:{workflow.id}:{c.id}",
+                    }
+                ])
+            inline_keyboard.append([
+                {"text": "Reject All", "callback_data": f"reject:{workflow.id}"}
+            ])
+            # Return custom TelegramResponse string subclass
+            return TelegramResponse(
+                "\n".join(lines),
+                reply_markup={"inline_keyboard": inline_keyboard},
+            )
+
+        return base_details
 
     if command == "/pause":
         settings_row = await get_or_create_settings(uow, connection.user_id)
@@ -310,3 +356,109 @@ async def _pair_flow(
     await redis.delete(redis_key)
 
     return "Successfully connected! You can now use the remote control commands."
+
+
+async def handle_telegram_callback(
+    uow: UnitOfWork,
+    redis: aioredis.Redis,
+    telegram_user_id: int,
+    telegram_chat_id: int,
+    telegram_username: str | None,
+    callback_data: str,
+    now: datetime,
+) -> str:
+    """Process a Telegram callback query (from inline keyboard clicks)."""
+    connection = await uow.telegram_connections.get_by_telegram_user_id(telegram_user_id)
+    if connection is None or not connection.is_paired:
+        return "This Telegram account is not paired with any project owner."
+
+    user = await uow.users.get(connection.user_id)
+    if user is None or not user.is_active:
+        return "Unauthorized: Your account is disabled."
+
+    parts = callback_data.split(":")
+    action = parts[0]
+
+    # Handle Concept Approval
+    if action == "approve":
+        if len(parts) < 3:
+            return "Invalid callback data structure."
+        workflow_id_str = parts[1]
+        concept_id_str = parts[2]
+
+        try:
+            workflow_id = uuid.UUID(workflow_id_str)
+            concept_id = uuid.UUID(concept_id_str)
+        except ValueError:
+            return "Invalid UUID format in callback."
+
+        workflow = await uow.workflows.get(workflow_id)
+        if not workflow or workflow.owner_id != connection.user_id:
+            return "Workflow not found."
+
+        concept = await uow.concepts.get(concept_id)
+        if not concept or concept.workflow_id != workflow.id:
+            return "Concept not found."
+
+        from app.application import workflows as workflow_use_cases
+        from app.domain.workflow import ApprovalDecision, ApprovalGate
+
+        prompts = await uow.concepts.prompts(concept.id)
+        target_version = prompts[-1].version if prompts else 1
+
+        try:
+            await workflow_use_cases.decide_gate(
+                uow=uow,
+                workflow_id=workflow_id,
+                owner_id=connection.user_id,
+                gate=ApprovalGate.IDEA_APPROVAL,
+                decision=ApprovalDecision.APPROVED,
+                actor=f"telegram:{telegram_user_id}",
+                target_type="ProductConcept",
+                target_id=concept_id,
+                target_version=target_version,
+                comment="Approved via Telegram remote control inline button",
+            )
+            return (
+                f"Concept '<b>{escape_html(concept.title)}</b>' approved successfully! "
+                "Starting artwork generation queued..."
+            )
+        except Exception as exc:
+            return f"Failed to approve concept: {exc!s}"
+
+    # Handle Concept Rejection
+    elif action == "reject":
+        if len(parts) < 2:
+            return "Invalid callback data structure."
+        workflow_id_str = parts[1]
+
+        try:
+            workflow_id = uuid.UUID(workflow_id_str)
+        except ValueError:
+            return "Invalid UUID format in callback."
+
+        workflow = await uow.workflows.get(workflow_id)
+        if not workflow or workflow.owner_id != connection.user_id:
+            return "Workflow not found."
+
+        from app.application import workflows as workflow_use_cases
+        from app.domain.workflow import ApprovalDecision, ApprovalGate
+
+        try:
+            await workflow_use_cases.decide_gate(
+                uow=uow,
+                workflow_id=workflow_id,
+                owner_id=connection.user_id,
+                gate=ApprovalGate.IDEA_APPROVAL,
+                decision=ApprovalDecision.REJECTED,
+                actor=f"telegram:{telegram_user_id}",
+                target_type="ProductWorkflow",
+                target_id=workflow_id,
+                target_version=workflow.version,
+                comment="Rejected via Telegram remote control inline button",
+            )
+            return f"Workflow campaign '<b>{escape_html(workflow.name)}</b>' has been rejected."
+        except Exception as exc:
+            return f"Failed to reject workflow: {exc!s}"
+
+    return "Unknown callback action."
