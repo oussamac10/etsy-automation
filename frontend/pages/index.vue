@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* global $fetch */
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useWorkflowStore } from "~/stores/workflow";
 
 interface Workflow {
@@ -161,8 +161,18 @@ async function handleCreateWorkflow(): Promise<void> {
   }
 }
 
+let pollInterval: any = null;
+
 onMounted(() => {
   loadWorkflows();
+  // Poll every 5 seconds to dynamically update campaign states
+  pollInterval = setInterval(loadWorkflows, 5000);
+});
+
+onUnmounted(() => {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+  }
 });
 </script>
 
