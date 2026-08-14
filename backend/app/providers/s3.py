@@ -26,12 +26,14 @@ class S3ObjectStorage:
         secret_access_key: str,
         region_name: str = "us-east-1",
         force_path_style: bool = True,
+        public_endpoint_url: str | None = None,
     ) -> None:
         self._endpoint_url = endpoint_url
         self._bucket_name = bucket_name
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._region_name = region_name
+        self._public_endpoint_url = public_endpoint_url
 
         # MinIO/local S3 services generally require force_path_style=True
         self._config = Config(
@@ -108,6 +110,8 @@ class S3ObjectStorage:
                 ExpiresIn=expires_in_seconds,
             )
             assert isinstance(url, str)
+            if self._public_endpoint_url and self._endpoint_url in url:
+                url = url.replace(self._endpoint_url, self._public_endpoint_url)
             return url
         except Exception as exc:
             raise ProviderError(

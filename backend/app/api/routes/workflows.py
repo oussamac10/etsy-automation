@@ -546,6 +546,7 @@ async def generate_artwork(
             secret_access_key=settings.s3_secret_access_key.get_secret_value(),
             region_name=settings.s3_region,
             force_path_style=settings.s3_force_path_style,
+            public_endpoint_url=settings.s3_public_endpoint_url,
         )
         assets = await uow.assets.list_for_job(existing_job.id)
         asset_resps = []
@@ -614,6 +615,7 @@ async def list_artwork_jobs(
         secret_access_key=settings.s3_secret_access_key.get_secret_value(),
         region_name=settings.s3_region,
         force_path_style=settings.s3_force_path_style,
+        public_endpoint_url=settings.s3_public_endpoint_url,
     )
 
     results = []
