@@ -239,7 +239,7 @@ class GeminiSynthesisAdapter:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-1.5-flash",
+        model: str = "gemini-flash-latest",
         timeout_seconds: float = 60.0,
     ) -> None:
         self._api_key = api_key
