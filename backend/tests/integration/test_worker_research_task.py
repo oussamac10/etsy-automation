@@ -316,3 +316,22 @@ def test_a_transient_provider_error_asks_dramatiq_to_retry(
 
     # The provider said when to come back; we honour it rather than guessing.
     assert caught.value.delay == 7000
+
+
+def test_worker_and_broker_initialization() -> None:
+    # 1. Verify broker initialization does not duplicate middleware
+    from worker.broker import build_broker
+    test_broker = build_broker("redis://localhost:6379/0", "test_namespace")
+    middleware_types = [type(m) for m in test_broker.middleware]
+    assert len(middleware_types) == len(set(middleware_types)), f"Duplicate middleware detected: {middleware_types}"
+
+    # 2. Verify run_research_task is registered on the configured broker
+    broker = dramatiq.get_broker()
+    declared_actors = broker.get_declared_actors()
+    assert "run_research_task" in declared_actors, f"run_research_task not registered! Actors: {declared_actors}"
+
+    # 3. Verify outbox message event_type can find the actor
+    actor = broker.get_actor("run_research_task")
+    assert actor is not None
+    assert actor.actor_name == "run_research_task"
+

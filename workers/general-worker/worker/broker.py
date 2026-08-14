@@ -26,17 +26,22 @@ DEFAULT_MAX_AGE_MS = 60 * 60 * 1000
 
 def build_broker(redis_url: str, namespace: str = "etsy_automation") -> RedisBroker:
     # dramatiq ships no type information; the constructor is untyped.
-    broker = RedisBroker(url=redis_url, namespace=namespace)  # type: ignore[no-untyped-call]
-    broker.add_middleware(AgeLimit(max_age=DEFAULT_MAX_AGE_MS))
-    broker.add_middleware(TimeLimit(time_limit=DEFAULT_TIME_LIMIT_MS))
-    broker.add_middleware(ShutdownNotifications())
-    broker.add_middleware(Callbacks())
-    # Actors read the attempt count off the current message to decide whether a
-    # retry is still allowed; without this middleware it is not reachable.
-    broker.add_middleware(CurrentMessage())
-    # Retry decisions are made by worker.retry.should_retry inside each actor;
-    # this bound is the hard ceiling.
-    broker.add_middleware(Retries(max_retries=5))
+    broker = RedisBroker(
+        url=redis_url,
+        namespace=namespace,
+        middleware=[
+            AgeLimit(max_age=DEFAULT_MAX_AGE_MS),
+            TimeLimit(time_limit=DEFAULT_TIME_LIMIT_MS),
+            ShutdownNotifications(),
+            Callbacks(),
+            # Actors read the attempt count off the current message to decide whether a
+            # retry is still allowed; without this middleware it is not reachable.
+            CurrentMessage(),
+            # Retry decisions are made by worker.retry.should_retry inside each actor;
+            # this bound is the hard ceiling.
+            Retries(max_retries=5),
+        ],
+    )  # type: ignore[no-untyped-call]
     return broker
 
 

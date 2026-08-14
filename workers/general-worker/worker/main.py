@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import dramatiq
 
-import worker.tasks  # noqa: F401 (imported to register dramatiq actors)
 from app.infrastructure.logging import configure_logging, get_logger
 from app.settings import get_settings
 from worker.broker import configure_broker
@@ -17,6 +16,8 @@ configure_logging(level=settings.log_level, json_output=not settings.is_local)
 logger = get_logger("worker")
 
 configure_broker(settings.redis_url, settings.queue_namespace)
+
+import worker.tasks  # noqa: F401 (imported to register dramatiq actors)
 
 
 @dramatiq.actor(max_retries=0, queue_name="health")
