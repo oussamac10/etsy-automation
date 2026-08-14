@@ -47,7 +47,7 @@ class RecraftImageAdapter:
             "response_format": "url",
         }
 
-        if request.negative_prompt:
+        if request.negative_prompt and "recraftv4" not in model.lower():
             payload["negative_prompt"] = request.negative_prompt
 
         # Handle transparent background outputs by requesting png output
