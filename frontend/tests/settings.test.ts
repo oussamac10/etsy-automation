@@ -22,6 +22,17 @@ const NavBarMock = {
   template: "<div>NavBar Mock</div>",
 };
 
+function stubFetch(telegramMock: any) {
+  const fetchMock = vi.fn().mockImplementation((url: string, options?: any) => {
+    if (url.includes("/settings/credentials")) {
+      return Promise.resolve({ items: [] });
+    }
+    return telegramMock(url, options);
+  });
+  vi.stubGlobal("$fetch", fetchMock);
+  return fetchMock;
+}
+
 describe("settings page - Telegram card", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -35,12 +46,12 @@ describe("settings page - Telegram card", () => {
   });
 
   it("loads and displays unpaired state", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const telegramMock = vi.fn().mockResolvedValue({
       paired: false,
       telegram_username: null,
       pairing_code_expires_at: null,
     });
-    vi.stubGlobal("$fetch", fetchMock);
+    const fetchMock = stubFetch(telegramMock);
 
     const wrapper = mount(settingsPage, {
       global: {
@@ -64,12 +75,12 @@ describe("settings page - Telegram card", () => {
   });
 
   it("loads and displays paired state", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const telegramMock = vi.fn().mockResolvedValue({
       paired: true,
       telegram_username: "john_doe",
       pairing_code_expires_at: null,
     });
-    vi.stubGlobal("$fetch", fetchMock);
+    const fetchMock = stubFetch(telegramMock);
 
     const wrapper = mount(settingsPage, {
       global: {
@@ -88,7 +99,7 @@ describe("settings page - Telegram card", () => {
   });
 
   it("handles pairing code generation and handles CSRF validation", async () => {
-    const fetchMock = vi.fn()
+    const telegramMock = vi.fn()
       .mockResolvedValueOnce({
         paired: false,
         telegram_username: null,
@@ -99,7 +110,7 @@ describe("settings page - Telegram card", () => {
         expires_at: new Date(Date.now() + 300000).toISOString(), // 5 mins
       });
 
-    vi.stubGlobal("$fetch", fetchMock);
+    const fetchMock = stubFetch(telegramMock);
 
     const wrapper = mount(settingsPage, {
       global: {
@@ -133,7 +144,7 @@ describe("settings page - Telegram card", () => {
 
   it("handles pairing code expiration countdown", async () => {
     const expiresAt = new Date(Date.now() + 120000); // 2 mins
-    const fetchMock = vi.fn()
+    const telegramMock = vi.fn()
       .mockResolvedValueOnce({
         paired: false,
         telegram_username: null,
@@ -144,7 +155,7 @@ describe("settings page - Telegram card", () => {
         expires_at: expiresAt.toISOString(),
       });
 
-    vi.stubGlobal("$fetch", fetchMock);
+    const fetchMock = stubFetch(telegramMock);
 
     const wrapper = mount(settingsPage, {
       global: {
@@ -180,7 +191,7 @@ describe("settings page - Telegram card", () => {
   });
 
   it("handles bot disconnect with CSRF token check", async () => {
-    const fetchMock = vi.fn()
+    const telegramMock = vi.fn()
       .mockResolvedValueOnce({
         paired: true,
         telegram_username: "john_doe",
@@ -188,7 +199,7 @@ describe("settings page - Telegram card", () => {
       })
       .mockResolvedValueOnce({}); // DELETE ok
 
-    vi.stubGlobal("$fetch", fetchMock);
+    const fetchMock = stubFetch(telegramMock);
 
     const wrapper = mount(settingsPage, {
       global: {
