@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import threading
 
 import dramatiq
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -13,7 +12,7 @@ logger = get_logger("outbox_publisher")
 
 
 class OutboxPublisher:
-    """Transactional outbox publisher running in a background daemon thread.
+    """Transactional outbox publisher running as a background asyncio task.
 
     Polls for unprocessed outbox messages and reliably enqueues them into Dramatiq.
     """
@@ -25,28 +24,19 @@ class OutboxPublisher:
     ) -> None:
         self._session_factory = session_factory
         self._poll_interval = poll_interval_seconds
-        self._stop_event = threading.Event()
-        self._thread: threading.Thread | None = None
+        self._task: asyncio.Task[None] | None = None
+        self._stop_event = asyncio.Event()
 
     def start(self) -> None:
         self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._run_loop, daemon=True, name="outbox-publisher"
-        )
-        self._thread.start()
+        self._task = asyncio.create_task(self._publish_messages())
         logger.info("outbox_publisher_started")
 
     def stop(self) -> None:
-        if self._thread:
+        if self._task:
             self._stop_event.set()
-            self._thread.join(timeout=5)
+            self._task.cancel()
             logger.info("outbox_publisher_stopped")
-
-    def _run_loop(self) -> None:
-        try:
-            asyncio.run(self._publish_messages())
-        except Exception as e:
-            logger.exception("outbox_publisher_thread_crashed", error=str(e))
 
     async def _publish_messages(self) -> None:
         while not self._stop_event.is_set():
@@ -82,11 +72,13 @@ class OutboxPublisher:
                                 error=str(e),
                             )
                     await uow.commit()
+            except asyncio.CancelledError:
+                break
             except Exception as e:
                 logger.exception("outbox_publisher_loop_failed", error=str(e))
 
-            # Sleep poll interval with periodic checks for stop signal
-            for _ in range(int(self._poll_interval * 10)):
-                if self._stop_event.is_set():
-                    break
-                await asyncio.sleep(0.1)
+            # Sleep poll interval or until cancelled
+            try:
+                await asyncio.sleep(self._poll_interval)
+            except asyncio.CancelledError:
+                break

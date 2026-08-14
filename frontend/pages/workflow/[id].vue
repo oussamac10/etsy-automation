@@ -1,3 +1,4 @@
+<script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
@@ -654,9 +655,9 @@ onBeforeUnmount(stopPolling);
                 <div>
                   <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Model Profile</label>
                   <select v-model="artModel" class="w-full rounded-lg border-slate-200 text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    <option v-slot:default v-if="artProvider === 'recraft'" value="recraftv4_1">Recraft V4.1 (Standard)</option>
-                    <option v-slot:default v-if="artProvider === 'recraft'" value="recraftv4_1_pro">Recraft V4.1 Pro (Premium, 1 Candidate)</option>
-                    <option v-slot:default v-if="artProvider === 'gemini'" value="gemini-3.1-flash-image">Gemini 3.1 Flash Image (Standard)</option>
+                    <option v-if="artProvider === 'recraft'" value="recraftv4_1">Recraft V4.1 (Standard)</option>
+                    <option v-if="artProvider === 'recraft'" value="recraftv4_1_pro">Recraft V4.1 Pro (Premium, 1 Candidate)</option>
+                    <option v-if="artProvider === 'gemini'" value="gemini-3.1-flash-image">Gemini 3.1 Flash Image (Standard)</option>
                   </select>
                 </div>
               </div>
@@ -687,13 +688,13 @@ onBeforeUnmount(stopPolling);
                   v-if="workflow.state === 'ART_REVIEW'"
                   type="button"
                   class="text-xs font-semibold text-red-600 hover:text-red-800 underline"
-                  @click="() => rejectArtwork(artworkJobs[0]?.id, workflow.version)"
+                  @click="() => workflow && rejectArtwork(artworkJobs[0]?.id, workflow.version)"
                 >
                   Reject All Options
                 </button>
               </div>
 
-              <div v-slot:default v-if="artworkError" class="text-sm text-red-600 bg-red-50 border border-red-100 p-3 rounded-lg">
+              <div v-if="artworkError" class="text-sm text-red-600 bg-red-50 border border-red-100 p-3 rounded-lg">
                 {{ artworkError }}
               </div>
 
@@ -713,7 +714,7 @@ onBeforeUnmount(stopPolling);
                       alt="Candidate Preview"
                       class="object-contain w-full h-full max-h-[350px]"
                     />
-                    <div v-slot:default v-else class="text-slate-400 text-sm">Preview Loading...</div>
+                    <div v-else class="text-slate-400 text-sm">Preview Loading...</div>
                     <span class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-xs font-mono px-2 py-1 rounded">
                       Candidate {{ idx + 1 }}
                     </span>

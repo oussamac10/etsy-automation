@@ -29,6 +29,7 @@ dependencies = [
     "argon2-cffi==25.1.0",
     "structlog==26.1.0",
     "python-dotenv==1.2.2",
+    "boto3==1.43.71",
 ]
 
 [project.optional-dependencies]
