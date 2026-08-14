@@ -75,7 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.telegram_gateway = telegram_gateway
 
         # Configure Dramatiq broker
-        from worker.broker import configure_broker  # type: ignore[import-not-found]
+        from worker.broker import configure_broker
         configure_broker(resolved.redis_url, resolved.queue_namespace)
 
         # Start Outbox Publisher

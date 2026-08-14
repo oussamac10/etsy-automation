@@ -86,19 +86,32 @@ Evidence: `docs/progress/phase-4-telegram-remote-control.md`. Migration `0004_ph
 
 ## Phase 5 — Idea input, research, and approval
 
-- [ ] Dashboard and Telegram inputs for all three idea modes
-- [ ] Market-led seasonal and evergreen discovery
-- [ ] User-idea validation that preserves the original concept
-- [ ] Hybrid research that combines the original idea with current evidence
-- [ ] Research provider and OpenAI structured-synthesis adapter
-- [ ] Evidence, keyword clusters, scoring, confidence, and prompt generation
-- [ ] Complete positive and negative design prompts for every idea
-- [ ] Ranked idea screen, Telegram summary, cost estimate, and approval gate
+- [x] Dashboard and Telegram inputs for all three idea modes
+- [x] Market-led seasonal and evergreen discovery
+- [x] User-idea validation that preserves the original concept
+- [x] Hybrid research that combines the original idea with current evidence
+- [x] Research provider and OpenAI structured-synthesis adapter
+- [x] Evidence, keyword clusters, scoring, confidence, and prompt generation
+- [x] Complete positive and negative design prompts for every idea
+- [x] Ranked idea screen, Telegram summary, cost estimate, and approval gate
 
 Acceptance: fake-provider E2E covers `market-led`, `user-idea`, and `hybrid`;
 each run produces at least three evidence-linked, ranked concepts with complete
 prompts; the faithful user-idea version remains recognizable and unchanged in
 the original-input record.
+
+Evidence: 471 backend tests and 23 worker tests passing; ruff and mypy strict
+clean on both Python projects; no paid provider reachable from the suite.
+`tests/integration/test_worker_research_task.py` drives `run_research_task`
+against PostgreSQL and covers the happy path, at-least-once redelivery, a
+message for a missing run, budget refusal, and the permanent versus transient
+error split. `tests/integration/test_api_idea_approval.py` covers Gate 1:
+idempotent enqueue, stale-version rejection, and a high-risk concept that can
+be rejected but not approved. Budget and phrase-screen rules are unit-tested in
+`tests/integration/test_research_budget.py` and `tests/test_ip_risk.py`.
+
+Gap: the actor E2E covers `market-led` and `user-idea`; `hybrid` is exercised at
+the domain and repository level only (`tests/test_ideas.py`).
 
 ## Phase 6 — Artwork generation and approval
 

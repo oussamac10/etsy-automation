@@ -105,7 +105,10 @@ class FakeTextProvider:
                 "recipient_occasion_terms": ["autumn", "animal lovers"],
                 "use_case_terms": ["mug", "tumbler"],
                 "competition_level": "differentiable",
-                "competition_note": "A popular keyword cluster but few listings offer high quality textured drawing style.",
+                "competition_note": (
+                    "A popular keyword cluster but few listings offer high quality textured "
+                    "drawing style."
+                ),
                 "relevance_rank": 95,
             },
             {
@@ -133,7 +136,10 @@ class FakeTextProvider:
                 {
                     "title": "Faithful Concept: Sleepy Fox",
                     "description": f"A faithful visualization of the user idea: {original_text}",
-                    "differentiation": "Preserves the original concept verbatim while centering the fox curling around a steaming mug in an cozy line art style.",
+                    "differentiation": (
+                        "Preserves the original concept verbatim while centering the fox curling "
+                        "around a steaming mug in an cozy line art style."
+                    ),
                     "target_buyer": "People who like quiet autumn mornings and cozy aesthetics",
                     "buyer_use_case": "Morning coffee ritual or seasonal gifting",
                     "seasonality": "seasonal",
@@ -153,9 +159,18 @@ class FakeTextProvider:
                     "fidelity": "High",
                     "origin": "user",
                     "prompt": {
-                        "positive_prompt": "A hand-drawn sleepy fox curled around a steaming mug, cosy autumn morning mood, highly detailed pencil texture, isolated on a transparent background.",
-                        "negative_prompt": "background, scene, mockup, model, watermark, signature.",
-                        "typography_instructions": "Overlay the slogan 'Slow Mornings' below the fox artwork using a warm serif font.",
+                        "positive_prompt": (
+                            "A hand-drawn sleepy fox curled around a steaming mug, cosy autumn "
+                            "morning mood, highly detailed pencil texture, isolated on a "
+                            "transparent background."
+                        ),
+                        "negative_prompt": (
+                            "background, scene, mockup, model, watermark, signature."
+                        ),
+                        "typography_instructions": (
+                            "Overlay the slogan 'Slow Mornings' below the fox artwork using a warm "
+                            "serif font."
+                        ),
                         "exact_slogan": "Slow Mornings",
                         "intended_product_uses": ["mug", "tote"],
                         "style_notes": "hand-drawn, textured line work",
@@ -166,8 +181,13 @@ class FakeTextProvider:
                 },
                 {
                     "title": "Optimized Concept: Fox & Forest",
-                    "description": "Repositioned version adding forest background elements in a cute illustration style.",
-                    "differentiation": "Repositioned to target a broader audience of nature lovers.",
+                    "description": (
+                        "Repositioned version adding forest background elements in a cute "
+                        "illustration style."
+                    ),
+                    "differentiation": (
+                        "Repositioned to target a broader audience of nature lovers."
+                    ),
                     "target_buyer": "Nature and animal lovers",
                     "buyer_use_case": "Sublimation designs for tumblers",
                     "seasonality": "evergreen",
@@ -187,7 +207,10 @@ class FakeTextProvider:
                     "fidelity": "Medium",
                     "origin": "hybrid",
                     "prompt": {
-                        "positive_prompt": "Cute sleepy fox curled in a miniature forest clearing, autumn setting, isolated vector illustration style.",
+                        "positive_prompt": (
+                            "Cute sleepy fox curled in a miniature forest clearing, autumn "
+                            "setting, isolated vector illustration style."
+                        ),
                         "negative_prompt": "background, scene, mockup, watermark.",
                         "typography_instructions": None,
                         "exact_slogan": None,
@@ -221,7 +244,10 @@ class FakeTextProvider:
                     "fidelity": "Low",
                     "origin": "market",
                     "prompt": {
-                        "positive_prompt": "Retro 70s groovy style illustration of a fox holding a coffee mug, vibrant colors, isolated central artwork.",
+                        "positive_prompt": (
+                            "Retro 70s groovy style illustration of a fox holding a coffee mug, "
+                            "vibrant colors, isolated central artwork."
+                        ),
                         "negative_prompt": "background, mockup, watermark.",
                         "typography_instructions": None,
                         "exact_slogan": None,
@@ -238,7 +264,9 @@ class FakeTextProvider:
                 {
                     "title": "Autumn Mushroom Clipart",
                     "description": "Detailed hand-drawn watercolor mushrooms for autumn decor.",
-                    "differentiation": "Watercolor texture tailored for print-on-demand mugs and pillows.",
+                    "differentiation": (
+                        "Watercolor texture tailored for print-on-demand mugs and pillows."
+                    ),
                     "target_buyer": "Home decor shoppers",
                     "buyer_use_case": "Cozy autumn aesthetic decoration",
                     "seasonality": "seasonal",
@@ -258,8 +286,13 @@ class FakeTextProvider:
                     "fidelity": "High",
                     "origin": "market",
                     "prompt": {
-                        "positive_prompt": "watercolor style autumn mushrooms, cozy forest floor accents, detailed illustration, isolated on a transparent background.",
-                        "negative_prompt": "background, scene, mockup, model, watermark, signature.",
+                        "positive_prompt": (
+                            "watercolor style autumn mushrooms, cozy forest floor accents, "
+                            "detailed illustration, isolated on a transparent background."
+                        ),
+                        "negative_prompt": (
+                            "background, scene, mockup, model, watermark, signature."
+                        ),
                         "typography_instructions": None,
                         "exact_slogan": None,
                         "intended_product_uses": ["mug", "pillow"],
@@ -292,7 +325,10 @@ class FakeTextProvider:
                     "fidelity": "High",
                     "origin": "market",
                     "prompt": {
-                        "positive_prompt": "minimalist single line art maple leaf, elegant modern style, isolated on transparent background.",
+                        "positive_prompt": (
+                            "minimalist single line art maple leaf, elegant modern style, isolated "
+                            "on transparent background."
+                        ),
                         "negative_prompt": "background, scene, mockup, watermark.",
                         "typography_instructions": None,
                         "exact_slogan": None,
@@ -306,7 +342,9 @@ class FakeTextProvider:
                 {
                     "title": "Retro Groovy Pumpkin",
                     "description": "Vibrant 70s style pumpkin with wavy elements.",
-                    "differentiation": "Appeals to halloween retro trend which is highly popular on Etsy.",
+                    "differentiation": (
+                        "Appeals to halloween retro trend which is highly popular on Etsy."
+                    ),
                     "target_buyer": "Halloween outfit shoppers",
                     "buyer_use_case": "Apparel printing and stickers",
                     "seasonality": "seasonal",
@@ -326,7 +364,10 @@ class FakeTextProvider:
                     "fidelity": "High",
                     "origin": "market",
                     "prompt": {
-                        "positive_prompt": "70s retro groovy pumpkin clipart, warm autumn colors, wavy psychedelic details, isolated vector.",
+                        "positive_prompt": (
+                            "70s retro groovy pumpkin clipart, warm autumn colors, wavy "
+                            "psychedelic details, isolated vector."
+                        ),
                         "negative_prompt": "background, mockup, watermark.",
                         "typography_instructions": None,
                         "exact_slogan": None,
@@ -341,7 +382,10 @@ class FakeTextProvider:
 
         payload = {
             "confidence": "high",
-            "proposed_test": "Create 10 draft listings with the 'watercolor style' concepts to measure click-through rates.",
+            "proposed_test": (
+                "Create 10 draft listings with the 'watercolor style' concepts to measure "
+                "click-through rates."
+            ),
             "keyword_clusters": clusters,
             "concepts": concepts,
         }

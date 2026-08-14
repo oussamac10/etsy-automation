@@ -11,13 +11,18 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from app.application.unit_of_work import UnitOfWork
-from app.domain.enums import AuditAction, IdeaMode
-from app.domain.errors import EntityNotFoundError
+from app.domain.enums import AuditAction, ConceptStatus, IdeaMode
+from app.domain.errors import (
+    ConcurrentModificationError,
+    EntityNotFoundError,
+    UnresolvedRiskError,
+)
 from app.domain.ideas import normalize_idea_text, validate_idea_submission
 from app.domain.workflow import (
     GATE_SOURCE_STATUS,
     ApprovalDecision,
     ApprovalGate,
+    RiskLevel,
     RunStatus,
     apply_approval,
 )
@@ -265,11 +270,52 @@ async def decide_gate(
     approval that did not move the workflow, or a move with no approval behind
     it, would both be lies about what happened.
     """
+    # Ownership first: nothing below may confirm that a concept ID exists to a
+    # caller who does not own the workflow it belongs to.
     workflow = await _owned_workflow(uow, workflow_id, owner_id)
+
+    # The same decision on the same target version is a duplicate click or a
+    # redelivered Telegram callback, not a second approval. Return the original
+    # record so the audit history holds one decision per reviewed version.
+    for existing in await uow.approvals.history(workflow_id, gate=gate):
+        if (
+            existing.decision == decision
+            and existing.target_id == target_id
+            and existing.target_version == target_version
+        ):
+            return existing
+
+    concept = None
+    if target_type == "ProductConcept" and target_id is not None:
+        concept = await uow.concepts.get(target_id)
+        if not concept or concept.workflow_id != workflow_id:
+            raise EntityNotFoundError("ProductConcept", target_id)
+
+        # An approval names the version the human actually read. If a newer
+        # prompt version was appended since, the decision is about text nobody
+        # reviewed, so it is refused rather than silently applied to the latest.
+        prompts = await uow.concepts.prompts(target_id)
+        latest_version = prompts[-1].version if prompts else 1
+        if target_version is not None and target_version < latest_version:
+            raise ConcurrentModificationError(
+                "ProductConcept", target_id, target_version, latest_version
+            )
+
+        # The IP screen is preliminary and never clears anything, but an
+        # unresolved high-risk flag must be revised away rather than approved
+        # over. Revising appends a version, which re-runs the screen.
+        if decision == ApprovalDecision.APPROVED and concept.risk_level == RiskLevel.HIGH:
+            raise UnresolvedRiskError(target_id)
 
     previous_state = workflow.state
     # Raises GateNotSatisfiedError when the workflow is not at this gate.
     resulting_state = apply_approval(previous_state, gate, decision=decision)
+
+    if concept is not None:
+        if decision == ApprovalDecision.APPROVED:
+            concept.status = ConceptStatus.APPROVED
+        elif decision == ApprovalDecision.REJECTED:
+            concept.status = ConceptStatus.REJECTED
 
     approval = await uow.approvals.record(
         workflow=workflow,

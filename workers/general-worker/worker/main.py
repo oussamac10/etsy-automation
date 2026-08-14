@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import dramatiq
 
+import worker.tasks  # noqa: F401 (imported to register dramatiq actors)
 from app.infrastructure.logging import configure_logging, get_logger
 from app.settings import get_settings
 from worker.broker import configure_broker
-import worker.tasks  # noqa: F401 (imported to register dramatiq actors)
 
 settings = get_settings()
 configure_logging(level=settings.log_level, json_output=not settings.is_local)

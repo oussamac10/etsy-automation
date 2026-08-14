@@ -22,6 +22,20 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # Add value 'tavily' to 'provider_name' enum
+    op.execute("ALTER TYPE provider_name ADD VALUE IF NOT EXISTS 'tavily'")
+
+    # Add idempotency_key column to research_runs
+    op.add_column(
+        "research_runs",
+        sa.Column("idempotency_key", sa.String(length=200), nullable=True),
+    )
+    op.create_unique_constraint(
+        "uq_research_runs_idempotency_key",
+        "research_runs",
+        ["idempotency_key"],
+    )
+
     op.create_table(
         "outbox_messages",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -49,3 +63,9 @@ def downgrade() -> None:
         table_name="outbox_messages",
     )
     op.drop_table("outbox_messages")
+
+    op.execute(
+        "ALTER TABLE research_runs "
+        "DROP CONSTRAINT IF EXISTS uq_research_runs_idempotency_key"
+    )
+    op.execute("ALTER TABLE research_runs DROP COLUMN IF EXISTS idempotency_key")

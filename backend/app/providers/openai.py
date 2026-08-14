@@ -1,10 +1,80 @@
 from __future__ import annotations
 
-import json
+from typing import Literal
+
 import httpx
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import TextRequest, TextResponse
+
+# --------------------------------------------------------------------------
+# Strict OpenAI Response Schemas (Pydantic V2)
+# In strict mode, all properties must be required.
+# --------------------------------------------------------------------------
+
+class BaseSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class KeywordClusterSchema(BaseSchema):
+    primary_phrase: str = Field(...)
+    attributes: list[str] = Field(...)
+    recipient_occasion_terms: list[str] = Field(...)
+    use_case_terms: list[str] = Field(...)
+    competition_level: Literal["saturated", "crowded", "differentiable", "thin"] = Field(...)
+    competition_note: str = Field(...)
+    relevance_rank: int = Field(..., ge=0, le=100)
+
+
+class GenerationMetadataSchema(BaseSchema):
+    aspect: str = Field(...)
+    quality_tier: str = Field(...)
+
+
+class PromptSchema(BaseSchema):
+    positive_prompt: str = Field(...)
+    negative_prompt: str = Field(...)
+    typography_instructions: str | None = Field(...)
+    exact_slogan: str | None = Field(...)
+    intended_product_uses: list[str] = Field(...)
+    style_notes: str | None = Field(...)
+    palette: str | None = Field(...)
+    post_generation_checklist: list[str] = Field(...)
+    generation_metadata: GenerationMetadataSchema = Field(...)
+
+
+class ConceptScoreBreakdownSchema(BaseSchema):
+    demand: int = Field(..., ge=1, le=5)
+    competition_opportunity: int = Field(..., ge=1, le=5)
+    seasonal_timing: int = Field(..., ge=1, le=5)
+    buyer_clarity: int = Field(..., ge=1, le=5)
+    differentiation: int = Field(..., ge=1, le=5)
+    product_versatility: int = Field(..., ge=1, le=5)
+    ip_safety: int = Field(..., ge=1, le=5)
+
+
+class ConceptSchema(BaseSchema):
+    title: str = Field(...)
+    description: str = Field(...)
+    differentiation: str = Field(...)
+    target_buyer: str = Field(...)
+    buyer_use_case: str = Field(...)
+    seasonality: Literal["evergreen", "seasonal", "both"] = Field(...)
+    risk_level: Literal["low", "medium", "high"] = Field(...)
+    risk_note: str = Field(...)
+    score_breakdown: ConceptScoreBreakdownSchema = Field(...)
+    score_explanation: str = Field(...)
+    fidelity: Literal["High", "Medium", "Low"] = Field(...)
+    origin: Literal["user", "market", "hybrid"] = Field(...)
+    prompt: PromptSchema = Field(...)
+
+
+class ResearchSynthesisSchema(BaseSchema):
+    confidence: Literal["high", "medium", "low"] = Field(...)
+    proposed_test: str | None = Field(...)
+    keyword_clusters: list[KeywordClusterSchema] = Field(...)
+    concepts: list[ConceptSchema] = Field(...)
 
 
 class OpenAISynthesisAdapter:
@@ -15,7 +85,12 @@ class OpenAISynthesisAdapter:
 
     name = "openai"
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini", timeout_seconds: float = 60.0) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gpt-4o-mini",
+        timeout_seconds: float = 60.0,
+    ) -> None:
         self._api_key = api_key
         self._model = model
         self._timeout = timeout_seconds
@@ -31,11 +106,18 @@ class OpenAISynthesisAdapter:
             messages.append({"role": "system", "content": request.system})
         messages.append({"role": "user", "content": request.prompt})
 
-        # Request structured JSON format from the model
+        # Request structured JSON format using strict json_schema mode
         payload: dict[str, object] = {
             "model": self._model,
             "messages": messages,
-            "response_format": {"type": "json_object"},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "research_synthesis",
+                    "strict": True,
+                    "schema": ResearchSynthesisSchema.model_json_schema()
+                }
+            },
         }
 
         if request.max_output_tokens:
@@ -83,15 +165,15 @@ class OpenAISynthesisAdapter:
             text = choice["content"]
             usage = data["usage"]
 
-            # Double-check JSON validity
+            # Double-check schema validation
             try:
-                json.loads(text)
-            except json.JSONDecodeError as exc:
+                ResearchSynthesisSchema.model_validate_json(text)
+            except Exception as exc:
                 raise ProviderError(
                     kind=ProviderErrorKind.INVALID_REQUEST,
                     provider=self.name,
                     operation="generate",
-                    message="Model failed to return valid JSON payload.",
+                    message=f"Model response did not validate against strict schema: {exc}",
                 ) from exc
 
             return TextResponse(

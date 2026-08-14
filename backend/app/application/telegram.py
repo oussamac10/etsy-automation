@@ -24,7 +24,7 @@ from app.settings import Settings
 class TelegramResponse(str):
     reply_markup: dict[str, Any] | None
 
-    def __new__(cls, content: str, reply_markup: dict[str, Any] | None = None):
+    def __new__(cls, content: str, reply_markup: dict[str, Any] | None = None) -> TelegramResponse:
         obj = super().__new__(cls, content)
         obj.reply_markup = reply_markup
         return obj
@@ -210,17 +210,18 @@ async def handle_telegram_command(
                 )
                 prompts = await uow.concepts.prompts(c.id)
                 latest_prompt = prompts[-1] if prompts else None
+                version = latest_prompt.version if latest_prompt else 1
                 if latest_prompt:
                     prompt_txt = escape_html(latest_prompt.positive_prompt)
                     lines.append(f"Prompt: <code>{prompt_txt}</code>")
                 inline_keyboard.append([
                     {
                         "text": f"Approve Concept {i+1}",
-                        "callback_data": f"approve:{workflow.id}:{c.id}",
+                        "callback_data": f"approve:{c.id}:{version}",
                     }
                 ])
             inline_keyboard.append([
-                {"text": "Reject All", "callback_data": f"reject:{workflow.id}"}
+                {"text": "Reject All", "callback_data": f"reject:{workflow.id}:{workflow.version}"}
             ])
             # Return custom TelegramResponse string subclass
             return TelegramResponse(
@@ -383,33 +384,30 @@ async def handle_telegram_callback(
     if action == "approve":
         if len(parts) < 3:
             return "Invalid callback data structure."
-        workflow_id_str = parts[1]
-        concept_id_str = parts[2]
+        concept_id_str = parts[1]
+        version_str = parts[2]
 
         try:
-            workflow_id = uuid.UUID(workflow_id_str)
             concept_id = uuid.UUID(concept_id_str)
+            target_version = int(version_str)
         except ValueError:
-            return "Invalid UUID format in callback."
-
-        workflow = await uow.workflows.get(workflow_id)
-        if not workflow or workflow.owner_id != connection.user_id:
-            return "Workflow not found."
+            return "Invalid UUID or version format in callback."
 
         concept = await uow.concepts.get(concept_id)
-        if not concept or concept.workflow_id != workflow.id:
+        if not concept:
             return "Concept not found."
+
+        workflow = await uow.workflows.get(concept.workflow_id)
+        if not workflow or workflow.owner_id != connection.user_id:
+            return "Workflow not found."
 
         from app.application import workflows as workflow_use_cases
         from app.domain.workflow import ApprovalDecision, ApprovalGate
 
-        prompts = await uow.concepts.prompts(concept.id)
-        target_version = prompts[-1].version if prompts else 1
-
         try:
             await workflow_use_cases.decide_gate(
                 uow=uow,
-                workflow_id=workflow_id,
+                workflow_id=workflow.id,
                 owner_id=connection.user_id,
                 gate=ApprovalGate.IDEA_APPROVAL,
                 decision=ApprovalDecision.APPROVED,
@@ -421,21 +419,23 @@ async def handle_telegram_callback(
             )
             return (
                 f"Concept '<b>{escape_html(concept.title)}</b>' approved successfully! "
-                "Starting artwork generation queued..."
+                "The idea was approved and is ready for the next phase."
             )
         except Exception as exc:
             return f"Failed to approve concept: {exc!s}"
 
     # Handle Concept Rejection
     elif action == "reject":
-        if len(parts) < 2:
+        if len(parts) < 3:
             return "Invalid callback data structure."
         workflow_id_str = parts[1]
+        version_str = parts[2]
 
         try:
             workflow_id = uuid.UUID(workflow_id_str)
+            target_version = int(version_str)
         except ValueError:
-            return "Invalid UUID format in callback."
+            return "Invalid UUID or version format in callback."
 
         workflow = await uow.workflows.get(workflow_id)
         if not workflow or workflow.owner_id != connection.user_id:
@@ -454,7 +454,7 @@ async def handle_telegram_callback(
                 actor=f"telegram:{telegram_user_id}",
                 target_type="ProductWorkflow",
                 target_id=workflow_id,
-                target_version=workflow.version,
+                target_version=target_version,
                 comment="Rejected via Telegram remote control inline button",
             )
             return f"Workflow campaign '<b>{escape_html(workflow.name)}</b>' has been rejected."

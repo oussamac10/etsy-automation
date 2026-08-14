@@ -6,9 +6,12 @@ import uuid
 from datetime import UTC, datetime
 
 import dramatiq
+from dramatiq.middleware import CurrentMessage
 
 from app.application.owner_settings import reveal_credential
+from app.application.research import ensure_research_within_budget
 from app.application.unit_of_work import UnitOfWork
+from app.domain import ip_risk
 from app.domain.enums import (
     AuditAction,
     CompetitionLevel,
@@ -19,6 +22,7 @@ from app.domain.enums import (
     Seasonality,
     SourceType,
 )
+from app.domain.errors import BudgetExceededError
 from app.domain.money import Money
 from app.domain.workflow import (
     FailureStatus,
@@ -35,13 +39,20 @@ from app.infrastructure.models import (
 )
 from app.infrastructure.security import CredentialCipher
 from app.ports.errors import ProviderError, ProviderErrorKind
-from app.ports.providers import SearchQuery, SearchResult, TextRequest
+from app.ports.providers import (
+    ResearchProvider,
+    SearchQuery,
+    SearchResult,
+    TextGenerationProvider,
+    TextRequest,
+)
 
 # Providers
 from app.providers.fake import FakeResearchProvider, FakeTextProvider
 from app.providers.openai import OpenAISynthesisAdapter
 from app.providers.search import TavilySearchAdapter
 from app.settings import Settings, get_settings
+from worker.retry import retry_after, should_retry
 
 logger = get_logger("worker.tasks")
 
@@ -58,10 +69,39 @@ def run_research_task(workflow_id: str, run_id: str) -> None:
     except dramatiq.errors.Retry:
         # Re-raise Dramatiq Retry exception so the framework handles it
         raise
+    except ProviderError as exc:
+        message = CurrentMessage.get_current_message()
+        attempt = (message.options.get("retries", 0) if message else 0) + 1
+
+        # ``should_retry`` is the single policy every actor shares: a permanent
+        # 4xx, a missing credential or an exhausted budget never comes back,
+        # and neither does an attempt past the cap.
+        if not should_retry(exc, attempt):
+            logger.error(
+                "research_task_permanent_provider_error",
+                kind=exc.kind,
+                attempt=attempt,
+                message=exc.message,
+            )
+            asyncio.run(
+                _mark_failure_async(uuid.UUID(workflow_id), uuid.UUID(run_id), exc.message)
+            )
+            return
+
+        delay_ms = int(retry_after(exc, attempt) * 1000)
+        logger.info(
+            "research_task_retry_scheduled",
+            delay_ms=delay_ms,
+            attempt=attempt,
+            message=exc.message,
+        )
+        raise dramatiq.errors.Retry(delay=delay_ms) from exc
     except Exception as exc:
         logger.exception("research_task_unhandled_failure", error=str(exc))
         asyncio.run(_mark_failure_async(uuid.UUID(workflow_id), uuid.UUID(run_id), str(exc)))
-        raise exc
+        # Re-raised after the run is marked failed so an unclassified bug still
+        # reaches Dramatiq's dead letter queue instead of vanishing.
+        raise
 
 
 async def _mark_failure_async(workflow_id: uuid.UUID, run_id: uuid.UUID, reason: str) -> None:
@@ -122,10 +162,37 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 logger.error("research_run_not_found", run_id=str(run_id))
                 return
 
+            # Delivery is at least once: a redelivered message must not run the
+            # paid work a second time.
+            if run.status in {JobStatus.RUNNING, JobStatus.SUCCEEDED, JobStatus.FAILED}:
+                logger.info(
+                    "research_run_already_processed",
+                    run_id=str(run_id),
+                    status=run.status.value,
+                )
+                return
+
             workflow = await uow.workflows.get(workflow_id)
             if not workflow:
                 logger.error("workflow_not_found", workflow_id=str(workflow_id))
                 return
+
+            # The API checked this before queueing, but the ledger can move
+            # between then and delivery, so the wallet is protected here.
+            try:
+                await ensure_research_within_budget(
+                    uow,
+                    owner_id=workflow.owner_id,
+                    provider_mode=settings.provider_mode,
+                )
+            except BudgetExceededError as exc:
+                # Budget is never retryable: waiting does not make it cheaper.
+                raise ProviderError(
+                    kind=ProviderErrorKind.BUDGET_EXCEEDED,
+                    provider="system",
+                    operation="budget_check",
+                    message=str(exc),
+                ) from exc
 
             # Update status to RESEARCHING
             await uow.research.update_run(
@@ -175,7 +242,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 else:
                     try:
                         tavily_cred = await uow.credentials.get(
-                            workflow.owner_id, ProviderName.ETSY
+                            workflow.owner_id, ProviderName.TAVILY
                         )
                         if tavily_cred:
                             tavily_api_key = cipher.decrypt(
@@ -218,12 +285,13 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             "use-case": f"{target_theme} sublimation design for mug shirt",
         }
 
+        search_provider: ResearchProvider
         if settings.provider_mode == "live" and tavily_api_key:
             search_provider = TavilySearchAdapter(api_key=tavily_api_key)
         else:
             search_provider = FakeResearchProvider()
 
-        evidence_list: list[tuple[str, SearchResult]] = []
+        evidence_list: list[tuple[str, str, SearchResult]] = []
         query_angles_run: list[str] = []
 
         for angle_name, query_text in angles.items():
@@ -234,7 +302,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                     SearchQuery(text=query_text, angle=angle_name)
                 )
                 for res in results:
-                    evidence_list.append((angle_name, res))
+                    evidence_list.append((angle_name, query_text, res))
             except Exception as e:
                 logger.warning(
                     "search_query_failed", angle=angle_name, query=query_text, error=str(e)
@@ -244,6 +312,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             raise RuntimeError("No search evidence could be aggregated from search provider.")
 
         # 3. Synthesize Findings using Text Provider (OpenAI or Fake)
+        text_provider: TextGenerationProvider
         if settings.provider_mode == "live" and openai_api_key:
             text_provider = OpenAISynthesisAdapter(api_key=openai_api_key)
         else:
@@ -253,7 +322,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             [
                 f"Angle: {angle} | Title: {item.title} | Source: {item.url}\n"
                 f"Observation: {item.observation}"
-                for angle, item in evidence_list
+                for angle, _, item in evidence_list
             ]
         )
 
@@ -388,10 +457,10 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             db_run.proposed_test = synthesis.get("proposed_test")
 
             # Save Evidence
-            for angle_name, item in evidence_list:
+            for angle_name, query_text, item in evidence_list:
                 db_evidence = ResearchEvidence(
                     run_id=run_id,
-                    search_query=item.url,
+                    search_query=query_text,
                     query_angle=angle_name,
                     source_url=item.url,
                     source_title=item.title,
@@ -445,15 +514,14 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 risk_level_str = concept_data.get("risk_level", "low").lower()
                 risk_note = concept_data.get("risk_note", "")
 
-                phrase_check = concept_data.get("prompt", {}).get("exact_slogan", "") or ""
-                text_to_check = (
-                    f"{concept_data['title']} {concept_data['description']} {phrase_check}".lower()
+                # The model self-reports a risk level; the screen can only make
+                # it worse, never better, so a model that says "low" about a
+                # flagged phrase cannot talk its way past the gate.
+                flagged = ip_risk.scan(
+                    concept_data["title"],
+                    concept_data["description"],
+                    concept_data.get("prompt", {}).get("exact_slogan"),
                 )
-                blacklist = [
-                    "disney", "marvel", "starbucks", "taylor swift", "star wars",
-                    "harry potter", "nike", "barbie"
-                ]
-                flagged = [brand for brand in blacklist if brand in text_to_check]
                 if flagged:
                     risk_level_str = "high"
                     risk_note = f"Trademark brand names flagged: {', '.join(flagged)}. {risk_note}"

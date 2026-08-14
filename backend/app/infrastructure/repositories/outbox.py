@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,11 +20,18 @@ class SqlOutboxRepository:
         return message
 
     async def get_unprocessed(self, *, limit: int = 100) -> Sequence[OutboxMessage]:
+        """Claim a batch of undispatched messages for this publisher.
+
+        ``FOR UPDATE SKIP LOCKED`` is what makes more than one API replica safe:
+        each publisher takes rows nobody else holds instead of every replica
+        dispatching the same backlog.
+        """
         result = await self._session.execute(
             select(OutboxMessage)
-            .where(OutboxMessage.processed == False)
+            .where(OutboxMessage.processed.is_(False))
             .order_by(OutboxMessage.created_at)
             .limit(limit)
+            .with_for_update(skip_locked=True)
         )
         return result.scalars().all()
 

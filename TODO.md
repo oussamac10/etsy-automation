@@ -24,7 +24,7 @@ See [`docs/progress/phase-4-telegram-remote-control.md`](docs/progress/phase-4-t
 One new table, one reversible migration, 427 backend tests passing, 30 frontend tests passing, lint and type checks clean.
 
 **Phase 5 — Idea input, research, and approval: complete.**
-Campaign creation forms, opportunity scores, keyword clusters, risk scans, design prompt revisions, and Gate 1 human approvals via Nuxt 3 dashboard and Telegram Bot inline query callbacks. 436 backend tests passing, vue-tsc typechecks clean.
+Campaign creation forms, opportunity scores, keyword clusters, risk scans, design prompt revisions, and Gate 1 human approvals via Nuxt 3 dashboard and Telegram Bot inline query callbacks. 471 backend tests and 23 worker tests passing, ruff and mypy strict clean on both Python projects, vue-tsc typechecks clean.
 
 **Next: Phase 6 — Artwork generation and approval.** Not started. Do not begin without
 an explicit instruction.
@@ -133,6 +133,21 @@ Deferred from this phase, with reasons in the progress report:
 - [x] Cost estimates, budget enforcement, and low-confidence labelling
 - [x] Relax the `PROVIDER_MODE=live` startup rejection only for configured
       Phase 5 providers
+
+Hardening after the first Phase 5 pass:
+
+- [x] One budget rule (`app/application/research.py`) and one phrase screen
+      (`app/domain/ip_risk.py`), shared by the API and the worker instead of
+      duplicated in both
+- [x] `decide_gate` checks ownership before it confirms a concept exists, and
+      raises mapped domain errors (409) instead of bare `ValueError` (500)
+- [x] Outbox claims rows with `FOR UPDATE SKIP LOCKED`, so a second API replica
+      cannot publish the same message
+- [x] `CurrentMessage` middleware installed on the broker; the retry path read
+      the attempt count through a `dramatiq` attribute that does not exist
+- [x] End-to-end tests for `run_research_task` against PostgreSQL: happy path,
+      duplicate delivery, missing run, budget refusal, and the permanent versus
+      transient error split
 
 ## Phase 6 — Artwork generation and approval
 

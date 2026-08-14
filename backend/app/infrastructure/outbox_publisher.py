@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import threading
+
 import dramatiq
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.unit_of_work import UnitOfWork
 from app.infrastructure.logging import get_logger
@@ -54,14 +55,18 @@ class OutboxPublisher:
                     messages = await uow.outbox.get_unprocessed(limit=50)
                     for msg in messages:
                         try:
-                            # Build and enqueue Dramatiq message
-                            # event_type maps directly to target actor name
-                            dramatiq_msg = dramatiq.Message(
+                            # ``event_type`` is the target actor's name. The
+                            # outbox row's own ID becomes the broker message ID,
+                            # so a redelivery after a crash between enqueue and
+                            # commit carries the same ID rather than looking
+                            # like a second job.
+                            dramatiq_msg: dramatiq.Message[None] = dramatiq.Message(
                                 queue_name="default",
                                 actor_name=msg.event_type,
                                 args=(),
                                 kwargs=msg.payload,
                                 options={},
+                                message_id=str(msg.id),
                             )
                             dramatiq.get_broker().enqueue(dramatiq_msg)
                             await uow.outbox.mark_processed(msg.id)

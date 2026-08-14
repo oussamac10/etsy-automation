@@ -26,6 +26,7 @@ from app.infrastructure.models.concept import DesignPrompt, ProductConcept
 from app.infrastructure.models.cost import ProviderUsage
 from app.infrastructure.models.idea import OriginalIdea, OriginalIdeaRevision
 from app.infrastructure.models.listing import ListingDraft, ProductionJob
+from app.infrastructure.models.outbox import OutboxMessage
 from app.infrastructure.models.owner_settings import OwnerSettings, ProviderCredential
 from app.infrastructure.models.research import (
     KeywordCluster,
@@ -35,7 +36,6 @@ from app.infrastructure.models.research import (
 from app.infrastructure.models.telegram import TelegramConnection
 from app.infrastructure.models.user import User
 from app.infrastructure.models.workflow import ProductWorkflow, WorkflowTransition
-from app.infrastructure.models.outbox import OutboxMessage
 
 __all__ = [
     "Approval",
@@ -48,6 +48,7 @@ __all__ = [
     "ListingDraft",
     "OriginalIdea",
     "OriginalIdeaRevision",
+    "OutboxMessage",
     "OwnerSettings",
     "ProductConcept",
     "ProductWorkflow",
@@ -63,5 +64,4 @@ __all__ = [
     "UuidMixin",
     "WorkflowFailure",
     "WorkflowTransition",
-    "OutboxMessage",
 ]

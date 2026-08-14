@@ -120,6 +120,7 @@ class ProviderName(StrEnum):
     RECRAFT = "recraft"
     ETSY = "etsy"
     USPTO = "uspto"
+    TAVILY = "tavily"
 
 
 class CostStatus(StrEnum):

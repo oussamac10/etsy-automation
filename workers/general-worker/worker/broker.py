@@ -10,7 +10,14 @@ import os
 
 import dramatiq
 from dramatiq.brokers.redis import RedisBroker
-from dramatiq.middleware import AgeLimit, Callbacks, Retries, ShutdownNotifications, TimeLimit
+from dramatiq.middleware import (
+    AgeLimit,
+    Callbacks,
+    CurrentMessage,
+    Retries,
+    ShutdownNotifications,
+    TimeLimit,
+)
 
 # Long enough for an image round-trip, short enough that a hung job is noticed.
 DEFAULT_TIME_LIMIT_MS = 10 * 60 * 1000
@@ -24,6 +31,9 @@ def build_broker(redis_url: str, namespace: str = "etsy_automation") -> RedisBro
     broker.add_middleware(TimeLimit(time_limit=DEFAULT_TIME_LIMIT_MS))
     broker.add_middleware(ShutdownNotifications())
     broker.add_middleware(Callbacks())
+    # Actors read the attempt count off the current message to decide whether a
+    # retry is still allowed; without this middleware it is not reachable.
+    broker.add_middleware(CurrentMessage())
     # Retry decisions are made by worker.retry.should_retry inside each actor;
     # this bound is the hard ceiling.
     broker.add_middleware(Retries(max_retries=5))

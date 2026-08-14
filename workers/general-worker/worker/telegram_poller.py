@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import signal
 from datetime import UTC, datetime
 from typing import Any
@@ -13,6 +12,7 @@ from app.application.telegram import handle_telegram_command
 from app.application.unit_of_work import UnitOfWork
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import configure_logging, get_logger
+from app.ports.telegram import TelegramGateway
 from app.providers.telegram import FakeTelegramGateway, RealTelegramGateway
 from app.settings import get_settings
 
@@ -39,6 +39,7 @@ async def run_poller() -> None:
     redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
     http_client = httpx.AsyncClient(timeout=10.0)
 
+    gateway: TelegramGateway
     if settings.provider_mode == "live" and settings.telegram_bot_token:
         gateway = RealTelegramGateway(
             settings.telegram_bot_token.get_secret_value(),

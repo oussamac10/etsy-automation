@@ -24,21 +24,21 @@ from app.infrastructure.models import (
     Approval,
     AuditEvent,
     DesignPrompt,
+    KeywordCluster,
     OriginalIdea,
     OriginalIdeaRevision,
+    OutboxMessage,
     OwnerSettings,
     ProductConcept,
     ProductWorkflow,
     ProviderCredential,
     ProviderUsage,
+    ResearchEvidence,
+    ResearchRun,
     TelegramConnection,
     User,
     UserSession,
     WorkflowTransition,
-    OutboxMessage,
-    ResearchRun,
-    ResearchEvidence,
-    KeywordCluster,
 )
 
 
@@ -366,6 +366,15 @@ class CostRepository(Protocol):
         status: CostStatus | None = None,
     ) -> Money: ...
 
+    async def total_for_owner_in_period(
+        self,
+        owner_id: uuid.UUID,
+        *,
+        since: datetime,
+        until: datetime,
+        currency: str = "USD",
+    ) -> Money: ...
+
     async def would_exceed_budget(self, *, current: Money, projected: Money, limit: Money) -> bool:
         """Compare-before-dispatch helper."""
         ...
@@ -409,9 +418,13 @@ class OutboxRepository(Protocol):
 
 @runtime_checkable
 class ResearchRepository(Protocol):
-    async def add_run(self, workflow_id: uuid.UUID) -> ResearchRun: ...
+    async def add_run(
+        self, workflow_id: uuid.UUID, *, idempotency_key: str | None = None
+    ) -> ResearchRun: ...
 
     async def get_run(self, run_id: uuid.UUID) -> ResearchRun | None: ...
+
+    async def get_run_by_idempotency_key(self, key: str) -> ResearchRun | None: ...
 
     async def get_latest_run(self, workflow_id: uuid.UUID) -> ResearchRun | None: ...
 

@@ -15,15 +15,15 @@ from app.infrastructure.repositories.auth import SqlSessionRepository
 from app.infrastructure.repositories.concept import SqlConceptRepository
 from app.infrastructure.repositories.cost import SqlCostRepository
 from app.infrastructure.repositories.idea import SqlIdeaRepository
+from app.infrastructure.repositories.outbox import SqlOutboxRepository
 from app.infrastructure.repositories.owner_settings import (
     SqlOwnerSettingsRepository,
     SqlProviderCredentialRepository,
 )
+from app.infrastructure.repositories.research import SqlResearchRepository
 from app.infrastructure.repositories.telegram import SqlTelegramConnectionRepository
 from app.infrastructure.repositories.user import SqlUserRepository
 from app.infrastructure.repositories.workflow import SqlWorkflowRepository
-from app.infrastructure.repositories.outbox import SqlOutboxRepository
-from app.infrastructure.repositories.research import SqlResearchRepository
 
 __all__ = [
     "SqlApprovalRepository",
@@ -31,12 +31,12 @@ __all__ = [
     "SqlConceptRepository",
     "SqlCostRepository",
     "SqlIdeaRepository",
+    "SqlOutboxRepository",
     "SqlOwnerSettingsRepository",
     "SqlProviderCredentialRepository",
+    "SqlResearchRepository",
     "SqlSessionRepository",
     "SqlTelegramConnectionRepository",
     "SqlUserRepository",
     "SqlWorkflowRepository",
-    "SqlOutboxRepository",
-    "SqlResearchRepository",
 ]

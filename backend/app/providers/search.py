@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import httpx
 from datetime import UTC, datetime
+
+import httpx
 
 from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import SearchQuery, SearchResult

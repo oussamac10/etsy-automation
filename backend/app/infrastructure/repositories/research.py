@@ -3,18 +3,21 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
-from sqlalchemy import select, update, func
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.workflow import JobStatus
-from app.infrastructure.models.research import ResearchRun, ResearchEvidence, KeywordCluster
+from app.infrastructure.models.research import KeywordCluster, ResearchEvidence, ResearchRun
 
 
 class SqlResearchRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def add_run(self, workflow_id: uuid.UUID) -> ResearchRun:
+    async def add_run(
+        self, workflow_id: uuid.UUID, *, idempotency_key: str | None = None
+    ) -> ResearchRun:
         # Get next run number
         result = await self._session.execute(
             select(func.coalesce(func.max(ResearchRun.run_number), 0))
@@ -27,10 +30,17 @@ class SqlResearchRepository:
             workflow_id=workflow_id,
             run_number=run_number,
             status=JobStatus.QUEUED,
+            idempotency_key=idempotency_key,
         )
         self._session.add(run)
         await self._session.flush()
         return run
+
+    async def get_run_by_idempotency_key(self, key: str) -> ResearchRun | None:
+        result = await self._session.execute(
+            select(ResearchRun).where(ResearchRun.idempotency_key == key)
+        )
+        return result.scalar_one_or_none()
 
     async def get_run(self, run_id: uuid.UUID) -> ResearchRun | None:
         return await self._session.get(ResearchRun, run_id)

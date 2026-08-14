@@ -21,14 +21,14 @@ from app.infrastructure.repositories import (
     SqlConceptRepository,
     SqlCostRepository,
     SqlIdeaRepository,
+    SqlOutboxRepository,
     SqlOwnerSettingsRepository,
     SqlProviderCredentialRepository,
+    SqlResearchRepository,
     SqlSessionRepository,
     SqlTelegramConnectionRepository,
     SqlUserRepository,
     SqlWorkflowRepository,
-    SqlOutboxRepository,
-    SqlResearchRepository,
 )
 from app.ports.repositories import (
     ApprovalRepository,
@@ -36,14 +36,14 @@ from app.ports.repositories import (
     ConceptRepository,
     CostRepository,
     IdeaRepository,
+    OutboxRepository,
     OwnerSettingsRepository,
     ProviderCredentialRepository,
+    ResearchRepository,
     SessionRepository,
     TelegramConnectionRepository,
     UserRepository,
     WorkflowRepository,
-    OutboxRepository,
-    ResearchRepository,
 )
 
 

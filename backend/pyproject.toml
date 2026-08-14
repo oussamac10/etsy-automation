@@ -81,7 +81,9 @@ strict = true
 warn_unreachable = true
 disallow_any_explicit = false
 plugins = ["pydantic.mypy"]
-mypy_path = "."
+# The worker source is on the path so the integration test that drives its
+# research actor is type-checked against the real signatures.
+mypy_path = ".:../workers/general-worker"
 packages = ["app"]
 
 [[tool.mypy.overrides]]

@@ -15,7 +15,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, Header, HTTPException, Query, Response, status
 
 from app.api.dependencies import CurrentUser, UowDep
 from app.api.schemas import (
@@ -34,7 +34,10 @@ from app.api.schemas import (
     WorkflowResponse,
 )
 from app.application import workflows as use_cases
-from app.domain.workflow import RunStatus
+from app.application.research import ensure_research_within_budget
+from app.domain import ip_risk
+from app.domain.workflow import RiskLevel, RunStatus
+from app.settings import get_settings
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -207,7 +210,10 @@ async def decide_gate(
     summary="Enqueue a new research run for this workflow",
 )
 async def enqueue_research(
-    workflow_id: uuid.UUID, user: CurrentUser, uow: UowDep
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ResearchRunResponse:
     workflow = await uow.workflows.get(workflow_id)
     if not workflow or workflow.owner_id != user.id:
@@ -215,6 +221,23 @@ async def enqueue_research(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No workflow with that ID",
         )
+
+    # A replayed key returns the run it created rather than queueing a second
+    # one. Scoped to this workflow so that a client reusing a key across
+    # workflows gets a conflict instead of another workflow's run.
+    if idempotency_key:
+        existing_run = await uow.research.get_run_by_idempotency_key(idempotency_key)
+        if existing_run is not None:
+            if existing_run.workflow_id != workflow_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Idempotency-Key already used for a different workflow",
+                )
+            return ResearchRunResponse.model_validate(existing_run)
+
+    await ensure_research_within_budget(
+        uow, owner_id=user.id, provider_mode=get_settings().provider_mode
+    )
 
     # Transition the workflow to RESEARCH_QUEUED
     await uow.workflows.transition(
@@ -226,7 +249,8 @@ async def enqueue_research(
     )
 
     # Create a new ResearchRun
-    run = await uow.research.add_run(workflow_id)
+    resolved_key = idempotency_key or str(uuid.uuid4())
+    run = await uow.research.add_run(workflow_id, idempotency_key=resolved_key)
 
     # Queue message to the outbox
     await uow.outbox.add(
@@ -327,6 +351,16 @@ async def revise_concept(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No concept with that ID in this workflow",
         )
+
+    # A revision can introduce a phrase the research run never saw, so the
+    # screen re-runs against the new slogan before the version is appended.
+    flagged = ip_risk.scan(concept.title, concept.description, payload.exact_slogan)
+    if flagged:
+        concept.risk_level = RiskLevel.HIGH
+        concept.risk_note = f"Trademark brand names flagged in revision: {', '.join(flagged)}."
+    else:
+        concept.risk_level = RiskLevel.LOW
+        concept.risk_note = "Revision passed the preliminary phrase screen; not a clearance."
 
     # Append prompt version N+1
     prompt = await uow.concepts.add_prompt_version(

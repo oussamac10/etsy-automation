@@ -82,6 +82,7 @@ class ResearchRun(UuidMixin, TimestampMixin, Base):
     started_at: Mapped[datetime | None] = timestamp_column(nullable=True)
     completed_at: Mapped[datetime | None] = timestamp_column(nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(200), nullable=True, unique=True)
 
     workflow: Mapped[ProductWorkflow] = relationship(back_populates="research_runs")
     evidence: Mapped[list[ResearchEvidence]] = relationship(

@@ -359,7 +359,7 @@ class TestTelegramWebhookCommands:
         inline_buttons = reply_markup["inline_keyboard"]
         assert len(inline_buttons) == 2
         assert inline_buttons[0][0]["text"] == "Approve Concept 1"
-        assert inline_buttons[0][0]["callback_data"] == f"approve:{wf_id}:{concept_id}"
+        assert inline_buttons[0][0]["callback_data"] == f"approve:{concept_id}:1"
 
         # 5. Simulate clicking Approve Concept 1 via callback query
         up_id += 1
@@ -373,7 +373,7 @@ class TestTelegramWebhookCommands:
                     "chat": {"id": 666555, "type": "private"},
                     "text": "Ranked Concepts (Gate 1):",
                 },
-                "data": f"approve:{wf_id}:{concept_id}",
+                "data": f"approve:{concept_id}:1",
             },
         }
         api_app.state.telegram_gateway.sent_messages.clear()

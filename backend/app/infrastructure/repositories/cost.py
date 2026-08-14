@@ -188,6 +188,29 @@ class SqlCostRepository:
             stmt = stmt.where(ProviderUsage.status == status)
         return await self._sum(stmt, currency)
 
+    async def total_for_owner_in_period(
+        self,
+        owner_id: uuid.UUID,
+        *,
+        since: datetime,
+        until: datetime,
+        currency: str = "USD",
+    ) -> Money:
+        """Total spent (reconciled or estimated) across every workflow this owner
+        holds, within the period. Used by the per-run budget gate."""
+        from app.infrastructure.models.workflow import ProductWorkflow
+        stmt = (
+            select(func.sum(_effective_cost_sql()))
+            .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
+            .where(
+                ProductWorkflow.owner_id == owner_id,
+                ProviderUsage.created_at >= since,
+                ProviderUsage.created_at < until,
+                ProviderUsage.currency == currency,
+            )
+        )
+        return await self._sum(stmt, currency)
+
     async def would_exceed_budget(self, *, current: Money, projected: Money, limit: Money) -> bool:
         """Compare-before-dispatch helper. Pure integer arithmetic."""
         return (current + projected) > limit

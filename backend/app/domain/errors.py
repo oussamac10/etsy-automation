@@ -57,6 +57,22 @@ class ConcurrentModificationError(DomainError):
         self.actual_version = actual
 
 
+class UnresolvedRiskError(DomainError):
+    """A gate decision was blocked by an unresolved risk flag. Maps to 409.
+
+    The preliminary phrase screen never clears a concept, so this is not a legal
+    conclusion in either direction: it only stops a concept the screen flagged
+    from passing a human gate while the flag still stands.
+    """
+
+    def __init__(self, entity_id: UUID | str) -> None:
+        super().__init__(
+            f"Concept {entity_id} carries an unresolved high IP-risk flag. "
+            "Revise the concept to clear the flag before approving it."
+        )
+        self.entity_id = str(entity_id)
+
+
 class InvalidIdeaModeError(DomainError):
     """The submitted input does not match the workflow's idea mode. Maps to 422."""
 

@@ -157,4 +157,4 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Cached settings instance used as a FastAPI dependency."""
     # Values come from the environment; pydantic-settings fills every field.
-    return Settings()  # type: ignore[call-arg]
+    return Settings()

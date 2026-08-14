@@ -18,8 +18,10 @@ class TelegramGateway(Protocol):
         ...
 
     async def get_updates(
-        self, offset: int | None = None, timeout: int = 30
-    ) -> list[dict[str, Any]]:  # noqa: ASYNC109
+        self,
+        offset: int | None = None,
+        timeout: int = 30,  # noqa: ASYNC109 - Telegram's long-poll timeout, not a client deadline
+    ) -> list[dict[str, Any]]:
         """Fetch pending updates (for long polling)."""
         ...
 

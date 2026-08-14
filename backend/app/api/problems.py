@@ -25,6 +25,7 @@ from app.domain.errors import (
     ImmutableFieldError,
     InvalidIdeaModeError,
     NotAuthenticatedError,
+    UnresolvedRiskError,
 )
 from app.domain.owner_settings import BudgetRelationError
 from app.domain.workflow import (
@@ -83,6 +84,7 @@ DOMAIN_ERROR_STATUS: dict[type[Exception], tuple[int, str]] = {
     IllegalTransitionError: (status.HTTP_409_CONFLICT, "illegal-transition"),
     InvalidIdeaModeError: (status.HTTP_422_UNPROCESSABLE_CONTENT, "invalid-idea-mode"),
     BudgetExceededError: (status.HTTP_409_CONFLICT, "budget-exceeded"),
+    UnresolvedRiskError: (status.HTTP_409_CONFLICT, "unresolved-risk"),
     # Both authentication failures are 401 with the same shape. A different
     # status or message for "unknown account" would be an enumeration oracle.
     AuthenticationFailedError: (status.HTTP_401_UNAUTHORIZED, "authentication-failed"),
