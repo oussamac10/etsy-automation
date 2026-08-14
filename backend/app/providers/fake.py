@@ -14,6 +14,7 @@ from decimal import Decimal
 from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import (
     CostEstimate,
+    ImageCandidate,
     ImageRequest,
     ImageResponse,
     SearchQuery,
@@ -399,7 +400,11 @@ class FakeTextProvider:
 
 
 class FakeImageProvider:
-    """Returns a transparent 1x1 PNG and records the idempotency key it saw."""
+    """Returns unique mock PNG/SVG bytes and records the idempotency key it saw.
+
+    Simulates multiple candidates, Recraft vs Gemini formats, transient/permanent errors,
+    and calculates realistic costs to test budget controls.
+    """
 
     name = FAKE_PROVIDER_NAME
 
@@ -415,11 +420,60 @@ class FakeImageProvider:
                 message="idempotency_key is required for every paid operation",
             )
         self.seen_idempotency_keys.append(request.idempotency_key)
+
+        # Simulating transient/permanent errors via special prompt strings
+        if request.positive_prompt == "trigger-transient-error":
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider=FAKE_PROVIDER_NAME,
+                operation="image_generation",
+                message="Simulated transient network error.",
+            )
+        elif request.positive_prompt == "trigger-permanent-error":
+            raise ProviderError(
+                kind=ProviderErrorKind.INVALID_REQUEST,
+                provider=FAKE_PROVIDER_NAME,
+                operation="image_generation",
+                message="Simulated permanent invalid prompt error.",
+            )
+
+        model = request.model or "recraftv4_1"
+        is_svg = (request.output_format == "svg") or ("vector" in model)
+        mime = "image/svg+xml" if is_svg else "image/png"
+
+        candidates: list[ImageCandidate] = []
+        for i in range(request.candidate_count):
+            if is_svg:
+                # Deterministic SVG bytes that differ by index (unique checksums)
+                content = f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="blue"/><text y="5">{request.idempotency_key}-{i}</text></svg>'.encode()
+            else:
+                # PNG bytes with a small suffix to differentiate checksums
+                content = _TRANSPARENT_PNG + f"-candidate-{i}".encode()
+
+            candidates.append(
+                ImageCandidate(
+                    image_bytes=content,
+                    mime_type=mime,
+                    width=request.width or 1024,
+                    height=request.height or 1024,
+                )
+            )
+
+        # Determine cost based on model/provider rules
+        if "pro" in model:
+            unit_price = Decimal("0.21") if "recraft" in model else Decimal("0.15")
+        elif "vector" in model:
+            unit_price = Decimal("0.08")
+        else:
+            unit_price = Decimal("0.035") if "recraft" in model else Decimal("0.03")
+
+        cost_usd = unit_price * request.candidate_count
+
         return ImageResponse(
-            image_bytes=_TRANSPARENT_PNG,
-            mime_type="image/png",
-            model="fake-image-1",
+            candidates=candidates,
+            model=model,
             provider_request_id=_seed(request.idempotency_key)[:16],
+            cost_usd=cost_usd,
         )
 
 

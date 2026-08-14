@@ -461,4 +461,184 @@ async def handle_telegram_callback(
         except Exception as exc:
             return f"Failed to reject workflow: {exc!s}"
 
+    # Handle Artwork Candidate Approval
+    elif action == "art_app":
+        if len(parts) < 2:
+            return "Invalid callback data structure."
+        asset_id_str = parts[1]
+
+        try:
+            asset_id = uuid.UUID(asset_id_str)
+        except ValueError:
+            return "Invalid UUID format in callback."
+
+        asset = await uow.assets.get(asset_id)
+        if not asset:
+            return "Asset not found."
+
+        workflow = await uow.workflows.get(asset.workflow_id)
+        if not workflow or workflow.owner_id != connection.user_id:
+            return "Workflow not found."
+
+        from app.application import workflows as workflow_use_cases
+        from app.domain.workflow import ApprovalDecision, ApprovalGate
+
+        try:
+            await workflow_use_cases.decide_gate(
+                uow=uow,
+                workflow_id=workflow.id,
+                owner_id=connection.user_id,
+                gate=ApprovalGate.ARTWORK_APPROVAL,
+                decision=ApprovalDecision.APPROVED,
+                actor=f"telegram:{telegram_user_id}",
+                target_type="Asset",
+                target_id=asset_id,
+                target_version=None,
+                comment="Approved via Telegram remote control inline button",
+            )
+            return (
+                f"Candidate artwork approved successfully! "
+                "The workflow campaign is ready for production."
+            )
+        except Exception as exc:
+            return f"Failed to approve artwork: {exc!s}"
+
+    # Handle Artwork Candidate Rejection
+    elif action == "art_rej":
+        if len(parts) < 3:
+            return "Invalid callback data structure."
+        workflow_id_str = parts[1]
+        version_str = parts[2]
+
+        try:
+            workflow_id = uuid.UUID(workflow_id_str)
+            target_version = int(version_str)
+        except ValueError:
+            return "Invalid UUID or version format in callback."
+
+        workflow = await uow.workflows.get(workflow_id)
+        if not workflow or workflow.owner_id != connection.user_id:
+            return "Workflow not found."
+
+        from app.application import workflows as workflow_use_cases
+        from app.domain.workflow import ApprovalDecision, ApprovalGate
+
+        try:
+            await workflow_use_cases.decide_gate(
+                uow=uow,
+                workflow_id=workflow_id,
+                owner_id=connection.user_id,
+                gate=ApprovalGate.ARTWORK_APPROVAL,
+                decision=ApprovalDecision.REJECTED,
+                actor=f"telegram:{telegram_user_id}",
+                target_type="ProductWorkflow",
+                target_id=workflow_id,
+                target_version=target_version,
+                comment="Rejected options via Telegram remote control inline button",
+            )
+            return f"Artwork options for campaign '<b>{escape_html(workflow.name)}</b>' have been rejected."
+        except Exception as exc:
+            return f"Failed to reject artwork options: {exc!s}"
+
+    # Handle Artwork Candidate Regeneration
+    elif action == "art_reg":
+        if len(parts) < 2:
+            return "Invalid callback data structure."
+        workflow_id_str = parts[1]
+
+        try:
+            workflow_id = uuid.UUID(workflow_id_str)
+        except ValueError:
+            return "Invalid UUID format in callback."
+
+        workflow = await uow.workflows.get(workflow_id)
+        if not workflow or workflow.owner_id != connection.user_id:
+            return "Workflow not found."
+
+        from app.domain.enums import ConceptStatus, ProviderName
+        from app.domain.workflow import RunStatus, JobStatus
+        from app.infrastructure.models import ArtworkJob
+
+        try:
+            # 1. Transition workflow back to IDEA_APPROVED
+            await uow.workflows.transition(
+                workflow,
+                to_state=RunStatus.IDEA_APPROVED,
+                expected_version=workflow.version,
+                reason="Regeneration requested via Telegram remote button",
+                actor=f"telegram:{telegram_user_id}",
+            )
+            await uow.commit()
+
+            # 2. Start standard artwork generation
+            concepts = await uow.concepts.list_for_workflow(workflow_id)
+            approved_concept = next((c for c in concepts if c.status == ConceptStatus.APPROVED), None)
+            if not approved_concept:
+                return "No approved concept found to regenerate artwork from."
+
+            prompts = await uow.concepts.prompts(approved_concept.id)
+            if not prompts:
+                return "Approved concept has no design prompts."
+            latest_prompt = prompts[-1]
+
+            provider_enum = ProviderName.RECRAFT
+            model_val = "recraftv4_1"
+            candidate_count = 4
+
+            idempotency_key = f"art-{workflow_id}-{latest_prompt.id}-{candidate_count}-tg"
+
+            # Create new ArtworkJob
+            job = ArtworkJob(
+                id=uuid.uuid4(),
+                workflow_id=workflow_id,
+                concept_id=approved_concept.id,
+                prompt_id=latest_prompt.id,
+                provider=provider_enum,
+                provider_model=model_val,
+                idempotency_key=idempotency_key,
+                status=JobStatus.QUEUED,
+                attempt_count=0,
+                requested_width=1024,
+                requested_height=1024,
+                quality="standard",
+            )
+            await uow.artwork_jobs.add(job)
+
+            # Transition workflow state to ART_QUEUED
+            await uow.workflows.transition(
+                workflow,
+                to_state=RunStatus.ART_QUEUED,
+                expected_version=workflow.version,
+                reason="Triggered artwork generation via Telegram remote button",
+                actor=f"telegram:{telegram_user_id}",
+            )
+
+            # Enqueue task via outbox
+            await uow.outbox.add(
+                "run_artwork_task",
+                {"workflow_id": str(workflow_id), "job_id": str(job.id)},
+            )
+            await uow.commit()
+
+            return "Artwork generation enqueued successfully! You will receive another notification when complete."
+        except Exception as exc:
+            return f"Failed to enqueue regeneration: {exc!s}"
+
     return "Unknown callback action."
+
+
+async def send_telegram_notification(
+    uow: UnitOfWork,
+    telegram_gateway: TelegramGateway,
+    owner_id: uuid.UUID,
+    text: str,
+    reply_markup: dict[str, Any] | None = None,
+) -> None:
+    """Send a proactive notification to the owner's paired Telegram account."""
+    connection = await uow.telegram_connections.get_by_user_id(owner_id)
+    if connection and connection.is_paired and connection.telegram_chat_id is not None:
+        await telegram_gateway.send_message(
+            chat_id=connection.telegram_chat_id,
+            text=text,
+            reply_markup=reply_markup,
+        )

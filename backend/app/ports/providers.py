@@ -62,14 +62,41 @@ class ImageRequest:
     quality: str
     #: Stable key so a duplicate dispatch is billed once.
     idempotency_key: str
+    provider: str | None = None
+    model: str | None = None
+    aspect_ratio: str | None = None
+    output_format: str = "png"
+    transparent_background: bool = False
+    candidate_count: int = 1
+    reference_image_bytes: bytes | None = None
+    reference_image_mime_type: str | None = None
+    seed: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ImageCandidate:
+    image_bytes: bytes
+    mime_type: str
+    width: int | None = None
+    height: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class ImageResponse:
-    image_bytes: bytes
-    mime_type: str
+    candidates: list[ImageCandidate]
     model: str
     provider_request_id: str | None = None
+    usage_input_tokens: int | None = None
+    usage_output_tokens: int | None = None
+    cost_usd: Decimal | None = None
+
+    @property
+    def image_bytes(self) -> bytes:
+        return self.candidates[0].image_bytes if self.candidates else b""
+
+    @property
+    def mime_type(self) -> str:
+        return self.candidates[0].mime_type if self.candidates else ""
 
 
 @dataclass(frozen=True, slots=True)

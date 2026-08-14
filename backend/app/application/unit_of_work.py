@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.infrastructure.repositories import (
     SqlApprovalRepository,
+    SqlArtworkJobRepository,
+    SqlAssetRepository,
     SqlAuditRepository,
     SqlConceptRepository,
     SqlCostRepository,
@@ -32,6 +34,8 @@ from app.infrastructure.repositories import (
 )
 from app.ports.repositories import (
     ApprovalRepository,
+    ArtworkJobRepository,
+    AssetRepository,
     AuditRepository,
     ConceptRepository,
     CostRepository,
@@ -66,6 +70,8 @@ class UnitOfWork:
     telegram_connections: TelegramConnectionRepository
     outbox: OutboxRepository
     research: ResearchRepository
+    artwork_jobs: ArtworkJobRepository
+    assets: AssetRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -88,6 +94,8 @@ class UnitOfWork:
         self.telegram_connections = SqlTelegramConnectionRepository(session)
         self.outbox = SqlOutboxRepository(session)
         self.research = SqlResearchRepository(session)
+        self.artwork_jobs = SqlArtworkJobRepository(session)
+        self.assets = SqlAssetRepository(session)
         return self
 
     async def __aexit__(

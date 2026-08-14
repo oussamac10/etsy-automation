@@ -151,11 +151,11 @@ Hardening after the first Phase 5 pass:
 
 ## Phase 6 — Artwork generation and approval
 
-- [ ] OpenAI Image and optional Recraft adapters
-- [ ] Queued generation with retry, idempotency, and cost capture
-- [ ] Object storage and complete asset provenance
-- [ ] Dashboard comparison plus Telegram previews and **gate 2**
-- [ ] Approve, reject, or regenerate without duplicate billing
+- [x] Recraft V4.1 (Primary) and Gemini (Secondary fallback) adapters
+- [x] Queued generation with retry, idempotency, and cost capture
+- [x] Object storage and complete asset provenance
+- [x] Dashboard comparison plus Telegram previews and **gate 2**
+- [x] Approve, reject, or regenerate without duplicate billing
 
 ## Phase 7 — PNG production pipeline
 

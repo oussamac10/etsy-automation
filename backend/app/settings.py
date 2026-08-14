@@ -71,6 +71,10 @@ class Settings(BaseSettings):
 
     s3_endpoint_url: str = Field(default="http://localhost:9000", alias="S3_ENDPOINT_URL")
     s3_bucket: str = Field(default="etsy-assets", alias="S3_BUCKET")
+    s3_region: str = Field(default="us-east-1", alias="S3_REGION")
+    s3_access_key_id: str = Field(default="minioadmin", alias="S3_ACCESS_KEY_ID")
+    s3_secret_access_key: SecretStr = Field(default=SecretStr("minioadmin"), alias="S3_SECRET_ACCESS_KEY")
+    s3_force_path_style: bool = Field(default=True, alias="S3_FORCE_PATH_STYLE")
 
     image_worker_url: str = Field(default="http://localhost:8100", alias="IMAGE_WORKER_URL")
 

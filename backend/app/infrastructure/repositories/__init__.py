@@ -24,9 +24,15 @@ from app.infrastructure.repositories.research import SqlResearchRepository
 from app.infrastructure.repositories.telegram import SqlTelegramConnectionRepository
 from app.infrastructure.repositories.user import SqlUserRepository
 from app.infrastructure.repositories.workflow import SqlWorkflowRepository
+from app.infrastructure.repositories.artwork import (
+    SqlArtworkJobRepository,
+    SqlAssetRepository,
+)
 
 __all__ = [
     "SqlApprovalRepository",
+    "SqlArtworkJobRepository",
+    "SqlAssetRepository",
     "SqlAuditRepository",
     "SqlConceptRepository",
     "SqlCostRepository",

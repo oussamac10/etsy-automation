@@ -249,3 +249,66 @@ class ConceptRevisionRequest(BaseModel):
     exact_slogan: str | None = None
     change_note: Annotated[str, Field(min_length=1, max_length=1000)]
 
+
+class AssetResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    artwork_job_id: uuid.UUID | None
+    derived_from_id: uuid.UUID | None
+    storage_key: str
+    mime_type: str
+    byte_size: int
+    checksum_sha256: str
+    width: int | None
+    height: int | None
+    has_alpha: bool | None
+    has_transparent_pixels: bool | None
+    provenance: dict[str, object]
+    created_at: datetime
+    url: str | None = None
+
+
+class ArtworkJobResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    concept_id: uuid.UUID
+    prompt_id: uuid.UUID
+    provider: str
+    provider_model: str | None
+    provider_job_id: str | None
+    idempotency_key: str
+    status: str
+    attempt_count: int
+    requested_width: int | None
+    requested_height: int | None
+    quality: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    failure_kind: str | None
+    failure_message: str | None
+    created_at: datetime
+    assets: list[AssetResponse] = []
+
+
+class GenerateArtworkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str | None = None
+    provider_model: str | None = None
+    requested_width: int | None = 1024
+    requested_height: int | None = 1024
+    quality: str | None = "standard"
+
+
+class RefineArtworkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_asset_id: uuid.UUID
+    positive_prompt: str
+    negative_prompt: str | None = None
+    change_note: Annotated[str, Field(min_length=1, max_length=1000)]
+

@@ -22,6 +22,8 @@ from app.domain.money import Money
 from app.domain.workflow import ApprovalDecision, ApprovalGate, RunStatus
 from app.infrastructure.models import (
     Approval,
+    ArtworkJob,
+    Asset,
     AuditEvent,
     DesignPrompt,
     KeywordCluster,
@@ -450,3 +452,40 @@ class ResearchRepository(Protocol):
     async def add_keyword_cluster(self, cluster: KeywordCluster) -> KeywordCluster: ...
 
     async def get_keyword_clusters_for_run(self, run_id: uuid.UUID) -> Sequence[KeywordCluster]: ...
+
+
+@runtime_checkable
+class ArtworkJobRepository(Protocol):
+    async def add(self, job: ArtworkJob) -> ArtworkJob: ...
+
+    async def get(self, job_id: uuid.UUID) -> ArtworkJob | None: ...
+
+    async def get_by_idempotency_key(self, key: str) -> ArtworkJob | None: ...
+
+    async def list_for_workflow(self, workflow_id: uuid.UUID) -> Sequence[ArtworkJob]: ...
+
+    async def update(
+        self,
+        job_id: uuid.UUID,
+        *,
+        status: object,
+        provider_job_id: str | None = None,
+        attempt_count: int | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        failure_kind: str | None = None,
+        failure_message: str | None = None,
+    ) -> ArtworkJob: ...
+
+
+@runtime_checkable
+class AssetRepository(Protocol):
+    async def add(self, asset: Asset) -> Asset: ...
+
+    async def get(self, asset_id: uuid.UUID) -> Asset | None: ...
+
+    async def list_for_workflow(self, workflow_id: uuid.UUID) -> Sequence[Asset]: ...
+
+    async def list_for_job(self, job_id: uuid.UUID) -> Sequence[Asset]: ...
+
+    async def get_by_checksum_sha256(self, workflow_id: uuid.UUID, sha256: str) -> Asset | None: ...

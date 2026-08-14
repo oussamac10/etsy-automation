@@ -1,6 +1,4 @@
-<script setup lang="ts">
-/* global $fetch */
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 interface Workflow {
@@ -102,6 +100,66 @@ const editChangeNote = ref("");
 const isSubmittingRevision = ref(false);
 const revisionError = ref<string | null>(null);
 
+// Artwork interfaces & state
+interface Asset {
+  id: string;
+  workflow_id: string;
+  artwork_job_id: string | null;
+  derived_from_id: string | null;
+  storage_key: string;
+  mime_type: string;
+  byte_size: number;
+  checksum_sha256: string;
+  width: number | null;
+  height: number | null;
+  has_alpha: boolean | null;
+  has_transparent_pixels: boolean | null;
+  provenance: Record<string, any>;
+  created_at: string;
+  url: string | null;
+}
+
+interface ArtworkJob {
+  id: string;
+  workflow_id: string;
+  concept_id: string;
+  prompt_id: string;
+  provider: string;
+  provider_model: string | null;
+  provider_job_id: string | null;
+  idempotency_key: string;
+  status: string;
+  attempt_count: number;
+  requested_width: number | null;
+  requested_height: number | null;
+  quality: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  failure_kind: string | null;
+  failure_message: string | null;
+  created_at: string;
+  assets: Asset[];
+}
+
+const artworkJobs = ref<ArtworkJob[]>([]);
+const isArtworkLoading = ref(false);
+const artworkError = ref<string | null>(null);
+const artProvider = ref("recraft");
+const artModel = ref("recraftv4_1");
+
+const showRefineModal = ref(false);
+const refinePrompt = ref("");
+const refineChangeNote = ref("");
+const refineAssetId = ref<string | null>(null);
+
+watch(artProvider, (newVal) => {
+  if (newVal === "recraft") {
+    artModel.value = "recraftv4_1";
+  } else {
+    artModel.value = "gemini-3.1-flash-image";
+  }
+});
+
 // Polling settings
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -150,6 +208,16 @@ async function loadData(silent = false): Promise<void> {
     );
     // Sort concepts by score descending
     concepts.value = fetchedConcepts.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+    // Fetch artwork jobs
+    try {
+      artworkJobs.value = await $fetch<ArtworkJob[]>(
+        `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/artwork-jobs`,
+        { credentials: "include" }
+      );
+    } catch {
+      artworkJobs.value = [];
+    }
   } catch (err) {
     pageError.value = "Failed to load workflow details. Please verify your connection.";
   } finally {
@@ -210,6 +278,162 @@ async function handleDecideGate(
   }
 }
 
+async function startArtwork(): Promise<void> {
+  isArtworkLoading.value = true;
+  artworkError.value = null;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) {
+      headers["x-csrf-token"] = csrf;
+    }
+
+    const payload = {
+      provider: artProvider.value,
+      provider_model: artModel.value,
+      requested_width: 1024,
+      requested_height: 1024,
+      quality: "standard"
+    };
+
+    await $fetch(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/artwork`,
+      { method: "POST", headers, body: payload, credentials: "include" }
+    );
+    await loadData();
+    startPolling();
+  } catch (err: any) {
+    artworkError.value = err.data?.detail || "Failed to trigger artwork generation.";
+  } finally {
+    isArtworkLoading.value = false;
+  }
+}
+
+async function regenerateArtwork(provider?: string, model?: string): Promise<void> {
+  isArtworkLoading.value = true;
+  artworkError.value = null;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) {
+      headers["x-csrf-token"] = csrf;
+    }
+
+    const payload = {
+      provider: provider || artProvider.value,
+      provider_model: model || artModel.value,
+      requested_width: 1024,
+      requested_height: 1024,
+      quality: "standard"
+    };
+
+    await $fetch(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/artwork/regenerate`,
+      { method: "POST", headers, body: payload, credentials: "include" }
+    );
+    await loadData();
+    startPolling();
+  } catch (err: any) {
+    artworkError.value = err.data?.detail || "Failed to regenerate artwork.";
+  } finally {
+    isArtworkLoading.value = false;
+  }
+}
+
+function openRefineModalForm(assetId: string) {
+  refineAssetId.value = assetId;
+  refinePrompt.value = "";
+  refineChangeNote.value = "";
+  showRefineModal.value = true;
+}
+
+async function submitRefinement(): Promise<void> {
+  if (!refineAssetId.value || !refinePrompt.value || !refineChangeNote.value) return;
+  isArtworkLoading.value = true;
+  artworkError.value = null;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) {
+      headers["x-csrf-token"] = csrf;
+    }
+
+    const payload = {
+      candidate_asset_id: refineAssetId.value,
+      positive_prompt: refinePrompt.value,
+      change_note: refineChangeNote.value
+    };
+
+    await $fetch(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/artwork/refine`,
+      { method: "POST", headers, body: payload, credentials: "include" }
+    );
+    showRefineModal.value = false;
+    refinePrompt.value = "";
+    refineChangeNote.value = "";
+    await loadData();
+    startPolling();
+  } catch (err: any) {
+    artworkError.value = err.data?.detail || "Failed to submit refinement.";
+  } finally {
+    isArtworkLoading.value = false;
+  }
+}
+
+async function approveArtwork(assetId: string): Promise<void> {
+  artworkError.value = null;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) {
+      headers["x-csrf-token"] = csrf;
+    }
+
+    const payload = {
+      gate: "ARTWORK_APPROVAL",
+      decision: "APPROVED",
+      target_type: "Asset",
+      target_id: assetId,
+      target_version: null
+    };
+
+    await $fetch(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/approvals`,
+      { method: "POST", headers, body: payload, credentials: "include" }
+    );
+    await loadData();
+  } catch (err: any) {
+    artworkError.value = err.data?.detail || "Failed to approve artwork candidate.";
+  }
+}
+
+async function rejectArtwork(jobId: string, workflowVersion: number): Promise<void> {
+  artworkError.value = null;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) {
+      headers["x-csrf-token"] = csrf;
+    }
+
+    const payload = {
+      gate: "ARTWORK_APPROVAL",
+      decision: "REJECTED",
+      target_type: "ProductWorkflow",
+      target_id: workflowId,
+      target_version: workflowVersion
+    };
+
+    await $fetch(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/approvals`,
+      { method: "POST", headers, body: payload, credentials: "include" }
+    );
+    await loadData();
+  } catch (err: any) {
+    artworkError.value = err.data?.detail || "Failed to reject artwork options.";
+  }
+}
+
 function openReviseForm(conceptId: string): void {
   const concept = concepts.value.find((c) => c.id === conceptId);
   if (!concept) return;
@@ -264,7 +488,7 @@ function startPolling(): void {
   stopPolling();
   pollInterval = setInterval(() => {
     const s = workflow.value?.state;
-    if (s === "RESEARCH_QUEUED" || s === "RESEARCHING") {
+    if (s === "RESEARCH_QUEUED" || s === "RESEARCHING" || s === "ART_QUEUED" || s === "ART_GENERATION") {
       loadData(true);
     } else {
       stopPolling();
@@ -282,7 +506,7 @@ function stopPolling(): void {
 onMounted(async () => {
   await loadData();
   const s = workflow.value?.state;
-  if (s === "RESEARCH_QUEUED" || s === "RESEARCHING") {
+  if (s === "RESEARCH_QUEUED" || s === "RESEARCHING" || s === "ART_QUEUED" || s === "ART_GENERATION") {
     startPolling();
   }
 });
@@ -369,10 +593,172 @@ onBeforeUnmount(stopPolling);
           </button>
         </section>
 
+        <!-- Artwork Polling / Processing State -->
+        <section
+          v-else-if="workflow.state === 'ART_QUEUED' || workflow.state === 'ART_GENERATION'"
+          class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-8 text-center"
+        >
+          <div class="h-10 w-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 class="text-xl font-bold text-slate-800 mb-1">Generating Artwork Candidates</h2>
+          <p class="text-sm text-slate-600 max-w-md mx-auto">
+            Our background worker is calling Recraft/Gemini to generate transparent-background PNG/SVG candidates matching the approved prompt. This will automatically refresh.
+          </p>
+        </section>
+
+        <!-- Artwork Failed State -->
+        <section
+          v-else-if="workflow.state === 'ART_GENERATION_FAILED'"
+          class="rounded-2xl border border-red-200 bg-red-50 p-8 text-center"
+        >
+          <div class="text-4xl mb-3">⚠️</div>
+          <h2 class="text-xl font-bold text-red-900 mb-1">Artwork Generation Failed</h2>
+          <p class="text-sm text-red-700 max-w-md mx-auto mb-4">
+            Reason: {{ artworkJobs[0]?.failure_message || 'An unexpected worker error occurred.' }}
+          </p>
+          <div class="flex justify-center gap-3">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 shadow"
+              @click="() => startArtwork()"
+            >
+              Retry Generation
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              @click="() => regenerateArtwork()"
+            >
+              Reconfigure
+            </button>
+          </div>
+        </section>
+
         <!-- Main Workspace -->
         <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <!-- Concepts & Approvals (Left 2 Columns) -->
           <div class="lg:col-span-2 space-y-8">
+            <!-- Trigger Artwork Generation Panel -->
+            <div v-if="workflow.state === 'IDEA_APPROVED'" class="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-6 shadow-sm">
+              <h3 class="text-lg font-bold text-slate-900 mb-2">🎨 Step 2: Trigger Artwork Generation</h3>
+              <p class="text-sm text-slate-600 mb-4">
+                Now that your concept is approved, select your preferred generation parameters below.
+              </p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Image Provider</label>
+                  <select v-model="artProvider" class="w-full rounded-lg border-slate-200 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="recraft">Recraft V4.1 (Vector & Illustration)</option>
+                    <option value="gemini">Google Gemini (Photo & Creative)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Model Profile</label>
+                  <select v-model="artModel" class="w-full rounded-lg border-slate-200 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    <option v-slot:default v-if="artProvider === 'recraft'" value="recraftv4_1">Recraft V4.1 (Standard)</option>
+                    <option v-slot:default v-if="artProvider === 'recraft'" value="recraftv4_1_pro">Recraft V4.1 Pro (Premium, 1 Candidate)</option>
+                    <option v-slot:default v-if="artProvider === 'gemini'" value="gemini-3.1-flash-image">Gemini 3.1 Flash Image (Standard)</option>
+                  </select>
+                </div>
+              </div>
+              <div v-if="artworkError" class="text-sm text-red-600 mb-4 bg-red-50 border border-red-100 p-3 rounded-lg">
+                {{ artworkError }}
+              </div>
+              <div class="flex items-center justify-between gap-4 border-t border-slate-100 pt-4">
+                <span class="text-xs text-slate-500 font-medium">Estimated cost: $0.00 (Fake Adapter)</span>
+                <button
+                  type="button"
+                  :disabled="isArtworkLoading"
+                  class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  @click="() => startArtwork()"
+                >
+                  {{ isArtworkLoading ? 'Enqueuing...' : 'Generate Artwork Candidates' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Candidate Gallery -->
+            <div v-if="workflow.state === 'ART_REVIEW' || workflow.state === 'ARTWORK_APPROVED'" class="space-y-6">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <h3 class="text-2xl font-extrabold text-slate-900">Generated Artwork Candidates</h3>
+                  <p class="text-sm text-slate-500">Review and select the winning candidate for production.</p>
+                </div>
+                <button
+                  v-if="workflow.state === 'ART_REVIEW'"
+                  type="button"
+                  class="text-xs font-semibold text-red-600 hover:text-red-800 underline"
+                  @click="() => rejectArtwork(artworkJobs[0]?.id, workflow.version)"
+                >
+                  Reject All Options
+                </button>
+              </div>
+
+              <div v-slot:default v-if="artworkError" class="text-sm text-red-600 bg-red-50 border border-red-100 p-3 rounded-lg">
+                {{ artworkError }}
+              </div>
+
+              <!-- Artwork Candidates Grid -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div
+                  v-for="(asset, idx) in artworkJobs[0]?.assets"
+                  :key="asset.id"
+                  class="group relative rounded-2xl border bg-white overflow-hidden shadow-sm hover:shadow transition-shadow duration-150"
+                  :class="workflow.state === 'ARTWORK_APPROVED' && asset.derived_from_id === null ? 'border-green-500 ring-2 ring-green-500/20' : 'border-slate-200'"
+                >
+                  <!-- Candidate Thumbnail -->
+                  <div class="aspect-square bg-slate-100 relative flex items-center justify-center overflow-hidden">
+                    <img
+                      v-if="asset.url"
+                      :src="asset.url"
+                      alt="Candidate Preview"
+                      class="object-contain w-full h-full max-h-[350px]"
+                    />
+                    <div v-slot:default v-else class="text-slate-400 text-sm">Preview Loading...</div>
+                    <span class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-xs font-mono px-2 py-1 rounded">
+                      Candidate {{ idx + 1 }}
+                    </span>
+                  </div>
+
+                  <!-- Candidate Details & Action Footer -->
+                  <div class="p-4 border-t border-slate-100 bg-slate-50/50">
+                    <div class="flex items-center justify-between text-xs text-slate-500 mb-3">
+                      <span>{{ asset.width }}x{{ asset.height }} | {{ (asset.byte_size / 1024).toFixed(1) }} KB</span>
+                      <span class="capitalize">{{ asset.mime_type.split('/')[1] }}</span>
+                    </div>
+
+                    <div v-if="workflow.state === 'ART_REVIEW'" class="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        @click="() => openRefineModalForm(asset.id)"
+                      >
+                        Refine Option
+                      </button>
+                      <button
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white hover:bg-green-700"
+                        @click="() => approveArtwork(asset.id)"
+                      >
+                        Approve Candidate
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Regeneration button at bottom -->
+              <div v-if="workflow.state === 'ART_REVIEW'" class="rounded-2xl border border-dashed border-slate-200 p-6 text-center">
+                <p class="text-sm text-slate-500 mb-3">Not satisfied with any of these candidates?</p>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+                  @click="() => regenerateArtwork()"
+                >
+                  Regenerate All Options
+                </button>
+              </div>
+            </div>
+
             <h2 class="text-2xl font-bold text-slate-800">Synthesised Product Concepts</h2>
 
             <div v-if="concepts.length === 0" class="rounded-xl border border-slate-200 bg-white p-8 text-center">
@@ -600,6 +986,55 @@ onBeforeUnmount(stopPolling);
               </button>
             </footer>
           </form>
+        </div>
+      </div>
+
+      <!-- Refinement Modal -->
+      <div v-if="showRefineModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-6 z-50 animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+          <div>
+            <h2 class="text-2xl font-bold text-slate-900">Refine Artwork Candidate</h2>
+            <p class="text-sm text-slate-500 mt-1">This will submit an image-to-image request using Gemini using this candidate as reference.</p>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Refinement Instructions</label>
+              <textarea
+                v-model="refinePrompt"
+                rows="4"
+                placeholder="Describe how to adjust the design (e.g. 'Add a border around the text, make the colors more vibrant')"
+                class="w-full rounded-xl border-slate-200 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+              ></textarea>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Change Note</label>
+              <input
+                v-model="refineChangeNote"
+                type="text"
+                placeholder="Brief label for this revision (e.g. 'More vibrant colors')"
+                class="w-full rounded-xl border-slate-200 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              @click="() => { showRefineModal = false; }"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-bold text-white hover:bg-indigo-700"
+              @click="submitRefinement"
+            >
+              Submit Refinement
+            </button>
+          </div>
         </div>
       </div>
     </main>

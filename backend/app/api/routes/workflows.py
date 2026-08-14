@@ -20,12 +20,16 @@ from fastapi import APIRouter, Header, HTTPException, Query, Response, status
 from app.api.dependencies import CurrentUser, UowDep
 from app.api.schemas import (
     ApprovalResponse,
+    ArtworkJobResponse,
+    AssetResponse,
     ConceptRevisionRequest,
     CreateWorkflowRequest,
     DesignPromptResponse,
     GateDecisionRequest,
+    GenerateArtworkRequest,
     OriginalIdeaResponse,
     ProductConceptResponse,
+    RefineArtworkRequest,
     ResearchRunResponse,
     SubmitIdeaRequest,
     TimelineEntryResponse,
@@ -34,9 +38,13 @@ from app.api.schemas import (
     WorkflowResponse,
 )
 from app.application import workflows as use_cases
+from app.application.artwork import ensure_artwork_within_budget, estimate_artwork_cost
 from app.application.research import ensure_research_within_budget
 from app.domain import ip_risk
-from app.domain.workflow import RiskLevel, RunStatus
+from app.domain.enums import ConceptStatus, ProviderName
+from app.domain.workflow import RiskLevel, RunStatus, JobStatus
+from app.infrastructure.models import ArtworkJob, Asset
+from app.providers.s3 import S3ObjectStorage
 from app.settings import get_settings
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
@@ -374,4 +382,354 @@ async def revise_concept(
     await uow.commit()
 
     return DesignPromptResponse.model_validate(prompt)
+
+
+def to_asset_response(asset: Asset, url: str | None = None) -> AssetResponse:
+    return AssetResponse(
+        id=asset.id,
+        workflow_id=asset.workflow_id,
+        artwork_job_id=asset.artwork_job_id,
+        derived_from_id=asset.derived_from_id,
+        storage_key=asset.storage_key,
+        mime_type=asset.mime_type,
+        byte_size=asset.byte_size,
+        checksum_sha256=asset.checksum_sha256,
+        width=asset.width,
+        height=asset.height,
+        has_alpha=asset.has_alpha,
+        has_transparent_pixels=asset.has_transparent_pixels,
+        provenance=asset.provenance,
+        created_at=asset.created_at,
+        url=url,
+    )
+
+
+def to_job_response(job: ArtworkJob, assets: list[AssetResponse] = []) -> ArtworkJobResponse:
+    return ArtworkJobResponse(
+        id=job.id,
+        workflow_id=job.workflow_id,
+        concept_id=job.concept_id,
+        prompt_id=job.prompt_id,
+        provider=job.provider.value,
+        provider_model=job.provider_model,
+        provider_job_id=job.provider_job_id,
+        idempotency_key=job.idempotency_key,
+        status=job.status.value,
+        attempt_count=job.attempt_count,
+        requested_width=job.requested_width,
+        requested_height=job.requested_height,
+        quality=job.quality,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        failure_kind=job.failure_kind,
+        failure_message=job.failure_message,
+        created_at=job.created_at,
+        assets=assets,
+    )
+
+
+@router.post(
+    "/{workflow_id}/artwork",
+    response_model=ArtworkJobResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Trigger artwork generation for this workflow",
+)
+async def generate_artwork(
+    workflow_id: uuid.UUID,
+    payload: GenerateArtworkRequest,
+    user: CurrentUser,
+    uow: UowDep,
+) -> ArtworkJobResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    if workflow.state not in (RunStatus.IDEA_APPROVED, "ART_GENERATION_FAILED", RunStatus.ART_REVIEW):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Workflow is not in a generateable state: currently in {workflow.state}",
+        )
+
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    approved_concept = next((c for c in concepts if c.status == ConceptStatus.APPROVED), None)
+    if not approved_concept:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No approved concept found for this workflow. Approve one first.",
+        )
+
+    prompts = await uow.concepts.prompts(approved_concept.id)
+    if not prompts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Approved concept has no design prompts.",
+        )
+    latest_prompt = prompts[-1]
+
+    settings = get_settings()
+    provider_val = payload.provider or "recraft"
+    model_val = payload.provider_model
+    if not model_val:
+        model_val = "recraftv4_1" if provider_val == "recraft" else "gemini-3.1-flash-image"
+
+    provider_enum = ProviderName.RECRAFT if provider_val == "recraft" else ProviderName.GEMINI
+    candidate_count = 4 if "pro" not in model_val.lower() else 1
+
+    await ensure_artwork_within_budget(
+        uow,
+        owner_id=user.id,
+        provider=provider_val,
+        model=model_val,
+        candidate_count=candidate_count,
+        provider_mode=settings.provider_mode,
+    )
+
+    idempotency_key = f"art-{workflow_id}-{latest_prompt.id}-{candidate_count}"
+
+    existing_job = await uow.artwork_jobs.get_by_idempotency_key(idempotency_key)
+    if existing_job:
+        storage = S3ObjectStorage(
+            endpoint_url=settings.s3_endpoint_url,
+            bucket_name=settings.s3_bucket,
+            access_key_id=settings.s3_access_key_id,
+            secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+            region_name=settings.s3_region,
+            force_path_style=settings.s3_force_path_style,
+        )
+        assets = await uow.assets.list_for_job(existing_job.id)
+        asset_resps = []
+        for asset in assets:
+            url = await storage.signed_url(asset.storage_key, 3600)
+            asset_resps.append(to_asset_response(asset, url))
+        return to_job_response(existing_job, asset_resps)
+
+    from app.infrastructure.models import ArtworkJob
+    job = ArtworkJob(
+        id=uuid.uuid4(),
+        workflow_id=workflow_id,
+        concept_id=approved_concept.id,
+        prompt_id=latest_prompt.id,
+        provider=provider_enum,
+        provider_model=model_val,
+        idempotency_key=idempotency_key,
+        status=JobStatus.QUEUED,
+        attempt_count=0,
+        requested_width=payload.requested_width,
+        requested_height=payload.requested_height,
+        quality=payload.quality,
+    )
+    await uow.artwork_jobs.add(job)
+
+    await uow.workflows.transition(
+        workflow,
+        to_state=RunStatus.ART_QUEUED,
+        expected_version=workflow.version,
+        reason="Triggered artwork generation",
+        actor=user.email,
+    )
+
+    await uow.outbox.add(
+        "run_artwork_task",
+        {"workflow_id": str(workflow_id), "job_id": str(job.id)},
+    )
+    await uow.commit()
+
+    return to_job_response(job)
+
+
+@router.get(
+    "/{workflow_id}/artwork-jobs",
+    response_model=list[ArtworkJobResponse],
+    summary="List artwork generation jobs for this workflow",
+)
+async def list_artwork_jobs(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+) -> list[ArtworkJobResponse]:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    jobs = await uow.artwork_jobs.list_for_workflow(workflow_id)
+    settings = get_settings()
+    storage = S3ObjectStorage(
+        endpoint_url=settings.s3_endpoint_url,
+        bucket_name=settings.s3_bucket,
+        access_key_id=settings.s3_access_key_id,
+        secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+        region_name=settings.s3_region,
+        force_path_style=settings.s3_force_path_style,
+    )
+
+    results = []
+    for job in jobs:
+        assets = await uow.assets.list_for_job(job.id)
+        asset_resps = []
+        for asset in assets:
+            url = await storage.signed_url(asset.storage_key, 3600)
+            asset_resps.append(to_asset_response(asset, url))
+        results.append(to_job_response(job, asset_resps))
+
+    return results
+
+
+@router.post(
+    "/{workflow_id}/artwork/regenerate",
+    response_model=ArtworkJobResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Force a new artwork generation run",
+)
+async def regenerate_artwork(
+    workflow_id: uuid.UUID,
+    payload: GenerateArtworkRequest,
+    user: CurrentUser,
+    uow: UowDep,
+) -> ArtworkJobResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    if workflow.state not in (RunStatus.ART_REVIEW, "ART_GENERATION_FAILED", RunStatus.ARTWORK_APPROVED):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot regenerate artwork unless artwork was already generated or failed.",
+        )
+
+    await uow.workflows.transition(
+        workflow,
+        to_state=RunStatus.IDEA_APPROVED,
+        expected_version=workflow.version,
+        reason="Triggered artwork regeneration",
+        actor=user.email,
+    )
+    await uow.commit()
+
+    return await generate_artwork(workflow_id, payload, user, uow)
+
+
+@router.post(
+    "/{workflow_id}/artwork/refine",
+    response_model=ArtworkJobResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Request a refinement of an existing candidate asset using Gemini",
+)
+async def refine_artwork(
+    workflow_id: uuid.UUID,
+    payload: RefineArtworkRequest,
+    user: CurrentUser,
+    uow: UowDep,
+) -> ArtworkJobResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    if workflow.state not in (RunStatus.ART_REVIEW, "ART_GENERATION_FAILED"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot refine artwork unless in ART_REVIEW or failure state.",
+        )
+
+    candidate_asset = await uow.assets.get(payload.candidate_asset_id)
+    if not candidate_asset or candidate_asset.workflow_id != workflow_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Candidate asset not found or not in this workflow.",
+        )
+
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    approved_concept = next((c for c in concepts if c.status == ConceptStatus.APPROVED), None)
+    if not approved_concept:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No approved concept found. Approve one first.",
+        )
+
+    prompts = await uow.concepts.prompts(approved_concept.id)
+    if not prompts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Approved concept has no design prompts.",
+        )
+    latest_prompt = prompts[-1]
+
+    refined_prompt = await uow.concepts.add_prompt_version(
+        approved_concept,
+        positive_prompt=payload.positive_prompt,
+        negative_prompt=payload.negative_prompt or latest_prompt.negative_prompt,
+        typography_instructions=latest_prompt.typography_instructions,
+        exact_slogan=latest_prompt.exact_slogan,
+        change_note=payload.change_note,
+        generation_metadata={"reference_asset_id": str(payload.candidate_asset_id)},
+    )
+
+    settings = get_settings()
+    provider_val = "gemini"
+    model_val = "gemini-3.1-flash-image"
+    provider_enum = ProviderName.GEMINI
+    candidate_count = 1
+
+    await ensure_artwork_within_budget(
+        uow,
+        owner_id=user.id,
+        provider=provider_val,
+        model=model_val,
+        candidate_count=candidate_count,
+        provider_mode=settings.provider_mode,
+    )
+
+    idempotency_key = f"art-{workflow_id}-{refined_prompt.id}-{candidate_count}"
+
+    from app.infrastructure.models import ArtworkJob
+    job = ArtworkJob(
+        id=uuid.uuid4(),
+        workflow_id=workflow_id,
+        concept_id=approved_concept.id,
+        prompt_id=refined_prompt.id,
+        provider=provider_enum,
+        provider_model=model_val,
+        idempotency_key=idempotency_key,
+        status=JobStatus.QUEUED,
+        attempt_count=0,
+        requested_width=candidate_asset.width or 1024,
+        requested_height=candidate_asset.height or 1024,
+        quality="standard",
+    )
+    await uow.artwork_jobs.add(job)
+
+    from app.domain.workflow import ApprovalDecision, ApprovalGate
+    await use_cases.decide_gate(
+        uow=uow,
+        workflow_id=workflow_id,
+        owner_id=user.id,
+        gate=ApprovalGate.ARTWORK_APPROVAL,
+        decision=ApprovalDecision.REVISION_REQUESTED,
+        actor=user.email,
+        target_type="Asset",
+        target_id=payload.candidate_asset_id,
+        target_version=None,
+        comment=payload.change_note,
+        revision_request=payload.positive_prompt,
+    )
+
+    await uow.outbox.add(
+        "run_artwork_task",
+        {"workflow_id": str(workflow_id), "job_id": str(job.id)},
+    )
+    await uow.commit()
+
+    return to_job_response(job)
+
 

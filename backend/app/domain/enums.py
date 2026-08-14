@@ -121,6 +121,7 @@ class ProviderName(StrEnum):
     ETSY = "etsy"
     USPTO = "uspto"
     TAVILY = "tavily"
+    GEMINI = "gemini"
 
 
 class CostStatus(StrEnum):

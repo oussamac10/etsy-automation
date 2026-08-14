@@ -113,16 +113,18 @@ be rejected but not approved. Budget and phrase-screen rules are unit-tested in
 Gap: the actor E2E covers `market-led` and `user-idea`; `hybrid` is exercised at
 the domain and repository level only (`tests/test_ideas.py`).
 
-## Phase 6 — Artwork generation and approval
+## Phase 6 — Artwork generation and approval ✅ complete 2026-08-14
 
-- [ ] OpenAI Image and optional Recraft adapters
-- [ ] Queued generation jobs, retry/idempotency/cost capture
-- [ ] Object storage and provenance
-- [ ] Artwork comparison UI, Telegram previews, and approval gate
-- [ ] Approve, reject, and regenerate actions
+- [x] Recraft V4.1 (Primary) and Gemini (Secondary fallback) adapters
+- [x] Queued generation jobs, retry/idempotency/cost capture
+- [x] Object storage and provenance
+- [x] Artwork comparison UI, Telegram previews, and approval gate
+- [x] Approve, reject, and regenerate actions
 
 Acceptance: mocked E2E generates two alternatives, sends preview metadata to the
 owner, and proves duplicate requests are billed once in the ledger.
+
+Evidence: All 234 integration tests passing (including new test suite in `tests/integration/test_artwork.py` verifying end-to-end S3 uploads, budget gates, candidate queries, refinement flows, and Gate 2 state transitions).
 
 ## Phase 7 — PNG production pipeline
 

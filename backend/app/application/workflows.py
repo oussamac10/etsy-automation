@@ -28,6 +28,7 @@ from app.domain.workflow import (
 )
 from app.infrastructure.models import (
     Approval,
+    Asset,
     AuditEvent,
     OriginalIdea,
     ProductWorkflow,
@@ -306,6 +307,10 @@ async def decide_gate(
         # over. Revising appends a version, which re-runs the screen.
         if decision == ApprovalDecision.APPROVED and concept.risk_level == RiskLevel.HIGH:
             raise UnresolvedRiskError(target_id)
+    elif target_type == "Asset" and target_id is not None:
+        asset = await uow.assets.get(target_id)
+        if not asset or asset.workflow_id != workflow_id:
+            raise EntityNotFoundError("Asset", target_id)
 
     previous_state = workflow.state
     # Raises GateNotSatisfiedError when the workflow is not at this gate.

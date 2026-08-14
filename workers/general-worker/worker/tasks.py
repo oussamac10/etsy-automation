@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from decimal import Decimal
 import json
 import uuid
 from datetime import UTC, datetime
@@ -615,6 +616,416 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
 
     except Exception as exc:
         logger.exception("research_execution_failed", error=str(exc))
+        raise exc
+    finally:
+        await engine.dispose()
+
+
+@dramatiq.actor(max_retries=3, queue_name="default")
+def run_artwork_task(workflow_id: str, job_id: str) -> None:
+    """Synchronous Dramatiq actor entrypoint for artwork generation.
+
+    Spawns the async runner block.
+    """
+    logger.info("artwork_task_triggered", workflow_id=workflow_id, job_id=job_id)
+    try:
+        asyncio.run(_run_artwork_async(uuid.UUID(workflow_id), uuid.UUID(job_id)))
+    except dramatiq.errors.Retry:
+        raise
+    except ProviderError as exc:
+        message = CurrentMessage.get_current_message()
+        attempt = (message.options.get("retries", 0) if message else 0) + 1
+
+        if not should_retry(exc, attempt):
+            logger.error(
+                "artwork_task_permanent_provider_error",
+                kind=exc.kind,
+                attempt=attempt,
+                message=exc.message,
+            )
+            asyncio.run(
+                _mark_artwork_failure_async(uuid.UUID(workflow_id), uuid.UUID(job_id), exc.message)
+            )
+            return
+
+        delay_ms = int(retry_after(exc, attempt) * 1000)
+        logger.info(
+            "artwork_task_retry_scheduled",
+            delay_ms=delay_ms,
+            attempt=attempt,
+            message=exc.message,
+        )
+        raise dramatiq.errors.Retry(delay=delay_ms) from exc
+    except Exception as exc:
+        logger.exception("artwork_task_unhandled_failure", error=str(exc))
+        asyncio.run(_mark_artwork_failure_async(uuid.UUID(workflow_id), uuid.UUID(job_id), str(exc)))
+        raise
+
+
+async def _mark_artwork_failure_async(workflow_id: uuid.UUID, job_id: uuid.UUID, reason: str) -> None:
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    session_factory = create_session_factory(engine)
+    try:
+        async with UnitOfWork(session_factory) as uow:
+            job = await uow.artwork_jobs.get(job_id)
+            if job is not None:
+                await uow.artwork_jobs.update(
+                    job_id,
+                    status=JobStatus.FAILED,
+                    completed_at=datetime.now(UTC),
+                    failure_kind="generation_failure",
+                    failure_message=reason,
+                )
+            
+            # Record a WorkflowFailure record
+            from app.infrastructure.models.audit import WorkflowFailure
+            is_transient = "timeout" in reason.lower() or "http" in reason.lower()
+            failure = WorkflowFailure(
+                workflow_id=workflow_id,
+                failure_state="ART_GENERATION_FAILED",
+                stage="artwork",
+                error_kind="transient" if is_transient else "permanent",
+                error_message=reason,
+                attempt=1,
+                retryable=True,
+            )
+            session = uow._session
+            assert session is not None
+            session.add(failure)
+
+            await uow.audit.record(
+                action=AuditAction.FAILURE_RECORDED,
+                entity_type="ArtworkJob",
+                entity_id=job_id,
+                workflow_id=workflow_id,
+                actor="system",
+                summary=f"Artwork failed: {reason[:150]}",
+            )
+            await uow.commit()
+    except Exception as e:
+        logger.exception("failed_to_mark_artwork_failure", error=str(e))
+    finally:
+        await engine.dispose()
+
+
+async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
+    import hashlib
+    import httpx
+    from app.providers.recraft import RecraftImageAdapter
+    from app.providers.gemini import GeminiImageAdapter
+    from app.providers.s3 import S3ObjectStorage
+    from app.providers.fake import FakeImageProvider
+    from app.application.artwork import ensure_artwork_within_budget, estimate_artwork_cost
+    from app.infrastructure.models import DesignPrompt, Asset
+    from app.ports.providers import ImageRequest
+
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    session_factory = create_session_factory(engine)
+    cipher = build_credential_cipher(settings)
+
+    try:
+        # 1. Load job and workflow details
+        async with UnitOfWork(session_factory) as uow:
+            job = await uow.artwork_jobs.get(job_id)
+            if job is None or job.workflow_id != workflow_id:
+                raise ValueError("ArtworkJob not found")
+
+            workflow = await uow.workflows.get(workflow_id)
+            if workflow is None:
+                raise ValueError("Workflow not found")
+
+            prompt = await uow._session.get(DesignPrompt, job.prompt_id)
+            if prompt is None:
+                raise ValueError("DesignPrompt not found")
+
+            # Copy parameters to narrow types/local variables to satisfy the type checker
+            job_prompt_id = job.prompt_id
+            job_provider = job.provider
+            job_provider_model = job.provider_model
+            job_requested_width = job.requested_width
+            job_requested_height = job.requested_height
+            job_quality = job.quality
+            job_idempotency_key = job.idempotency_key
+            workflow_owner_id = workflow.owner_id
+            workflow_version = workflow.version
+            workflow_name = workflow.name
+            prompt_positive_prompt = prompt.positive_prompt
+            prompt_negative_prompt = prompt.negative_prompt
+            prompt_generation_metadata = prompt.generation_metadata
+
+        # 2. Update job status to RUNNING and bump attempt count
+        async with UnitOfWork(session_factory) as uow:
+            job = await uow.artwork_jobs.get(job_id)
+            assert job is not None
+            job.status = JobStatus.RUNNING
+            job.attempt_count += 1
+            job.started_at = datetime.now(UTC)
+            
+            workflow = await uow.workflows.get(workflow_id)
+            assert workflow is not None
+            if workflow.state != RunStatus.ART_GENERATION:
+                await uow.workflows.transition(
+                    workflow,
+                    to_state=RunStatus.ART_GENERATION,
+                    expected_version=workflow_version,
+                    reason="Artwork generation started",
+                    actor="system",
+                )
+            await uow.commit()
+
+        # 3. Initialize S3 storage
+        storage = S3ObjectStorage(
+            endpoint_url=settings.s3_endpoint_url,
+            bucket_name=settings.s3_bucket,
+            access_key_id=settings.s3_access_key_id,
+            secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+            region_name=settings.s3_region,
+            force_path_style=settings.s3_force_path_style,
+        )
+
+        # 4. Resolve credentials, check budget & reference images
+        is_live = settings.provider_mode == "live"
+        provider_key = None
+        ref_image_bytes = None
+        ref_image_mime = None
+        candidate_count = 4 if "pro" not in (job_provider_model or "").lower() else 1
+
+        async with UnitOfWork(session_factory) as uow:
+            # Check reference image
+            if prompt_generation_metadata is not None:
+                ref_asset_id_str = prompt_generation_metadata.get("reference_asset_id")
+                if ref_asset_id_str:
+                    ref_asset = await uow.assets.get(uuid.UUID(str(ref_asset_id_str)))
+                    if ref_asset is not None:
+                        ref_image_bytes = await storage.get(ref_asset.storage_key)
+                        ref_image_mime = ref_asset.mime_type
+
+            # Check budget limit
+            owner_settings = await ensure_artwork_within_budget(
+                uow,
+                owner_id=workflow_owner_id,
+                provider=job_provider.value,
+                model=job_provider_model,
+                candidate_count=candidate_count,
+                provider_mode=settings.provider_mode,
+            )
+            currency = owner_settings.currency
+
+            if is_live:
+                try:
+                    provider_key = await reveal_credential(
+                        uow, workflow_owner_id, provider=job_provider, cipher=cipher
+                    )
+                except Exception as exc:
+                    raise ProviderError(
+                        kind=ProviderErrorKind.AUTHENTICATION,
+                        provider=job_provider.value,
+                        operation="reveal_credential",
+                        message=f"{job_provider.value} API Key is missing or invalid in credentials.",
+                    ) from exc
+
+        # 5. Record cost estimate in ledger before paid call
+        estimated_price = estimate_artwork_cost(
+            provider=job_provider.value,
+            model=job_provider_model,
+            candidate_count=candidate_count,
+            currency=currency,
+            provider_mode=settings.provider_mode,
+        )
+
+        async with UnitOfWork(session_factory) as uow:
+            ledger_entry = await uow.costs.record_estimate(
+                workflow_id=workflow_id,
+                provider=job_provider,
+                service="artwork",
+                operation="generate_image",
+                estimated=estimated_price,
+                input_units=1,
+                output_units=candidate_count,
+                unit_kind="images",
+                idempotency_key=f"cost-artwork-{job_id}",
+            )
+            await uow.commit()
+
+        # 6. Initialize provider adapter
+        image_provider = None
+        if is_live and provider_key:
+            if job_provider == ProviderName.RECRAFT:
+                image_provider = RecraftImageAdapter(
+                    api_key=provider_key, default_model=job_provider_model or "recraftv4_1"
+                )
+            elif job_provider == ProviderName.GEMINI:
+                image_provider = GeminiImageAdapter(
+                    api_key=provider_key, default_model=job_provider_model or "gemini-3.1-flash-image"
+                )
+        
+        if image_provider is None:
+            image_provider = FakeImageProvider()
+
+        # 7. Execute image generation
+        request = ImageRequest(
+            positive_prompt=prompt_positive_prompt,
+            negative_prompt=prompt_negative_prompt or "",
+            width=job_requested_width or 1024,
+            height=job_requested_height or 1024,
+            quality=job_quality or "standard",
+            idempotency_key=job_idempotency_key,
+            provider=job_provider.value,
+            model=job_provider_model,
+            aspect_ratio="1:1",
+            transparent_background=True,
+            candidate_count=candidate_count,
+            reference_image_bytes=ref_image_bytes,
+            reference_image_mime_type=ref_image_mime,
+        )
+
+        response = await image_provider.generate(request)
+
+        # 8. Upload candidates to S3 and record Assets
+        candidate_assets: list[Asset] = []
+        async with UnitOfWork(session_factory) as uow:
+            job = await uow.artwork_jobs.get(job_id)
+            assert job is not None
+            workflow = await uow.workflows.get(workflow_id)
+            assert workflow is not None
+
+            for idx, candidate in enumerate(response.candidates):
+                sha256 = hashlib.sha256(candidate.image_bytes).hexdigest()
+                
+                existing_asset = await uow.assets.get_by_checksum_sha256(workflow_id, sha256)
+                if existing_asset is not None:
+                    candidate_assets.append(existing_asset)
+                    continue
+
+                ext = "svg" if candidate.mime_type == "image/svg+xml" else "png"
+                storage_key = f"assets/{workflow_id}/{uuid.uuid4()}.{ext}"
+                
+                stored_obj = await storage.put(storage_key, candidate.image_bytes, candidate.mime_type)
+
+                new_asset = Asset(
+                    id=uuid.uuid4(),
+                    workflow_id=workflow_id,
+                    artwork_job_id=job_id,
+                    storage_key=stored_obj.storage_key,
+                    mime_type=stored_obj.content_type,
+                    byte_size=stored_obj.byte_size,
+                    checksum_sha256=stored_obj.sha256,
+                    width=candidate.width or job_requested_width,
+                    height=candidate.height or job_requested_height,
+                    has_alpha=True,
+                    has_transparent_pixels=True,
+                    quality_check={},
+                    provenance={
+                        "generator": job_provider.value,
+                        "model": response.model,
+                        "prompt": prompt_positive_prompt,
+                    },
+                )
+                await uow.assets.add(new_asset)
+                candidate_assets.append(new_asset)
+
+            actual_cost = Money.from_decimal(response.cost_usd or Decimal("0.0"), currency)
+            await uow.costs.reconcile(
+                usage_id=ledger_entry.id,
+                actual=actual_cost,
+                input_units=1,
+                output_units=len(response.candidates),
+            )
+
+            await uow.artwork_jobs.update(
+                job_id,
+                status=JobStatus.SUCCEEDED,
+                completed_at=datetime.now(UTC),
+                provider_job_id=response.provider_request_id,
+            )
+
+            await uow.workflows.transition(
+                workflow,
+                to_state=RunStatus.ART_REVIEW,
+                expected_version=workflow.version,
+                reason="Artwork generation succeeded. Waiting for Gate 2 human approval.",
+                actor="system",
+            )
+
+            await uow.audit.record(
+                action=AuditAction.JOB_STATUS_CHANGED,
+                entity_type="ArtworkJob",
+                entity_id=job_id,
+                workflow_id=workflow_id,
+                actor="system",
+                summary="Artwork generation succeeded.",
+                after={
+                    "status": JobStatus.SUCCEEDED.value,
+                    "workflow_state": RunStatus.ART_REVIEW.value,
+                },
+            )
+            await uow.commit()
+
+        # 9. Send Telegram Notification
+        try:
+            inline_keyboard = []
+            approve_row = []
+            for idx, asset in enumerate(candidate_assets):
+                approve_row.append({
+                    "text": f"Approve {idx+1}",
+                    "callback_data": f"art_app:{asset.id}",
+                })
+            inline_keyboard.append(approve_row)
+
+            inline_keyboard.append([
+                {"text": "Reject Options", "callback_data": f"art_rej:{workflow_id}:{workflow_version}"},
+                {"text": "Regenerate", "callback_data": f"art_reg:{workflow_id}"},
+            ])
+
+            dash_origins = settings.cors_origins
+            dash_base = dash_origins[0] if dash_origins else "http://localhost:3000"
+            inline_keyboard.append([
+                {"text": "Open Dashboard", "url": f"{dash_base}/workflow/{workflow_id}"}
+            ])
+
+            preview_links = []
+            async with UnitOfWork(session_factory) as uow:
+                for idx, asset in enumerate(candidate_assets):
+                    signed_url = await storage.signed_url(asset.storage_key, 3600)
+                    preview_links.append(f"• <a href=\"{signed_url}\">Candidate {idx+1} Preview</a>")
+
+            from app.providers.telegram import escape_html
+            notify_text = (
+                f"🎨 <b>Artwork Generation Complete!</b>\n\n"
+                f"Workflow: <b>{escape_html(workflow_name)}</b>\n"
+                f"Provider: <code>{job_provider.value}</code>\n"
+                f"Model: <code>{response.model}</code>\n"
+                f"Cost: <b>{actual_cost.to_decimal():.4f} USD</b>\n\n"
+                f"<b>Previews:</b>\n" + "\n".join(preview_links) + "\n\n"
+                f"Please review and approve a candidate below."
+            )
+
+            from app.providers.telegram import FakeTelegramGateway, RealTelegramGateway
+            from app.application.telegram import send_telegram_notification
+
+            if settings.provider_mode == "live" and settings.telegram_bot_token:
+                async with httpx.AsyncClient(timeout=10.0) as http_client:
+                    tg_gateway = RealTelegramGateway(
+                        settings.telegram_bot_token.get_secret_value(), http_client
+                    )
+                    async with UnitOfWork(session_factory) as uow:
+                        await send_telegram_notification(
+                            uow, tg_gateway, workflow_owner_id, notify_text, {"inline_keyboard": inline_keyboard}
+                        )
+            else:
+                tg_gateway = FakeTelegramGateway()
+                async with UnitOfWork(session_factory) as uow:
+                    await send_telegram_notification(
+                        uow, tg_gateway, workflow_owner_id, notify_text, {"inline_keyboard": inline_keyboard}
+                    )
+
+        except Exception as tg_exc:
+            logger.warning("failed_to_send_telegram_notification", error=str(tg_exc))
+
+    except Exception as exc:
+        logger.exception("artwork_execution_failed", error=str(exc))
         raise exc
     finally:
         await engine.dispose()
