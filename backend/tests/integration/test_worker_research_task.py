@@ -445,7 +445,7 @@ class TestResearchGeminiTransition:
                 text=json.dumps(payload),
                 input_tokens=100,
                 output_tokens=200,
-                model="gemini-3.5-flash",
+                model="gemini-1.5-flash",
             )
 
         monkeypatch.setattr(TavilySearchAdapter, "search", mock_search)
