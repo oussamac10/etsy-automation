@@ -19,6 +19,7 @@ from app.domain.enums import (
     ConceptOrigin,
     ConceptStatus,
     ConfidenceLevel,
+    IdeaMode,
     ProviderName,
     Seasonality,
     SourceType,
@@ -312,12 +313,21 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 idea_buyer = original_idea.audience or ""
 
         target_theme = user_idea_text or brief_theme
+        search_theme = target_theme
+        if workflow.idea_mode == IdeaMode.MARKET_LED:
+            import re
+            match = re.search(r"\(([^)]+)\)", target_theme)
+            if match:
+                search_theme = match.group(1)
+            elif "Trend Discovery" in target_theme:
+                search_theme = "trending design trends"
+
         angles = {
-            "broad": f"{target_theme} png design clipart",
-            "long-tail": f"hand-drawn {target_theme} sublimation transparent background",
-            "recipient": f"{idea_buyer or 'gift'} {target_theme} png",
-            "style": f"{idea_style or 'retro groovy'} {target_theme} clipart",
-            "use-case": f"{target_theme} sublimation design for mug shirt",
+            "broad": f"{search_theme} png design clipart",
+            "long-tail": f"hand-drawn {search_theme} sublimation transparent background",
+            "recipient": f"{idea_buyer or 'gift'} {search_theme} png",
+            "style": f"{idea_style or 'retro groovy'} {search_theme} clipart",
+            "use-case": f"{search_theme} sublimation design for mug shirt",
         }
 
         search_provider: ResearchProvider
@@ -424,17 +434,13 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             "}\n"
             "\n"
             "Rules to strictly follow:\n"
-            "1. If a personal idea or user idea is provided, the first concept MUST be a "
-            "faithful concept that preserves the core concept and slogan verbatim and marks "
-            "fidelity as 'High'.\n"
-            "2. Never name living artists in the positive prompt. Style must be descriptive "
-            "(e.g. textured watercolor shading, vintage retro groovy style).\n"
-            "3. Every prompt must demand 'isolated central artwork on a transparent background' "
-            "and 'clean uncropped edges'.\n"
-            "4. Keep typography separate. Slogans should be null in the positive prompt, "
-            "and exact phrases must be listed in exact_slogan and layout instructions in "
-            "typography_instructions.\n"
-            "5. Never invent or include fake search volume numbers."
+            "1. For 'user-idea' mode: You MUST generate EXACTLY ONE concept. It must be a faithful, improved, and analyzed version of the user's provided idea. If the user provided an exact slogan, you MUST preserve it verbatim in the 'exact_slogan' field of this concept, unless risk/trademark checks reject/flag it. Set fidelity to 'High' and origin to 'user'.\n"
+            "2. For 'hybrid' mode: You MUST generate EXACTLY 3 concepts, which MUST be derived variations of the user's theme/direction and remain recognizably connected to it, while informing them with market research. Set origin to 'hybrid' and fidelity to 'Medium'.\n"
+            "3. For 'market-led' mode: You MUST generate EXACTLY 3 concepts, discovering opportunities from the market/seasonal research evidence. Set origin to 'market' and fidelity to 'Low'.\n"
+            "4. Never name living artists in the positive prompt. Style must be descriptive (e.g. textured watercolor shading, vintage retro groovy style).\n"
+            "5. Every prompt must demand 'isolated central artwork on a transparent background' and 'clean uncropped edges'.\n"
+            "6. Keep typography separate. Slogans should be null in the positive prompt, and exact phrases must be listed in exact_slogan and layout instructions in typography_instructions.\n"
+            "7. Never invent or include fake search volume numbers."
         )
 
         user_prompt = (
@@ -447,11 +453,14 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
         )
         if user_idea_text:
             user_prompt += (
-                f"Original User Idea: {user_idea_text}\n"
-                f"User Slogan: {idea_slogan}\n"
+                f"Original User Idea / Theme Direction: {user_idea_text}\n"
                 f"User Style Direction: {idea_style}\n"
                 f"User Season: {idea_season}\n"
             )
+            if idea_slogan:
+                user_prompt += f"User Slogan: {idea_slogan} (Preserve verbatim unless it fails trademark/IP validation)\n"
+            else:
+                user_prompt += "User Slogan: None provided (You may suggest a slogan if appropriate)\n"
         user_prompt += f"\nSearch Evidence Collected:\n{evidence_content}\n"
 
         # Record estimate in ledger before paid call

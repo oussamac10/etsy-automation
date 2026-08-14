@@ -52,6 +52,21 @@ const desiredStyle = ref("");
 const audience = ref("");
 const occasion = ref("");
 const season = ref("");
+const preferredNiche = ref("");
+
+// Clear inapplicable fields when mode changes to prevent stale data submission
+watch(ideaMode, (newMode) => {
+  if (newMode === "market-led") {
+    originalText.value = "";
+    slogan.value = "";
+    desiredStyle.value = "";
+    audience.value = "";
+    occasion.value = "";
+    season.value = "";
+  } else {
+    preferredNiche.value = "";
+  }
+});
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -90,10 +105,26 @@ async function handleCreateWorkflow(): Promise<void> {
       headers["x-csrf-token"] = csrf;
     }
 
+    let resolvedName = workflowName.value.trim();
+    if (!resolvedName && ideaMode.value === "market-led") {
+      const monthYear = new Date().toLocaleString("en-US", { month: "short", year: "numeric" });
+      if (preferredNiche.value.trim()) {
+        resolvedName = `${targetCountry.value.toUpperCase()} Trend Discovery (${preferredNiche.value.trim()}) - ${monthYear}`;
+      } else {
+        resolvedName = `${targetCountry.value.toUpperCase()} Trend Discovery - ${monthYear}`;
+      }
+    }
+
+    if (ideaMode.value !== "market-led" && !resolvedName) {
+      creationError.value = "Failed to create workflow: Campaign Name is required.";
+      isCreating.value = false;
+      return;
+    }
+
     // Step 1: Create the workflow
     const payload = {
       idea_mode: ideaMode.value,
-      name: workflowName.value.trim(),
+      name: resolvedName,
       target_country: targetCountry.value.trim(),
       output_language: outputLanguage.value.trim(),
       target_marketplace: targetMarketplace.value.trim(),
@@ -104,15 +135,23 @@ async function handleCreateWorkflow(): Promise<void> {
         .filter((u) => u.length > 0),
     };
 
-    const newWorkflow = await $fetch<Workflow>(
-      `${apiBase.replace(/\/$/, "")}/api/v1/workflows`,
-      {
-        method: "POST",
-        headers,
-        body: payload,
-        credentials: "include",
-      }
-    );
+    let newWorkflow;
+    try {
+      newWorkflow = await $fetch<Workflow>(
+        `${apiBase.replace(/\/$/, "")}/api/v1/workflows`,
+        {
+          method: "POST",
+          headers,
+          body: payload,
+          credentials: "include",
+        }
+      );
+    } catch (err: any) {
+      const detail = err.data?.detail || "Failed to create workflow.";
+      creationError.value = `Failed to create workflow: ${detail}`;
+      isCreating.value = false;
+      return;
+    }
 
     // Step 2: If user-idea or hybrid, submit original idea
     if (ideaMode.value !== "market-led") {
@@ -129,26 +168,40 @@ async function handleCreateWorkflow(): Promise<void> {
           .filter((u) => u.length > 0),
       };
 
-      await $fetch(
-        `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${newWorkflow.id}/ideas`,
-        {
-          method: "POST",
-          headers,
-          body: ideaPayload,
-          credentials: "include",
-        }
-      );
+      try {
+        await $fetch(
+          `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${newWorkflow.id}/ideas`,
+          {
+            method: "POST",
+            headers,
+            body: ideaPayload,
+            credentials: "include",
+          }
+        );
+      } catch (err: any) {
+        const detail = err.data?.detail || "Failed to save idea.";
+        creationError.value = `Failed to save idea: ${detail}`;
+        isCreating.value = false;
+        return;
+      }
     }
 
     // Step 3: Trigger the background research run automatically!
-    await $fetch(
-      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${newWorkflow.id}/research`,
-      {
-        method: "POST",
-        headers,
-        credentials: "include",
-      }
-    );
+    try {
+      await $fetch(
+        `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${newWorkflow.id}/research`,
+        {
+          method: "POST",
+          headers,
+          credentials: "include",
+        }
+      );
+    } catch (err: any) {
+      const detail = err.data?.detail || "Failed to start research.";
+      creationError.value = `Failed to start research: ${detail}`;
+      isCreating.value = false;
+      return;
+    }
 
     // Reset form and reload
     showCreateForm.value = false;
@@ -161,6 +214,7 @@ async function handleCreateWorkflow(): Promise<void> {
     audience.value = "";
     occasion.value = "";
     season.value = "";
+    preferredNiche.value = "";
 
     await loadWorkflows();
   } catch (err) {
@@ -270,6 +324,7 @@ onUnmounted(() => {
                   <span class="text-md font-bold text-slate-800">Discover Ideas</span>
                   <span v-if="ideaMode === 'market-led'" class="h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs">✓</span>
                 </div>
+                <p class="text-xs font-semibold text-indigo-600 mb-1">Find opportunities for me</p>
                 <p class="text-xs text-slate-500">
                   Fully automated market trend discovery. The AI searches seasonal demand and devises three unique concepts from search queries.
                 </p>
@@ -286,6 +341,7 @@ onUnmounted(() => {
                   <span class="text-md font-bold text-slate-800">Use My Idea</span>
                   <span v-if="ideaMode === 'user-idea'" class="h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs">✓</span>
                 </div>
+                <p class="text-xs font-semibold text-indigo-600 mb-1">Research and improve my concept</p>
                 <p class="text-xs text-slate-500">
                   Supply your own direct theme/concept. The engine optimizes your concept, queries related keywords, and outputs a ready-to-test brief.
                 </p>
@@ -302,6 +358,7 @@ onUnmounted(() => {
                   <span class="text-md font-bold text-slate-800">Hybrid Approach</span>
                   <span v-if="ideaMode === 'hybrid'" class="h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs">✓</span>
                 </div>
+                <p class="text-xs font-semibold text-indigo-600 mb-1">Use my direction + market signals</p>
                 <p class="text-xs text-slate-500">
                   Blend user direction with market signals. The engine maps your brief against general trends to produce derived variations.
                 </p>
@@ -313,15 +370,18 @@ onUnmounted(() => {
           <!-- Step 2: Campaign Settings -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label for="campaign-name" class="block text-sm font-semibold text-slate-700">Campaign Name</label>
+              <label for="campaign-name" class="block text-sm font-semibold text-slate-700">
+                Campaign Name <span v-if="ideaMode !== 'market-led'" class="text-red-500">*</span>
+              </label>
               <input
                 id="campaign-name"
                 v-model="workflowName"
                 type="text"
-                required
-                placeholder="e.g. Autumn Mugs 2026"
+                :required="ideaMode !== 'market-led'"
+                :placeholder="ideaMode === 'market-led' ? 'e.g. US Trend Discovery - Aug 2026' : 'e.g. Autumn Mugs 2026'"
                 class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               />
+              <span v-if="ideaMode === 'market-led'" class="text-xs text-slate-400 block mt-1">Optional - auto-generates if left blank</span>
             </div>
             <div>
               <label for="target-country" class="block text-sm font-semibold text-slate-700">Target Marketplace Country</label>
@@ -339,7 +399,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Optional Targeting Filters -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div>
               <label for="output-language" class="block text-sm font-semibold text-slate-700">Output Language</label>
               <input
@@ -360,7 +420,17 @@ onUnmounted(() => {
                 class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               />
             </div>
-            <div>
+            <div v-if="ideaMode === 'market-led'">
+              <label for="preferred-niche" class="block text-sm font-semibold text-slate-700">Preferred Niche / Theme (Optional)</label>
+              <input
+                id="preferred-niche"
+                v-model="preferredNiche"
+                type="text"
+                placeholder="e.g. retro camping, black cats"
+                class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              />
+            </div>
+            <div :class="ideaMode !== 'market-led' ? 'md:col-span-1 lg:col-span-2' : ''">
               <label for="product-uses" class="block text-sm font-semibold text-slate-700">Intended Physical Products</label>
               <input
                 id="product-uses"
@@ -375,23 +445,33 @@ onUnmounted(() => {
 
           <!-- Step 3: Wording / Brief inputs (for user-idea/hybrid modes) -->
           <div v-if="ideaMode !== 'market-led'" class="border-t border-slate-200 pt-6 space-y-6">
-            <h3 class="text-lg font-bold text-slate-800">Your Design Idea Details</h3>
+            <h3 class="text-lg font-bold text-slate-800">
+              {{ ideaMode === 'hybrid' ? 'Your Theme / Direction Details' : 'Your Design Idea Details' }}
+            </h3>
             
             <div>
-              <label for="original-text" class="block text-sm font-semibold text-slate-700">Idea Brief / Prompt Wording</label>
+              <label for="original-text" class="block text-sm font-semibold text-slate-700">
+                {{ ideaMode === 'hybrid' ? 'Theme / Direction Brief' : 'Idea Brief / Prompt Wording' }} <span class="text-red-500">*</span>
+              </label>
               <textarea
                 id="original-text"
                 v-model="originalText"
                 required
                 rows="3"
-                placeholder="Detail the subject, elements, colors, and layout you want (minimum 3 characters)"
+                :placeholder="
+                  ideaMode === 'hybrid' 
+                    ? 'e.g. retro camping theme for outdoorsy adults, warm colors, humorous but not childish' 
+                    : 'Detail the subject, elements, colors, and layout you want (minimum 3 characters)'
+                "
                 class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
               ></textarea>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label for="desired-style" class="block text-sm font-semibold text-slate-700">Desired Style (Optional)</label>
+                <label for="desired-style" class="block text-sm font-semibold text-slate-700">
+                  {{ ideaMode === 'hybrid' ? 'Preferred Style (Optional)' : 'Desired Style (Optional)' }}
+                </label>
                 <input
                   id="desired-style"
                   v-model="desiredStyle"
@@ -412,7 +492,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label for="audience" class="block text-sm font-semibold text-slate-700">Audience (Optional)</label>
                 <input
@@ -446,13 +526,35 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- Helper text outlining next steps -->
+          <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-xs text-slate-500 flex items-start gap-2.5">
+            <span class="text-base">ℹ️</span>
+            <div>
+              <p class="font-semibold text-slate-700 mb-0.5">What happens next?</p>
+              <p>Research runs in the background and stops at Idea Review before any artwork is generated.</p>
+            </div>
+          </div>
+
           <div class="flex justify-end pt-4">
             <button
               type="submit"
               :disabled="isCreating"
-              class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 px-6 py-3 text-sm font-bold text-white shadow-lg hover:from-indigo-700 hover:to-sky-600 transition-all duration-200 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 px-6 py-3 text-sm font-bold text-white shadow-lg hover:from-indigo-700 hover:to-sky-600 transition-all duration-200 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer"
             >
-              {{ isCreating ? 'Submitting & Researching...' : 'Launch Campaign' }}
+              <span v-if="isCreating">
+                {{ 
+                  ideaMode === 'market-led' ? 'Starting market discovery...' :
+                  ideaMode === 'user-idea' ? 'Starting idea research...' :
+                  'Starting hybrid research...'
+                }}
+              </span>
+              <span v-else>
+                {{ 
+                  ideaMode === 'market-led' ? 'Discover 3 Ideas' :
+                  ideaMode === 'user-idea' ? 'Research My Idea' :
+                  'Generate Variations'
+                }}
+              </span>
             </button>
           </div>
         </form>

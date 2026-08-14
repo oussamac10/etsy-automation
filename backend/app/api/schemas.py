@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.enums import IdeaMode
 from app.domain.workflow import ApprovalDecision, ApprovalGate, RunStatus
@@ -30,7 +30,7 @@ class CreateWorkflowRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     idea_mode: IdeaMode
-    name: Annotated[str, Field(min_length=1, max_length=200)]
+    name: Annotated[str | None, Field(max_length=200)] = None
     target_country: CountryCode
     output_language: LanguageCode
     target_marketplace: Annotated[str, Field(max_length=50)] = "etsy"
@@ -39,10 +39,17 @@ class CreateWorkflowRequest(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def _name_not_blank(cls, value: str) -> str:
-        if not value.strip():
+    def _name_not_blank(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
             raise ValueError("name must not be blank")
-        return value.strip()
+        return value.strip() if value is not None else None
+
+    @model_validator(mode="after")
+    def _validate_name_requirement(self) -> CreateWorkflowRequest:
+        if self.idea_mode != IdeaMode.MARKET_LED and not self.name:
+            raise ValueError("name is required for this idea mode")
+        return self
+
 
 
 class SubmitIdeaRequest(BaseModel):

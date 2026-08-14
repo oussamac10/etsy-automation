@@ -590,3 +590,70 @@ class TestDeleteCampaign:
         assert (await client.delete(f"/api/v1/workflows/{foreign}")).status_code == 404
         assert foreign in await self._listed_ids(other_client)
 
+
+class TestCampaignCreationModes:
+    async def test_discover_ideas_mode(self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        # 1. Campaign Name is optional - if omitted, it auto-generates
+        response = await client.post(
+            "/api/v1/workflows",
+            json={
+                "idea_mode": "market-led",
+                "target_country": "US",
+                "output_language": "en",
+            },
+        )
+        assert response.status_code == 201
+        wf = response.json()
+        assert wf["name"].startswith("US Trend Discovery -")
+        wf_id = uuid.UUID(wf["id"])
+
+        # 2. No user idea row is created
+        async with UnitOfWork(session_factory) as uow:
+            idea = await uow.ideas.get_for_workflow(wf_id)
+            assert idea is None
+
+    async def test_use_my_idea_mode_requires_brief(self, client: httpx.AsyncClient) -> None:
+        # Omit Campaign Name: returns 422 because name validation fails
+        response = await client.post(
+            "/api/v1/workflows",
+            json={
+                "idea_mode": "user-idea",
+                "target_country": "US",
+                "output_language": "en",
+            },
+        )
+        assert response.status_code == 422
+
+    async def test_use_my_idea_preserves_slogan_and_creates_idea(
+        self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+    ) -> None:
+        # Create campaign
+        wf = (await client.post(
+            "/api/v1/workflows",
+            json={
+                "name": "My Custom Mugs",
+                "idea_mode": "user-idea",
+                "target_country": "US",
+                "output_language": "en",
+            },
+        )).json()
+        wf_id = uuid.UUID(wf["id"])
+
+        # Submit original idea details
+        idea_resp = await client.post(
+            f"/api/v1/workflows/{wf_id}/ideas",
+            json={
+                "original_text": "A beautiful sleepy fox drawing",
+                "slogan": "Keep Cozy",
+            },
+        )
+        assert idea_resp.status_code == 201
+
+        # Verify idea is saved in the database
+        async with UnitOfWork(session_factory) as uow:
+            idea = await uow.ideas.get_for_workflow(wf_id)
+            assert idea is not None
+            assert idea.original_text == "A beautiful sleepy fox drawing"
+            assert idea.slogan == "Keep Cozy"
+
+

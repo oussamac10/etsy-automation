@@ -44,9 +44,9 @@ from app.infrastructure.models import (
 class CreateWorkflowCommand:
     owner_id: uuid.UUID
     idea_mode: IdeaMode
-    name: str
     target_country: str
     output_language: str
+    name: str | None = None
     target_marketplace: str = "etsy"
     target_buyer: str | None = None
     intended_product_uses: list[str] = field(default_factory=list)
@@ -107,10 +107,16 @@ async def create_workflow(uow: UnitOfWork, command: CreateWorkflowCommand) -> Pr
     if owner is None:
         raise EntityNotFoundError("User", command.owner_id)
 
+    resolved_name = command.name
+    if not resolved_name or not resolved_name.strip():
+        from datetime import datetime
+        month_year = datetime.now().strftime("%b %Y")
+        resolved_name = f"{command.target_country.upper()} Trend Discovery - {month_year}"
+
     workflow = ProductWorkflow(
         owner_id=command.owner_id,
         idea_mode=command.idea_mode,
-        name=command.name,
+        name=resolved_name,
         target_marketplace=command.target_marketplace,
         target_country=command.target_country.upper(),
         output_language=command.output_language,

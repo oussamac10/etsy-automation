@@ -875,6 +875,27 @@ onBeforeUnmount(stopPolling);
               </div>
             </div>
 
+            <!-- Original User Input for Comparison -->
+            <div v-if="workflow && originalIdea" class="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-6 mb-8">
+              <h3 class="text-lg font-bold text-indigo-900 mb-3 flex items-center gap-2">
+                <span>💡</span>
+                <span>Original {{ workflow.idea_mode === 'hybrid' ? 'Theme / Direction' : 'Idea Brief' }}</span>
+              </h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-slate-700">
+                <div>
+                  <span class="font-semibold text-slate-500 block mb-1">Verbatim Wording:</span>
+                  <p class="italic bg-white p-3 rounded-lg border border-indigo-50/80">{{ originalIdea.original_text }}</p>
+                </div>
+                <div class="space-y-2">
+                  <div v-if="originalIdea.slogan"><span class="font-semibold text-slate-500">Slogan:</span> <span class="font-mono bg-white px-1.5 py-0.5 rounded border border-indigo-50 text-slate-800">{{ originalIdea.slogan }}</span></div>
+                  <div v-if="originalIdea.desired_style"><span class="font-semibold text-slate-500">Desired Style:</span> <span class="bg-white px-1.5 py-0.5 rounded border border-indigo-50 text-slate-800">{{ originalIdea.desired_style }}</span></div>
+                  <div v-if="originalIdea.audience"><span class="font-semibold text-slate-500">Audience:</span> <span class="bg-white px-1.5 py-0.5 rounded border border-indigo-50 text-slate-800">{{ originalIdea.audience }}</span></div>
+                  <div v-if="originalIdea.occasion"><span class="font-semibold text-slate-500">Occasion:</span> <span class="bg-white px-1.5 py-0.5 rounded border border-indigo-50 text-slate-800">{{ originalIdea.occasion }}</span></div>
+                  <div v-if="originalIdea.season"><span class="font-semibold text-slate-500">Season:</span> <span class="bg-white px-1.5 py-0.5 rounded border border-indigo-50 text-slate-800">{{ originalIdea.season }}</span></div>
+                </div>
+              </div>
+            </div>
+
             <h2 class="text-2xl font-bold text-slate-800">Synthesised Product Concepts</h2>
 
             <div v-if="concepts.length === 0" class="rounded-xl border border-slate-200 bg-white p-8 text-center">
