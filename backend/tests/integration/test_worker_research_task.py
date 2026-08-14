@@ -335,3 +335,182 @@ def test_worker_and_broker_initialization() -> None:
     assert actor is not None
     assert actor.actor_name == "run_research_task"
 
+
+class TestResearchGeminiTransition:
+    async def test_missing_gemini_credential_raises_authentication_error(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        owner: User,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workflow_id, run_id = await _queued_run(session_factory, owner.id)
+
+        # Force live mode
+        monkeypatch.setenv("PROVIDER_MODE", "live")
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "not-a-real-token")
+        # Ensure tavily key is set so it doesn't fail on tavily credential
+        monkeypatch.setenv("TAVILY_API_KEY", "fake-tavily-key")
+        get_settings.cache_clear()
+
+        # In this test, we do not save any GEMINI credential for the user.
+        # It should fail with authentication error for gemini.
+        with pytest.raises(ProviderError) as caught:
+            await _run_research_async(workflow_id, run_id)
+
+        assert caught.value.kind == ProviderErrorKind.AUTHENTICATION
+        assert caught.value.provider == "gemini"
+        assert "Gemini API Key is missing or invalid in credentials" in caught.value.message
+
+    async def test_openai_credential_not_required_and_tavily_gemini_success(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        owner: User,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.providers.gemini import GeminiSynthesisAdapter
+        from app.providers.search import TavilySearchAdapter
+        from app.ports.providers import SearchResult, TextResponse
+        from datetime import UTC, datetime
+        import json
+        import sqlalchemy as sa
+        from app.domain.enums import ProviderName
+        from app.api.dependencies import build_credential_cipher
+        from app.domain.money import Money
+
+        settings = get_settings()
+
+        async def mock_search(self, query: Any) -> list[SearchResult]:
+            return [
+                SearchResult(
+                    url="https://example.com",
+                    title="Mock Result",
+                    observation="Found some good design ideas",
+                    source_type="trends",
+                    captured_at=datetime.now(UTC),
+                )
+            ]
+
+        async def mock_generate(self, request: Any) -> TextResponse:
+            payload = {
+                "confidence": "high",
+                "proposed_test": None,
+                "keyword_clusters": [
+                    {
+                        "primary_phrase": "mock phrase",
+                        "attributes": ["mock"],
+                        "recipient_occasion_terms": ["mock"],
+                        "use_case_terms": ["mock"],
+                        "competition_level": "thin",
+                        "competition_note": "very thin",
+                        "relevance_rank": 95,
+                    }
+                ],
+                "concepts": [
+                    {
+                        "title": "Mock Title",
+                        "description": "Mock Description",
+                        "differentiation": "Mock Diff",
+                        "target_buyer": "Mock Buyer",
+                        "buyer_use_case": "Mock Use Case",
+                        "seasonality": "evergreen",
+                        "risk_level": "low",
+                        "risk_note": "No risk",
+                        "score_breakdown": {
+                            "demand": 5,
+                            "competition_opportunity": 5,
+                            "seasonal_timing": 5,
+                            "buyer_clarity": 5,
+                            "differentiation": 5,
+                            "product_versatility": 5,
+                            "ip_safety": 5,
+                        },
+                        "score_explanation": "Perfect score",
+                        "fidelity": "High",
+                        "origin": "market",
+                        "prompt": {
+                            "positive_prompt": "positive",
+                            "negative_prompt": "negative",
+                            "typography_instructions": "typo",
+                            "exact_slogan": "slogan",
+                            "intended_product_uses": ["mug"],
+                            "style_notes": "style",
+                            "palette": "palette",
+                            "post_generation_checklist": ["check"],
+                            "generation_metadata": {},
+                        }
+                    }
+                ]
+            }
+            return TextResponse(
+                text=json.dumps(payload),
+                input_tokens=100,
+                output_tokens=200,
+                model="gemini-3.5-flash",
+            )
+
+        monkeypatch.setattr(TavilySearchAdapter, "search", mock_search)
+        monkeypatch.setattr(GeminiSynthesisAdapter, "generate", mock_generate)
+
+        # Save a GEMINI credential to the database but NO openai credential
+        cipher = build_credential_cipher(settings)
+        encrypted_gemini = cipher.encrypt("real-gemini-key")
+
+        async with UnitOfWork(session_factory) as uow:
+            from app.infrastructure.models.owner_settings import ProviderCredential
+            # Delete any existing OpenAI credential for this owner to prove it is not required
+            await uow.session.execute(
+                sa.delete(ProviderCredential).where(
+                    ProviderCredential.user_id == owner.id,
+                    ProviderCredential.provider == ProviderName.OPENAI
+                )
+            )
+            # Add Gemini credential
+            gemini_cred = ProviderCredential(
+                user_id=owner.id,
+                provider=ProviderName.GEMINI,
+                ciphertext=encrypted_gemini,
+                key_version=cipher.key_version,
+                masked_value="••••••••1234",
+            )
+            await uow.session.merge(gemini_cred)
+            await uow.commit()
+
+        workflow_id, run_id = await _queued_run(session_factory, owner.id)
+
+        # Verify initial states
+        async with UnitOfWork(session_factory) as uow:
+            workflow = await uow.workflows.get(workflow_id)
+            assert workflow.state == RunStatus.RESEARCH_QUEUED
+            run = await uow.research.get_run(run_id)
+            assert run.status == JobStatus.QUEUED
+
+        # Force live mode
+        monkeypatch.setenv("PROVIDER_MODE", "live")
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "not-a-real-token")
+        monkeypatch.setenv("TAVILY_API_KEY", "fake-tavily-key")
+        get_settings.cache_clear()
+
+        # Run the research task
+        await _run_research_async(workflow_id, run_id)
+
+        # Verify success states and transition
+        async with UnitOfWork(session_factory) as uow:
+            # 1. State transitioned: RESEARCH_QUEUED -> IDEA_REVIEW
+            workflow = await uow.workflows.get(workflow_id)
+            assert workflow.state == RunStatus.IDEA_REVIEW
+
+            # 2. Run completed successfully
+            run = await uow.research.get_run(run_id)
+            assert run.status == JobStatus.SUCCEEDED
+
+            # 3. Concepts and evidence were created
+            concepts = await uow.concepts.list_for_workflow(workflow_id)
+            assert len(concepts) == 1
+            assert concepts[0].title == "Mock Title"
+
+            # 4. Ledger cost attributed to GEMINI
+            costs = await uow.costs.list_for_workflow(workflow_id)
+            assert len(costs) == 1
+            assert costs[0].provider == ProviderName.GEMINI
+
+

@@ -50,7 +50,7 @@ from app.ports.providers import (
 
 # Providers
 from app.providers.fake import FakeResearchProvider, FakeTextProvider
-from app.providers.openai import OpenAISynthesisAdapter
+from app.providers.gemini import GeminiSynthesisAdapter
 from app.providers.search import TavilySearchAdapter
 from app.settings import Settings, get_settings
 from worker.retry import retry_after, should_retry
@@ -218,24 +218,24 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 owner_settings = await uow.owner_settings.create_defaults(workflow.owner_id)
                 await uow.commit()
 
-            openai_api_key: str | None = None
+            gemini_api_key: str | None = None
             tavily_api_key: str | None = None
 
             if settings.provider_mode == "live":
                 cipher = build_credential_cipher(settings)
                 try:
-                    openai_api_key = await reveal_credential(
+                    gemini_api_key = await reveal_credential(
                         uow,
                         workflow.owner_id,
-                        provider=ProviderName.OPENAI,
+                        provider=ProviderName.GEMINI,
                         cipher=cipher,
                     )
                 except Exception as exc:
                     raise ProviderError(
                         kind=ProviderErrorKind.AUTHENTICATION,
-                        provider="openai",
+                        provider="gemini",
                         operation="resolve_credential",
-                        message="OpenAI API Key is missing or invalid in credentials.",
+                        message="Gemini API Key is missing or invalid in credentials.",
                     ) from exc
 
                 if settings.tavily_api_key:
@@ -312,10 +312,10 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
         if not evidence_list:
             raise RuntimeError("No search evidence could be aggregated from search provider.")
 
-        # 3. Synthesize Findings using Text Provider (OpenAI or Fake)
+        # 3. Synthesize Findings using Text Provider (Gemini or Fake)
         text_provider: TextGenerationProvider
-        if settings.provider_mode == "live" and openai_api_key:
-            text_provider = OpenAISynthesisAdapter(api_key=openai_api_key)
+        if settings.provider_mode == "live" and gemini_api_key:
+            text_provider = GeminiSynthesisAdapter(api_key=gemini_api_key)
         else:
             text_provider = FakeTextProvider()
 
@@ -426,7 +426,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
         async with UnitOfWork(session_factory) as uow:
             ledger_entry = await uow.costs.record_estimate(
                 workflow_id=workflow_id,
-                provider=ProviderName.OPENAI if is_live else ProviderName.FAKE,
+                provider=ProviderName.GEMINI if is_live else ProviderName.FAKE,
                 service="synthesis",
                 operation="research_synthesis",
                 estimated=estimated_price,
@@ -437,9 +437,9 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             )
             await uow.commit()
 
-        logger.info("running_openai_structured_synthesis")
+        logger.info("running_gemini_structured_synthesis")
         text_response = await text_provider.generate(
-            TextRequest(prompt=user_prompt, system=system_prompt)
+            TextRequest(prompt=user_prompt, system=system_prompt, max_output_tokens=8192)
         )
 
         # Parse synthesized payload
@@ -570,8 +570,8 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             # Reconcile usage costs
             tokens_in = text_response.input_tokens
             tokens_out = text_response.output_tokens
-            cost_in = Money(int(tokens_in * 0.015), "USD") if is_live else Money(0, "USD")
-            cost_out = Money(int(tokens_out * 0.060), "USD") if is_live else Money(0, "USD")
+            cost_in = Money(int(tokens_in * 0.0075), "USD") if is_live else Money(0, "USD")
+            cost_out = Money(int(tokens_out * 0.030), "USD") if is_live else Money(0, "USD")
             actual_cost = Money(cost_in.minor_units + cost_out.minor_units, "USD")
 
             await uow.costs.reconcile(
