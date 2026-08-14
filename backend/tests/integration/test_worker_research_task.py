@@ -13,7 +13,7 @@ from collections.abc import Iterator
 import dramatiq
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from worker.tasks import _run_research_async, run_research_task
+from worker.tasks import _release_for_retry_async, _run_research_async, run_research_task
 
 from app.application.unit_of_work import UnitOfWork
 from app.application.workflows import (
@@ -228,6 +228,67 @@ class TestResearchRunIsIdempotent:
             assert workflow.state == RunStatus.RESEARCH_QUEUED
 
 
+class TestResearchRunSurvivesATransientFailure:
+    """A provider 503 must cost the attempt, not the whole campaign."""
+
+    async def test_a_released_run_is_picked_up_again_and_finishes(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        owner: User,
+    ) -> None:
+        workflow_id, run_id = await _queued_run(session_factory, owner.id)
+
+        # First attempt: reaches the provider, moves the workflow to
+        # RESEARCHING, then dies. The actor hands the run back.
+        async with UnitOfWork(session_factory) as uow:
+            await uow.research.update_run(run_id, status=JobStatus.RUNNING)
+            workflow = await uow.workflows.get(workflow_id)
+            assert workflow is not None
+            await uow.workflows.transition(
+                workflow,
+                to_state=RunStatus.RESEARCHING,
+                expected_version=workflow.version,
+                reason="Research runner started",
+                actor="system",
+            )
+            await uow.commit()
+        await _release_for_retry_async(run_id, "Gemini server error: 503")
+
+        async with UnitOfWork(session_factory) as uow:
+            run = await uow.research.get_run(run_id)
+            assert run is not None
+            assert run.status == JobStatus.QUEUED
+
+        # The redelivery re-enters a workflow that is already RESEARCHING; the
+        # state machine has no self-loop, so this must not raise.
+        await _run_research_async(workflow_id, run_id)
+
+        async with UnitOfWork(session_factory) as uow:
+            workflow = await uow.workflows.get(workflow_id)
+            assert workflow is not None
+            assert workflow.state == RunStatus.IDEA_REVIEW
+            assert await uow.concepts.list_for_workflow(workflow_id)
+
+    async def test_a_duplicate_delivery_of_a_live_attempt_is_still_dropped(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        owner: User,
+    ) -> None:
+        """Releasing on retry must not weaken the guard against double billing."""
+        workflow_id, run_id = await _queued_run(session_factory, owner.id)
+        async with UnitOfWork(session_factory) as uow:
+            await uow.research.update_run(run_id, status=JobStatus.RUNNING)
+            await uow.commit()
+
+        await _run_research_async(workflow_id, run_id)
+
+        async with UnitOfWork(session_factory) as uow:
+            assert await uow.costs.list_for_workflow(workflow_id) == []
+            workflow = await uow.workflows.get(workflow_id)
+            assert workflow is not None
+            assert workflow.state == RunStatus.RESEARCH_QUEUED
+
+
 class TestResearchRunStopsOnBudget:
     async def test_an_exhausted_budget_stops_the_run_before_any_provider_call(
         self,
@@ -300,6 +361,8 @@ def test_a_permanent_provider_error_marks_the_run_failed(
 def test_a_transient_provider_error_asks_dramatiq_to_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    released: list[tuple[uuid.UUID, str]] = []
+
     async def _fail(_workflow_id: uuid.UUID, _run_id: uuid.UUID) -> None:
         raise ProviderError(
             kind=ProviderErrorKind.RATE_LIMITED,
@@ -309,13 +372,21 @@ def test_a_transient_provider_error_asks_dramatiq_to_retry(
             retry_after_seconds=7.0,
         )
 
+    async def _release(r_id: uuid.UUID, reason: str) -> None:
+        released.append((r_id, reason))
+
+    run_id = uuid.uuid4()
     monkeypatch.setattr("worker.tasks._run_research_async", _fail)
+    monkeypatch.setattr("worker.tasks._release_for_retry_async", _release)
 
     with pytest.raises(dramatiq.errors.Retry) as caught:
-        run_research_task(str(uuid.uuid4()), str(uuid.uuid4()))
+        run_research_task(str(uuid.uuid4()), str(run_id))
 
     # The provider said when to come back; we honour it rather than guessing.
     assert caught.value.delay == 7000
+    # The failed attempt hands the run back before the redelivery arrives,
+    # otherwise the runner's RUNNING guard would skip its own retry.
+    assert released == [(run_id, "slow down")]
 
 
 def test_worker_and_broker_initialization() -> None:

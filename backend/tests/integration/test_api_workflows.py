@@ -17,7 +17,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.unit_of_work import UnitOfWork
-from app.domain.enums import IdeaMode
+from app.domain.enums import AuditAction, IdeaMode
 from app.domain.workflow import ApprovalDecision, ApprovalGate, RunStatus
 
 from .conftest import OWNER_EMAIL
@@ -444,3 +444,149 @@ class TestOwnershipIsolation:
         await client.post(f"/api/v1/workflows/{foreign}/ideas", json={"original_text": "Not yours"})
         # The real owner still sees no idea at all.
         assert (await other_client.get(f"/api/v1/workflows/{foreign}/ideas")).status_code == 404
+
+
+class TestStopAndRerun:
+    """The dashboard's Stop and Rerun buttons."""
+
+    async def _workflow_id(self, client: httpx.AsyncClient) -> str:
+        response = await client.post("/api/v1/workflows", json=_payload())
+        assert response.json()["state"] == RunStatus.DRAFT.value
+        return str(response.json()["id"])
+
+    async def test_a_stopped_campaign_can_be_started_again(
+        self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+    ) -> None:
+        workflow_id = await self._workflow_id(client)
+
+        stopped = await client.post(f"/api/v1/workflows/{workflow_id}/cancel")
+        assert stopped.status_code == 200
+        assert stopped.json()["state"] == RunStatus.CANCELLED.value
+
+        rerun = await client.post(f"/api/v1/workflows/{workflow_id}/rerun")
+        assert rerun.status_code == 200
+        # Straight back into research: the owner pressed one button, not two.
+        assert rerun.json()["state"] == RunStatus.RESEARCH_QUEUED.value
+
+        async with UnitOfWork(session_factory) as uow:
+            runs = await uow.research.list_runs_for_workflow(uuid.UUID(workflow_id))
+            assert len(runs) == 1
+            # The run and its queue message are written in the same transaction,
+            # so the worker can never be told about a run that does not exist.
+            messages = await uow.outbox.get_unprocessed()
+            assert [m.payload["run_id"] for m in messages] == [str(runs[0].id)]
+
+    async def test_the_timeline_records_the_whole_round_trip(
+        self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+    ) -> None:
+        workflow_id = await self._workflow_id(client)
+        await client.post(f"/api/v1/workflows/{workflow_id}/cancel")
+        await client.post(f"/api/v1/workflows/{workflow_id}/rerun")
+
+        async with UnitOfWork(session_factory) as uow:
+            states = [
+                transition.to_state
+                for transition in await uow.workflows.transitions(uuid.UUID(workflow_id))
+            ]
+        # Nothing is rewritten or hidden: stopping and restarting is history,
+        # not a reset.
+        assert states == [
+            RunStatus.DRAFT,
+            RunStatus.CANCELLED,
+            RunStatus.DRAFT,
+            RunStatus.RESEARCH_QUEUED,
+        ]
+
+    async def test_stopping_a_stopped_campaign_is_refused(
+        self, client: httpx.AsyncClient
+    ) -> None:
+        workflow_id = await self._workflow_id(client)
+        await client.post(f"/api/v1/workflows/{workflow_id}/cancel")
+
+        again = await client.post(f"/api/v1/workflows/{workflow_id}/cancel")
+        assert again.status_code == 409
+        assert again.json()["type"].endswith("illegal-transition")
+
+    async def test_a_running_campaign_cannot_be_rerun(self, client: httpx.AsyncClient) -> None:
+        workflow_id = await self._workflow_id(client)
+
+        # Still live: rerunning would throw away work that is not finished.
+        response = await client.post(f"/api/v1/workflows/{workflow_id}/rerun")
+        assert response.status_code == 409
+
+    async def test_neither_action_reaches_another_owners_campaign(
+        self, client: httpx.AsyncClient, other_client: httpx.AsyncClient
+    ) -> None:
+        foreign = await self._workflow_id(other_client)
+
+        assert (await client.post(f"/api/v1/workflows/{foreign}/cancel")).status_code == 404
+        assert (await client.post(f"/api/v1/workflows/{foreign}/rerun")).status_code == 404
+        # And the real owner's campaign is untouched.
+        current = await other_client.get(f"/api/v1/workflows/{foreign}")
+        assert current.json()["state"] == RunStatus.DRAFT.value
+
+
+class TestDeleteCampaign:
+    """Deleting hides a campaign; it never destroys its record."""
+
+    async def _workflow_id(self, client: httpx.AsyncClient) -> str:
+        response = await client.post("/api/v1/workflows", json=_payload())
+        return str(response.json()["id"])
+
+    async def _listed_ids(self, client: httpx.AsyncClient) -> list[str]:
+        response = await client.get("/api/v1/workflows")
+        return [item["id"] for item in response.json()["items"]]
+
+    async def test_a_deleted_campaign_leaves_the_list(self, client: httpx.AsyncClient) -> None:
+        workflow_id = await self._workflow_id(client)
+        assert workflow_id in await self._listed_ids(client)
+
+        deleted = await client.delete(f"/api/v1/workflows/{workflow_id}")
+        assert deleted.status_code == 204
+        assert workflow_id not in await self._listed_ids(client)
+
+    async def test_deleting_twice_is_a_no_op(self, client: httpx.AsyncClient) -> None:
+        workflow_id = await self._workflow_id(client)
+        await client.delete(f"/api/v1/workflows/{workflow_id}")
+
+        # A repeated delete from a stale tab must not look like a failure.
+        again = await client.delete(f"/api/v1/workflows/{workflow_id}")
+        assert again.status_code == 204
+
+    async def test_the_history_survives_the_delete(
+        self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+    ) -> None:
+        workflow_id = await self._workflow_id(client)
+        await client.delete(f"/api/v1/workflows/{workflow_id}")
+
+        async with UnitOfWork(session_factory) as uow:
+            workflow = await uow.workflows.get(uuid.UUID(workflow_id))
+            assert workflow is not None
+            assert workflow.archived_at is not None
+            # Audit and transition rows are never removed by an app flow.
+            assert await uow.workflows.transitions(uuid.UUID(workflow_id))
+            events = await uow.audit.for_workflow(uuid.UUID(workflow_id))
+            assert AuditAction.ARCHIVED in {event.action for event in events}
+
+    async def test_a_running_campaign_must_be_stopped_first(
+        self, client: httpx.AsyncClient
+    ) -> None:
+        workflow_id = await self._workflow_id(client)
+        await client.post(f"/api/v1/workflows/{workflow_id}/cancel")
+        queued = await client.post(f"/api/v1/workflows/{workflow_id}/rerun")
+        assert queued.json()["state"] == RunStatus.RESEARCH_QUEUED.value
+
+        # A worker still holds it; deleting now would strand its writes.
+        refused = await client.delete(f"/api/v1/workflows/{workflow_id}")
+        assert refused.status_code == 409
+        assert refused.json()["type"].endswith("illegal-transition")
+        assert workflow_id in await self._listed_ids(client)
+
+    async def test_delete_does_not_reach_another_owners_campaign(
+        self, client: httpx.AsyncClient, other_client: httpx.AsyncClient
+    ) -> None:
+        foreign = await self._workflow_id(other_client)
+
+        assert (await client.delete(f"/api/v1/workflows/{foreign}")).status_code == 404
+        assert foreign in await self._listed_ids(other_client)
+

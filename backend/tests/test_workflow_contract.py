@@ -14,6 +14,8 @@ import pytest
 from app.domain.enums import ConceptOrigin, IdeaMode
 from app.domain.workflow import (
     HAPPY_PATH,
+    IN_FLIGHT_STATUSES,
+    TERMINAL_STATUSES,
     ApprovalDecision,
     ApprovalGate,
     FailureStatus,
@@ -74,3 +76,16 @@ def test_risk_levels_match(ts_source: str) -> None:
 
 def test_job_statuses_match(ts_source: str) -> None:
     assert _string_array(ts_source, "JOB_STATUSES") == [j.value for j in JobStatus]
+
+
+def test_terminal_statuses_match(ts_source: str) -> None:
+    assert set(_string_array(ts_source, "TERMINAL_STATUSES")) == {
+        s.value for s in TERMINAL_STATUSES
+    }
+
+
+def test_in_flight_statuses_match(ts_source: str) -> None:
+    """The web app offers Stop, and refuses Delete, on exactly these states."""
+    assert set(_string_array(ts_source, "IN_FLIGHT_STATUSES")) == {
+        s.value for s in IN_FLIGHT_STATUSES
+    }

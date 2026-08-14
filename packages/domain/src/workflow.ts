@@ -125,8 +125,23 @@ export const GATE_TARGET_STATUS: Readonly<Record<ApprovalGate, RunStatus>> =
     LISTING_APPROVAL: "READY_FOR_ETSY_DRAFT",
   });
 
-/** States nothing may leave. */
-export const TERMINAL_STATUSES = ["PUBLISHED", "CANCELLED"] as const;
+/**
+ * States nothing may leave. `CANCELLED` is not one of them: a stopped campaign
+ * may be rerun, which sends it back to `DRAFT`.
+ */
+export const TERMINAL_STATUSES = ["PUBLISHED"] as const;
+
+/**
+ * States where a queued or running job owns the workflow. Stopping is offered
+ * here and nowhere else, and a campaign in one of these cannot be deleted.
+ */
+export const IN_FLIGHT_STATUSES = [
+  "RESEARCH_QUEUED",
+  "RESEARCHING",
+  "ART_QUEUED",
+  "ART_GENERATION",
+  "PRODUCTION",
+] as const satisfies readonly RunStatus[];
 
 export function isRunStatus(value: string): value is RunStatus {
   return (RUN_STATUSES as readonly string[]).includes(value);

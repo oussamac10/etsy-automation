@@ -34,6 +34,7 @@ from app.domain.workflow import (
     fail,
     is_terminal_success,
     require_artwork_approved,
+    require_gate,
     require_idea_approved,
     require_listing_approved,
     retry,
@@ -113,8 +114,6 @@ class TestTransitions:
     def test_cannot_leave_a_terminal_state(self) -> None:
         with pytest.raises(IllegalTransitionError, match="terminal"):
             advance(RunStatus.PUBLISHED, RunStatus.LISTING_REVIEW)
-        with pytest.raises(IllegalTransitionError, match="terminal"):
-            advance(RunStatus.CANCELLED, RunStatus.DRAFT)
 
     @pytest.mark.parametrize("gated", sorted(GATED_STATUSES))
     def test_a_gated_state_cannot_be_advanced_directly(self, gated: RunStatus) -> None:
@@ -127,9 +126,38 @@ class TestTransitions:
         assert advance(RunStatus.RESEARCH_QUEUED, RunStatus.DRAFT) is RunStatus.DRAFT
         assert advance(RunStatus.ART_QUEUED, RunStatus.IDEA_APPROVED) is RunStatus.IDEA_APPROVED
 
-    @pytest.mark.parametrize("state", [s for s in RunStatus if s not in TERMINAL_STATUSES])
+    @pytest.mark.parametrize(
+        "state",
+        [s for s in RunStatus if s not in TERMINAL_STATUSES and s is not RunStatus.CANCELLED],
+    )
     def test_any_live_workflow_can_be_cancelled(self, state: RunStatus) -> None:
         assert advance(state, RunStatus.CANCELLED) is RunStatus.CANCELLED
+
+
+class TestStoppingAndRestarting:
+    """Cancelling is a decision the owner may change, unlike publishing."""
+
+    def test_a_stopped_workflow_restarts_from_the_beginning(self) -> None:
+        assert advance(RunStatus.CANCELLED, RunStatus.DRAFT) is RunStatus.DRAFT
+
+    def test_a_stopped_workflow_cannot_resume_where_it_left_off(self) -> None:
+        # DRAFT is the only exit. Resuming mid-stage would restart a paid job
+        # whose inputs were abandoned.
+        assert ALLOWED_TRANSITIONS[RunStatus.CANCELLED] == frozenset({RunStatus.DRAFT})
+        with pytest.raises(IllegalTransitionError):
+            advance(RunStatus.CANCELLED, RunStatus.ART_REVIEW)
+
+    def test_stopping_twice_is_refused(self) -> None:
+        # Not a silent no-op: the second request is answering for a state the
+        # caller did not see.
+        with pytest.raises(IllegalTransitionError):
+            advance(RunStatus.CANCELLED, RunStatus.CANCELLED)
+
+    @pytest.mark.parametrize("gate", sorted(ApprovalGate))
+    def test_a_stopped_workflow_passes_no_gate(self, gate: ApprovalGate) -> None:
+        """Restarting must not inherit an approval from the abandoned attempt."""
+        with pytest.raises(GateNotApprovedError):
+            require_gate(RunStatus.CANCELLED, gate, "Anything")
 
 
 class TestPublicationIsHumanOnly:

@@ -39,7 +39,7 @@ from app.api.schemas import (
 )
 from app.application import workflows as use_cases
 from app.application.artwork import ensure_artwork_within_budget, estimate_artwork_cost
-from app.application.research import ensure_research_within_budget
+from app.application.research import queue_research_run
 from app.domain import ip_risk
 from app.domain.enums import ConceptStatus, ProviderName
 from app.domain.workflow import RiskLevel, RunStatus, JobStatus
@@ -114,6 +114,68 @@ async def list_workflows(
 async def get_workflow(workflow_id: uuid.UUID, user: CurrentUser, uow: UowDep) -> WorkflowResponse:
     workflow = await use_cases.get_workflow(uow, workflow_id, owner_id=user.id)
     return WorkflowResponse.model_validate(workflow)
+
+
+@router.post(
+    "/{workflow_id}/cancel",
+    response_model=WorkflowResponse,
+    summary="Cancel an active workflow",
+)
+async def cancel_workflow(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+) -> WorkflowResponse:
+    """Stop a running campaign. Already stopped or published answers 409."""
+    workflow = await use_cases.cancel_workflow(
+        uow, workflow_id, owner_id=user.id, actor=user.email
+    )
+    return WorkflowResponse.model_validate(workflow)
+
+
+@router.post(
+    "/{workflow_id}/rerun",
+    response_model=WorkflowResponse,
+    summary="Rerun a cancelled workflow",
+)
+async def rerun_workflow(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+) -> WorkflowResponse:
+    """Restart a stopped campaign: back to DRAFT and straight into a new run.
+
+    Answers 409 when the workflow was not stopped, and when the budget cannot
+    absorb another research run.
+    """
+    workflow = await use_cases.rerun_workflow(
+        uow,
+        workflow_id,
+        owner_id=user.id,
+        provider_mode=get_settings().provider_mode,
+        actor=user.email,
+    )
+    return WorkflowResponse.model_validate(workflow)
+
+
+@router.delete(
+    "/{workflow_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a campaign from the owner's list",
+    responses={
+        404: {"description": "No workflow with that ID"},
+        409: {"description": "A job still owns this workflow; stop it first"},
+    },
+)
+async def delete_workflow(workflow_id: uuid.UUID, user: CurrentUser, uow: UowDep) -> Response:
+    """Archive the campaign.
+
+    The rows stay: audit, approval, cost and provenance records are never
+    destroyed by an application flow, so this hides the campaign rather than
+    deleting it. Repeating the call is a no-op.
+    """
+    await use_cases.archive_workflow(uow, workflow_id, owner_id=user.id, actor=user.email)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
@@ -243,27 +305,13 @@ async def enqueue_research(
                 )
             return ResearchRunResponse.model_validate(existing_run)
 
-    await ensure_research_within_budget(
-        uow, owner_id=user.id, provider_mode=get_settings().provider_mode
-    )
-
-    # Transition the workflow to RESEARCH_QUEUED
-    await uow.workflows.transition(
+    run = await queue_research_run(
+        uow,
         workflow,
-        to_state=RunStatus.RESEARCH_QUEUED,
-        expected_version=workflow.version,
-        reason="Manual research trigger",
+        provider_mode=get_settings().provider_mode,
         actor=user.email,
-    )
-
-    # Create a new ResearchRun
-    resolved_key = idempotency_key or str(uuid.uuid4())
-    run = await uow.research.add_run(workflow_id, idempotency_key=resolved_key)
-
-    # Queue message to the outbox
-    await uow.outbox.add(
-        "run_research_task",
-        {"workflow_id": str(workflow_id), "run_id": str(run.id)},
+        reason="Manual research trigger",
+        idempotency_key=idempotency_key,
     )
     await uow.commit()
 

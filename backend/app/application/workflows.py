@@ -9,7 +9,9 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
+from app.application.research import queue_research_run
 from app.application.unit_of_work import UnitOfWork
 from app.domain.enums import AuditAction, ConceptStatus, IdeaMode
 from app.domain.errors import (
@@ -20,8 +22,10 @@ from app.domain.errors import (
 from app.domain.ideas import normalize_idea_text, validate_idea_submission
 from app.domain.workflow import (
     GATE_SOURCE_STATUS,
+    IN_FLIGHT_STATUSES,
     ApprovalDecision,
     ApprovalGate,
+    IllegalTransitionError,
     RiskLevel,
     RunStatus,
     apply_approval,
@@ -246,6 +250,124 @@ async def transition_workflow(
         summary=f"{from_state} → {to_state} ({reason})",
         before={"state": from_state.value, "version": expected_version},
         after={"state": to_state.value, "version": transition.resulting_version},
+    )
+    await uow.commit()
+    return workflow
+
+
+async def cancel_workflow(
+    uow: UnitOfWork, workflow_id: uuid.UUID, *, owner_id: uuid.UUID, actor: str
+) -> ProductWorkflow:
+    """Stop a running campaign.
+
+    Nothing is deleted. Queued messages may still be delivered afterwards; the
+    actors reload the workflow and stop on the state they find, so cancelling is
+    a decision recorded here rather than a reach into the queue.
+
+    Cancelling an already-cancelled or published workflow raises
+    ``IllegalTransitionError`` from the transition table.
+    """
+    workflow = await _owned_workflow(uow, workflow_id, owner_id)
+    return await transition_workflow(
+        uow,
+        workflow_id,
+        owner_id=owner_id,
+        to_state=RunStatus.CANCELLED,
+        expected_version=workflow.version,
+        reason="Stopped by the owner",
+        actor=actor,
+    )
+
+
+async def rerun_workflow(
+    uow: UnitOfWork,
+    workflow_id: uuid.UUID,
+    *,
+    owner_id: uuid.UUID,
+    provider_mode: str,
+    actor: str,
+) -> ProductWorkflow:
+    """Restart a cancelled campaign from the beginning.
+
+    One transaction: CANCELLED → DRAFT → RESEARCH_QUEUED plus the queued run and
+    its outbox message. A rerun that failed halfway would otherwise leave a
+    workflow reset to DRAFT with nothing queued and no sign of why.
+
+    The research itself is queued by :func:`queue_research_run`, the same path
+    the manual trigger uses, so the budget gate cannot be skipped by rerunning.
+    """
+    workflow = await _owned_workflow(uow, workflow_id, owner_id)
+    if workflow.state is not RunStatus.CANCELLED:
+        raise IllegalTransitionError(
+            workflow.state,
+            RunStatus.DRAFT,
+            "only a cancelled workflow can be rerun",
+        )
+
+    await uow.workflows.transition(
+        workflow,
+        to_state=RunStatus.DRAFT,
+        expected_version=workflow.version,
+        reason="Rerun requested by the owner",
+        actor=actor,
+    )
+    await queue_research_run(
+        uow,
+        workflow,
+        provider_mode=provider_mode,
+        actor=actor,
+        reason="Rerun research trigger",
+    )
+    await uow.audit.record(
+        action=AuditAction.WORKFLOW_TRANSITION,
+        entity_type="ProductWorkflow",
+        entity_id=workflow.id,
+        workflow_id=workflow.id,
+        actor=actor,
+        summary=f"{RunStatus.CANCELLED} → {RunStatus.RESEARCH_QUEUED} (rerun)",
+        before={"state": RunStatus.CANCELLED.value},
+        after={"state": RunStatus.RESEARCH_QUEUED.value, "version": workflow.version},
+    )
+    await uow.commit()
+    return workflow
+
+
+async def archive_workflow(
+    uow: UnitOfWork, workflow_id: uuid.UUID, *, owner_id: uuid.UUID, actor: str
+) -> ProductWorkflow:
+    """Remove a campaign from the owner's list without destroying its record.
+
+    "Delete" in the interface means archive here. The evidence, approvals, cost
+    ledger and audit trail behind a campaign are exactly what CLAUDE.md forbids
+    normal flows from deleting, so the row is stamped and filtered out of every
+    listing instead of being removed.
+
+    A campaign a worker is still running cannot be archived: the job would keep
+    writing to something the owner believes is gone. Stop it first.
+    """
+    workflow = await _owned_workflow(uow, workflow_id, owner_id)
+
+    if workflow.state in IN_FLIGHT_STATUSES:
+        raise IllegalTransitionError(
+            workflow.state,
+            workflow.state,
+            "stop the campaign before deleting it",
+        )
+
+    if workflow.archived_at is not None:
+        # Already gone from the owner's point of view. Saying so again would
+        # only add a second audit entry for one decision.
+        return workflow
+
+    workflow.archived_at = datetime.now(UTC)
+    await uow.audit.record(
+        action=AuditAction.ARCHIVED,
+        entity_type="ProductWorkflow",
+        entity_id=workflow.id,
+        workflow_id=workflow.id,
+        actor=actor,
+        summary=f"Campaign archived from {workflow.state}",
+        after={"archived_at": workflow.archived_at.isoformat()},
     )
     await uow.commit()
     return workflow

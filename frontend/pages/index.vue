@@ -1,7 +1,15 @@
 <script setup lang="ts">
 /* global $fetch */
-import { ref, onMounted, onUnmounted } from "vue";
-import { useWorkflowStore } from "~/stores/workflow";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import {
+  isRunning,
+  isStopped,
+  needsOwner,
+  problemDetail,
+  stageLabel,
+  stageProgress,
+  useWorkflowControls
+} from "~/composables/useWorkflowControls";
 
 interface Workflow {
   id: string;
@@ -20,7 +28,6 @@ interface Workflow {
 
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase;
-const store = useWorkflowStore();
 
 const workflows = ref<Workflow[]>([]);
 const isListLoading = ref(true);
@@ -55,7 +62,9 @@ function getCookie(name: string): string | null {
 }
 
 async function loadWorkflows(): Promise<void> {
-  isListLoading.value = true;
+  // Only the first load blanks the table; a poll refresh must not replace the
+  // list the owner is reading with a spinner every five seconds.
+  isListLoading.value = workflows.value.length === 0;
   listError.value = null;
   try {
     const data = await $fetch<{ items: Workflow[] }>(
@@ -63,7 +72,7 @@ async function loadWorkflows(): Promise<void> {
       { credentials: "include" }
     );
     workflows.value = data.items;
-  } catch (err) {
+  } catch {
     listError.value = "Failed to load workflows. Please ensure you are logged in.";
   } finally {
     isListLoading.value = false;
@@ -154,25 +163,52 @@ async function handleCreateWorkflow(): Promise<void> {
     season.value = "";
 
     await loadWorkflows();
-  } catch (err: any) {
-    creationError.value = err.data?.detail || "Failed to create workflow.";
+  } catch (err) {
+    creationError.value = problemDetail(err) ?? "Could not create this campaign.";
   } finally {
     isCreating.value = false;
   }
 }
 
-let pollInterval: any = null;
+const { controlError, pendingWorkflowId, controlWorkflow } = useWorkflowControls(
+  apiBase,
+  loadWorkflows
+);
 
-onMounted(() => {
-  loadWorkflows();
-  // Poll every 5 seconds to dynamically update campaign states
+// Polling exists for the same reason the Stop button does: something is running.
+const hasActiveWorkflows = computed(() => workflows.value.some((wf) => isRunning(wf.state)));
+
+let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+function startPolling() {
+  if (pollInterval) return;
   pollInterval = setInterval(loadWorkflows, 5000);
+}
+
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+watch(hasActiveWorkflows, (active) => {
+  if (active) {
+    startPolling();
+  } else {
+    stopPolling();
+  }
+});
+
+onMounted(async () => {
+  await loadWorkflows();
+  if (hasActiveWorkflows.value) {
+    startPolling();
+  }
 });
 
 onUnmounted(() => {
-  if (pollInterval) {
-    clearInterval(pollInterval);
-  }
+  stopPolling();
 });
 </script>
 
@@ -426,6 +462,10 @@ onUnmounted(() => {
       <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="text-2xl font-bold text-slate-800 mb-6">Your Design Workflows</h2>
 
+        <div v-if="controlError" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+          {{ controlError }}
+        </div>
+
         <div v-if="isListLoading" class="flex flex-col items-center justify-center py-12 text-slate-500 animate-pulse">
           <p>Loading your campaigns...</p>
         </div>
@@ -449,61 +489,108 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <div v-else class="overflow-hidden rounded-xl border border-slate-100">
-          <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
-            <thead class="bg-slate-50 text-xs font-semibold text-slate-700 uppercase">
+        <div v-else class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="min-w-full text-left text-sm">
+            <thead class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               <tr>
-                <th scope="col" class="px-6 py-4">Campaign Name</th>
-                <th scope="col" class="px-6 py-4">Input Mode</th>
-                <th scope="col" class="px-6 py-4">Country & Lang</th>
-                <th scope="col" class="px-6 py-4">State</th>
-                <th scope="col" class="px-6 py-4">Created At</th>
-                <th scope="col" class="relative px-6 py-4"><span class="sr-only">Actions</span></th>
+                <th scope="col" class="px-6 py-3">Campaign</th>
+                <th scope="col" class="px-6 py-3">Stage</th>
+                <th scope="col" class="px-6 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 bg-white text-slate-600">
+            <tbody class="divide-y divide-slate-100 bg-white align-top text-slate-600">
               <tr
                 v-for="wf in workflows"
                 :key="wf.id"
-                class="hover:bg-slate-50 transition-colors duration-150"
+                class="transition-colors duration-150 hover:bg-slate-50/70"
               >
-                <td class="whitespace-nowrap px-6 py-4 font-semibold text-slate-900">
-                  <NuxtLink :to="`/workflow/${wf.id}`" class="hover:text-indigo-600 underline decoration-indigo-200">
-                    {{ wf.name }}
-                  </NuxtLink>
-                </td>
-                <td class="whitespace-nowrap px-6 py-4">
-                  <span class="inline-flex items-center rounded-md bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 border border-indigo-100">
-                    {{ wf.idea_mode }}
-                  </span>
-                </td>
-                <td class="whitespace-nowrap px-6 py-4 font-mono text-xs">
-                  {{ wf.target_country }} ({{ wf.output_language }})
-                </td>
-                <td class="whitespace-nowrap px-6 py-4">
-                  <span
-                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border"
-                    :class="{
-                      'bg-slate-100 text-slate-800 border-slate-200': wf.state === 'DRAFT',
-                      'bg-amber-100 text-amber-800 border-amber-200 animate-pulse': wf.state === 'RESEARCH_QUEUED' || wf.state === 'RESEARCHING',
-                      'bg-blue-100 text-blue-800 border-blue-200': wf.state === 'IDEA_REVIEW',
-                      'bg-green-100 text-green-800 border-green-200': wf.state.endsWith('_APPROVED') || wf.state === 'ETSY_DRAFT_CREATED',
-                      'bg-red-100 text-red-800 border-red-200': wf.state.endsWith('_FAILED')
-                    }"
-                  >
-                    {{ wf.state }}
-                  </span>
-                </td>
-                <td class="whitespace-nowrap px-6 py-4 text-xs">
-                  {{ new Date(wf.created_at).toLocaleString() }}
-                </td>
-                <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
+                <!-- Name carries the row; the brief sits underneath it as quiet
+                     metadata rather than competing for its own columns. -->
+                <td class="px-6 py-4">
                   <NuxtLink
                     :to="`/workflow/${wf.id}`"
-                    class="font-semibold text-indigo-600 hover:text-indigo-900 focus:outline-none focus:underline"
+                    class="font-semibold text-slate-900 hover:text-indigo-700 focus:outline-none focus:underline"
                   >
-                    Open Dashboard →
+                    {{ wf.name }}
                   </NuxtLink>
+                  <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                    <span class="font-medium text-slate-600">{{ wf.idea_mode }}</span>
+                    <span aria-hidden="true" class="text-slate-300">·</span>
+                    <span>{{ wf.target_country }}/{{ wf.output_language }}</span>
+                    <span aria-hidden="true" class="text-slate-300">·</span>
+                    <time :datetime="wf.created_at">{{ new Date(wf.created_at).toLocaleDateString() }}</time>
+                  </p>
+                </td>
+
+                <!-- Stage, not raw state: a dot for scanning, a sentence for
+                     meaning, and a track showing how far along the pipeline is.
+                     Colour is never the only signal. -->
+                <td class="px-6 py-4">
+                  <span class="flex items-center gap-2 font-medium text-slate-800">
+                    <span
+                      class="h-2 w-2 shrink-0 rounded-full"
+                      :class="{
+                        'bg-amber-500 motion-safe:animate-pulse': isRunning(wf.state),
+                        'bg-blue-500': needsOwner(wf.state),
+                        'bg-slate-400': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
+                        'bg-red-500': wf.state.endsWith('_FAILED'),
+                        'bg-emerald-500': !isRunning(wf.state) && !needsOwner(wf.state) && !wf.state.endsWith('_FAILED') && wf.state !== 'DRAFT' && wf.state !== 'CANCELLED'
+                      }"
+                      aria-hidden="true"
+                    />
+                    {{ stageLabel(wf.state) }}
+                  </span>
+                  <span v-if="stageProgress(wf.state)[0] > 0" class="mt-2 flex items-center gap-2">
+                    <span class="flex gap-[3px]" aria-hidden="true">
+                      <span
+                        v-for="step in stageProgress(wf.state)[1]"
+                        :key="step"
+                        class="h-1 w-2 rounded-full"
+                        :class="step <= stageProgress(wf.state)[0] ? 'bg-indigo-500' : 'bg-slate-200'"
+                      />
+                    </span>
+                    <span class="text-xs text-slate-500">
+                      Step {{ stageProgress(wf.state)[0] }} of {{ stageProgress(wf.state)[1] }}
+                    </span>
+                  </span>
+                </td>
+
+                <td class="px-6 py-4">
+                  <div class="flex items-center justify-end gap-2">
+                    <button
+                      v-if="isRunning(wf.state)"
+                      type="button"
+                      :disabled="pendingWorkflowId === wf.id"
+                      :title="`Stop ${wf.name}`"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition-colors hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                      @click="controlWorkflow(wf.id, 'cancel')"
+                    >
+                      <span class="sr-only">Stop campaign {{ wf.name }}</span>
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor" />
+                      </svg>
+                    </button>
+                    <button
+                      v-if="isStopped(wf.state)"
+                      type="button"
+                      :disabled="pendingWorkflowId === wf.id"
+                      :title="`Rerun ${wf.name}`"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                      @click="controlWorkflow(wf.id, 'rerun')"
+                    >
+                      <span class="sr-only">Rerun campaign {{ wf.name }}</span>
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 11a8 8 0 1 0-.6 4" />
+                        <path d="M20 4v7h-7" />
+                      </svg>
+                    </button>
+                    <NuxtLink
+                      :to="`/workflow/${wf.id}`"
+                      class="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+                    >
+                      Open
+                    </NuxtLink>
+                  </div>
                 </td>
               </tr>
             </tbody>

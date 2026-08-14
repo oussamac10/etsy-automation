@@ -96,6 +96,11 @@ def run_research_task(workflow_id: str, run_id: str) -> None:
             attempt=attempt,
             message=exc.message,
         )
+        # Release the run before the redelivery arrives. The RUNNING guard in
+        # the runner exists to drop duplicate deliveries of a live attempt; this
+        # attempt is over, so leaving it RUNNING would make the runner skip its
+        # own retry and strand the workflow in RESEARCHING forever.
+        asyncio.run(_release_for_retry_async(uuid.UUID(run_id), exc.message))
         raise dramatiq.errors.Retry(delay=delay_ms) from exc
     except Exception as exc:
         logger.exception("research_task_unhandled_failure", error=str(exc))
@@ -103,6 +108,32 @@ def run_research_task(workflow_id: str, run_id: str) -> None:
         # Re-raised after the run is marked failed so an unclassified bug still
         # reaches Dramatiq's dead letter queue instead of vanishing.
         raise
+
+
+async def _release_for_retry_async(run_id: uuid.UUID, reason: str) -> None:
+    """Put a failed attempt's run back in the queue so the retry may claim it.
+
+    The workflow stays in RESEARCHING: the research is still in flight as far as
+    the owner is concerned, and the runner tolerates re-entering that state.
+    """
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    session_factory = create_session_factory(engine)
+    try:
+        async with UnitOfWork(session_factory) as uow:
+            run = await uow.research.get_run(run_id)
+            if run is None:
+                return
+            await uow.research.update_run(
+                run_id, status=JobStatus.QUEUED, failure_reason=reason
+            )
+            await uow.commit()
+    except Exception as exc:
+        # A failure here only costs the retry, which Dramatiq will still deliver
+        # and the runner will then skip; it must not mask the provider error.
+        logger.exception("failed_to_release_run_for_retry", error=str(exc))
+    finally:
+        await engine.dispose()
 
 
 async def _mark_failure_async(workflow_id: uuid.UUID, run_id: uuid.UUID, reason: str) -> None:
@@ -199,13 +230,16 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             await uow.research.update_run(
                 run_id, status=JobStatus.RUNNING, started_at=datetime.now(UTC)
             )
-            await uow.workflows.transition(
-                workflow,
-                to_state=RunStatus.RESEARCHING,
-                expected_version=workflow.version,
-                reason="Research runner started",
-                actor="system",
-            )
+            # A retried attempt finds the workflow already RESEARCHING; the
+            # state machine has no self-loop, so only the first attempt moves it.
+            if workflow.state is not RunStatus.RESEARCHING:
+                await uow.workflows.transition(
+                    workflow,
+                    to_state=RunStatus.RESEARCHING,
+                    expected_version=workflow.version,
+                    reason="Research runner started",
+                    actor="system",
+                )
             await uow.commit()
 
         # Reload settings and credentials in a separate UOW/DB block

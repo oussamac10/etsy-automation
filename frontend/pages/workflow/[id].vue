@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import {
+  canDelete,
+  isRunning,
+  isStopped,
+  needsOwner,
+  stageLabel,
+  useWorkflowControls
+} from "~/composables/useWorkflowControls";
 
 interface Workflow {
   id: string;
@@ -485,11 +493,31 @@ async function submitRevision(): Promise<void> {
   }
 }
 
+const { controlError, pendingWorkflowId, controlWorkflow } = useWorkflowControls(
+  apiBase,
+  () => loadData()
+);
+
+/**
+ * Deleting is two steps. It removes the campaign from the owner's list, so it
+ * should not happen on a single mis-click next to Stop.
+ */
+const confirmingDelete = ref(false);
+
+async function deleteCampaign(id: string): Promise<void> {
+  stopPolling();
+  if (await controlWorkflow(id, "delete")) {
+    await router.push("/");
+  } else {
+    confirmingDelete.value = false;
+  }
+}
+
 function startPolling(): void {
   stopPolling();
   pollInterval = setInterval(() => {
     const s = workflow.value?.state;
-    if (s === "RESEARCH_QUEUED" || s === "RESEARCHING" || s === "ART_QUEUED" || s === "ART_GENERATION") {
+    if (s && isRunning(s)) {
       loadData(true);
     } else {
       stopPolling();
@@ -507,7 +535,7 @@ function stopPolling(): void {
 onMounted(async () => {
   await loadData();
   const s = workflow.value?.state;
-  if (s === "RESEARCH_QUEUED" || s === "RESEARCHING" || s === "ART_QUEUED" || s === "ART_GENERATION") {
+  if (s && isRunning(s)) {
     startPolling();
   }
 });
@@ -549,19 +577,106 @@ onBeforeUnmount(stopPolling);
           </div>
           <div class="flex items-center gap-3">
             <span
-              class="inline-flex items-center rounded-full px-3 py-1 text-sm font-bold border"
+              class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-bold"
               :class="{
-                'bg-slate-100 text-slate-800 border-slate-200': workflow.state === 'DRAFT',
-                'bg-amber-100 text-amber-800 border-amber-200 animate-pulse': workflow.state === 'RESEARCH_QUEUED' || workflow.state === 'RESEARCHING',
-                'bg-blue-100 text-blue-800 border-blue-200': workflow.state === 'IDEA_REVIEW',
+                'bg-slate-100 text-slate-800 border-slate-200': workflow.state === 'DRAFT' || workflow.state === 'CANCELLED',
+                'bg-amber-100 text-amber-800 border-amber-200': isRunning(workflow.state),
+                'bg-blue-100 text-blue-800 border-blue-200': needsOwner(workflow.state),
                 'bg-green-100 text-green-800 border-green-200': workflow.state.endsWith('_APPROVED') || workflow.state === 'ETSY_DRAFT_CREATED',
                 'bg-red-100 text-red-800 border-red-200': workflow.state.endsWith('_FAILED')
               }"
             >
-              {{ workflow.state }}
+              <span
+                v-if="isRunning(workflow.state)"
+                class="h-2 w-2 rounded-full bg-amber-600 motion-safe:animate-pulse"
+                aria-hidden="true"
+              />
+              {{ stageLabel(workflow.state) }}
+            </span>
+
+            <!-- Same rule as the campaign list: stop only while work is
+                 running, rerun only after it was stopped. -->
+            <button
+              v-if="isRunning(workflow.state)"
+              type="button"
+              :disabled="pendingWorkflowId === workflow.id"
+              class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+              @click="controlWorkflow(workflow.id, 'cancel')"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor" />
+              </svg>
+              Stop
+            </button>
+            <button
+              v-if="isStopped(workflow.state)"
+              type="button"
+              :disabled="pendingWorkflowId === workflow.id"
+              class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+              @click="controlWorkflow(workflow.id, 'rerun')"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 11a8 8 0 1 0-.6 4" />
+                <path d="M20 4v7h-7" />
+              </svg>
+              Rerun
+            </button>
+
+            <!-- Deleting is refused while a job holds the campaign, so the
+                 button is only offered once nothing is in flight. -->
+            <button
+              v-if="canDelete(workflow.state) && !confirmingDelete"
+              type="button"
+              class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+              @click="confirmingDelete = true"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+                <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+              </svg>
+              Delete
+            </button>
+            <span
+              v-else-if="confirmingDelete"
+              class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-800"
+            >
+              Delete this campaign?
+              <button
+                type="button"
+                :disabled="pendingWorkflowId === workflow.id"
+                class="rounded-md bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                @click="deleteCampaign(workflow.id)"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                class="rounded-md px-2 py-1 text-xs font-semibold text-slate-600 underline hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1"
+                @click="confirmingDelete = false"
+              >
+                Keep
+              </button>
             </span>
           </div>
         </header>
+
+        <div v-if="controlError" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+          {{ controlError }}
+        </div>
+
+        <!-- A stopped campaign keeps its history but has nothing in flight;
+             rerunning starts a fresh research run from the same brief. -->
+        <section
+          v-if="isStopped(workflow.state)"
+          class="rounded-2xl border border-slate-200 bg-white p-8 text-center"
+        >
+          <h2 class="mb-1 text-xl font-bold text-slate-800">Campaign stopped</h2>
+          <p class="mx-auto max-w-md text-sm text-slate-600">
+            Nothing is running. Everything already gathered stays on the record — rerun to start a new research run from the same brief.
+          </p>
+        </section>
 
         <!-- Polling / Processing State -->
         <section

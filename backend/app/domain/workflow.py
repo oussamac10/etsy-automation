@@ -131,8 +131,28 @@ HAPPY_PATH: tuple[RunStatus, ...] = (
     RunStatus.ETSY_DRAFT_CREATED,
 )
 
-#: Terminal states: nothing may leave them.
-TERMINAL_STATUSES: frozenset[RunStatus] = frozenset({RunStatus.PUBLISHED, RunStatus.CANCELLED})
+#: Terminal states: nothing may leave them. Publication happens in Etsy and is
+#: only recorded here, so there is nothing left for the application to do.
+#:
+#: CANCELLED is deliberately *not* terminal: stopping a campaign is a decision
+#: the owner may change, and the only way out is back to DRAFT (see below), so
+#: a rerun starts from the beginning rather than resuming mid-flight. Nothing is
+#: deleted by the round trip; the old runs, concepts and approvals stay on the
+#: record.
+TERMINAL_STATUSES: frozenset[RunStatus] = frozenset({RunStatus.PUBLISHED})
+
+#: States where a queued or running job owns the workflow. The owner may stop
+#: one of these, but not archive it: a worker still holding the workflow would
+#: keep writing to a campaign the owner believes is gone.
+IN_FLIGHT_STATUSES: frozenset[RunStatus] = frozenset(
+    {
+        RunStatus.RESEARCH_QUEUED,
+        RunStatus.RESEARCHING,
+        RunStatus.ART_QUEUED,
+        RunStatus.ART_GENERATION,
+        RunStatus.PRODUCTION,
+    }
+)
 
 #: Which review state each gate is decided from.
 GATE_SOURCE_STATUS: Mapping[ApprovalGate, RunStatus] = MappingProxyType(
@@ -194,7 +214,8 @@ def _build_allowed_transitions() -> Mapping[RunStatus, frozenset[RunStatus]]:
 
     The happy path advances one state at a time. On top of that:
 
-    * every non-terminal state may be cancelled;
+    * every live state may be cancelled;
+    * a cancelled workflow may be restarted, but only from DRAFT;
     * a queued state may return to its predecessor if the job is withdrawn
       before it runs;
     * gate outcomes are **not** listed here — leaving a review state requires
@@ -215,8 +236,14 @@ def _build_allowed_transitions() -> Mapping[RunStatus, frozenset[RunStatus]]:
     # here, so a workflow can never be marked published without a draft.
     transitions[RunStatus.ETSY_DRAFT_CREATED].add(RunStatus.PUBLISHED)
 
+    # Restarting a stopped campaign. DRAFT is the only way out, so a rerun
+    # cannot resume half-finished work that was abandoned mid-stage.
+    transitions[RunStatus.CANCELLED].add(RunStatus.DRAFT)
+
     for status in RunStatus:
-        if status not in TERMINAL_STATUSES:
+        # A cancelled workflow is not live, so cancelling it again is refused
+        # rather than silently accepted as a no-op.
+        if status not in TERMINAL_STATUSES and status is not RunStatus.CANCELLED:
             transitions[status].add(RunStatus.CANCELLED)
 
     return MappingProxyType({status: frozenset(targets) for status, targets in transitions.items()})

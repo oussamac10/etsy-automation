@@ -11,6 +11,7 @@ export {
   GATE_SOURCE_STATUS,
   GATE_TARGET_STATUS,
   TERMINAL_STATUSES,
+  IN_FLIGHT_STATUSES,
   isRunStatus,
   isTerminalSuccess,
   requiresOriginalIdea,

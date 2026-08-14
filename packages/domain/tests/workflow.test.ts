@@ -37,7 +37,8 @@ describe("workflow vocabulary", () => {
 
   it("adds the two off-path states after the happy path", () => {
     expect(RUN_STATUSES).toHaveLength(HAPPY_PATH.length + 2);
-    expect(TERMINAL_STATUSES).toEqual(["PUBLISHED", "CANCELLED"]);
+    // CANCELLED is not terminal: a stopped campaign can be rerun.
+    expect(TERMINAL_STATUSES).toEqual(["PUBLISHED"]);
   });
 
   it("declares exactly three human gates", () => {

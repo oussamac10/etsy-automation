@@ -16,7 +16,8 @@ from typing import Final
 from app.application.unit_of_work import UnitOfWork
 from app.domain.errors import BudgetExceededError
 from app.domain.money import Money
-from app.infrastructure.models import OwnerSettings
+from app.domain.workflow import RunStatus
+from app.infrastructure.models import OwnerSettings, ProductWorkflow, ResearchRun
 
 #: Conservative ceiling for one live research run, in minor units of the owner's
 #: currency. ``docs/API_COSTS.md`` puts a run at roughly 10k input plus 5k
@@ -86,3 +87,39 @@ async def ensure_research_within_budget(
         )
 
     return settings
+
+
+async def queue_research_run(
+    uow: UnitOfWork,
+    workflow: ProductWorkflow,
+    *,
+    provider_mode: str,
+    actor: str,
+    reason: str,
+    idempotency_key: str | None = None,
+) -> ResearchRun:
+    """Check the budget, move the workflow to RESEARCH_QUEUED and queue the job.
+
+    Does not commit: the caller owns the transaction, so the transition, the run
+    and the outbox message land together or not at all. A message that was
+    written without its run would be delivered to a worker that finds nothing to
+    do.
+    """
+    await ensure_research_within_budget(
+        uow, owner_id=workflow.owner_id, provider_mode=provider_mode
+    )
+    await uow.workflows.transition(
+        workflow,
+        to_state=RunStatus.RESEARCH_QUEUED,
+        expected_version=workflow.version,
+        reason=reason,
+        actor=actor,
+    )
+    run = await uow.research.add_run(
+        workflow.id, idempotency_key=idempotency_key or str(uuid.uuid4())
+    )
+    await uow.outbox.add(
+        "run_research_task",
+        {"workflow_id": str(workflow.id), "run_id": str(run.id)},
+    )
+    return run
