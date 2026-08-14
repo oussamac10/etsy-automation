@@ -51,6 +51,17 @@ class S3ObjectStorage:
             config=self._config,
         )
 
+    def _get_public_client(self) -> Any:
+        endpoint = self._public_endpoint_url or self._endpoint_url
+        return boto3.client(
+            "s3",
+            endpoint_url=endpoint,
+            aws_access_key_id=self._access_key_id,
+            aws_secret_access_key=self._secret_access_key,
+            region_name=self._region_name,
+            config=self._config,
+        )
+
     async def put(self, key: str, data: bytes, content_type: str) -> StoredObject:
         try:
             client = self._get_client()
@@ -99,7 +110,7 @@ class S3ObjectStorage:
 
     async def signed_url(self, key: str, expires_in_seconds: int) -> str:
         try:
-            client = self._get_client()
+            client = self._get_public_client()
             url = await asyncio.to_thread(
                 client.generate_presigned_url,
                 ClientMethod="get_object",
@@ -110,8 +121,6 @@ class S3ObjectStorage:
                 ExpiresIn=expires_in_seconds,
             )
             assert isinstance(url, str)
-            if self._public_endpoint_url and self._endpoint_url in url:
-                url = url.replace(self._endpoint_url, self._public_endpoint_url)
             return url
         except Exception as exc:
             raise ProviderError(
