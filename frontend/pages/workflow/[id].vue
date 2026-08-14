@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   canDelete,
@@ -168,6 +168,15 @@ watch(artProvider, (newVal) => {
     artModel.value = "gemini-3.1-flash-image";
   }
 });
+
+const isGate1Approved = computed(() => {
+  return ["IDEA_APPROVED", "ART_QUEUED", "ART_GENERATION", "ART_REVIEW", "ARTWORK_APPROVED", "PRODUCTION", "IP_REVIEW", "LISTING_REVIEW", "PUBLISHED"].includes(workflow.value?.state || "");
+});
+
+const approvedConcept = computed(() => {
+  return concepts.value.find((c) => c.status?.toUpperCase() === "APPROVED");
+});
+
 
 // Polling settings
 let pollInterval: ReturnType<typeof setInterval> | null = null;
@@ -709,169 +718,215 @@ onBeforeUnmount(stopPolling);
           </button>
         </section>
 
-        <!-- Artwork Polling / Processing State -->
-        <section
-          v-else-if="workflow.state === 'ART_QUEUED' || workflow.state === 'ART_GENERATION'"
-          class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-8 text-center"
-        >
-          <div class="h-10 w-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 class="text-xl font-bold text-slate-800 mb-1">Generating Artwork Candidates</h2>
-          <p class="text-sm text-slate-600 max-w-md mx-auto">
-            Our background worker is calling Recraft/Gemini to generate transparent-background PNG/SVG candidates matching the approved prompt. This will automatically refresh.
-          </p>
-        </section>
-
-        <!-- Artwork Failed State -->
-        <section
-          v-else-if="workflow.state === 'ART_GENERATION_FAILED'"
-          class="rounded-2xl border border-red-200 bg-red-50 p-8 text-center"
-        >
-          <div class="text-4xl mb-3">⚠️</div>
-          <h2 class="text-xl font-bold text-red-900 mb-1">Artwork Generation Failed</h2>
-          <p class="text-sm text-red-700 max-w-md mx-auto mb-4">
-            Reason: {{ artworkJobs[0]?.failure_message || 'An unexpected worker error occurred.' }}
-          </p>
-          <div class="flex justify-center gap-3">
-            <button
-              type="button"
-              class="inline-flex items-center justify-center rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 shadow"
-              @click="() => startArtwork()"
-            >
-              Retry Generation
-            </button>
-            <button
-              type="button"
-              class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              @click="() => regenerateArtwork()"
-            >
-              Reconfigure
-            </button>
-          </div>
-        </section>
-
         <!-- Main Workspace -->
         <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <!-- Concepts & Approvals (Left 2 Columns) -->
           <div class="lg:col-span-2 space-y-8">
-            <!-- Trigger Artwork Generation Panel -->
-            <div v-if="workflow.state === 'IDEA_APPROVED'" class="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-6 shadow-sm">
-              <h3 class="text-lg font-bold text-slate-900 mb-2">🎨 Step 2: Trigger Artwork Generation</h3>
-              <p class="text-sm text-slate-600 mb-4">
-                Now that your concept is approved, select your preferred generation parameters below.
-              </p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Image Provider</label>
-                  <select v-model="artProvider" class="w-full rounded-lg border-slate-200 text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="recraft">Recraft V4.1 (Vector & Illustration)</option>
-                    <option value="gemini">Google Gemini (Photo & Creative)</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Model Profile</label>
-                  <select v-model="artModel" class="w-full rounded-lg border-slate-200 text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    <option v-if="artProvider === 'recraft'" value="recraftv4_1">Recraft V4.1 (Standard)</option>
-                    <option v-if="artProvider === 'recraft'" value="recraftv4_1_pro">Recraft V4.1 Pro (Premium, 1 Candidate)</option>
-                    <option v-if="artProvider === 'gemini'" value="gemini-3.1-flash-image">Gemini 3.1 Flash Image (Standard)</option>
-                  </select>
-                </div>
-              </div>
-              <div v-if="artworkError" class="text-sm text-red-600 mb-4 bg-red-50 border border-red-100 p-3 rounded-lg">
-                {{ artworkError }}
-              </div>
-              <div class="flex items-center justify-between gap-4 border-t border-slate-100 pt-4">
-                <span class="text-xs text-slate-500 font-medium">Estimated cost: $0.00 (Fake Adapter)</span>
-                <button
-                  type="button"
-                  :disabled="isArtworkLoading"
-                  class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                  @click="() => startArtwork()"
-                >
-                  {{ isArtworkLoading ? 'Enqueuing...' : 'Generate Artwork Candidates' }}
-                </button>
+            <!-- State Info / Guidance Alerts -->
+            <div v-if="workflow.state === 'IDEA_REVIEW'" class="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 text-sm text-indigo-850 mb-6 flex items-center gap-2.5">
+              <span class="text-lg">💡</span>
+              <div>
+                <p class="font-semibold text-slate-800">Choose one concept to continue.</p>
+                <p class="text-xs text-slate-650 mt-0.5">Approve a concept to begin generating high-resolution candidate artwork options.</p>
               </div>
             </div>
 
-            <!-- Candidate Gallery -->
-            <div v-if="workflow.state === 'ART_REVIEW' || workflow.state === 'ARTWORK_APPROVED'" class="space-y-6">
-              <div class="flex items-center justify-between gap-4">
+            <div v-if="workflow.state === 'IDEA_APPROVED' && artworkJobs.length === 0" class="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800 mb-6 flex items-center gap-2.5">
+              <span class="text-lg">✅</span>
+              <div>
+                <p class="font-semibold">Concept approved — ready for artwork generation</p>
+                <p class="text-xs text-green-700 mt-0.5">Use the configuration parameters below to generate candidate designs.</p>
+              </div>
+            </div>
+
+            <!-- Phase 6: Artwork Generation & Approval Section -->
+            <div v-if="isGate1Approved" class="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm space-y-6 mb-8">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
-                  <h3 class="text-2xl font-extrabold text-slate-900">Generated Artwork Candidates</h3>
-                  <p class="text-sm text-slate-500">Review and select the winning candidate for production.</p>
+                  <h3 class="text-xl font-extrabold text-slate-900">Phase 6: Artwork Generation & Approval</h3>
+                  <p class="text-xs text-slate-500 mt-0.5">Select provider/model and approve the generated candidate design.</p>
                 </div>
-                <button
-                  v-if="workflow.state === 'ART_REVIEW'"
-                  type="button"
-                  class="text-xs font-semibold text-red-600 hover:text-red-800 underline"
-                  @click="() => workflow && rejectArtwork(artworkJobs[0]?.id, workflow.version)"
-                >
-                  Reject All Options
-                </button>
+                <span v-if="workflow.state === 'ARTWORK_APPROVED'" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-100 text-green-800 text-xs font-bold border border-green-200">
+                  ✓ Artwork Approved
+                </span>
               </div>
 
-              <div v-if="artworkError" class="text-sm text-red-600 bg-red-50 border border-red-100 p-3 rounded-lg">
-                {{ artworkError }}
-              </div>
-
-              <!-- Artwork Candidates Grid -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div
-                  v-for="(asset, idx) in artworkJobs[0]?.assets"
-                  :key="asset.id"
-                  class="group relative rounded-2xl border bg-white overflow-hidden shadow-sm hover:shadow transition-shadow duration-150"
-                  :class="workflow.state === 'ARTWORK_APPROVED' && asset.derived_from_id === null ? 'border-green-500 ring-2 ring-green-500/20' : 'border-slate-200'"
-                >
-                  <!-- Candidate Thumbnail -->
-                  <div class="aspect-square bg-slate-100 relative flex items-center justify-center overflow-hidden">
-                    <img
-                      v-if="asset.url"
-                      :src="asset.url"
-                      alt="Candidate Preview"
-                      class="object-contain w-full h-full max-h-[350px]"
-                    />
-                    <div v-else class="text-slate-400 text-sm">Preview Loading...</div>
-                    <span class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-xs font-mono px-2 py-1 rounded">
-                      Candidate {{ idx + 1 }}
-                    </span>
-                  </div>
-
-                  <!-- Candidate Details & Action Footer -->
-                  <div class="p-4 border-t border-slate-100 bg-slate-50/50">
-                    <div class="flex items-center justify-between text-xs text-slate-500 mb-3">
-                      <span>{{ asset.width }}x{{ asset.height }} | {{ (asset.byte_size / 1024).toFixed(1) }} KB</span>
-                      <span class="capitalize">{{ asset.mime_type.split('/')[1] }}</span>
-                    </div>
-
-                    <div v-if="workflow.state === 'ART_REVIEW'" class="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                        @click="() => openRefineModalForm(asset.id)"
-                      >
-                        Refine Option
-                      </button>
-                      <button
-                        type="button"
-                        class="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white hover:bg-green-700"
-                        @click="() => approveArtwork(asset.id)"
-                      >
-                        Approve Candidate
-                      </button>
-                    </div>
-                  </div>
+              <!-- Selected Concept Info -->
+              <div v-if="approvedConcept" class="p-4 bg-slate-50/50 rounded-xl border border-slate-100 text-sm">
+                <span class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block mb-1">Approved Concept Details</span>
+                <h4 class="font-extrabold text-slate-800 mb-1">{{ approvedConcept.title }}</h4>
+                <p class="text-slate-600 mb-3 text-xs">{{ approvedConcept.description }}</p>
+                
+                <span class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block mb-1">Design Prompt</span>
+                <div class="space-y-1.5 text-xs text-slate-700 bg-white p-3 rounded-lg border border-slate-100 font-mono">
+                  <p><span class="font-bold text-slate-400">Positive:</span> {{ approvedConcept.prompts[approvedConcept.prompts.length - 1]?.positive_prompt }}</p>
+                  <p><span class="font-bold text-slate-400">Negative:</span> {{ approvedConcept.prompts[approvedConcept.prompts.length - 1]?.negative_prompt }}</p>
+                  <p v-if="approvedConcept.prompts[approvedConcept.prompts.length - 1]?.exact_slogan">
+                    <span class="font-bold text-slate-400">Slogan:</span> "{{ approvedConcept.prompts[approvedConcept.prompts.length - 1]?.exact_slogan }}"
+                  </p>
                 </div>
               </div>
 
-              <!-- Regeneration button at bottom -->
-              <div v-if="workflow.state === 'ART_REVIEW'" class="rounded-2xl border border-dashed border-slate-200 p-6 text-center">
-                <p class="text-sm text-slate-500 mb-3">Not satisfied with any of these candidates?</p>
-                <button
-                  type="button"
-                  class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
-                  @click="() => regenerateArtwork()"
-                >
-                  Regenerate All Options
-                </button>
+              <!-- Inner state 1: Gate 1 approved + no jobs yet -->
+              <div v-if="workflow.state === 'IDEA_APPROVED' && artworkJobs.length === 0" class="space-y-4">
+                <div class="rounded-xl bg-indigo-50/50 border border-indigo-100 p-4 text-xs text-slate-600">
+                  <p class="font-semibold text-slate-700">Your concept is approved. Generate artwork to continue.</p>
+                </div>
+
+                <!-- Parameters selection -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Image Provider</label>
+                    <select v-model="artProvider" class="w-full rounded-lg border-slate-200 text-sm focus:ring-indigo-500 focus:border-indigo-550">
+                      <option value="recraft">Recraft V4.1 (Vector & Illustration)</option>
+                      <option value="gemini">Google Gemini (Photo & Creative)</option>
+                    </select>
+                  </div>
+                  <div v-if="artProvider === 'recraft'">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Model Profile</label>
+                    <select v-model="artModel" class="w-full rounded-lg border-slate-200 text-sm focus:ring-indigo-500 focus:border-indigo-550">
+                      <option value="recraftv4_1">Recraft V4.1 (Standard)</option>
+                      <option value="recraftv4_1_pro">Recraft V4.1 Pro (Premium, 1 Candidate)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div v-if="artworkError" class="text-sm text-red-600 bg-red-50 border border-red-100 p-3 rounded-lg">
+                  {{ artworkError }}
+                </div>
+
+                <div class="flex items-center justify-between gap-4 border-t border-slate-100 pt-4">
+                  <span class="text-xs text-slate-400">Estimated cost: $0.00 (Fake Adapter)</span>
+                  <button
+                    type="button"
+                    :disabled="isArtworkLoading"
+                    class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors cursor-pointer"
+                    @click="() => startArtwork()"
+                  >
+                    {{ isArtworkLoading ? 'Enqueuing...' : 'Generate Artwork' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Inner state 2: queued / running (ART_QUEUED or ART_GENERATION) -->
+              <div v-else-if="workflow.state === 'ART_QUEUED' || workflow.state === 'ART_GENERATION'" class="py-8 text-center space-y-4">
+                <div class="h-10 w-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <h4 class="text-lg font-bold text-slate-800">Artwork generation in progress...</h4>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto">
+                  Artwork generation in progress. Our background worker is calling Recraft/Gemini to generate transparent-background PNG/SVG candidates matching the approved prompt. This will automatically refresh.
+                </p>
+              </div>
+
+              <!-- Inner state 3: failed (ART_GENERATION_FAILED) -->
+              <div v-else-if="workflow.state === 'ART_GENERATION_FAILED'" class="space-y-4">
+                <div class="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-800 flex items-start gap-2.5">
+                  <span class="text-base">⚠️</span>
+                  <div>
+                    <p class="font-semibold text-slate-800">Artwork Generation Failed</p>
+                    <p class="text-xs text-red-700 mt-0.5">Reason: {{ artworkJobs[0]?.failure_message || 'An unexpected error occurred during image generation.' }}</p>
+                  </div>
+                </div>
+
+                <div class="flex justify-center gap-3">
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center rounded-lg bg-red-650 px-4 py-2 text-sm font-semibold text-white hover:bg-red-750 shadow"
+                    @click="() => startArtwork()"
+                  >
+                    Retry Generation
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    @click="() => regenerateArtwork()"
+                  >
+                    Reconfigure Parameters
+                  </button>
+                </div>
+              </div>
+
+              <!-- Inner state 4: completed or approved -->
+              <div v-else-if="artworkJobs.length > 0" class="space-y-6">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-sm font-bold text-slate-750">Generated Candidate Assets</h4>
+                  <button
+                    v-if="workflow.state === 'ART_REVIEW'"
+                    type="button"
+                    class="text-xs font-semibold text-red-650 hover:text-red-800 underline cursor-pointer"
+                    @click="() => workflow && rejectArtwork(artworkJobs[0]?.id, workflow.version)"
+                  >
+                    Reject All Options
+                  </button>
+                </div>
+
+                <div v-if="artworkError" class="text-sm text-red-600 bg-red-50 border border-red-100 p-3 rounded-lg">
+                  {{ artworkError }}
+                </div>
+
+                <!-- Candidates Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div
+                    v-for="(asset, idx) in artworkJobs[0]?.assets"
+                    :key="asset.id"
+                    class="group relative rounded-2xl border bg-white overflow-hidden shadow-sm hover:shadow transition-shadow duration-150"
+                    :class="workflow.state === 'ARTWORK_APPROVED' && asset.derived_from_id === null ? 'border-green-500 ring-2 ring-green-500/20' : 'border-slate-200'"
+                  >
+                    <!-- Thumbnail -->
+                    <div class="aspect-square bg-slate-100 relative flex items-center justify-center overflow-hidden">
+                      <img
+                        v-if="asset.url"
+                        :src="asset.url"
+                        alt="Candidate Preview"
+                        class="object-contain w-full h-full max-h-[250px]"
+                      />
+                      <div v-else class="text-slate-400 text-sm">Preview Loading...</div>
+                      <span class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-xs font-mono px-2 py-1 rounded">
+                        Candidate {{ idx + 1 }}
+                      </span>
+                    </div>
+
+                    <!-- Details & Actions -->
+                    <div class="p-4 border-t border-slate-100 bg-slate-50/50">
+                      <div class="flex items-center justify-between text-xs text-slate-500 mb-3">
+                        <span>{{ asset.width }}x{{ asset.height }} | {{ (asset.byte_size / 1024).toFixed(1) }} KB</span>
+                        <span class="capitalize">{{ asset.mime_type.split('/')[1] }}</span>
+                      </div>
+
+                      <div class="text-[10px] text-slate-400 mb-3 font-mono">
+                        Provider: {{ artworkJobs[0]?.provider }} | Model: {{ artworkJobs[0]?.provider_model || 'N/A' }}
+                      </div>
+
+                      <div v-if="workflow.state === 'ART_REVIEW'" class="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                          @click="() => openRefineModalForm(asset.id)"
+                        >
+                          Refine Option
+                        </button>
+                        <button
+                          type="button"
+                          class="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white hover:bg-green-700 cursor-pointer"
+                          @click="() => approveArtwork(asset.id)"
+                        >
+                          Approve Artwork
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Regeneration button at bottom -->
+                <div v-if="workflow.state === 'ART_REVIEW'" class="rounded-2xl border border-dashed border-slate-200 p-6 text-center">
+                  <p class="text-sm text-slate-550 mb-3">Not satisfied with any of these candidates?</p>
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm cursor-pointer"
+                    @click="() => regenerateArtwork()"
+                  >
+                    Regenerate All Options
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -907,14 +962,29 @@ onBeforeUnmount(stopPolling);
               <article
                 v-for="concept in concepts"
                 :key="concept.id"
-                class="rounded-2xl border bg-white p-6 shadow-sm hover:shadow transition-shadow duration-150"
-                :class="concept.status === 'APPROVED' ? 'border-green-500 ring-1 ring-green-500/20' : 'border-slate-200'"
+                class="rounded-2xl border bg-white p-6 shadow-sm hover:shadow transition-all duration-150 relative"
+                :class="[
+                  concept.status?.toUpperCase() === 'APPROVED' 
+                    ? 'border-green-500 ring-2 ring-green-500/10 bg-green-50/5' 
+                    : concept.status?.toUpperCase() === 'REJECTED' 
+                    ? 'border-red-300 opacity-60 bg-red-50/10' 
+                    : 'border-slate-200',
+                  (approvedConcept && concept.status?.toUpperCase() !== 'APPROVED') ? 'opacity-40 pointer-events-none' : ''
+                ]"
               >
                 <!-- Title & Score Header -->
                 <header class="flex items-start justify-between gap-4 mb-4">
                   <div>
-                    <h3 class="text-xl font-extrabold text-slate-900">{{ concept.title }}</h3>
-                    <p class="text-xs text-slate-500 mt-0.5">Origin: {{ concept.origin }} | Status: {{ concept.status }}</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <h3 class="text-xl font-extrabold text-slate-900">{{ concept.title }}</h3>
+                      <span v-if="concept.status?.toUpperCase() === 'APPROVED'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-800 uppercase tracking-wider border border-green-200">
+                        Selected Concept
+                      </span>
+                      <span v-if="concept.status?.toUpperCase() === 'REJECTED'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 uppercase tracking-wider border border-red-200">
+                        Rejected
+                      </span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">Origin: {{ concept.origin }}</p>
                   </div>
                   <div class="text-right">
                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-sm">
@@ -953,7 +1023,7 @@ onBeforeUnmount(stopPolling);
                   <div class="flex justify-between items-center mb-2 border-b border-indigo-100/50 pb-2">
                     <span class="font-bold text-indigo-900">Active Design Prompt (v{{ concept.prompts[concept.prompts.length - 1]?.version || 1 }})</span>
                     <button
-                      v-if="workflow.state === 'IDEA_REVIEW' && concept.status === 'PROPOSED'"
+                      v-if="workflow.state === 'IDEA_REVIEW' && ['PROPOSED', 'SHORTLISTED'].includes(concept.status?.toUpperCase())"
                       type="button"
                       class="text-indigo-600 hover:text-indigo-900 font-bold text-xs underline"
                       @click="openReviseForm(concept.id)"
@@ -974,20 +1044,20 @@ onBeforeUnmount(stopPolling);
                 </div>
 
                 <!-- Gate Actions -->
-                <footer v-if="workflow.state === 'IDEA_REVIEW' && concept.status === 'PROPOSED'" class="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                <footer v-if="workflow.state === 'IDEA_REVIEW' && ['PROPOSED', 'SHORTLISTED'].includes(concept.status?.toUpperCase())" class="flex justify-end gap-3 border-t border-slate-100 pt-4">
                   <button
                     type="button"
-                    class="inline-flex items-center justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                    class="inline-flex items-center justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 cursor-pointer"
                     @click="handleDecideGate(concept.id, 'REJECTED')"
                   >
                     Reject Concept
                   </button>
                   <button
                     type="button"
-                    class="inline-flex items-center justify-center rounded-lg bg-green-600 px-5 py-2 text-sm font-bold text-white hover:bg-green-700"
+                    class="inline-flex items-center justify-center rounded-lg bg-green-600 px-5 py-2 text-sm font-bold text-white hover:bg-green-700 cursor-pointer"
                     @click="handleDecideGate(concept.id, 'APPROVED')"
                   >
-                    Approve Concept (Gate 1)
+                    Approve This Concept
                   </button>
                 </footer>
               </article>
