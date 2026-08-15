@@ -22,3 +22,5 @@ The ladder runs after you understand the problem, not instead of it: read the ta
 - No boilerplate nobody asked for.
 - Deletion over addition. Boring over clever. Fewest files possible.
 - Shortest working diff wins, but only once you understand the problem.
+- **Frontend UI:** Always use shadcn-vue component patterns, accessible Radix primitives, Lucide icons, and curated Tailwind design tokens for all frontend UI components.
+
