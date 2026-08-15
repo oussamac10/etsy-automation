@@ -93,6 +93,7 @@ interface Workflow {
   id: string;
   state: string;
   version: number;
+  intended_product_uses?: string[];
 }
 
 const props = defineProps<{
@@ -107,7 +108,24 @@ const emit = defineEmits<{
   (e: "triggerProduction", forceNew: boolean): void;
 }>();
 
+function normalizeProductKey(raw: string): string {
+  const text = raw.toLowerCase().trim();
+  if (text.includes("shirt") || text.includes("tee") || text.includes("apparel") || text === "tshirt") return "tshirt";
+  if (text.includes("sweat") || text.includes("hoodie") || text.includes("crewneck") || text === "sweatshirt") return "sweatshirt";
+  if (text.includes("tote") || text.includes("bag") || text === "tote_bag") return "tote_bag";
+  if (text.includes("mug") || text.includes("cup") || text.includes("ceramic") || text === "mug") return "mug";
+  return text.replace(/\s+/g, "_");
+}
+
 const availableMockupTabs = computed<string[]>(() => {
+  // 1. Strictly restrict to user-selected Intended Physical Products if set
+  const intendedRaw = props.workflow?.intended_product_uses ?? [];
+  if (intendedRaw.length > 0) {
+    const intendedKeys = Array.from(new Set(intendedRaw.map(normalizeProductKey)));
+    return intendedKeys;
+  }
+
+  // 2. Fallback to generated mockup URLs
   const urls = props.latestProductionJob?.mockup_urls ?? {};
   const keys = Object.keys(urls);
   if (keys.length > 0) {
