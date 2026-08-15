@@ -1,0 +1,175 @@
+<script setup lang="ts">
+import { ref } from "vue";
+import {
+  ChevronLeft,
+  CheckCircle2,
+  Square,
+  RotateCw,
+  Trash2,
+  AlertCircle,
+} from "lucide-vue-next";
+import Button from "~/components/ui/Button.vue";
+import Badge from "~/components/ui/Badge.vue";
+import Alert from "~/components/ui/Alert.vue";
+import AlertDescription from "~/components/ui/AlertDescription.vue";
+import {
+  canDelete,
+  isStopped,
+  needsOwner,
+} from "~/composables/useWorkflowControls";
+
+interface Workflow {
+  id: string;
+  name: string;
+  idea_mode: string;
+  target_marketplace: string;
+  target_country: string;
+  output_language: string;
+  target_buyer: string | null;
+  intended_product_uses: string[];
+  state: string;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ProductionJob {
+  id: string;
+  status: string;
+}
+
+const props = defineProps<{
+  workflow: Workflow;
+  latestProductionJob: ProductionJob | null;
+  isWorkflowRunning: boolean;
+  displayStageLabel: string;
+  pendingWorkflowId: string | null;
+  controlError: string | null;
+}>();
+
+const emit = defineEmits<{
+  (e: "control", action: "cancel" | "rerun" | "delete"): void;
+}>();
+
+const confirmingDelete = ref(false);
+
+function handleDelete() {
+  emit("control", "delete");
+}
+</script>
+
+<template>
+  <div class="space-y-4">
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-zinc-200/80 pb-6">
+      <div class="space-y-1.5">
+        <div class="flex items-center gap-2 text-xs text-zinc-500">
+          <NuxtLink to="/" class="flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-700">
+            <ChevronLeft class="h-3.5 w-3.5" />
+            <span>Campaigns</span>
+          </NuxtLink>
+          <span class="text-zinc-300">/</span>
+          <Badge variant="secondary" class="text-[10px] px-2 py-0 uppercase">
+            {{ workflow.idea_mode }}
+          </Badge>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">
+          {{ workflow.name }}
+        </h1>
+        <p class="text-xs text-zinc-400 font-mono">ID: {{ workflow.id }}</p>
+      </div>
+
+      <!-- Actions Toolbar -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <Badge
+          :variant="
+            workflow.state.endsWith('_APPROVED') || workflow.state === 'ETSY_DRAFT_CREATED' || (workflow.state === 'PRODUCTION' && latestProductionJob?.status === 'SUCCEEDED')
+              ? 'success'
+              : isWorkflowRunning
+                ? 'warning'
+                : needsOwner(workflow.state)
+                  ? 'default'
+                  : workflow.state.endsWith('_FAILED')
+                    ? 'destructive'
+                    : 'secondary'
+          "
+          class="px-3 py-1 text-xs gap-1.5 font-semibold"
+        >
+          <span
+            v-if="isWorkflowRunning"
+            class="h-2 w-2 rounded-full bg-amber-500 motion-safe:animate-pulse"
+            aria-hidden="true"
+          />
+          <CheckCircle2
+            v-else-if="workflow.state === 'PRODUCTION' && latestProductionJob?.status === 'SUCCEEDED'"
+            class="h-3.5 w-3.5 text-emerald-600"
+          />
+          <span>{{ displayStageLabel }}</span>
+        </Badge>
+
+        <Button
+          v-if="isWorkflowRunning"
+          variant="destructive"
+          size="sm"
+          :disabled="pendingWorkflowId === workflow.id"
+          class="gap-1.5 shadow-2xs font-semibold"
+          @click="emit('control', 'cancel')"
+        >
+          <Square class="h-3.5 w-3.5 fill-current" />
+          <span>Stop</span>
+        </Button>
+
+        <Button
+          v-if="isStopped(workflow.state)"
+          variant="default"
+          size="sm"
+          :disabled="pendingWorkflowId === workflow.id"
+          class="gap-1.5 font-semibold shadow-2xs bg-indigo-600 hover:bg-indigo-700"
+          @click="emit('control', 'rerun')"
+        >
+          <RotateCw class="h-3.5 w-3.5" />
+          <span>Resume</span>
+        </Button>
+
+        <Button
+          v-if="canDelete(workflow.state) && !confirmingDelete"
+          variant="outline"
+          size="sm"
+          class="gap-1.5 text-zinc-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50"
+          @click="confirmingDelete = true"
+        >
+          <Trash2 class="h-3.5 w-3.5" />
+          <span>Delete</span>
+        </Button>
+
+        <span
+          v-else-if="confirmingDelete"
+          class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-800"
+        >
+          <span>Delete this campaign?</span>
+          <Button
+            variant="destructive"
+            size="sm"
+            :disabled="pendingWorkflowId === workflow.id"
+            class="h-6 px-2 text-[11px]"
+            @click="handleDelete"
+          >
+            Delete
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="h-6 px-2 text-[11px]"
+            @click="confirmingDelete = false"
+          >
+            Keep
+          </Button>
+        </span>
+      </div>
+    </header>
+
+    <Alert v-if="controlError" variant="destructive">
+      <AlertCircle class="h-4 w-4" />
+      <AlertDescription>{{ controlError }}</AlertDescription>
+    </Alert>
+  </div>
+</template>

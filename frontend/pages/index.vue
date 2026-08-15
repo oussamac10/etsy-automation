@@ -38,7 +38,84 @@ import CardContent from "~/components/ui/CardContent.vue";
 import Badge from "~/components/ui/Badge.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
+import CustomizableSelect, { type SelectOption } from "~/components/ui/CustomizableSelect.vue";
 import Progress from "~/components/ui/Progress.vue";
+
+const PRODUCT_OPTIONS: SelectOption[] = [
+  { value: "mug", label: "Ceramic Mug", icon: "☕" },
+  { value: "tshirt", label: "T-Shirt", icon: "👕" },
+  { value: "sweatshirt", label: "Sweatshirt / Hoodie", icon: "🧥" },
+  { value: "tote_bag", label: "Tote Bag", icon: "👜" },
+  { value: "tumbler", label: "Tumbler / Cup", icon: "🥤" },
+  { value: "poster", label: "Poster / Wall Art", icon: "🖼️" },
+  { value: "sticker", label: "Stickers", icon: "🏷️" },
+  { value: "phone_case", label: "Phone Case", icon: "📱" },
+  { value: "candle", label: "Scented Candle", icon: "🕯️" },
+];
+
+const BUYER_OPTIONS: SelectOption[] = [
+  { value: "coffee lovers", label: "Coffee Lovers & Baristas", icon: "☕" },
+  { value: "teachers", label: "Teachers & Educators", icon: "👩‍🏫" },
+  { value: "dog lovers", label: "Dog Moms & Pet Parents", icon: "🐾" },
+  { value: "plant lovers", label: "Plant Enthusiasts & Botanists", icon: "🌿" },
+  { value: "book lovers", label: "Bookworms & Readers", icon: "📚" },
+  { value: "campers & hikers", label: "Outdoor Campers & Hikers", icon: "🏕️" },
+  { value: "nurses", label: "Nurses & Healthcare", icon: "🏥" },
+  { value: "moms", label: "Mothers & New Moms", icon: "👩‍👧" },
+  { value: "dads", label: "Fathers & Dads", icon: "👨‍👦" },
+  { value: "gamers", label: "Gamers & Techies", icon: "🎮" },
+  { value: "crafters", label: "Crafters & DIYers", icon: "🎨" },
+  { value: "minimalists", label: "Minimalists & Modernists", icon: "✨" },
+];
+
+const NICHE_OPTIONS: SelectOption[] = [
+  { value: "retro camping", label: "Retro Camping & Wilderness", icon: "🏕️" },
+  { value: "black cats", label: "Black Cats & Witchy", icon: "🐈‍⬛" },
+  { value: "cottagecore", label: "Cottagecore & Mushrooms", icon: "🍄" },
+  { value: "vintage floral", label: "Vintage Botanical & Floral", icon: "🌸" },
+  { value: "cozy coffee", label: "Cozy Coffee & Books", icon: "☕" },
+  { value: "space celestial", label: "Space & Celestial Stars", icon: "🚀" },
+  { value: "punny food", label: "Punny Food & Cooking", icon: "🥑" },
+  { value: "golden retriever", label: "Golden Retrievers & Dogs", icon: "🐶" },
+  { value: "desert cacti", label: "Desert & Southwest Cacti", icon: "🌵" },
+  { value: "coastal ocean", label: "Coastal & Ocean Waves", icon: "🌊" },
+];
+
+const STYLE_OPTIONS: SelectOption[] = [
+  { value: "watercolor", label: "Soft Watercolor & Wash", icon: "🎨" },
+  { value: "minimalist line art", label: "Minimalist Line Art & Monoline", icon: "✏️" },
+  { value: "vintage retro 70s", label: "Vintage 70s / Retro Distressed", icon: "📻" },
+  { value: "boho botanical", label: "Boho Botanical & Earthy", icon: "🌿" },
+  { value: "kawaii cute", label: "Cute Kawaii & Pastel", icon: "🌈" },
+  { value: "bold typography", label: "Bold Typography & Lettering", icon: "📜" },
+  { value: "engraving woodcut", label: "Engraving & Woodcut Vintage", icon: "✒️" },
+  { value: "pixel art", label: "8-Bit / 16-Bit Pixel Art", icon: "👾" },
+  { value: "geometric vector", label: "Geometric Clean Vector", icon: "📐" },
+  { value: "oil painting", label: "Classic Oil Painting Impressionist", icon: "🖌️" },
+];
+
+const OCCASION_OPTIONS: SelectOption[] = [
+  { value: "birthday", label: "Birthday", icon: "🎂" },
+  { value: "christmas", label: "Christmas & Holiday", icon: "🎄" },
+  { value: "halloween", label: "Halloween & Fall", icon: "🎃" },
+  { value: "valentines", label: "Valentine's Day", icon: "💝" },
+  { value: "mothers day", label: "Mother's Day", icon: "👩" },
+  { value: "fathers day", label: "Father's Day", icon: "👨" },
+  { value: "graduation", label: "Graduation", icon: "🎓" },
+  { value: "wedding", label: "Wedding & Anniversary", icon: "💍" },
+  { value: "thanksgiving", label: "Thanksgiving", icon: "🦃" },
+  { value: "baby shower", label: "Baby Shower & Newborn", icon: "👶" },
+  { value: "summer vacation", label: "Summer Vacation & Travel", icon: "🌴" },
+  { value: "everyday", label: "Everyday / No Special Occasion", icon: "✨" },
+];
+
+const SEASON_OPTIONS: SelectOption[] = [
+  { value: "winter", label: "Winter", icon: "❄️" },
+  { value: "spring", label: "Spring", icon: "🌸" },
+  { value: "summer", label: "Summer", icon: "☀️" },
+  { value: "autumn", label: "Autumn / Fall", icon: "🍂" },
+  { value: "evergreen", label: "Year-Round / Evergreen", icon: "🌲" },
+];
 
 interface Workflow {
   id: string;
@@ -70,7 +147,7 @@ const targetCountry = ref("US");
 const outputLanguage = ref("en");
 const targetMarketplace = ref("etsy");
 const targetBuyer = ref("");
-const intendedProductUses = ref("");
+const intendedProductUses = ref<string[]>(["mug"]);
 const isCreating = ref(false);
 const creationError = ref<string | null>(null);
 
@@ -160,10 +237,7 @@ async function handleCreateWorkflow(): Promise<void> {
       output_language: outputLanguage.value.trim(),
       target_marketplace: targetMarketplace.value.trim(),
       target_buyer: targetBuyer.value.trim() || null,
-      intended_product_uses: intendedProductUses.value
-        .split(",")
-        .map((u) => u.trim())
-        .filter((u) => u.length > 0),
+      intended_product_uses: intendedProductUses.value,
     };
 
     let newWorkflow: Workflow;
@@ -194,10 +268,7 @@ async function handleCreateWorkflow(): Promise<void> {
         audience: audience.value.trim() || null,
         occasion: occasion.value.trim() || null,
         season: season.value.trim() || null,
-        product_uses: intendedProductUses.value
-          .split(",")
-          .map((u) => u.trim())
-          .filter((u) => u.length > 0),
+        product_uses: intendedProductUses.value,
       };
 
       try {
@@ -241,7 +312,7 @@ async function handleCreateWorkflow(): Promise<void> {
     showCreateForm.value = false;
     workflowName.value = "";
     targetBuyer.value = "";
-    intendedProductUses.value = "";
+    intendedProductUses.value = ["mug"];
     originalText.value = "";
     slogan.value = "";
     desiredStyle.value = "";
@@ -557,17 +628,36 @@ onUnmounted(() => {
 
               <div class="space-y-1.5">
                 <Label for="target-buyer">Buyer Persona (Optional)</Label>
-                <Input id="target-buyer" v-model="targetBuyer" placeholder="e.g. coffee lovers, teachers" />
+                <CustomizableSelect
+                  id="target-buyer"
+                  v-model="targetBuyer"
+                  :options="BUYER_OPTIONS"
+                  storage-key="etsy_custom_buyers"
+                  placeholder="Select or type buyer..."
+                />
               </div>
 
               <div v-if="ideaMode === 'market-led'" class="space-y-1.5">
                 <Label for="preferred-niche">Preferred Niche (Optional)</Label>
-                <Input id="preferred-niche" v-model="preferredNiche" placeholder="e.g. retro camping, black cats" />
+                <CustomizableSelect
+                  id="preferred-niche"
+                  v-model="preferredNiche"
+                  :options="NICHE_OPTIONS"
+                  storage-key="etsy_custom_niches"
+                  placeholder="Select or type niche..."
+                />
               </div>
 
               <div :class="ideaMode !== 'market-led' ? 'md:col-span-1 lg:col-span-2' : ''" class="space-y-1.5">
                 <Label for="product-uses">Intended Physical Products</Label>
-                <Input id="product-uses" v-model="intendedProductUses" placeholder="e.g. mug, tumbler, tshirt" />
+                <CustomizableSelect
+                  id="product-uses"
+                  v-model="intendedProductUses"
+                  :options="PRODUCT_OPTIONS"
+                  storage-key="etsy_custom_products"
+                  :is-multi="true"
+                  placeholder="Select products..."
+                />
               </div>
             </div>
 
@@ -599,7 +689,13 @@ onUnmounted(() => {
                   <Label for="desired-style">
                     {{ ideaMode === 'hybrid' ? 'Preferred Style (Optional)' : 'Desired Style (Optional)' }}
                   </Label>
-                  <Input id="desired-style" v-model="desiredStyle" placeholder="e.g. watercolor, retro vector, line art" />
+                  <CustomizableSelect
+                    id="desired-style"
+                    v-model="desiredStyle"
+                    :options="STYLE_OPTIONS"
+                    storage-key="etsy_custom_styles"
+                    placeholder="Select or type style..."
+                  />
                 </div>
                 <div class="space-y-1.5">
                   <Label for="slogan">Exact Slogan / Typography (Optional)</Label>
@@ -610,15 +706,33 @@ onUnmounted(() => {
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="space-y-1.5">
                   <Label for="audience">Audience (Optional)</Label>
-                  <Input id="audience" v-model="audience" placeholder="e.g. dog moms" />
+                  <CustomizableSelect
+                    id="audience"
+                    v-model="audience"
+                    :options="BUYER_OPTIONS"
+                    storage-key="etsy_custom_audiences"
+                    placeholder="Select or type audience..."
+                  />
                 </div>
                 <div class="space-y-1.5">
                   <Label for="occasion">Occasion (Optional)</Label>
-                  <Input id="occasion" v-model="occasion" placeholder="e.g. Mother's Day" />
+                  <CustomizableSelect
+                    id="occasion"
+                    v-model="occasion"
+                    :options="OCCASION_OPTIONS"
+                    storage-key="etsy_custom_occasions"
+                    placeholder="Select or type occasion..."
+                  />
                 </div>
                 <div class="space-y-1.5">
                   <Label for="season">Season (Optional)</Label>
-                  <Input id="season" v-model="season" placeholder="e.g. Fall / Halloween" />
+                  <CustomizableSelect
+                    id="season"
+                    v-model="season"
+                    :options="SEASON_OPTIONS"
+                    storage-key="etsy_custom_seasons"
+                    placeholder="Select or type season..."
+                  />
                 </div>
               </div>
             </div>
