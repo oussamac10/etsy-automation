@@ -21,6 +21,7 @@ from app.infrastructure.security import (
     EncryptionConfigurationError,
     tokens_equal,
 )
+from app.providers.s3 import S3ObjectStorage
 from app.settings import Settings
 
 #: Header the browser echoes the CSRF cookie in. Lowercase; Starlette's header
@@ -54,6 +55,16 @@ def get_app_settings(request: Request) -> Settings:
 
 
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
+
+
+def get_storage(request: Request):
+    from app.providers.s3 import S3ObjectStorage
+    storage: S3ObjectStorage = request.app.state.storage
+    return storage
+
+
+StorageDep = Annotated["S3ObjectStorage", Depends(get_storage)]
+
 
 
 def get_credential_cipher(request: Request) -> CredentialCipher | None:

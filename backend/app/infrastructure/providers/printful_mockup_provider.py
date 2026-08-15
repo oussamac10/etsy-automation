@@ -234,9 +234,15 @@ class PrintfulMockupProvider(MockupProvider):
 
                 if status == "completed":
                     urls: list[str] = []
+                    variant_urls: dict[str, str] = {}
                     for m in result.get("mockups", []):
-                        if "mockup_url" in m and m["mockup_url"]:
-                            urls.append(m["mockup_url"])
+                        m_url = m.get("mockup_url")
+                        if m_url:
+                            urls.append(m_url)
+                            for v_id in m.get("variant_ids", []):
+                                variant_urls[str(v_id)] = m_url
+                            if "color" in m and m["color"]:
+                                variant_urls[str(m["color"]).lower().replace(" ", "_")] = m_url
                         for extra in m.get("extra", []):
                             if "url" in extra and extra["url"]:
                                 urls.append(extra["url"])
@@ -245,6 +251,7 @@ class PrintfulMockupProvider(MockupProvider):
                         task_id=external_task_id,
                         status="completed",
                         mockup_urls=urls,
+                        variant_mockup_urls=variant_urls,
                     )
                 elif status == "failed":
                     error_msg = result.get("error") or "Printful mockup generation failed"

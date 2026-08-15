@@ -1420,6 +1420,21 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                         stored_mock = await storage.put(m_key, mock_bytes, "image/jpeg")
                         mockup_storage_keys[product_type] = stored_mock.storage_key
 
+                        # Download and store individual color variants if available
+                        if poll_res.variant_mockup_urls and config.colors:
+                            for c in config.colors:
+                                v_url = poll_res.variant_mockup_urls.get(str(c.variant_id)) or poll_res.variant_mockup_urls.get(c.name)
+                                if v_url and v_url != chosen_url:
+                                    try:
+                                        c_bytes = await mockup_provider.download_mockup(v_url)
+                                        c_key = f"production/{workflow_id}/{job_id}/mockups/{product_type}/{c.name}.jpg"
+                                        stored_c = await storage.put(c_key, c_bytes, "image/jpeg")
+                                        mockup_storage_keys[f"{product_type}:{c.name}"] = stored_c.storage_key
+                                    except Exception as c_err:
+                                        logger.warning("failed_to_download_color_variant", product=product_type, color=c.name, error=str(c_err))
+                                elif v_url == chosen_url or c.name in ("white", "natural"):
+                                    mockup_storage_keys[f"{product_type}:{c.name}"] = stored_mock.storage_key
+
                         existing_asset = await uow.assets.get_by_checksum_sha256(workflow_id, mock_sha256)
                         if existing_asset is not None:
                             mockup_asset_id = existing_asset.id

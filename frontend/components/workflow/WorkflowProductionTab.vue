@@ -10,6 +10,9 @@ import {
   ShieldCheck,
   Check,
   Image as ImageIcon,
+  Plus,
+  Palette,
+  Layers,
 } from "lucide-vue-next";
 import Card from "~/components/ui/Card.vue";
 import CardHeader from "~/components/ui/CardHeader.vue";
@@ -21,6 +24,7 @@ import Button from "~/components/ui/Button.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertTitle from "~/components/ui/AlertTitle.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
+import WorkflowCustomMockupModal from "~/components/workflow/WorkflowCustomMockupModal.vue";
 
 interface DesignPrompt {
   id: string;
@@ -96,6 +100,13 @@ interface Workflow {
   intended_product_uses?: string[];
 }
 
+interface ColorOption {
+  name: string;
+  label: string;
+  bg: string;
+  border: string;
+}
+
 const props = defineProps<{
   workflow: Workflow;
   approvedConcept?: Concept;
@@ -116,6 +127,29 @@ function normalizeProductKey(raw: string): string {
   if (text.includes("mug") || text.includes("cup") || text.includes("ceramic") || text === "mug") return "mug";
   return text.replace(/\s+/g, "_");
 }
+
+const PRODUCT_COLOR_PALETTES: Record<string, ColorOption[]> = {
+  tshirt: [
+    { name: "white", label: "White", bg: "#FFFFFF", border: "border-zinc-300" },
+    { name: "black", label: "Black", bg: "#18181B", border: "border-zinc-800" },
+    { name: "heather_gray", label: "Heather Gray", bg: "#D1D5DB", border: "border-zinc-300" },
+    { name: "sand", label: "Sand / Soft Cream", bg: "#E7DECD", border: "border-amber-200" },
+  ],
+  sweatshirt: [
+    { name: "white", label: "White", bg: "#FFFFFF", border: "border-zinc-300" },
+    { name: "black", label: "Black", bg: "#18181B", border: "border-zinc-800" },
+    { name: "dark_heather", label: "Dark Heather", bg: "#4B5563", border: "border-zinc-600" },
+    { name: "sand", label: "Sand", bg: "#D4C8B5", border: "border-amber-200" },
+  ],
+  mug: [
+    { name: "white", label: "White 11oz", bg: "#FFFFFF", border: "border-zinc-300" },
+    { name: "black", label: "Black 11oz", bg: "#18181B", border: "border-zinc-800" },
+  ],
+  tote_bag: [
+    { name: "natural", label: "Natural Oyster", bg: "#F5F5DC", border: "border-amber-200" },
+    { name: "black", label: "Black", bg: "#18181B", border: "border-zinc-800" },
+  ],
+};
 
 const availableMockupTabs = computed<string[]>(() => {
   // 1. Strictly restrict to user-selected Intended Physical Products if set
@@ -140,6 +174,15 @@ const availableMockupTabs = computed<string[]>(() => {
 });
 
 const selectedMockupTab = ref<string>("mug");
+const selectedMockupColor = ref<string>("white");
+const showCustomMockupModal = ref(false);
+
+const availableColorsForTab = computed<ColorOption[]>(() => {
+  const norm = normalizeProductKey(selectedMockupTab.value);
+  return PRODUCT_COLOR_PALETTES[norm] || [
+    { name: "white", label: "White", bg: "#FFFFFF", border: "border-zinc-300" },
+  ];
+});
 
 watch(
   availableMockupTabs,
@@ -150,6 +193,61 @@ watch(
   },
   { immediate: true }
 );
+
+watch(selectedMockupTab, (tab) => {
+  const norm = normalizeProductKey(tab);
+  if (norm === "tote_bag" || norm === "tote") {
+    selectedMockupColor.value = "natural";
+  } else {
+    selectedMockupColor.value = "white";
+  }
+});
+
+const currentCustomMockupUrl = computed<string | null>(() => {
+  const urls = props.latestProductionJob?.mockup_urls ?? {};
+  const norm = normalizeProductKey(selectedMockupTab.value);
+  const tab = selectedMockupTab.value;
+  const customKey = Object.keys(urls).find(
+    (k) => k.startsWith(`${norm}:custom_`) || k.startsWith(`${tab}:custom_`)
+  );
+  return customKey ? urls[customKey] : null;
+});
+
+const currentDisplayedMockupUrl = computed<string | null>(() => {
+  const urls = props.latestProductionJob?.mockup_urls ?? {};
+  const tab = selectedMockupTab.value;
+  const norm = normalizeProductKey(tab);
+  const color = selectedMockupColor.value;
+
+  if (color === "custom" && currentCustomMockupUrl.value) {
+    return currentCustomMockupUrl.value;
+  }
+
+  // 1. Color variant (e.g. tshirt:black)
+  if (urls[`${norm}:${color}`]) return urls[`${norm}:${color}`];
+  if (urls[`${tab}:${color}`]) return urls[`${tab}:${color}`];
+
+  // 2. Base product mockup
+  if (urls[tab]) return urls[tab];
+  if (urls[norm]) return urls[norm];
+  if (tab === "tote_bag" && urls["tote"]) return urls["tote"];
+  if (tab === "tote" && urls["tote_bag"]) return urls["tote_bag"];
+
+  // 3. Fallback to custom mockup if present
+  if (currentCustomMockupUrl.value) return currentCustomMockupUrl.value;
+
+  return null;
+});
+
+function handleCustomMockupCreated(result: { mockup_url: string; product_type: string; template_id?: string }): void {
+  if (props.latestProductionJob) {
+    const urls = { ...(props.latestProductionJob.mockup_urls || {}) };
+    urls[`${result.product_type}:custom_${result.template_id || 'new'}`] = result.mockup_url;
+    urls[result.product_type] = result.mockup_url;
+    props.latestProductionJob.mockup_urls = urls;
+    selectedMockupColor.value = "custom";
+  }
+}
 
 function getMockupLabel(product: string): string {
   switch (product.toLowerCase()) {
@@ -434,40 +532,95 @@ function getMockupLabel(product: string): string {
                     <ImageIcon class="h-4 w-4 text-indigo-600" />
                     <h4 class="text-sm font-bold text-zinc-900">Product Mockup Gallery</h4>
                     <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200">
-                      Printful Engine
+                      {{ selectedMockupColor === 'custom' ? 'Custom Photo Engine' : 'Printful Engine' }}
                     </span>
                   </div>
-                  <div class="flex flex-wrap gap-1">
+
+                  <div class="flex flex-wrap items-center gap-2">
+                    <!-- Product Tabs -->
+                    <div class="flex flex-wrap gap-1">
+                      <button
+                        v-for="p in availableMockupTabs"
+                        :key="p"
+                        type="button"
+                        class="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all"
+                        :class="
+                          (selectedMockupTab === p || (p === 'tote_bag' && selectedMockupTab === 'tote'))
+                            ? 'bg-zinc-900 text-white shadow-xs'
+                            : 'text-zinc-500 hover:text-zinc-900 bg-zinc-100/80 hover:bg-zinc-200'
+                        "
+                        @click="selectedMockupTab = p"
+                      >
+                        {{ getMockupLabel(p) }}
+                      </button>
+                    </div>
+
+                    <!-- Custom Mockup Button -->
                     <button
-                      v-for="p in availableMockupTabs"
-                      :key="p"
                       type="button"
-                      class="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all"
-                      :class="
-                        (selectedMockupTab === p || (p === 'tote_bag' && selectedMockupTab === 'tote'))
-                          ? 'bg-zinc-900 text-white shadow-xs'
-                          : 'text-zinc-500 hover:text-zinc-900 bg-zinc-100/80 hover:bg-zinc-200'
-                      "
-                      @click="selectedMockupTab = p"
+                      class="text-[11px] px-2.5 py-1 rounded-md font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all shadow-2xs"
+                      @click="showCustomMockupModal = true"
                     >
-                      {{ getMockupLabel(p) }}
+                      <Plus class="h-3 w-3" />
+                      <span>Custom Mockup</span>
                     </button>
                   </div>
                 </div>
 
+                <!-- Color Swatches & Custom View Bar -->
+                <div class="flex flex-wrap items-center justify-between gap-2 px-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-semibold text-zinc-500 flex items-center gap-1">
+                      <Palette class="h-3 w-3" />
+                      <span>Color:</span>
+                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        v-for="col in availableColorsForTab"
+                        :key="col.name"
+                        type="button"
+                        class="h-6 w-6 rounded-full border flex items-center justify-center transition-all relative cursor-pointer"
+                        :class="[
+                          col.border,
+                          selectedMockupColor === col.name ? 'ring-2 ring-indigo-600 scale-110 shadow-xs' : 'hover:scale-105 opacity-80 hover:opacity-100'
+                        ]"
+                        :style="{ backgroundColor: col.bg }"
+                        :title="col.label"
+                        @click="selectedMockupColor = col.name"
+                      >
+                        <Check v-if="selectedMockupColor === col.name" class="h-3 w-3" :class="col.name === 'white' || col.name === 'natural' ? 'text-zinc-900' : 'text-white'" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Custom Template Tab indicator if custom mockup exists -->
+                  <div v-if="currentCustomMockupUrl" class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      class="text-[11px] px-2.5 py-0.5 rounded-full font-medium transition-all flex items-center gap-1 cursor-pointer"
+                      :class="selectedMockupColor === 'custom' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'"
+                      @click="selectedMockupColor = 'custom'"
+                    >
+                      <Layers class="h-3 w-3" />
+                      <span>Custom Template</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Mockup Display Area -->
                 <div class="aspect-square max-h-[280px] mx-auto bg-zinc-50 rounded-lg overflow-hidden border border-zinc-100 flex items-center justify-center p-3 relative">
                   <img
-                    v-if="latestProductionJob.mockup_urls?.[selectedMockupTab] || (selectedMockupTab === 'tote_bag' && latestProductionJob.mockup_urls?.['tote']) || (selectedMockupTab === 'tote' && latestProductionJob.mockup_urls?.['tote_bag'])"
-                    :src="latestProductionJob.mockup_urls?.[selectedMockupTab] || (selectedMockupTab === 'tote_bag' ? latestProductionJob.mockup_urls?.['tote'] : latestProductionJob.mockup_urls?.['tote_bag'])"
+                    v-if="currentDisplayedMockupUrl"
+                    :src="currentDisplayedMockupUrl"
                     :alt="selectedMockupTab"
-                    class="object-contain w-full h-full max-h-[260px] rounded"
+                    class="object-contain w-full h-full max-h-[260px] rounded transition-opacity duration-200"
                   >
-                  <div v-else class="text-zinc-400 text-xs">Mockup not available</div>
+                  <div v-else class="text-zinc-400 text-xs">Mockup not available for this selection</div>
                   <a
-                    v-if="latestProductionJob.mockup_urls?.[selectedMockupTab] || (selectedMockupTab === 'tote_bag' && latestProductionJob.mockup_urls?.['tote']) || (selectedMockupTab === 'tote' && latestProductionJob.mockup_urls?.['tote_bag'])"
-                    :href="latestProductionJob.mockup_urls?.[selectedMockupTab] || (selectedMockupTab === 'tote_bag' ? latestProductionJob.mockup_urls?.['tote'] : latestProductionJob.mockup_urls?.['tote_bag'])"
+                    v-if="currentDisplayedMockupUrl"
+                    :href="currentDisplayedMockupUrl"
                     target="_blank"
-                    :download="`${selectedMockupTab}_mockup.jpg`"
+                    :download="`${selectedMockupTab}_${selectedMockupColor}_mockup.jpg`"
                     class="absolute bottom-2 right-2 rounded bg-white/90 hover:bg-white border border-zinc-200 p-1.5 text-zinc-700 shadow-xs text-[10px] font-mono flex items-center gap-1"
                   >
                     <Download class="h-3 w-3" />
@@ -522,5 +675,14 @@ function getMockupLabel(product: string): string {
         </div>
       </CardContent>
     </Card>
+
+    <!-- Custom Mockup Modal -->
+    <WorkflowCustomMockupModal
+      v-model:open="showCustomMockupModal"
+      :workflow-id="workflow.id"
+      :product-type="selectedMockupTab"
+      :master-image-url="latestProductionJob?.master_asset?.url"
+      @mockup-created="handleCustomMockupCreated"
+    />
   </div>
 </template>

@@ -278,3 +278,115 @@ export async function generateMugWrapCanvas(
   };
 }
 
+export interface CustomMockupPlacement {
+  /** Horizontal position of top-left corner as a percentage (0.0 to 1.0) of template width. Default 0.25 */
+  readonly left_pct?: number | undefined;
+  /** Vertical position of top-left corner as a percentage (0.0 to 1.0) of template height. Default 0.25 */
+  readonly top_pct?: number | undefined;
+  /** Maximum width of artwork bounding box as a percentage (0.0 to 1.0) of template width. Default 0.50 */
+  readonly width_pct?: number | undefined;
+  /** Maximum height of artwork bounding box as a percentage (0.0 to 1.0) of template height. Default 0.50 */
+  readonly height_pct?: number | undefined;
+  /** Blend mode for realistic texture simulation: 'multiply' | 'over'. Default 'multiply' */
+  readonly blend_mode?: "multiply" | "over" | undefined;
+  /** Optional rotation in degrees (-180 to 180). Default 0 */
+  readonly angle_deg?: number | undefined;
+}
+
+export interface CustomMockupResult {
+  readonly buffer: Uint8Array;
+  readonly width: number;
+  readonly height: number;
+  readonly format: "jpeg" | "png";
+}
+
+/**
+ * Composite artwork PNG onto an arbitrary custom mockup template image (e.g. lifestyle photo, flat-lay).
+ */
+export async function compositeCustomMockup(
+  artworkBytes: Uint8Array,
+  templateBytes: Uint8Array,
+  options: {
+    readonly placement?: CustomMockupPlacement | undefined;
+    readonly limits?: DecodeLimits | undefined;
+    readonly format?: "jpeg" | "png" | undefined;
+    readonly quality?: number | undefined;
+  } = {},
+): Promise<CustomMockupResult> {
+  const limits = options.limits ?? {
+    ...DEFAULT_DECODE_LIMITS,
+    maxPixels: 60_000_000,
+  };
+  const format = options.format ?? "jpeg";
+  const quality = options.quality ?? 90;
+  const placement = options.placement ?? {};
+
+  // 1. Get template image metadata
+  const templateMeta = await sharp(templateBytes, { limitInputPixels: limits.maxPixels }).metadata();
+  const templateWidth = templateMeta.width ?? 1200;
+  const templateHeight = templateMeta.height ?? 1200;
+
+  // 2. Calculate pixel coordinates from percentages (default: centered 50% box)
+  const leftPct = Math.max(0, Math.min(0.95, placement.left_pct ?? 0.25));
+  const topPct = Math.max(0, Math.min(0.95, placement.top_pct ?? 0.25));
+  const widthPct = Math.max(0.05, Math.min(1.0 - leftPct, placement.width_pct ?? 0.50));
+  const heightPct = Math.max(0.05, Math.min(1.0 - topPct, placement.height_pct ?? 0.50));
+
+  const targetBoxWidth = Math.max(10, Math.round(templateWidth * widthPct));
+  const targetBoxHeight = Math.max(10, Math.round(templateHeight * heightPct));
+  const targetLeft = Math.round(templateWidth * leftPct);
+  const targetTop = Math.round(templateHeight * topPct);
+
+  // 3. Resize and orient artwork
+  let artworkPipeline = sharp(artworkBytes, { limitInputPixels: limits.maxPixels })
+    .resize({
+      width: targetBoxWidth,
+      height: targetBoxHeight,
+      fit: "inside",
+      withoutEnlargement: false,
+    });
+
+  if (placement.angle_deg && Math.abs(placement.angle_deg) > 0.01) {
+    artworkPipeline = artworkPipeline.rotate(placement.angle_deg, {
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    });
+  }
+
+  const resizedArtworkBuffer = await artworkPipeline.png().toBuffer();
+  const resizedMeta = await sharp(resizedArtworkBuffer).metadata();
+  const actualArtW = resizedMeta.width ?? targetBoxWidth;
+  const actualArtH = resizedMeta.height ?? targetBoxHeight;
+
+  // Center artwork inside the target bounding box
+  const compositeLeft = Math.round(targetLeft + (targetBoxWidth - actualArtW) / 2);
+  const compositeTop = Math.round(targetTop + (targetBoxHeight - actualArtH) / 2);
+
+  const blendMode = placement.blend_mode === "over" ? "over" : "multiply";
+
+  // 4. Composite onto template
+  let finalPipeline = sharp(templateBytes, { limitInputPixels: limits.maxPixels })
+    .composite([
+      {
+        input: resizedArtworkBuffer,
+        left: compositeLeft,
+        top: compositeTop,
+        blend: blendMode,
+      },
+    ]);
+
+  let outputBuffer: Buffer;
+  if (format === "png") {
+    outputBuffer = await finalPipeline.png({ compressionLevel: 7 }).toBuffer();
+  } else {
+    outputBuffer = await finalPipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+  }
+
+  return {
+    buffer: new Uint8Array(outputBuffer),
+    width: templateWidth,
+    height: templateHeight,
+    format,
+  };
+}
+
+

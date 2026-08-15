@@ -38,8 +38,10 @@ export type {
   TypographyResult,
 } from "./typography.js";
 
-export { generateMockup, generateMugWrapCanvas, normalizeProductType } from "./mockup.js";
+export { compositeCustomMockup, generateMockup, generateMugWrapCanvas, normalizeProductType } from "./mockup.js";
 export type {
+  CustomMockupPlacement,
+  CustomMockupResult,
   MockupOptions,
   MockupProductType,
   MockupResult,

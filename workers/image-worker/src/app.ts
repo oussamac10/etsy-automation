@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import {
+  compositeCustomMockup,
   compositeTypography,
   DEFAULT_PRINT_PROFILE,
   generateMockup,
@@ -12,6 +13,7 @@ import {
   runQaReport,
   trimAndPad,
   upscaleToPrint,
+  type CustomMockupPlacement,
   type MockupProductType,
   type TypographyLayout,
 } from "@etsy/image-pipeline";
@@ -252,6 +254,40 @@ export function buildApp({ config, redis }: AppDependencies): FastifyInstance {
       return reply.send({ qa_report: report });
     },
   );
+
+  /** Custom Mockup Compositing */
+  app.post<{
+    Body: {
+      artwork_base64: string;
+      template_base64: string;
+      placement?: CustomMockupPlacement;
+      format?: "jpeg" | "png";
+      quality?: number;
+    };
+  }>("/pipeline/custom-mockup", async (request, reply) => {
+    if (!request.body?.artwork_base64) {
+      return reply.status(400).send({ error: "MISSING_ARTWORK", message: "artwork_base64 is required" });
+    }
+    if (!request.body?.template_base64) {
+      return reply.status(400).send({ error: "MISSING_TEMPLATE", message: "template_base64 is required" });
+    }
+
+    const artworkBytes = decodeBase64(request.body.artwork_base64);
+    const templateBytes = decodeBase64(request.body.template_base64);
+
+    const result = await compositeCustomMockup(artworkBytes, templateBytes, {
+      placement: request.body.placement,
+      format: request.body.format ?? "jpeg",
+      quality: request.body.quality ?? 90,
+    });
+
+    return reply.send({
+      mockup_base64: toBase64(result.buffer),
+      width: result.width,
+      height: result.height,
+      format: result.format,
+    });
+  });
 
   /** 7. Full Orchestrated Master Processing */
   app.post<{

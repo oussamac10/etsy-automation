@@ -34,6 +34,14 @@ class MugPlacementConfig:
 
 
 @dataclass(frozen=True)
+class MockupColorVariant:
+    name: str
+    label: str
+    hex_color: str
+    variant_id: int
+
+
+@dataclass(frozen=True)
 class MockupProductConfig:
     product_type: str
     display_name: str
@@ -49,6 +57,7 @@ class MockupProductConfig:
     pos_left: int = 0
     format: str = "jpg"
     mug_placement: MugPlacementConfig | None = None
+    colors: tuple[MockupColorVariant, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -131,7 +140,7 @@ MOCKUP_CATALOG: dict[str, MockupProductConfig] = {
         display_name="Unisex Staple T-Shirt (Bella + Canvas 3001)",
         provider="printful",
         product_id=71,
-        variant_ids=[9575],
+        variant_ids=[9575, 4011, 4012, 10528],
         placement="front",
         area_width=1800,
         area_height=2400,
@@ -140,13 +149,19 @@ MOCKUP_CATALOG: dict[str, MockupProductConfig] = {
         pos_top=84,
         pos_left=0,
         format="jpg",
+        colors=(
+            MockupColorVariant(name="white", label="White", hex_color="#FFFFFF", variant_id=9575),
+            MockupColorVariant(name="black", label="Black", hex_color="#18181B", variant_id=4011),
+            MockupColorVariant(name="heather_gray", label="Heather Gray", hex_color="#D1D5DB", variant_id=4012),
+            MockupColorVariant(name="sand", label="Sand / Soft Cream", hex_color="#E7DECD", variant_id=10528),
+        ),
     ),
     "sweatshirt": MockupProductConfig(
         product_type="sweatshirt",
         display_name="Unisex Heavy Blend Crewneck Sweatshirt (Gildan 18000)",
         provider="printful",
         product_id=145,
-        variant_ids=[5434],
+        variant_ids=[5434, 5435, 5437, 12948],
         placement="front",
         area_width=1800,
         area_height=2400,
@@ -155,13 +170,19 @@ MOCKUP_CATALOG: dict[str, MockupProductConfig] = {
         pos_top=84,
         pos_left=0,
         format="jpg",
+        colors=(
+            MockupColorVariant(name="white", label="White", hex_color="#FFFFFF", variant_id=5434),
+            MockupColorVariant(name="black", label="Black", hex_color="#18181B", variant_id=5435),
+            MockupColorVariant(name="dark_heather", label="Dark Heather", hex_color="#4B5563", variant_id=5437),
+            MockupColorVariant(name="sand", label="Sand", hex_color="#D4C8B5", variant_id=12948),
+        ),
     ),
     "tote_bag": MockupProductConfig(
         product_type="tote_bag",
         display_name="Large Eco Tote Bag (Econscious EC8001)",
         provider="printful",
         product_id=378,
-        variant_ids=[10732],
+        variant_ids=[10732, 10733],
         placement="front",
         area_width=1500,
         area_height=1500,
@@ -170,13 +191,17 @@ MOCKUP_CATALOG: dict[str, MockupProductConfig] = {
         pos_top=0,
         pos_left=125,
         format="jpg",
+        colors=(
+            MockupColorVariant(name="natural", label="Natural", hex_color="#F5F5DC", variant_id=10732),
+            MockupColorVariant(name="black", label="Black", hex_color="#18181B", variant_id=10733),
+        ),
     ),
     "mug": MockupProductConfig(
         product_type="mug",
         display_name="White Glossy Mug 11oz",
         provider="printful",
         product_id=19,
-        variant_ids=[1320],
+        variant_ids=[1320, 1321],
         placement="default",
         area_width=2700,
         area_height=1050,
@@ -202,6 +227,10 @@ MOCKUP_CATALOG: dict[str, MockupProductConfig] = {
             canvas_width=2700,
             canvas_height=1050,
             requires_wrap_canvas=True,
+        ),
+        colors=(
+            MockupColorVariant(name="white", label="White", hex_color="#FFFFFF", variant_id=1320),
+            MockupColorVariant(name="black", label="Black", hex_color="#18181B", variant_id=1321),
         ),
     ),
 }
@@ -276,3 +305,22 @@ def get_product_config(product_type: str) -> MockupProductConfig:
     if not canonical or canonical not in MOCKUP_CATALOG:
         raise ValueError(f"Unsupported mockup product type: {product_type}")
     return MOCKUP_CATALOG[canonical]
+
+
+def get_product_colors(product_type: str) -> tuple[MockupColorVariant, ...]:
+    """Return available color variants for a product type."""
+    config = get_product_config(product_type)
+    return config.colors
+
+
+def get_variant_id_for_color(product_type: str, color_name: str | None) -> int | None:
+    """Get specific variant ID for a product color or return default."""
+    config = get_product_config(product_type)
+    if not color_name:
+        return config.variant_ids[0] if config.variant_ids else None
+    target = color_name.strip().lower().replace("-", "_").replace(" ", "_")
+    for c in config.colors:
+        if c.name.lower() == target or c.label.lower() == target:
+            return c.variant_id
+    return config.variant_ids[0] if config.variant_ids else None
+

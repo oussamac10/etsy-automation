@@ -16,10 +16,11 @@ from starlette.responses import Response
 from app import __version__
 from app.api.dependencies import CSRF_HEADER, build_credential_cipher
 from app.api.problems import register_exception_handlers
-from app.api.routes import auth, health, telegram, workflow, workflows
+from app.api.routes import auth, health, mockup_templates, telegram, workflow, workflows
 from app.api.routes import settings as settings_routes
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import configure_logging, get_logger
+from app.providers.s3 import S3ObjectStorage
 from app.settings import Settings, get_settings
 
 CORRELATION_HEADER = "x-correlation-id"
@@ -49,12 +50,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redis_client: aioredis.Redis = aioredis.from_url(resolved.redis_url, decode_responses=True)
         http_client = httpx.AsyncClient(timeout=10.0)
 
+        storage = S3ObjectStorage(
+            endpoint_url=resolved.s3_endpoint_url,
+            bucket_name=resolved.s3_bucket,
+            access_key_id=resolved.s3_access_key_id,
+            secret_access_key=resolved.s3_secret_access_key.get_secret_value(),
+            region_name=resolved.s3_region,
+            force_path_style=resolved.s3_force_path_style,
+            public_endpoint_url=resolved.s3_public_endpoint_url,
+        )
+
         application.state.settings = resolved
         application.state.logger = logger
         application.state.engine = engine
         application.state.session_factory = create_session_factory(engine)
         application.state.redis = redis_client
         application.state.http_client = http_client
+        application.state.storage = storage
         # Built once. ``None`` when ENCRYPTION_KEY is unusable: the credential
         # endpoints then answer 503 instead of the whole API failing to start,
         # and nothing can fall back to storing a secret in the clear.
@@ -160,6 +172,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(settings_routes.router, prefix="/api/v1")
     application.include_router(workflow.router, prefix="/api/v1")
     application.include_router(workflows.router, prefix="/api/v1")
+    application.include_router(mockup_templates.router, prefix="/api/v1")
     application.include_router(telegram.router, prefix="/api/v1")
 
     return application

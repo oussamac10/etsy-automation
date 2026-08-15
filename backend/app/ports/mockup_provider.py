@@ -5,7 +5,7 @@ Decouples realistic mockup generation from specific external providers (e.g. Pri
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 
@@ -14,6 +14,7 @@ class MockupTaskResult:
     task_id: str
     status: str  # "pending", "completed", "failed"
     mockup_urls: list[str]
+    variant_mockup_urls: dict[str, str] = field(default_factory=dict)
     error_message: str | None = None
 
 

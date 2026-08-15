@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { generateMockup, generateMugWrapCanvas, type MockupProductType } from "../src/mockup.js";
+import {
+  compositeCustomMockup,
+  generateMockup,
+  generateMugWrapCanvas,
+  type MockupProductType,
+} from "../src/mockup.js";
 import { transparentSquare } from "./fixtures.js";
 
 describe("mockup generator", () => {
@@ -24,6 +29,56 @@ describe("mockup generator", () => {
       expect(meta.height).toBe(600);
     });
   }
+
+  describe("custom mockup template compositing", () => {
+    it("composites artwork onto arbitrary custom template photo", async () => {
+      const template = await sharp({
+        create: {
+          width: 1600,
+          height: 1200,
+          channels: 3,
+          background: { r: 240, g: 235, b: 230 },
+        },
+      })
+        .jpeg()
+        .toBuffer();
+
+      const artwork = await sharp({
+        create: {
+          width: 400,
+          height: 500,
+          channels: 4,
+          background: { r: 50, g: 120, b: 220, alpha: 1 },
+        },
+      })
+        .png()
+        .toBuffer();
+
+      const result = await compositeCustomMockup(
+        new Uint8Array(artwork),
+        new Uint8Array(template),
+        {
+          placement: {
+            left_pct: 0.3,
+            top_pct: 0.25,
+            width_pct: 0.4,
+            height_pct: 0.5,
+            blend_mode: "multiply",
+          },
+          format: "jpeg",
+        },
+      );
+
+      expect(result.width).toBe(1600);
+      expect(result.height).toBe(1200);
+      expect(result.format).toBe("jpeg");
+
+      const meta = await sharp(result.buffer).metadata();
+      expect(meta.format).toBe("jpeg");
+      expect(meta.width).toBe(1600);
+      expect(meta.height).toBe(1200);
+    });
+  });
 
   describe("mug wrap canvas layout", () => {
     it("generates front-focused 2700x1050 wrap canvas with centered placement", async () => {
