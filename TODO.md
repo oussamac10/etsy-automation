@@ -1,225 +1,203 @@
-# TODO
+# Etsy PNG Automation — Project Roadmap & Task Tracker
 
-Current state and the next step. Phase detail lives in
-[`docs/PHASES.md`](docs/PHASES.md); evidence lives in `docs/progress/`.
-
-## Now
-
-**Phase 1 — Foundation: complete.**
-See [`docs/progress/phase-1-foundation.md`](docs/progress/phase-1-foundation.md).
-
-**Phase 2 — Domain and persistence: complete.**
-See [`docs/progress/phase-2-domain-database.md`](docs/progress/phase-2-domain-database.md).
-18 tables, one reversible migration, 351 tests passing, lint and strict type
-checks clean, no paid API call made.
-
-**Phase 3 — Authentication and settings: complete.**
-See [`docs/progress/phase-3-auth-settings.md`](docs/progress/phase-3-auth-settings.md)
-and [`docs/authentication-and-secrets.md`](docs/authentication-and-secrets.md).
-Three new tables, one reversible migration, 419 API tests passing, lint and
-strict type checks clean, no paid API call made.
-
-**Phase 4 — Telegram remote control: complete.**
-See [`docs/progress/phase-4-telegram-remote-control.md`](docs/progress/phase-4-telegram-remote-control.md).
-One new table, one reversible migration, 427 backend tests passing, 30 frontend tests passing, lint and type checks clean.
-
-**Phase 5 — Idea input, research, and approval: complete.**
-Campaign creation forms, opportunity scores, keyword clusters, risk scans, design prompt revisions, and Gate 1 human approvals via Nuxt 3 dashboard and Telegram Bot inline query callbacks. 471 backend tests and 23 worker tests passing, ruff and mypy strict clean on both Python projects, vue-tsc typechecks clean.
-
-**Phase 6 — Artwork generation and approval: complete.**
-See [`docs/progress/phase-6-artwork-generation-approval.md`](docs/progress/phase-6-artwork-generation-approval.md).
-Recraft V4.1 and Gemini AI generation providers, MinIO/S3 object storage with public pre-signed URL signing, comparison gallery, Gate 2 human approval, and Settings page API credentials management.
-
-**Next: Phase 7 — PNG production pipeline.** Alpha/background removal, safe trim, upscale, deterministic typography, and QA preview.
+Current state, completed milestones, and granular task breakdowns for upcoming phases. Detailed specifications live in [`docs/PHASES.md`](docs/PHASES.md) and progress evidence in [`docs/progress/`](docs/progress/).
 
 ---
 
-## Phase 1 — Foundation ✅
+## 🎯 Current Status Overview
 
-- [x] Monorepo: pnpm workspaces (`frontend`, `workers/image-worker`, `packages/*`)
-      plus two Python projects (`backend`, `workers/general-worker`)
-- [x] Nuxt 3 + Vue 3 + TypeScript + Pinia + Tailwind 4
-- [x] FastAPI + Pydantic 2 + SQLAlchemy 2 + Alembic + asyncpg
-- [x] Dramatiq worker on Redis ([ADR-0001](docs/adr/0001-queue-dramatiq.md))
-- [x] Node image worker: Fastify + Sharp
-- [x] PostgreSQL 16, Redis 7, MinIO with bucket bootstrap
-- [x] Docker Compose with a health check on every service
-- [x] `GET /api/health` plus database, Redis, image-worker and web health checks
-- [x] Environment validation at startup (Pydantic Settings and zod)
-- [x] Provider ports and deterministic fake adapters
-- [x] Workflow state machine, three gates, retryable failure states
-- [x] Retry policy and idempotency-key derivation
-- [x] RFC 9457 problem details, correlation IDs, secret redaction
-- [x] ESLint, Vitest, Ruff, mypy strict, Pytest, Playwright
-- [x] GitHub Actions CI: python, migrations, node, compose, e2e, security
-- [x] ADRs for the queue, authentication and the two-worker split
-- [x] `.env.example`, `.gitignore`, README, architecture and workflow docs
-- [x] `.claude/skills/etsy-png-idea-research/SKILL.md`
-
-## Phase 2 — Domain and persistence ✅
-
-- [x] Add `IdeaMode`: `market-led`, `user-idea`, and `hybrid`
-- [x] Preserve the user's original idea verbatim and separately store the
-      researched/optimized concept
-- [x] Entities and value objects: `User`, `ProductWorkflow`, `OriginalIdea`(+
-      revisions), `ResearchRun`, `ResearchEvidence`, `KeywordCluster`,
-      `ProductConcept`, `DesignPrompt`, `ArtworkJob`, `Asset`, `Approval`,
-      `ProductionJob`, `ListingDraft`, `ProviderUsage`, `AuditEvent`,
-      `WorkflowTransition`, `WorkflowFailure`
-      ([name mapping](docs/domain-model.md#naming-the-specs-areas-mapped-to-entities))
-- [x] UUID primary keys, UTC timestamps, `Decimal`/minor-unit money
-- [x] SQLAlchemy 2 typed mappings and repositories
-- [x] Alembic migration, reversible and tested against a fresh database
-- [x] Unique constraints on idempotency keys; approvals record the reviewed
-      version
-- [x] Persist the workflow state machine with compare-and-set transitions
-- [x] Audit log and provider usage ledger
-- [x] Unit and integration tests for every invariant and cost calculation
-- [x] Minimal workflow API and deterministic development fixtures
-
-Deferred from this phase, with reasons in the progress report:
-
-- [ ] `ShopConnection` — encryption now exists (Phase 3); the table belongs with
-      the Etsy OAuth flow (Phase 9)
-- [ ] Telegram entities — Phase 4
-- [ ] `Mockup`, `Package`, standalone `IpReview` — Phase 7/8
-- [ ] Outbox pattern — needs a real dispatcher (Phase 4/5)
-- [ ] Run the integration suite in CI (`TEST_DATABASE_URL` wiring)
-
-## Phase 3 — Authentication and settings ✅
-
-- [x] Enforce ownership on every workflow route, derived from the session and
-      never from the request body; cross-owner access answers `404`
-- [x] Single-owner auth with Argon2id
-      ([ADR-0002](docs/adr/0002-single-owner-authentication.md))
-- [x] Sessions and CSRF protection on mutating routes
-- [x] Encrypted provider secret storage with a versioned key and a rotation
-      command that loses nothing
-      ([design](docs/authentication-and-secrets.md))
-- [x] Provider settings that never return a secret
-- [x] Budget, quality, target-country, language, style, and product-use defaults
-- [x] Settings for schedules and notification preferences
-- [x] Two development owners, so ownership isolation is demonstrable
-
-Deferred from this phase, with reasons in the progress report:
-
-- [ ] `ShopConnection` — belongs with the Etsy OAuth flow (Phase 9); the cipher
-      and key-version column are ready for it
-- [ ] Telegram bot token storage — belongs with the adapter (Phase 4)
-- [x] Frontend login, logout and settings screens — no frontend bullet in this
-      phase and no protected endpoint is called yet; they land with the
-      dashboard (Phase 5)
-
-## Phase 4 — Telegram remote control ✅
-
-- [x] Private Telegram Bot API adapter and secure webhook
-- [x] Verify Telegram's webhook secret and allow only the paired owner ID
-- [x] Commands for status, pausing, resuming, and stopping (cancelling) automation
-- [x] Idempotent callback/update handling, pairing code expiration, and audit records
-- [x] Fake-adapter integration tests; no real Telegram messages in normal tests
-- [x] Inline buttons for approve, reject, regenerate, edit, and open dashboard (deferred to land with approval screens)
-- [ ] Notifications for failures, budget limits, approvals, and completed jobs (deferred to land with queue dispatches)
-
-## Phase 5 — Idea input, research, and approval ✅
-
-- [x] Let the owner choose `market-led`, `user-idea`, or `hybrid`
-- [x] Dashboard form and Telegram command for submitting a personal idea
-- [x] Preserve the original concept while producing a separately optimized
-      market position
-- [x] Research seasonal and evergreen demand using at least three buyer-intent
-      query angles
-- [x] Real research and OpenAI structured-synthesis adapters (first paid
-      providers)
-- [x] Evidence, keyword clusters, scoring, confidence, and prompt generation
-- [x] Generate a complete design prompt and negative prompt for every idea
-- [x] Ranked idea screen, Telegram summary, and **gate 1**
-- [x] Cost estimates, budget enforcement, and low-confidence labelling
-- [x] Relax the `PROVIDER_MODE=live` startup rejection only for configured
-      Phase 5 providers
-
-Hardening after the first Phase 5 pass:
-
-- [x] One budget rule (`app/application/research.py`) and one phrase screen
-      (`app/domain/ip_risk.py`), shared by the API and the worker instead of
-      duplicated in both
-- [x] `decide_gate` checks ownership before it confirms a concept exists, and
-      raises mapped domain errors (409) instead of bare `ValueError` (500)
-- [x] Outbox claims rows with `FOR UPDATE SKIP LOCKED`, so a second API replica
-      cannot publish the same message
-- [x] `CurrentMessage` middleware installed on the broker; the retry path read
-      the attempt count through a `dramatiq` attribute that does not exist
-- [x] End-to-end tests for `run_research_task` against PostgreSQL: happy path,
-      duplicate delivery, missing run, budget refusal, and the permanent versus
-      transient error split
-
-## Phase 6 — Artwork generation and approval ✅
-
-- [x] Recraft V4.1 (Primary) and Gemini (Secondary fallback) adapters
-- [x] Queued generation with retry, idempotency, and cost capture
-- [x] Object storage and complete asset provenance
-- [x] Dashboard comparison plus Telegram previews and **gate 2**
-- [x] Approve, reject, or regenerate without duplicate billing
-
-## Phase 7 — PNG production pipeline
-
-- [ ] Alpha/background workflow, safe trim, and upscale
-- [ ] Deterministic SVG typography for approved slogans
-- [ ] Mockup templates for supported product types
-- [ ] Validate dimensions, transparency, margins, spelling, and cropped edges
-- [ ] Generate and persist a PNG QA report
-- [ ] Send production completion and preview links through Telegram
-
-## Phase 8 — SEO, risk review, and download package
-
-- [ ] Generate Etsy title, description, no more than 13 valid tags, and required
-      AI disclosure
-- [ ] Store preliminary IP-risk checks, warnings, and human acknowledgement
-- [ ] Create licence, customer instructions, manifest, PNG files, and ZIP
-- [ ] Listing editor with optimistic concurrency and **gate 3**
-- [ ] Send the complete listing/package review to Telegram
-- [ ] Never claim legal clearance, profitability, or guaranteed ranking
-
-## Phase 9 — Etsy integration
-
-- [ ] OAuth with PKCE and state
-- [ ] Create Etsy draft listings and upload preview images and digital files
-- [ ] Rate-limit handling and resumable partial failure
-- [ ] Enforce final approval before draft creation
-- [ ] Send the draft URL and result to the dashboard and Telegram
-- [ ] Keep publication manual; the application must never activate a listing
-
-## Phase 10 — Deployment, scheduling, and monitoring
-
-- [ ] Deploy the web, API, workers, PostgreSQL, Redis, and object storage for
-      continuous operation
-- [ ] Scheduled research for seasonal and evergreen opportunities
-- [ ] Dashboards, error alerts, health monitoring, backups, and restore test
-- [ ] Spend caps, monthly usage reports, and cost alerts
-- [ ] Telegram daily/weekly reports for jobs, drafts, costs, and available Etsy
-      performance data
-- [ ] Security review, dependency audit, retention controls, and runbook
-
-## Phase 11 — Optional SaaS expansion
-
-Not before the private tool has real usage evidence.
-
-- [ ] Tenant isolation, team roles, and separate Etsy shops
-- [ ] Subscription billing, quotas, and usage metering
-- [ ] Etsy Personal/Commercial Access requirements
-- [ ] Data export/deletion and support tooling
-- [ ] Abuse prevention and public legal pages
+- [x] **Phase 1 — Foundation:** Complete (`docs/progress/phase-1-foundation.md`)
+- [x] **Phase 2 — Domain and persistence:** Complete (`docs/progress/phase-2-domain-database.md`)
+- [x] **Phase 3 — Authentication and settings:** Complete (`docs/progress/phase-3-auth-settings.md`)
+- [x] **Phase 4 — Telegram remote control:** Complete (`docs/progress/phase-4-telegram-remote-control.md`)
+- [x] **Phase 5 — Idea input, research, and Gate 1 approval:** Complete (`docs/progress/phase-5-idea-research.md`)
+- [x] **Phase 6 — Artwork generation and Gate 2 approval:** Complete (`docs/progress/phase-6-artwork-generation-approval.md`)
+- [ ] **Phase 7 — PNG production pipeline:** Next Active Milestone
+- [ ] **Phase 8 — SEO, IP risk review, and download package:** Planned
+- [ ] **Phase 9 — Etsy integration:** Planned
+- [ ] **Phase 10 — Deployment, scheduling, and monitoring:** Planned
+- [ ] **Phase 11 — Optional SaaS expansion:** Future
 
 ---
 
-## Carried-over items from Phase 1
+## Completed Phases
 
-Small things that were deliberately deferred rather than forgotten:
+### Phase 1 — Foundation ✅
+- [x] Monorepo: pnpm workspaces (`frontend`, `workers/image-worker`, `packages/*`) plus two Python projects (`backend`, `workers/general-worker`).
+- [x] Nuxt 3 + Vue 3 + TypeScript + Pinia + Tailwind CSS 4.
+- [x] FastAPI + Pydantic 2 + SQLAlchemy 2 + Alembic + asyncpg.
+- [x] Dramatiq worker on Redis ([ADR-0001](docs/adr/0001-queue-dramatiq.md)).
+- [x] Fastify + Sharp image worker service.
+- [x] PostgreSQL 16, Redis 7, MinIO S3 object storage with bucket initialization.
+- [x] Docker Compose with comprehensive health checks on all services.
+- [x] Provider ports and deterministic fake adapters for complete offline testing.
+- [x] Workflow state machine engine with optimistic concurrency and idempotency.
+- [x] CI pipelines: unit, integration, linting, type-checking, and security scans.
 
-- [ ] Commit the generated OpenAPI document and generate frontend types from it
-      (currently the web app hand-writes zod schemas)
-- [ ] Give `pnpm audit` and `pip-audit` a triage policy so CI can stop using
-      `continue-on-error`
-- [ ] Adopt `@nuxt/test-utils` so components can rely on Nuxt auto-imports in
-      unit tests
-- [ ] Read-only root filesystems and explicit CPU/memory limits on containers
-- [ ] Add the Etsy API non-endorsement notice to the UI before any release
+### Phase 2 — Domain and Persistence ✅
+- [x] Core domain model entities: `User`, `ProductWorkflow`, `OriginalIdea`, `ResearchRun`, `ProductConcept`, `DesignPrompt`, `ArtworkJob`, `Asset`, `Approval`, `ProductionJob`, `ListingDraft`, `ProviderUsage`, `AuditEvent`, `WorkflowTransition`.
+- [x] Three design modes: `market-led` (Discover Ideas), `user-idea` (Use My Idea), `hybrid` (Hybrid Approach).
+- [x] Preserved immutable user original idea alongside separately optimized market concept.
+- [x] UUID primary keys, UTC timestamps, `Decimal` money ledger, and audit log.
+- [x] Reversible Alembic migration `0002_phase_2_domain` and repository layer.
+
+### Phase 3 — Authentication and Settings ✅
+- [x] Single-owner Argon2id password authentication with secure HTTP-only cookies and CSRF protection.
+- [x] Strict session-derived ownership enforcement across all endpoints.
+- [x] Encrypted provider credentials storage with AES-GCM and key rotation (`0003_phase_3_auth_settings`).
+- [x] Defaults configuration for budget, image quality, target country, language, and product types.
+
+### Phase 4 — Telegram Remote Control ✅
+- [x] Telegram Bot gateway with secure webhook verification and paired owner ID allow-list.
+- [x] Poller daemon for local development (`worker.telegram_poller`).
+- [x] Command handlers for `/status`, `/pause`, `/resume`, and `/stop`.
+- [x] Interactive pairing flow with temporary code generation and expiration.
+
+### Phase 5 — Idea Input, Research, and Gate 1 Approval ✅
+- [x] Dashboard campaign forms for all 3 modes with dynamic validation and tailored helper text.
+- [x] Multi-angle market research with Tavily Search API.
+- [x] Structured opportunity synthesis via Gemini Flash and OpenAI models.
+- [x] Keyword clustering, demand/competition scoring, and positive/negative prompt generation.
+- [x] Gate 1 Concept Selection & Approval screen with design prompt revision tools.
+
+### Phase 6 — Artwork Generation and Gate 2 Approval ✅
+- [x] Recraft V4.1 (primary) with dynamic negative prompt omission for V4+ models.
+- [x] Gemini Flash / Pro fallback image generation adapter.
+- [x] S3 / MinIO asset upload, SHA-256 checksums, and public endpoint pre-signed URL signing (`http://localhost:9000`).
+- [x] Multi-candidate comparison gallery in Nuxt 3 with Gate 2 Approve, Reject, and Regenerate actions.
+- [x] Settings page UI credentials card supporting saving, revealing, and deleting encrypted API keys (`gemini`, `tavily`, `recraft`, `telegram`).
+- [x] Migration `0008_phase_6_telegram` adding `telegram` to the `provider_name` PostgreSQL enum.
+
+---
+
+## Upcoming Phases
+
+### Phase 7 — PNG Production Pipeline ⏳ (Next)
+
+#### Backend & Workers
+- [ ] **Image Worker Fastify Endpoints (`workers/image-worker`)**:
+  - [ ] `POST /pipeline/remove-background`: High-precision alpha channel background extraction via Sharp / rembg.
+  - [ ] `POST /pipeline/trim-and-pad`: Safe-bounding box trim, transparency margin alignment (10% padding).
+  - [ ] `POST /pipeline/upscale`: High-fidelity bicubic/lanczos3 upscale to standard POD print dimensions (4500×5400 px, 300 DPI).
+  - [ ] `POST /pipeline/composite-mockup`: Multi-product template compositor (T-shirt, Mug, Tote Bag, Sticker, Canvas).
+- [ ] **Deterministic SVG/PNG Typography Engine**:
+  - [ ] Font registry and SVG curve generator for approved concept slogans.
+  - [ ] Automatic layout positioning (curved, arched, stacked, or centered text styles).
+- [ ] **Automated Quality Assurance (QA) Engine**:
+  - [ ] Validate print dimensions (min 4500px width/height).
+  - [ ] Inspect alpha transparency ratio (verify no dirty white backgrounds or clipped edges).
+  - [ ] Check color profile (sRGB) and 300 DPI EXIF metadata.
+  - [ ] Generate structured JSON QA report (`dimensions_valid`, `has_transparency`, `contrast_score`, `warnings`).
+- [ ] **Worker Production Task (`workers/general-worker`)**:
+  - [ ] `run_production_task` Dramatiq handler to orchestrate image worker calls.
+  - [ ] Upload final transparent PNG and generated mockups to S3 bucket under `production/{workflow_id}/`.
+  - [ ] Record output `Asset` rows and transition workflow state to `PRODUCTION_COMPLETE` (or `PRODUCTION_FAILED`).
+- [ ] **Telegram Notifications**:
+  - [ ] Send production complete message with compressed mockup preview photos and link to dashboard.
+
+#### Frontend (Nuxt 3)
+- [ ] **Workflow Detail Page Updates (`frontend/pages/workflow/[id].vue`)**:
+  - [ ] Support `PRODUCTION_QUEUED`, `PRODUCING`, and `PRODUCTION_COMPLETE` state visualization.
+  - [ ] Interactive Production Progress bar and realtime step tracker.
+- [ ] **PNG Quality Assurance Card**:
+  - [ ] Checklist displaying 300 DPI badge, exact print dimensions, and alpha transparency validation status.
+  - [ ] Direct download buttons for Master High-Res Transparent PNG.
+- [ ] **Product Mockup Preview Carousel**:
+  - [ ] Interactive switcher to view the design on T-shirt, Mug, Tote Bag, and Poster mockups.
+  - [ ] Download individual mockup assets.
+- [ ] **Typography Revision Modal (Optional)**:
+  - [ ] Allow tweaking slogan font style, color, and arc curvature before final lock.
+
+---
+
+### Phase 8 — SEO, IP Risk Review, and Download Package ⏳
+
+#### Backend & Workers
+- [ ] **AI Listing SEO Generator**:
+  - [ ] LLM prompt pipeline generating:
+    - [ ] Etsy Listing Title (under 140 characters, front-loaded with high-intent keywords).
+    - [ ] Etsy Description (formatted with materials, sizing chart, care instructions, file formats).
+    - [ ] Exactly 13 Etsy Search Tags (strictly ≤ 20 characters per tag, no punctuation, zero duplicates).
+    - [ ] Mandatory Etsy AI Disclosure statement.
+- [ ] **Preliminary IP & Trademark Screening**:
+  - [ ] Keyword and slogan scan against USPTO common trademark dictionaries.
+  - [ ] Compute trademark risk level (`CLEARED`, `WARNING`, `HIGH_RISK`) with matched phrases.
+- [ ] **Customer Download Package Builder**:
+  - [ ] Deterministic ZIP bundle generator containing:
+    - [ ] Master 300 DPI transparent PNG.
+    - [ ] Print-ready PDF version.
+    - [ ] Product mockups for buyer preview.
+    - [ ] Commercial Use Licence (`LICENSE.txt`).
+    - [ ] Customer Instructions & Sizing Guide (`INSTRUCTIONS.txt`).
+    - [ ] Cryptographic checksum manifest (`manifest.sha256`).
+- [ ] **Gate 3 Listing & Package Approval API**:
+  - [ ] `PUT /api/v1/workflows/{id}/listing`: Update title, description, tags with validation.
+  - [ ] `POST /api/v1/workflows/{id}/gates/listing`: Decide Gate 3 (`APPROVED` -> `LISTING_APPROVED` or `REJECTED`).
+- [ ] **Telegram Gate 3 Integration**:
+  - [ ] Send listing summary, tag cloud, IP risk notice, and inline `[Approve Listing]` / `[Edit Listing]` buttons.
+
+#### Frontend (Nuxt 3)
+- [ ] **Gate 3 Review Screen (`frontend/pages/workflow/[id].vue`)**:
+  - [ ] Title & Description editor with character limit counters and live validation.
+  - [ ] Interactive 13-Tag Tag Chip Editor with auto-trimming and 20-character counter per tag.
+  - [ ] IP Risk Notice Card with required human acknowledgement checkbox before approval.
+  - [ ] Customer ZIP package inspector and 1-click package download button.
+  - [ ] Final Gate 3 "Approve & Ready for Etsy" action button.
+
+---
+
+### Phase 9 — Etsy Integration & Draft Creation ⏳
+
+#### Backend & Workers
+- [ ] **Etsy Open API v3 OAuth 2.0 Integration**:
+  - [ ] PKCE authorization URL generation with secure state verification.
+  - [ ] Token exchange callback (`GET /api/v1/auth/etsy/callback`) and token refresh loop.
+  - [ ] Encrypted token storage in PostgreSQL via `ShopConnection` model.
+- [ ] **Etsy Draft Listing Dispatcher**:
+  - [ ] Create draft listing via `POST /v3/application/shops/{shop_id}/listings` with state strictly set to `draft`.
+  - [ ] Upload primary transparent image and mockup preview images.
+  - [ ] Upload digital ZIP package file to Etsy digital listing files endpoint.
+  - [ ] **Absolute Non-Negotiable Safeguard:** Never publish or activate listings; zero API calls with state `active`.
+- [ ] **Resilience & Rate Limiting**:
+  - [ ] Respect Etsy API 10 req/sec rate limits with token bucket queue.
+  - [ ] Idempotent retries and failure recovery.
+- [ ] **Telegram Completion Notification**:
+  - [ ] Send direct link to the newly created draft in the seller's Etsy Shop Manager.
+
+#### Frontend (Nuxt 3)
+- [ ] **Settings Page — Etsy Shop Connection Card (`frontend/pages/settings.vue`)**:
+  - [ ] "Connect Etsy Shop" OAuth button, shop name display, and token status badge.
+  - [ ] Disconnect / Reconnect options.
+- [ ] **Workflow Page — Send to Etsy Action**:
+  - [ ] "Create Etsy Draft" button unlocked after Gate 3 approval.
+  - [ ] Success banner showing the Etsy Listing ID with direct external link to Etsy Shop Manager.
+
+---
+
+### Phase 10 — Deployment, Scheduling, and Monitoring ⏳
+
+#### Backend & Infrastructure
+- [ ] **Continuous Research Scheduler**:
+  - [ ] Configurable background cron to trigger market-led seasonal research runs automatically.
+- [ ] **Spend Caps & Cost Alerting**:
+  - [ ] Enforce monthly USD spend caps in `ProviderUsage` ledger.
+  - [ ] Telegram emergency alerts when reaching 80% and 100% of budget.
+- [ ] **Health Monitoring & Backup Automation**:
+  - [ ] Automated PostgreSQL database pg_dump backup schedule.
+  - [ ] Container resource limits and read-only filesystem hardening.
+- [ ] **Telegram Digest Reports**:
+  - [ ] Weekly summary of research runs, approved artworks, created drafts, and ledger spend.
+
+#### Frontend (Nuxt 3)
+- [ ] **Analytics & Ledger Dashboard (`frontend/pages/analytics.vue`)**:
+  - [ ] Monthly cost breakdown charts by AI provider (Recraft, Gemini, Tavily, OpenAI).
+  - [ ] Cost-per-listing metrics and total draft count.
+- [ ] **Research Scheduler UI**:
+  - [ ] Settings interface to toggle and configure automated research schedules.
+
+---
+
+### Phase 11 — Optional Multi-Shop SaaS Expansion (Future)
+- [ ] Multi-tenant isolation and user role management.
+- [ ] Multiple Etsy shop connections per account.
+- [ ] Subscription tiers and usage metering.
