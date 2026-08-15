@@ -855,8 +855,8 @@ onBeforeUnmount(stopPolling);
                   </div>
                 </div>
 
-                <!-- Inner state 1: Gate 1 approved + no jobs yet -->
-                <div v-if="workflow.state === 'IDEA_APPROVED' && artworkJobs.length === 0" class="space-y-4">
+                <!-- Inner state 1: Gate 1 approved + ready to generate artwork -->
+                <div v-if="workflow.state === 'IDEA_APPROVED' && (!artworkJobs.length || !artworkJobs.some((j) => j.assets && j.assets.length > 0))" class="space-y-4">
                   <div class="rounded-xl bg-indigo-50/60 border border-indigo-200 p-4 text-xs text-zinc-700 font-medium">
                     Your concept is approved. Generate artwork to continue.
                   </div>
@@ -936,7 +936,7 @@ onBeforeUnmount(stopPolling);
                 </div>
 
                 <!-- Inner state 4: completed candidates grid -->
-                <div v-else-if="artworkJobs.length > 0" class="space-y-6">
+                <div v-else-if="artworkJobs.length > 0 && artworkJobs.some((j) => j.assets && j.assets.length > 0)" class="space-y-6">
                   <div class="flex items-center justify-between">
                     <h4 class="text-sm font-bold text-zinc-800">Generated Candidate Assets</h4>
                     <Button

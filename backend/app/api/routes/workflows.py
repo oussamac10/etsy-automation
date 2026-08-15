@@ -488,6 +488,7 @@ async def generate_artwork(
     payload: GenerateArtworkRequest,
     user: CurrentUser,
     uow: UowDep,
+    force_new: bool = False,
 ) -> ArtworkJobResponse:
     workflow = await uow.workflows.get(workflow_id)
     if not workflow or workflow.owner_id != user.id:
@@ -536,25 +537,54 @@ async def generate_artwork(
         provider_mode=settings.provider_mode,
     )
 
-    idempotency_key = f"art-{workflow_id}-{latest_prompt.id}-{candidate_count}"
+    idempotency_key = (
+        f"art-{workflow_id}-{latest_prompt.id}-{candidate_count}-{provider_val}-{model_val}"
+        if not force_new
+        else f"art-{workflow_id}-{latest_prompt.id}-{candidate_count}-{provider_val}-{model_val}-{uuid.uuid4().hex[:8]}"
+    )
 
-    existing_job = await uow.artwork_jobs.get_by_idempotency_key(idempotency_key)
-    if existing_job:
-        storage = S3ObjectStorage(
-            endpoint_url=settings.s3_endpoint_url,
-            bucket_name=settings.s3_bucket,
-            access_key_id=settings.s3_access_key_id,
-            secret_access_key=settings.s3_secret_access_key.get_secret_value(),
-            region_name=settings.s3_region,
-            force_path_style=settings.s3_force_path_style,
-            public_endpoint_url=settings.s3_public_endpoint_url,
-        )
-        assets = await uow.assets.list_for_job(existing_job.id)
-        asset_resps = []
-        for asset in assets:
-            url = await storage.signed_url(asset.storage_key, 3600)
-            asset_resps.append(to_asset_response(asset, url))
-        return to_job_response(existing_job, asset_resps)
+    if not force_new:
+        existing_job = await uow.artwork_jobs.get_by_idempotency_key(idempotency_key)
+        if existing_job:
+            assets = await uow.assets.list_for_job(existing_job.id)
+            if len(assets) > 0 and existing_job.status == JobStatus.SUCCEEDED:
+                storage = S3ObjectStorage(
+                    endpoint_url=settings.s3_endpoint_url,
+                    bucket_name=settings.s3_bucket,
+                    access_key_id=settings.s3_access_key_id,
+                    secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+                    region_name=settings.s3_region,
+                    force_path_style=settings.s3_force_path_style,
+                    public_endpoint_url=settings.s3_public_endpoint_url,
+                )
+                asset_resps = []
+                for asset in assets:
+                    url = await storage.signed_url(asset.storage_key, 3600)
+                    asset_resps.append(to_asset_response(asset, url))
+                return to_job_response(existing_job, asset_resps)
+            else:
+                existing_job.status = JobStatus.QUEUED
+                existing_job.provider = provider_enum
+                existing_job.provider_model = model_val
+                existing_job.requested_width = payload.requested_width
+                existing_job.requested_height = payload.requested_height
+                existing_job.quality = payload.quality
+
+                if workflow.state != RunStatus.ART_QUEUED:
+                    await uow.workflows.transition(
+                        workflow,
+                        to_state=RunStatus.ART_QUEUED,
+                        expected_version=workflow.version,
+                        reason="Triggered artwork generation",
+                        actor=user.email,
+                    )
+
+                await uow.outbox.add(
+                    "run_artwork_task",
+                    {"workflow_id": str(workflow_id), "job_id": str(existing_job.id)},
+                )
+                await uow.commit()
+                return to_job_response(existing_job)
 
     from app.infrastructure.models import ArtworkJob
     job = ArtworkJob(
@@ -607,7 +637,6 @@ async def list_artwork_jobs(
             detail="No workflow with that ID",
         )
 
-    jobs = await uow.artwork_jobs.list_for_workflow(workflow_id)
     settings = get_settings()
     storage = S3ObjectStorage(
         endpoint_url=settings.s3_endpoint_url,
@@ -619,16 +648,17 @@ async def list_artwork_jobs(
         public_endpoint_url=settings.s3_public_endpoint_url,
     )
 
-    results = []
+    jobs = await uow.artwork_jobs.list_for_workflow(workflow_id)
+    responses = []
     for job in jobs:
         assets = await uow.assets.list_for_job(job.id)
         asset_resps = []
         for asset in assets:
             url = await storage.signed_url(asset.storage_key, 3600)
             asset_resps.append(to_asset_response(asset, url))
-        results.append(to_job_response(job, asset_resps))
+        responses.append(to_job_response(job, asset_resps))
 
-    return results
+    return responses
 
 
 @router.post(
@@ -665,7 +695,7 @@ async def regenerate_artwork(
     )
     await uow.commit()
 
-    return await generate_artwork(workflow_id, payload, user, uow)
+    return await generate_artwork(workflow_id, payload, user, uow, force_new=True)
 
 
 @router.post(
