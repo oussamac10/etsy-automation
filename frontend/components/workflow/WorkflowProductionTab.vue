@@ -1,19 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import {
-  Printer,
-  CheckCircle2,
-  AlertCircle,
-  RotateCw,
-  Sparkles,
-  Download,
-  ShieldCheck,
-  Check,
-  Image as ImageIcon,
-  Plus,
-  Palette,
-  Layers,
-} from "lucide-vue-next";
+import { getProductIcon } from "~/config/icons";
 import Card from "~/components/ui/Card.vue";
 import CardHeader from "~/components/ui/CardHeader.vue";
 import CardTitle from "~/components/ui/CardTitle.vue";
@@ -267,16 +254,16 @@ function handleCustomMockupCreated(result: { mockup_url: string; product_type: s
 function getMockupLabel(product: string): string {
   switch (product.toLowerCase()) {
     case "mug":
-      return "☕ Ceramic Mug";
+      return "Ceramic Mug";
     case "tshirt":
-      return "👕 T-Shirt";
+      return "T-Shirt";
     case "sweatshirt":
-      return "🧥 Sweatshirt";
+      return "Sweatshirt";
     case "tote_bag":
     case "tote":
-      return "👜 Tote Bag";
+      return "Tote Bag";
     default:
-      return `📦 ${product}`;
+      return product.charAt(0).toUpperCase() + product.slice(1);
   }
 }
 </script>
@@ -288,7 +275,7 @@ function getMockupLabel(product: string): string {
       <CardHeader class="pb-3 border-b border-zinc-100 bg-zinc-50/50">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <Printer class="h-5 w-5 text-indigo-600" />
+            <Icon name="lucide:file-image" class="size-5 text-indigo-600" aria-hidden="true" />
             <div>
               <CardTitle class="text-base font-bold">Phase 7: Print-Ready PNG Production & Realistic Mockups</CardTitle>
               <CardDescription class="text-xs text-zinc-500">
@@ -299,25 +286,25 @@ function getMockupLabel(product: string): string {
           <Badge
             v-if="latestProductionJob?.status === 'SUCCEEDED'"
             variant="success"
-            class="gap-1 px-3 py-1 font-semibold"
+            class="gap-1 px-3 py-1 font-semibold inline-flex items-center"
           >
-            <CheckCircle2 class="h-3.5 w-3.5" />
+            <Icon name="lucide:circle-check" class="size-3.5" aria-hidden="true" />
             <span>Production Complete</span>
           </Badge>
           <Badge
             v-else-if="workflow.state === 'PRODUCTION' || latestProductionJob?.status === 'RUNNING' || latestProductionJob?.status === 'QUEUED'"
             variant="warning"
-            class="gap-1 px-3 py-1 font-semibold"
+            class="gap-1 px-3 py-1 font-semibold inline-flex items-center"
           >
-            <RotateCw class="h-3.5 w-3.5 animate-spin" />
+            <Icon name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
             <span>Processing Pipeline...</span>
           </Badge>
           <Badge
             v-else-if="workflow.state === 'PRODUCTION_FAILED' || latestProductionJob?.status === 'FAILED'"
             variant="destructive"
-            class="gap-1 px-3 py-1 font-semibold"
+            class="gap-1 px-3 py-1 font-semibold inline-flex items-center"
           >
-            <AlertCircle class="h-3.5 w-3.5" />
+            <Icon name="lucide:circle-alert" class="size-3.5" aria-hidden="true" />
             <span>Production Failed</span>
           </Badge>
           <Badge
@@ -354,7 +341,7 @@ function getMockupLabel(product: string): string {
           </div>
 
           <Alert v-if="productionError" variant="destructive">
-            <AlertCircle class="h-4 w-4" />
+            <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
             <AlertDescription>{{ productionError }}</AlertDescription>
           </Alert>
 
@@ -362,12 +349,12 @@ function getMockupLabel(product: string): string {
             <Button
               variant="default"
               size="default"
-              class="gap-2 bg-indigo-600 hover:bg-indigo-700 font-bold px-6 shadow-md shadow-indigo-600/20"
+              class="gap-2 bg-indigo-600 hover:bg-indigo-700 font-bold px-6 shadow-md shadow-indigo-600/20 cursor-pointer inline-flex items-center"
               :disabled="isProductionLoading"
               @click="emit('triggerProduction', false)"
             >
-              <RotateCw v-if="isProductionLoading" class="h-4 w-4 animate-spin" />
-              <Sparkles v-else class="h-4 w-4" />
+              <Icon v-if="isProductionLoading" name="lucide:loader-circle" class="size-4 animate-spin" aria-hidden="true" />
+              <Icon v-else name="lucide:sparkles" class="size-4" aria-hidden="true" />
               <span>{{ isProductionLoading ? 'Queueing Production...' : 'Start PNG Production' }}</span>
             </Button>
           </div>
@@ -381,7 +368,7 @@ function getMockupLabel(product: string): string {
           <div class="flex items-center justify-between">
             <div class="space-y-0.5">
               <h4 class="text-sm font-bold text-zinc-900 flex items-center gap-2">
-                <RotateCw class="h-4 w-4 text-indigo-600 animate-spin" />
+                <Icon name="lucide:loader-circle" class="size-4 text-indigo-600 animate-spin" aria-hidden="true" />
                 <span>Processing Deterministic Pipeline</span>
               </h4>
               <p class="text-xs text-zinc-500">Transforming approved source asset into verified master print files and mockups</p>
@@ -452,9 +439,9 @@ function getMockupLabel(product: string): string {
                     :href="latestProductionJob.master_asset.url"
                     target="_blank"
                     download="master_print.png"
-                    class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-9 transition-colors shadow-2xs"
+                    class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-9 transition-colors shadow-2xs cursor-pointer"
                   >
-                    <Download class="h-4 w-4" />
+                    <Icon name="lucide:download" class="size-4" aria-hidden="true" />
                     <span>Download Master PNG</span>
                   </a>
                 </div>
@@ -467,7 +454,7 @@ function getMockupLabel(product: string): string {
               <div class="border border-zinc-200 rounded-xl p-5 bg-white space-y-4 shadow-2xs">
                 <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
                   <div class="flex items-center gap-2">
-                    <ShieldCheck class="h-4 w-4 text-emerald-600" />
+                    <Icon name="lucide:shield-check" class="size-4 text-emerald-600" aria-hidden="true" />
                     <h4 class="text-sm font-bold text-zinc-900">Automated QA Validation Report</h4>
                   </div>
                   <Badge
@@ -482,7 +469,7 @@ function getMockupLabel(product: string): string {
                   <div class="p-2.5 rounded-lg bg-zinc-50 border border-zinc-100 space-y-1">
                     <span class="text-[10px] text-zinc-400 block font-medium">Canvas Dimensions</span>
                     <span class="font-mono font-bold text-zinc-800 flex items-center gap-1">
-                      <Check class="h-3 w-3 text-emerald-600" />
+                      <Icon name="lucide:check" class="size-3 text-emerald-600" aria-hidden="true" />
                       {{ latestProductionJob.qa_report?.width ?? 4500 }}×{{ latestProductionJob.qa_report?.height ?? 5400 }}
                     </span>
                   </div>
@@ -490,7 +477,7 @@ function getMockupLabel(product: string): string {
                   <div class="p-2.5 rounded-lg bg-zinc-50 border border-zinc-100 space-y-1">
                     <span class="text-[10px] text-zinc-400 block font-medium">Print Density</span>
                     <span class="font-mono font-bold text-zinc-800 flex items-center gap-1">
-                      <Check class="h-3 w-3 text-emerald-600" />
+                      <Icon name="lucide:check" class="size-3 text-emerald-600" aria-hidden="true" />
                       {{ latestProductionJob.qa_report?.density_dpi ?? 300 }} DPI
                     </span>
                   </div>
@@ -498,7 +485,7 @@ function getMockupLabel(product: string): string {
                   <div class="p-2.5 rounded-lg bg-zinc-50 border border-zinc-100 space-y-1">
                     <span class="text-[10px] text-zinc-400 block font-medium">Background Alpha</span>
                     <span class="font-mono font-bold text-zinc-800 flex items-center gap-1">
-                      <Check class="h-3 w-3 text-emerald-600" />
+                      <Icon name="lucide:check" class="size-3 text-emerald-600" aria-hidden="true" />
                       Transparent
                     </span>
                   </div>
@@ -506,7 +493,7 @@ function getMockupLabel(product: string): string {
                   <div class="p-2.5 rounded-lg bg-zinc-50 border border-zinc-100 space-y-1">
                     <span class="text-[10px] text-zinc-400 block font-medium">Safe Margins</span>
                     <span class="font-mono font-bold text-zinc-800 flex items-center gap-1">
-                      <Check class="h-3 w-3 text-emerald-600" />
+                      <Icon name="lucide:check" class="size-3 text-emerald-600" aria-hidden="true" />
                       Protected (8%)
                     </span>
                   </div>
@@ -514,7 +501,7 @@ function getMockupLabel(product: string): string {
                   <div class="p-2.5 rounded-lg bg-zinc-50 border border-zinc-100 space-y-1">
                     <span class="text-[10px] text-zinc-400 block font-medium">Color Space</span>
                     <span class="font-mono font-bold text-zinc-800 flex items-center gap-1">
-                      <Check class="h-3 w-3 text-emerald-600" />
+                      <Icon name="lucide:check" class="size-3 text-emerald-600" aria-hidden="true" />
                       {{ latestProductionJob.qa_report?.color_space ?? 'sRGB' }}
                     </span>
                   </div>
@@ -522,7 +509,7 @@ function getMockupLabel(product: string): string {
                   <div class="p-2.5 rounded-lg bg-zinc-50 border border-zinc-100 space-y-1">
                     <span class="text-[10px] text-zinc-400 block font-medium">Slogan Typography</span>
                     <span class="font-bold text-zinc-800 text-[11px] flex items-center gap-1">
-                      <Check v-if="latestProductionJob.qa_report?.typography_applied" class="h-3 w-3 text-emerald-600" />
+                      <Icon v-if="latestProductionJob.qa_report?.typography_applied" name="lucide:check" class="size-3 text-emerald-600" aria-hidden="true" />
                       <span v-else class="text-zinc-400">—</span>
                       {{ latestProductionJob.qa_report?.typography_applied ? 'Applied' : 'No Slogan' }}
                     </span>
@@ -544,7 +531,7 @@ function getMockupLabel(product: string): string {
               <div class="border border-zinc-200 rounded-xl p-5 bg-white space-y-4 shadow-2xs">
                 <div class="flex flex-wrap items-center justify-between border-b border-zinc-100 pb-3 gap-2">
                   <div class="flex items-center gap-2">
-                    <ImageIcon class="h-4 w-4 text-indigo-600" />
+                    <Icon name="lucide:images" class="size-4 text-indigo-600" aria-hidden="true" />
                     <h4 class="text-sm font-bold text-zinc-900">Product Mockup Gallery</h4>
                     <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200">
                       {{ getSelectedColorForProduct(selectedMockupTab) === 'custom' ? 'Custom Photo Engine' : 'Printful Engine' }}
@@ -558,7 +545,7 @@ function getMockupLabel(product: string): string {
                         v-for="p in availableMockupTabs"
                         :key="p"
                         type="button"
-                        class="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all cursor-pointer"
+                        class="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all cursor-pointer inline-flex items-center gap-1.5"
                         :class="
                           (selectedMockupTab === p || (p === 'tote_bag' && selectedMockupTab === 'tote'))
                             ? 'bg-zinc-900 text-white shadow-xs'
@@ -566,7 +553,8 @@ function getMockupLabel(product: string): string {
                         "
                         @click="selectedMockupTab = p"
                       >
-                        {{ getMockupLabel(p) }}
+                        <Icon :name="getProductIcon(p)" class="size-3.5 shrink-0" aria-hidden="true" />
+                        <span>{{ getMockupLabel(p) }}</span>
                       </button>
                     </div>
 
@@ -576,7 +564,7 @@ function getMockupLabel(product: string): string {
                       class="text-[11px] px-2.5 py-1 rounded-md font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
                       @click="showCustomMockupModal = true"
                     >
-                      <Plus class="h-3 w-3" />
+                      <Icon name="lucide:plus" class="size-3" aria-hidden="true" />
                       <span>Custom Mockup</span>
                     </button>
                   </div>
@@ -586,7 +574,7 @@ function getMockupLabel(product: string): string {
                 <div class="flex flex-wrap items-center justify-between gap-2 px-1">
                   <div class="flex items-center gap-2">
                     <span class="text-[11px] font-semibold text-zinc-500 flex items-center gap-1">
-                      <Palette class="h-3 w-3" />
+                      <Icon name="lucide:palette" class="size-3 text-zinc-500" aria-hidden="true" />
                       <span>Color:</span>
                     </span>
                     <div class="flex items-center gap-1.5">
@@ -603,7 +591,7 @@ function getMockupLabel(product: string): string {
                         :title="col.label"
                         @click="setSelectedColorForProduct(selectedMockupTab, col.name)"
                       >
-                        <Check v-if="getSelectedColorForProduct(selectedMockupTab) === col.name" class="h-3 w-3" :class="col.name === 'white' || col.name === 'natural' ? 'text-zinc-900' : 'text-white'" />
+                        <Icon v-if="getSelectedColorForProduct(selectedMockupTab) === col.name" name="lucide:check" class="size-3" :class="col.name === 'white' || col.name === 'natural' ? 'text-zinc-900' : 'text-white'" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -616,7 +604,7 @@ function getMockupLabel(product: string): string {
                       :class="getSelectedColorForProduct(selectedMockupTab) === 'custom' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'"
                       @click="setSelectedColorForProduct(selectedMockupTab, 'custom')"
                     >
-                      <Layers class="h-3 w-3" />
+                      <Icon name="lucide:layers" class="size-3" aria-hidden="true" />
                       <span>Custom Template</span>
                     </button>
                   </div>
@@ -636,9 +624,9 @@ function getMockupLabel(product: string): string {
                     :href="currentDisplayedMockupUrl"
                     target="_blank"
                     :download="`${selectedMockupTab}_${getSelectedColorForProduct(selectedMockupTab)}_mockup.jpg`"
-                    class="absolute bottom-2 right-2 rounded bg-white/90 hover:bg-white border border-zinc-200 p-1.5 text-zinc-700 shadow-xs text-[10px] font-mono flex items-center gap-1"
+                    class="absolute bottom-2 right-2 rounded bg-white/90 hover:bg-white border border-zinc-200 p-1.5 text-zinc-700 shadow-xs text-[10px] font-mono flex items-center gap-1 cursor-pointer"
                   >
-                    <Download class="h-3 w-3" />
+                    <Icon name="lucide:download" class="size-3" aria-hidden="true" />
                     <span>Save Mockup</span>
                   </a>
                 </div>
@@ -657,11 +645,11 @@ function getMockupLabel(product: string): string {
             <Button
               variant="outline"
               size="sm"
-              class="text-xs gap-1.5 ml-auto"
+              class="text-xs gap-1.5 ml-auto cursor-pointer inline-flex items-center"
               :disabled="isProductionLoading"
               @click="emit('triggerProduction', true)"
             >
-              <RotateCw class="h-3.5 w-3.5" :class="{ 'animate-spin': isProductionLoading }" />
+              <Icon name="lucide:refresh-cw" class="size-3.5" :class="{ 'animate-spin': isProductionLoading }" aria-hidden="true" />
               <span>Regenerate Master & Mockups</span>
             </Button>
           </div>
@@ -670,7 +658,7 @@ function getMockupLabel(product: string): string {
         <!-- 4. Failed State -->
         <div v-if="workflow.state === 'PRODUCTION_FAILED' || (latestProductionJob?.status === 'FAILED' && workflow.state !== 'ARTWORK_APPROVED')" class="space-y-4">
           <Alert variant="destructive">
-            <AlertCircle class="h-4 w-4" />
+            <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
             <AlertTitle>PNG Production Failed</AlertTitle>
             <AlertDescription>
               {{ latestProductionJob?.failure_message || 'An error occurred during production file processing.' }}
@@ -680,11 +668,11 @@ function getMockupLabel(product: string): string {
           <Button
             variant="default"
             size="sm"
-            class="gap-1.5"
+            class="gap-1.5 cursor-pointer inline-flex items-center"
             :disabled="isProductionLoading"
             @click="emit('triggerProduction', true)"
           >
-            <RotateCw class="h-3.5 w-3.5" :class="{ 'animate-spin': isProductionLoading }" />
+            <Icon name="lucide:refresh-cw" class="size-3.5" :class="{ 'animate-spin': isProductionLoading }" aria-hidden="true" />
             <span>Retry PNG Production</span>
           </Button>
         </div>

@@ -7,7 +7,7 @@ import {
   stageLabel,
   useWorkflowControls,
 } from "~/composables/useWorkflowControls";
-import { RotateCw, AlertCircle } from "lucide-vue-next";
+
 import Button from "~/components/ui/Button.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertTitle from "~/components/ui/AlertTitle.vue";
@@ -718,17 +718,17 @@ onBeforeUnmount(stopPolling);
     <main id="main" class="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10 space-y-8">
       <!-- Loading State -->
       <div v-if="isPageLoading" class="flex flex-col items-center justify-center py-28 text-zinc-400 gap-3">
-        <RotateCw class="h-8 w-8 animate-spin text-indigo-600" />
+        <Icon name="lucide:loader-circle" class="size-8 animate-spin text-indigo-600" aria-hidden="true" />
         <p class="text-sm font-medium">Fetching campaign details...</p>
       </div>
 
       <!-- Page Error -->
       <Alert v-else-if="pageError" variant="destructive" class="mb-8">
-        <AlertCircle class="h-4 w-4" />
+        <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
         <AlertTitle>Error Loading Campaign</AlertTitle>
         <AlertDescription class="flex items-center justify-between mt-2">
           <span>{{ pageError }}</span>
-          <Button variant="outline" size="sm" class="h-8 text-xs" @click="() => loadData()">
+          <Button variant="outline" size="sm" class="h-8 text-xs cursor-pointer" @click="() => loadData()">
             Retry
           </Button>
         </AlertDescription>

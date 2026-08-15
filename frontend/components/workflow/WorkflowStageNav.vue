@@ -1,14 +1,5 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import {
-  FileText,
-  Sparkles,
-  Palette,
-  Printer,
-  CheckCircle2,
-  RotateCw,
-  AlertCircle,
-} from "lucide-vue-next";
 import Badge from "~/components/ui/Badge.vue";
 
 const props = defineProps<{
@@ -69,7 +60,7 @@ const isProductionActive = computed(() => {
     <!-- Tab 1: Overview -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer"
       :class="
         activeTab === 'overview'
           ? 'bg-zinc-900 text-white shadow-xs'
@@ -77,14 +68,14 @@ const isProductionActive = computed(() => {
       "
       @click="emit('update:activeTab', 'overview')"
     >
-      <FileText class="h-4 w-4" />
+      <Icon name="lucide:file-text" class="size-4" aria-hidden="true" />
       <span>Overview & Brief</span>
     </button>
 
     <!-- Tab 2: Concepts & Research -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap relative"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap relative cursor-pointer"
       :class="
         activeTab === 'concepts'
           ? 'bg-zinc-900 text-white shadow-xs'
@@ -92,9 +83,9 @@ const isProductionActive = computed(() => {
       "
       @click="emit('update:activeTab', 'concepts')"
     >
-      <RotateCw v-if="isResearchActive" class="h-3.5 w-3.5 animate-spin text-amber-500" />
-      <CheckCircle2 v-else-if="isGate1Done" class="h-3.5 w-3.5 text-emerald-500" />
-      <Sparkles v-else class="h-4 w-4 text-indigo-500" />
+      <Icon v-if="isResearchActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-amber-500" aria-hidden="true" />
+      <Icon v-else-if="isGate1Done" name="lucide:circle-check" class="size-3.5 text-emerald-500" aria-hidden="true" />
+      <Icon v-else name="lucide:sparkles" class="size-4 text-indigo-500" aria-hidden="true" />
       <span>1. Concepts & Research</span>
       <span
         v-if="conceptsCount > 0"
@@ -108,7 +99,7 @@ const isProductionActive = computed(() => {
     <!-- Tab 3: Artwork Studio -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer"
       :class="
         activeTab === 'artwork'
           ? 'bg-zinc-900 text-white shadow-xs'
@@ -116,9 +107,9 @@ const isProductionActive = computed(() => {
       "
       @click="emit('update:activeTab', 'artwork')"
     >
-      <RotateCw v-if="isArtActive" class="h-3.5 w-3.5 animate-spin text-amber-500" />
-      <CheckCircle2 v-else-if="isGate2Done" class="h-3.5 w-3.5 text-emerald-500" />
-      <Palette v-else class="h-4 w-4 text-indigo-500" />
+      <Icon v-if="isArtActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-amber-500" aria-hidden="true" />
+      <Icon v-else-if="isGate2Done" name="lucide:circle-check" class="size-3.5 text-emerald-500" aria-hidden="true" />
+      <Icon v-else name="lucide:image" class="size-4 text-indigo-500" aria-hidden="true" />
       <span>2. Artwork Studio</span>
       <span
         v-if="candidatesCount > 0"
@@ -132,7 +123,7 @@ const isProductionActive = computed(() => {
     <!-- Tab 4: Production & Mockups -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer"
       :class="
         activeTab === 'production'
           ? 'bg-zinc-900 text-white shadow-xs'
@@ -140,9 +131,9 @@ const isProductionActive = computed(() => {
       "
       @click="emit('update:activeTab', 'production')"
     >
-      <RotateCw v-if="isProductionActive" class="h-3.5 w-3.5 animate-spin text-amber-500" />
-      <CheckCircle2 v-else-if="isProductionDone" class="h-3.5 w-3.5 text-emerald-500" />
-      <Printer v-else class="h-4 w-4 text-indigo-500" />
+      <Icon v-if="isProductionActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-amber-500" aria-hidden="true" />
+      <Icon v-else-if="isProductionDone" name="lucide:circle-check" class="size-3.5 text-emerald-500" aria-hidden="true" />
+      <Icon v-else name="lucide:file-image" class="size-4 text-indigo-500" aria-hidden="true" />
       <span>3. Production & Mockups</span>
       <Badge
         v-if="isProductionDone"

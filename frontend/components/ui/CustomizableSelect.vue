@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
-import { Check, ChevronDown, Plus, Trash2, X } from "lucide-vue-next";
 
 export interface SelectOption {
   value: string;
@@ -35,6 +34,10 @@ const searchQuery = ref("");
 const containerRef = ref<HTMLElement | null>(null);
 const customOptions = ref<SelectOption[]>([]);
 
+function isIconifyName(icon?: string): boolean {
+  return Boolean(icon && (icon.startsWith("lucide:") || icon.includes(":")));
+}
+
 function loadCustomOptions() {
   if (!props.storageKey || typeof window === "undefined") return;
   try {
@@ -44,7 +47,7 @@ function loadCustomOptions() {
       if (Array.isArray(parsed)) {
         customOptions.value = parsed.map((item) => {
           if (typeof item === "string") {
-            return { value: item, label: item, icon: "✨", isCustom: true };
+            return { value: item, label: item, icon: "lucide:sparkles", isCustom: true };
           }
           return { ...item, isCustom: true };
         });
@@ -96,7 +99,7 @@ function getOptionInfo(val: string): SelectOption {
     (o) => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()
   );
   if (found) return found;
-  return { value: val, label: val, icon: "✨", isCustom: true };
+  return { value: val, label: val, icon: "lucide:sparkles", isCustom: true };
 }
 
 function isSelected(val: string): boolean {
@@ -131,25 +134,20 @@ function selectOption(val: string) {
 }
 
 function removeMultiItem(val: string) {
-  if (!props.isMulti) return;
-  const current = Array.isArray(props.modelValue) ? props.modelValue : [];
-  const updated = current.filter((v) => v.toLowerCase() !== val.toLowerCase());
-  emit("update:modelValue", updated);
-}
-
-function clearSingle() {
-  emit("update:modelValue", "");
-  searchQuery.value = "";
+  if (!Array.isArray(props.modelValue)) return;
+  const current = props.modelValue.filter((v) => v.toLowerCase() !== val.toLowerCase());
+  emit("update:modelValue", current);
 }
 
 function addCustomItem() {
   const query = searchQuery.value.trim();
   if (!query) return;
 
+  // Add to custom options
   const newOption: SelectOption = {
     value: query,
     label: query,
-    icon: "✨",
+    icon: "lucide:sparkles",
     isCustom: true,
   };
 
@@ -158,6 +156,7 @@ function addCustomItem() {
     saveCustomOptions();
   }
 
+  // Select it
   selectOption(query);
   searchQuery.value = "";
 }
@@ -167,11 +166,20 @@ function deleteCustomOption(val: string, event: MouseEvent) {
   customOptions.value = customOptions.value.filter((o) => o.value.toLowerCase() !== val.toLowerCase());
   saveCustomOptions();
 
-  if (props.isMulti) {
-    removeMultiItem(val);
-  } else if (typeof props.modelValue === "string" && props.modelValue.toLowerCase() === val.toLowerCase()) {
-    clearSingle();
+  // If currently selected, deselect it
+  if (props.isMulti && Array.isArray(props.modelValue)) {
+    emit(
+      "update:modelValue",
+      props.modelValue.filter((v) => v.toLowerCase() !== val.toLowerCase())
+    );
+  } else if (!props.isMulti && typeof props.modelValue === "string" && props.modelValue.toLowerCase() === val.toLowerCase()) {
+    emit("update:modelValue", "");
   }
+}
+
+function clearSingle() {
+  emit("update:modelValue", "");
+  searchQuery.value = "";
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -206,16 +214,22 @@ onBeforeUnmount(() => {
       <span
         v-for="item in (Array.isArray(modelValue) ? modelValue : [])"
         :key="item"
-        class="inline-flex items-center gap-1 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-800 shadow-3xs hover:bg-zinc-200/80 transition-colors"
+        class="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-800 shadow-3xs hover:bg-zinc-200/80 transition-colors"
       >
-        <span v-if="getOptionInfo(item).icon">{{ getOptionInfo(item).icon }}</span>
+        <Icon
+          v-if="isIconifyName(getOptionInfo(item).icon)"
+          :name="getOptionInfo(item).icon!"
+          class="size-3 text-zinc-500 shrink-0"
+          aria-hidden="true"
+        />
         <span>{{ getOptionInfo(item).label }}</span>
         <button
           type="button"
-          class="ml-0.5 rounded text-zinc-400 hover:text-zinc-700 focus:outline-none"
+          class="ml-0.5 rounded text-zinc-400 hover:text-zinc-700 focus:outline-hidden cursor-pointer"
+          aria-label="Remove item"
           @click.stop="removeMultiItem(item)"
         >
-          <X class="h-3 w-3" />
+          <Icon name="lucide:x" class="size-3" aria-hidden="true" />
         </button>
       </span>
 
@@ -223,13 +237,13 @@ onBeforeUnmount(() => {
         v-model="searchQuery"
         type="text"
         :placeholder="(!modelValue || modelValue.length === 0) ? placeholder : 'Add more...'"
-        class="flex-1 min-w-[100px] bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none h-6"
+        class="flex-1 min-w-[100px] bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden h-6"
         @focus="isOpen = true"
         @keydown.enter.prevent="addCustomItem"
         @keydown.esc="isOpen = false"
       >
 
-      <ChevronDown class="h-3.5 w-3.5 text-zinc-400 transition-transform ml-auto shrink-0" :class="{ 'rotate-180': isOpen }" />
+      <Icon name="lucide:chevron-down" class="size-3.5 text-zinc-400 transition-transform ml-auto shrink-0" :class="{ 'rotate-180': isOpen }" aria-hidden="true" />
     </div>
 
     <!-- Trigger for Single Select -->
@@ -240,9 +254,12 @@ onBeforeUnmount(() => {
       @click="isOpen = true"
     >
       <div v-if="!isOpen && modelValue" class="flex items-center gap-1.5 truncate text-zinc-900 font-medium">
-        <span v-if="getOptionInfo(String(modelValue)).icon" class="text-sm">
-          {{ getOptionInfo(String(modelValue)).icon }}
-        </span>
+        <Icon
+          v-if="isIconifyName(getOptionInfo(String(modelValue)).icon)"
+          :name="getOptionInfo(String(modelValue)).icon!"
+          class="size-3.5 text-zinc-500 shrink-0"
+          aria-hidden="true"
+        />
         <span class="truncate">{{ getOptionInfo(String(modelValue)).label }}</span>
       </div>
 
@@ -251,7 +268,7 @@ onBeforeUnmount(() => {
         v-model="searchQuery"
         type="text"
         :placeholder="modelValue ? getOptionInfo(String(modelValue)).label : placeholder"
-        class="w-full bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none h-6"
+        class="w-full bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden h-6"
         @focus="isOpen = true"
         @keydown.enter.prevent="addCustomItem"
         @keydown.esc="isOpen = false"
@@ -261,12 +278,13 @@ onBeforeUnmount(() => {
         <button
           v-if="modelValue && !isOpen"
           type="button"
-          class="rounded p-0.5 text-zinc-400 hover:text-zinc-700 focus:outline-none"
+          class="rounded p-0.5 text-zinc-400 hover:text-zinc-700 focus:outline-hidden cursor-pointer"
+          aria-label="Clear selection"
           @click.stop="clearSingle"
         >
-          <X class="h-3 w-3" />
+          <Icon name="lucide:x" class="size-3" aria-hidden="true" />
         </button>
-        <ChevronDown class="h-3.5 w-3.5 text-zinc-400 transition-transform" :class="{ 'rotate-180': isOpen }" />
+        <Icon name="lucide:chevron-down" class="size-3.5 text-zinc-400 transition-transform" :class="{ 'rotate-180': isOpen }" aria-hidden="true" />
       </div>
     </div>
 
@@ -292,12 +310,17 @@ onBeforeUnmount(() => {
           v-for="opt in filteredOptions"
           :key="opt.value"
           type="button"
-          class="group flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors hover:bg-zinc-100"
+          class="group flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors hover:bg-zinc-100 cursor-pointer"
           :class="{ 'bg-indigo-50/80 font-medium text-indigo-900': isSelected(opt.value) }"
           @click="selectOption(opt.value)"
         >
           <div class="flex items-center gap-2 truncate">
-            <span v-if="opt.icon" class="text-sm shrink-0">{{ opt.icon }}</span>
+            <Icon
+              v-if="isIconifyName(opt.icon)"
+              :name="opt.icon!"
+              class="size-3.5 text-zinc-500 shrink-0"
+              aria-hidden="true"
+            />
             <span class="truncate">{{ opt.label }}</span>
             <span v-if="opt.isCustom" class="text-[9px] px-1 py-0.2 rounded bg-indigo-100 text-indigo-700 font-mono">custom</span>
           </div>
@@ -306,13 +329,14 @@ onBeforeUnmount(() => {
             <button
               v-if="opt.isCustom"
               type="button"
-              class="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-rose-600 transition-opacity"
+              class="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-rose-600 transition-opacity cursor-pointer"
+              aria-label="Remove custom option"
               title="Remove custom option"
               @click="deleteCustomOption(opt.value, $event)"
             >
-              <Trash2 class="h-3 w-3" />
+              <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
             </button>
-            <Check v-if="isSelected(opt.value)" class="h-3.5 w-3.5 text-indigo-600 font-bold" />
+            <Icon v-if="isSelected(opt.value)" name="lucide:check" class="size-3.5 text-indigo-600 font-bold" aria-hidden="true" />
           </div>
         </button>
 
@@ -320,10 +344,10 @@ onBeforeUnmount(() => {
         <button
           v-if="isCustomQueryNew"
           type="button"
-          class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 font-semibold border-t border-zinc-100 mt-1"
+          class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 font-semibold border-t border-zinc-100 mt-1 cursor-pointer"
           @click="addCustomItem"
         >
-          <Plus class="h-3.5 w-3.5" />
+          <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
           <span>Add & save "{{ searchQuery }}"</span>
         </button>
       </div>

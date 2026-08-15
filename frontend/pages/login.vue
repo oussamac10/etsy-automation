@@ -2,7 +2,6 @@
 /* global useRouter */
 import { ref } from "vue";
 import { useAuthStore } from "~/stores/auth";
-import { Sparkles, Mail, Lock, AlertCircle, ArrowRight } from "lucide-vue-next";
 import Button from "~/components/ui/Button.vue";
 import Input from "~/components/ui/Input.vue";
 import Label from "~/components/ui/Label.vue";
@@ -51,7 +50,7 @@ async function handleLogin() {
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
         <div class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20 mb-3">
-          <Sparkles class="h-6 w-6" />
+          <Icon name="lucide:sparkles" class="size-6" aria-hidden="true" />
         </div>
         <h1 class="text-2xl font-bold tracking-tight text-zinc-900">Etsy Automation</h1>
         <p class="mt-1 text-sm text-zinc-500">Autonomous research-to-draft PNG engine</p>
@@ -78,7 +77,7 @@ async function handleLogin() {
                   data-testid="login-email-input"
                   class="pl-9"
                 />
-                <Mail class="absolute left-3 top-2.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+                <Icon name="lucide:mail" class="absolute left-3 top-2.5 size-4 text-zinc-400 pointer-events-none" aria-hidden="true" />
               </div>
             </div>
 
@@ -97,12 +96,12 @@ async function handleLogin() {
                   data-testid="login-password-input"
                   class="pl-9"
                 />
-                <Lock class="absolute left-3 top-2.5 h-4 w-4 text-zinc-400 pointer-events-none" />
+                <Icon name="lucide:lock" class="absolute left-3 top-2.5 size-4 text-zinc-400 pointer-events-none" aria-hidden="true" />
               </div>
             </div>
 
             <Alert v-if="error" variant="destructive" data-testid="login-error">
-              <AlertCircle class="h-4 w-4" />
+              <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
               <AlertDescription>{{ error }}</AlertDescription>
             </Alert>
 
@@ -111,11 +110,11 @@ async function handleLogin() {
               variant="default"
               size="lg"
               :loading="loading"
-              class="w-full font-semibold shadow-md shadow-indigo-600/20"
+              class="w-full font-semibold shadow-md shadow-indigo-600/20 cursor-pointer inline-flex items-center justify-center gap-1"
               data-testid="login-submit-btn"
             >
               <span>{{ loading ? 'Signing in...' : 'Sign In' }}</span>
-              <ArrowRight v-if="!loading" class="h-4 w-4 ml-1" />
+              <Icon v-if="!loading" name="lucide:arrow-right" class="size-4 ml-1" aria-hidden="true" />
             </Button>
           </form>
         </CardContent>

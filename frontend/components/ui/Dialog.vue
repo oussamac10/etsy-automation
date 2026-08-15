@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from "vue";
-import { X } from "lucide-vue-next";
 
 interface Props {
   open?: boolean;
@@ -89,10 +88,11 @@ const maxWidthClasses = {
         >
           <button
             type="button"
-            class="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            class="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+            aria-label="Close dialog"
             @click="close"
           >
-            <X class="h-4 w-4" />
+            <Icon name="lucide:x" class="size-4" aria-hidden="true" />
             <span class="sr-only">Close</span>
           </button>
           <slot />

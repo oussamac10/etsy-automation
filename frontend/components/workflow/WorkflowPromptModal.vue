@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { AlertCircle } from "lucide-vue-next";
 import Dialog from "~/components/ui/Dialog.vue";
 import DialogHeader from "~/components/ui/DialogHeader.vue";
 import DialogTitle from "~/components/ui/DialogTitle.vue";
@@ -75,7 +74,7 @@ function handleSubmit() {
     </DialogHeader>
 
     <Alert v-if="error" variant="destructive" class="my-4">
-      <AlertCircle class="h-4 w-4" />
+      <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
       <AlertDescription>{{ error }}</AlertDescription>
     </Alert>
 
@@ -121,8 +120,8 @@ function handleSubmit() {
         />
       </div>
 
-      <DialogFooter>
-        <Button variant="outline" size="sm" type="button" @click="emit('close')">
+      <DialogFooter class="mt-6">
+        <Button variant="outline" size="sm" type="button" class="cursor-pointer" @click="emit('close')">
           Cancel
         </Button>
         <Button
@@ -130,9 +129,9 @@ function handleSubmit() {
           variant="default"
           size="sm"
           :loading="isSubmitting"
-          class="font-bold bg-indigo-600 hover:bg-indigo-700"
+          class="font-bold bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
         >
-          <span>Apply Revision</span>
+          <span>Save & Update Prompt</span>
         </Button>
       </DialogFooter>
     </form>

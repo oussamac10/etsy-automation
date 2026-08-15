@@ -10,22 +10,7 @@ import {
   stageProgress,
   useWorkflowControls,
 } from "~/composables/useWorkflowControls";
-import {
-  Sparkles,
-  Plus,
-  Compass,
-  Lightbulb,
-  Layers,
-  Search,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  ArrowRight,
-  RotateCw,
-  Square,
-  ChevronRight,
-  Sliders,
-} from "lucide-vue-next";
+
 import Button from "~/components/ui/Button.vue";
 import Input from "~/components/ui/Input.vue";
 import Label from "~/components/ui/Label.vue";
@@ -42,79 +27,79 @@ import CustomizableSelect, { type SelectOption } from "~/components/ui/Customiza
 import Progress from "~/components/ui/Progress.vue";
 
 const PRODUCT_OPTIONS: SelectOption[] = [
-  { value: "mug", label: "Ceramic Mug", icon: "☕" },
-  { value: "tshirt", label: "T-Shirt", icon: "👕" },
-  { value: "sweatshirt", label: "Sweatshirt / Hoodie", icon: "🧥" },
-  { value: "tote_bag", label: "Tote Bag", icon: "👜" },
-  { value: "tumbler", label: "Tumbler / Cup", icon: "🥤" },
-  { value: "poster", label: "Poster / Wall Art", icon: "🖼️" },
-  { value: "sticker", label: "Stickers", icon: "🏷️" },
-  { value: "phone_case", label: "Phone Case", icon: "📱" },
-  { value: "candle", label: "Scented Candle", icon: "🕯️" },
+  { value: "mug", label: "Ceramic Mug", icon: "lucide:coffee" },
+  { value: "tshirt", label: "T-Shirt", icon: "lucide:shirt" },
+  { value: "sweatshirt", label: "Sweatshirt / Hoodie", icon: "lucide:shirt" },
+  { value: "tote_bag", label: "Tote Bag", icon: "lucide:shopping-bag" },
+  { value: "tumbler", label: "Tumbler / Cup", icon: "lucide:cup-soda" },
+  { value: "poster", label: "Poster / Wall Art", icon: "lucide:image" },
+  { value: "sticker", label: "Stickers", icon: "lucide:tags" },
+  { value: "phone_case", label: "Phone Case", icon: "lucide:smartphone" },
+  { value: "candle", label: "Scented Candle", icon: "lucide:flame" },
 ];
 
 const BUYER_OPTIONS: SelectOption[] = [
-  { value: "coffee lovers", label: "Coffee Lovers & Baristas", icon: "☕" },
-  { value: "teachers", label: "Teachers & Educators", icon: "👩‍🏫" },
-  { value: "dog lovers", label: "Dog Moms & Pet Parents", icon: "🐾" },
-  { value: "plant lovers", label: "Plant Enthusiasts & Botanists", icon: "🌿" },
-  { value: "book lovers", label: "Bookworms & Readers", icon: "📚" },
-  { value: "campers & hikers", label: "Outdoor Campers & Hikers", icon: "🏕️" },
-  { value: "nurses", label: "Nurses & Healthcare", icon: "🏥" },
-  { value: "moms", label: "Mothers & New Moms", icon: "👩‍👧" },
-  { value: "dads", label: "Fathers & Dads", icon: "👨‍👦" },
-  { value: "gamers", label: "Gamers & Techies", icon: "🎮" },
-  { value: "crafters", label: "Crafters & DIYers", icon: "🎨" },
-  { value: "minimalists", label: "Minimalists & Modernists", icon: "✨" },
+  { value: "coffee lovers", label: "Coffee Lovers & Baristas", icon: "lucide:coffee" },
+  { value: "teachers", label: "Teachers & Educators", icon: "lucide:graduation-cap" },
+  { value: "dog lovers", label: "Dog Moms & Pet Parents", icon: "lucide:paw-print" },
+  { value: "plant lovers", label: "Plant Enthusiasts & Botanists", icon: "lucide:sprout" },
+  { value: "book lovers", label: "Bookworms & Readers", icon: "lucide:book-open" },
+  { value: "campers & hikers", label: "Outdoor Campers & Hikers", icon: "lucide:tent" },
+  { value: "nurses", label: "Nurses & Healthcare", icon: "lucide:heart-pulse" },
+  { value: "moms", label: "Mothers & New Moms", icon: "lucide:heart" },
+  { value: "dads", label: "Fathers & Dads", icon: "lucide:user" },
+  { value: "gamers", label: "Gamers & Techies", icon: "lucide:gamepad-2" },
+  { value: "crafters", label: "Crafters & DIYers", icon: "lucide:palette" },
+  { value: "minimalists", label: "Minimalists & Modernists", icon: "lucide:sparkles" },
 ];
 
 const NICHE_OPTIONS: SelectOption[] = [
-  { value: "retro camping", label: "Retro Camping & Wilderness", icon: "🏕️" },
-  { value: "black cats", label: "Black Cats & Witchy", icon: "🐈‍⬛" },
-  { value: "cottagecore", label: "Cottagecore & Mushrooms", icon: "🍄" },
-  { value: "vintage floral", label: "Vintage Botanical & Floral", icon: "🌸" },
-  { value: "cozy coffee", label: "Cozy Coffee & Books", icon: "☕" },
-  { value: "space celestial", label: "Space & Celestial Stars", icon: "🚀" },
-  { value: "punny food", label: "Punny Food & Cooking", icon: "🥑" },
-  { value: "golden retriever", label: "Golden Retrievers & Dogs", icon: "🐶" },
-  { value: "desert cacti", label: "Desert & Southwest Cacti", icon: "🌵" },
-  { value: "coastal ocean", label: "Coastal & Ocean Waves", icon: "🌊" },
+  { value: "retro camping", label: "Retro Camping & Wilderness", icon: "lucide:tent" },
+  { value: "black cats", label: "Black Cats & Witchy", icon: "lucide:sparkles" },
+  { value: "cottagecore", label: "Cottagecore & Mushrooms", icon: "lucide:sprout" },
+  { value: "vintage floral", label: "Vintage Botanical & Floral", icon: "lucide:flower-2" },
+  { value: "cozy coffee", label: "Cozy Coffee & Books", icon: "lucide:coffee" },
+  { value: "space celestial", label: "Space & Celestial Stars", icon: "lucide:moon" },
+  { value: "punny food", label: "Punny Food & Cooking", icon: "lucide:utensils" },
+  { value: "golden retriever", label: "Golden Retrievers & Dogs", icon: "lucide:paw-print" },
+  { value: "desert cacti", label: "Desert & Southwest Cacti", icon: "lucide:sun" },
+  { value: "coastal ocean", label: "Coastal & Ocean Waves", icon: "lucide:waves" },
 ];
 
 const STYLE_OPTIONS: SelectOption[] = [
-  { value: "watercolor", label: "Soft Watercolor & Wash", icon: "🎨" },
-  { value: "minimalist line art", label: "Minimalist Line Art & Monoline", icon: "✏️" },
-  { value: "vintage retro 70s", label: "Vintage 70s / Retro Distressed", icon: "📻" },
-  { value: "boho botanical", label: "Boho Botanical & Earthy", icon: "🌿" },
-  { value: "kawaii cute", label: "Cute Kawaii & Pastel", icon: "🌈" },
-  { value: "bold typography", label: "Bold Typography & Lettering", icon: "📜" },
-  { value: "engraving woodcut", label: "Engraving & Woodcut Vintage", icon: "✒️" },
-  { value: "pixel art", label: "8-Bit / 16-Bit Pixel Art", icon: "👾" },
-  { value: "geometric vector", label: "Geometric Clean Vector", icon: "📐" },
-  { value: "oil painting", label: "Classic Oil Painting Impressionist", icon: "🖌️" },
+  { value: "watercolor", label: "Soft Watercolor & Wash", icon: "lucide:palette" },
+  { value: "minimalist line art", label: "Minimalist Line Art & Monoline", icon: "lucide:pen-tool" },
+  { value: "vintage retro 70s", label: "Vintage 70s / Retro Distressed", icon: "lucide:radio" },
+  { value: "boho botanical", label: "Boho Botanical & Earthy", icon: "lucide:leaf" },
+  { value: "kawaii cute", label: "Cute Kawaii & Pastel", icon: "lucide:sparkles" },
+  { value: "bold typography", label: "Bold Typography & Lettering", icon: "lucide:type" },
+  { value: "engraving woodcut", label: "Engraving & Woodcut Vintage", icon: "lucide:feather" },
+  { value: "pixel art", label: "8-Bit / 16-Bit Pixel Art", icon: "lucide:grid" },
+  { value: "geometric vector", label: "Geometric Clean Vector", icon: "lucide:shapes" },
+  { value: "oil painting", label: "Classic Oil Painting Impressionist", icon: "lucide:brush" },
 ];
 
 const OCCASION_OPTIONS: SelectOption[] = [
-  { value: "birthday", label: "Birthday", icon: "🎂" },
-  { value: "christmas", label: "Christmas & Holiday", icon: "🎄" },
-  { value: "halloween", label: "Halloween & Fall", icon: "🎃" },
-  { value: "valentines", label: "Valentine's Day", icon: "💝" },
-  { value: "mothers day", label: "Mother's Day", icon: "👩" },
-  { value: "fathers day", label: "Father's Day", icon: "👨" },
-  { value: "graduation", label: "Graduation", icon: "🎓" },
-  { value: "wedding", label: "Wedding & Anniversary", icon: "💍" },
-  { value: "thanksgiving", label: "Thanksgiving", icon: "🦃" },
-  { value: "baby shower", label: "Baby Shower & Newborn", icon: "👶" },
-  { value: "summer vacation", label: "Summer Vacation & Travel", icon: "🌴" },
-  { value: "everyday", label: "Everyday / No Special Occasion", icon: "✨" },
+  { value: "birthday", label: "Birthday", icon: "lucide:cake" },
+  { value: "christmas", label: "Christmas & Holiday", icon: "lucide:gift" },
+  { value: "halloween", label: "Halloween & Fall", icon: "lucide:ghost" },
+  { value: "valentines", label: "Valentine's Day", icon: "lucide:heart" },
+  { value: "mothers day", label: "Mother's Day", icon: "lucide:heart-handshake" },
+  { value: "fathers day", label: "Father's Day", icon: "lucide:award" },
+  { value: "graduation", label: "Graduation", icon: "lucide:graduation-cap" },
+  { value: "wedding", label: "Wedding & Anniversary", icon: "lucide:gem" },
+  { value: "thanksgiving", label: "Thanksgiving", icon: "lucide:utensils" },
+  { value: "baby shower", label: "Baby Shower & Newborn", icon: "lucide:smile" },
+  { value: "summer vacation", label: "Summer Vacation & Travel", icon: "lucide:palmtree" },
+  { value: "everyday", label: "Everyday / No Special Occasion", icon: "lucide:sparkles" },
 ];
 
 const SEASON_OPTIONS: SelectOption[] = [
-  { value: "winter", label: "Winter", icon: "❄️" },
-  { value: "spring", label: "Spring", icon: "🌸" },
-  { value: "summer", label: "Summer", icon: "☀️" },
-  { value: "autumn", label: "Autumn / Fall", icon: "🍂" },
-  { value: "evergreen", label: "Year-Round / Evergreen", icon: "🌲" },
+  { value: "winter", label: "Winter", icon: "lucide:snowflake" },
+  { value: "spring", label: "Spring", icon: "lucide:flower" },
+  { value: "summer", label: "Summer", icon: "lucide:sun" },
+  { value: "autumn", label: "Autumn / Fall", icon: "lucide:leaf" },
+  { value: "evergreen", label: "Year-Round / Evergreen", icon: "lucide:trees" },
 ];
 
 interface Workflow {
@@ -409,7 +394,7 @@ onUnmounted(() => {
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-zinc-200/80 pb-8">
         <div class="space-y-1.5">
           <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
-            <Sparkles class="h-4 w-4" />
+            <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
             <span>Digital Product Automation</span>
           </div>
           <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
@@ -425,17 +410,17 @@ onUnmounted(() => {
             v-if="!showCreateForm"
             variant="default"
             size="lg"
-            class="shadow-md shadow-indigo-600/20 gap-2 font-semibold"
+            class="shadow-md shadow-indigo-600/20 gap-2 font-semibold cursor-pointer inline-flex items-center"
             @click="showCreateForm = true"
           >
-            <Plus class="h-4 w-4" />
+            <Icon name="lucide:plus" class="size-4" aria-hidden="true" />
             <span>Create New Campaign</span>
           </Button>
           <Button
             v-else
             variant="outline"
             size="lg"
-            class="font-semibold"
+            class="font-semibold cursor-pointer"
             @click="showCreateForm = false"
           >
             Cancel Creation
@@ -448,7 +433,7 @@ onUnmounted(() => {
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Total Campaigns</span>
-            <Layers class="h-4 w-4 text-zinc-400" />
+            <Icon name="lucide:layers" class="size-4 text-zinc-400" aria-hidden="true" />
           </div>
           <p class="text-2xl font-bold text-zinc-900 mt-2">{{ totalCount }}</p>
           <span class="text-[11px] text-zinc-400">All registered workflows</span>
@@ -457,9 +442,11 @@ onUnmounted(() => {
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-amber-700 uppercase tracking-wide">In Progress</span>
-            <RotateCw
-              class="h-4 w-4"
+            <Icon
+              name="lucide:loader-circle"
+              class="size-4"
               :class="runningCount > 0 ? 'text-amber-600 animate-spin' : 'text-amber-600/50'"
+              aria-hidden="true"
             />
           </div>
           <p class="text-2xl font-bold text-amber-900 mt-2">{{ runningCount }}</p>
@@ -469,7 +456,7 @@ onUnmounted(() => {
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Needs Gate Review</span>
-            <Clock class="h-4 w-4 text-indigo-600" />
+            <Icon name="lucide:clock-3" class="size-4 text-indigo-600" aria-hidden="true" />
           </div>
           <p class="text-2xl font-bold text-indigo-900 mt-2">{{ attentionCount }}</p>
           <span class="text-[11px] text-indigo-700/80">Awaiting human sign-off</span>
@@ -478,7 +465,7 @@ onUnmounted(() => {
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Approved / Complete</span>
-            <CheckCircle2 class="h-4 w-4 text-emerald-600" />
+            <Icon name="lucide:circle-check" class="size-4 text-emerald-600" aria-hidden="true" />
           </div>
           <p class="text-2xl font-bold text-emerald-900 mt-2">{{ completedCount }}</p>
           <span class="text-[11px] text-emerald-700/80">Ready for listing</span>
@@ -490,7 +477,7 @@ onUnmounted(() => {
         <CardHeader class="pb-4">
           <div class="flex items-center gap-2.5">
             <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
-              <Sparkles class="h-5 w-5" />
+              <Icon name="lucide:sparkles" class="size-5" aria-hidden="true" />
             </div>
             <div>
               <CardTitle class="text-xl">Start a New Design Campaign</CardTitle>
@@ -501,7 +488,7 @@ onUnmounted(() => {
 
         <CardContent>
           <Alert v-if="creationError" variant="destructive" class="mb-6">
-            <AlertCircle class="h-4 w-4" />
+            <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
             <AlertDescription>{{ creationError }}</AlertDescription>
           </Alert>
 
@@ -522,7 +509,7 @@ onUnmounted(() => {
                 >
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                      <Compass class="h-4 w-4 text-indigo-600" />
+                      <Icon name="lucide:search" class="size-4 text-indigo-600" aria-hidden="true" />
                       <span class="font-bold text-sm text-zinc-900">Discover Ideas</span>
                     </div>
                     <Badge v-if="ideaMode === 'market-led'" variant="default" class="h-5 px-1.5 text-[10px]">
@@ -547,7 +534,7 @@ onUnmounted(() => {
                 >
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                      <Lightbulb class="h-4 w-4 text-indigo-600" />
+                      <Icon name="lucide:lightbulb" class="size-4 text-indigo-600" aria-hidden="true" />
                       <span class="font-bold text-sm text-zinc-900">Use My Idea</span>
                     </div>
                     <Badge v-if="ideaMode === 'user-idea'" variant="default" class="h-5 px-1.5 text-[10px]">
@@ -572,7 +559,7 @@ onUnmounted(() => {
                 >
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                      <Sliders class="h-4 w-4 text-indigo-600" />
+                      <Icon name="lucide:git-merge" class="size-4 text-indigo-600" aria-hidden="true" />
                       <span class="font-bold text-sm text-zinc-900">Hybrid Approach</span>
                     </div>
                     <Badge v-if="ideaMode === 'hybrid'" variant="default" class="h-5 px-1.5 text-[10px]">
@@ -754,7 +741,7 @@ onUnmounted(() => {
                 variant="default"
                 size="lg"
                 :loading="isCreating"
-                class="shadow-md shadow-indigo-600/20 font-bold"
+                class="shadow-md shadow-indigo-600/20 font-bold cursor-pointer inline-flex items-center"
               >
                 <span>
                   {{
@@ -763,7 +750,7 @@ onUnmounted(() => {
                     'Generate Variations'
                   }}
                 </span>
-                <ArrowRight v-if="!isCreating" class="h-4 w-4 ml-1" />
+                <Icon v-if="!isCreating" name="lucide:arrow-right" class="size-4 ml-1" aria-hidden="true" />
               </Button>
             </div>
           </form>
@@ -787,7 +774,7 @@ onUnmounted(() => {
                   placeholder="Search campaigns..."
                   class="pl-8 text-xs h-8"
                 />
-                <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                <Icon name="lucide:search" class="absolute left-2.5 top-2.5 size-3.5 text-zinc-400 pointer-events-none" aria-hidden="true" />
               </div>
             </div>
           </div>
@@ -795,24 +782,24 @@ onUnmounted(() => {
 
         <CardContent class="pt-0">
           <Alert v-if="controlError" variant="destructive" class="mb-4">
-            <AlertCircle class="h-4 w-4" />
+            <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
             <AlertDescription>{{ controlError }}</AlertDescription>
           </Alert>
 
           <div v-if="isListLoading" class="flex flex-col items-center justify-center py-16 text-zinc-400 gap-2">
-            <RotateCw class="h-6 w-6 animate-spin text-indigo-600" />
+            <Icon name="lucide:loader-circle" class="size-6 animate-spin text-indigo-600" aria-hidden="true" />
             <p class="text-sm font-medium">Loading campaigns...</p>
           </div>
 
           <Alert v-else-if="listError" variant="warning" class="mb-4">
-            <AlertCircle class="h-4 w-4" />
+            <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
             <AlertDescription>{{ listError }}</AlertDescription>
           </Alert>
 
           <!-- Empty State -->
           <div v-else-if="filteredWorkflows.length === 0" class="text-center py-16 px-4">
             <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-4 border border-indigo-100 shadow-2xs">
-              <Sparkles class="h-7 w-7" />
+              <Icon name="lucide:sparkles" class="size-7" aria-hidden="true" />
             </div>
             <h3 class="text-base font-bold text-zinc-900 mb-1">
               {{ searchQuery ? 'No matching campaigns' : 'No active campaigns' }}
@@ -824,10 +811,10 @@ onUnmounted(() => {
               v-if="!searchQuery"
               variant="default"
               size="default"
-              class="gap-1.5 font-semibold"
+              class="gap-1.5 font-semibold cursor-pointer inline-flex items-center"
               @click="showCreateForm = true"
             >
-              <Plus class="h-4 w-4" />
+              <Icon name="lucide:plus" class="size-4" aria-hidden="true" />
               <span>Create Your First Campaign</span>
             </Button>
           </div>
@@ -909,10 +896,10 @@ onUnmounted(() => {
                         size="sm"
                         :disabled="pendingWorkflowId === wf.id"
                         :title="`Stop ${wf.name}`"
-                        class="h-8 px-2.5 text-xs gap-1"
+                        class="h-8 px-2.5 text-xs gap-1 cursor-pointer inline-flex items-center"
                         @click="controlWorkflow(wf.id, 'cancel')"
                       >
-                        <Square class="h-3 w-3 fill-current" />
+                        <Icon name="lucide:square" class="size-3 fill-current" aria-hidden="true" />
                         <span>Stop</span>
                       </Button>
 
@@ -922,17 +909,17 @@ onUnmounted(() => {
                         size="sm"
                         :disabled="pendingWorkflowId === wf.id"
                         :title="`Resume ${wf.name}`"
-                        class="h-8 px-2.5 text-xs gap-1 font-medium"
+                        class="h-8 px-2.5 text-xs gap-1 font-medium cursor-pointer inline-flex items-center"
                         @click="controlWorkflow(wf.id, 'rerun')"
                       >
-                        <RotateCw class="h-3 w-3" />
+                        <Icon name="lucide:play" class="size-3" aria-hidden="true" />
                         <span>Resume</span>
                       </Button>
 
                       <NuxtLink :to="`/workflow/${wf.id}`">
-                        <Button variant="outline" size="sm" class="h-8 px-3 text-xs gap-1 font-semibold">
+                        <Button variant="outline" size="sm" class="h-8 px-3 text-xs gap-1 font-semibold cursor-pointer inline-flex items-center">
                           <span>Open</span>
-                          <ChevronRight class="h-3.5 w-3.5" />
+                          <Icon name="lucide:chevron-right" class="size-3.5" aria-hidden="true" />
                         </Button>
                       </NuxtLink>
                     </div>

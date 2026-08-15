@@ -1,23 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from "vue";
-import {
-  Upload,
-  Layers,
-  Image as ImageIcon,
-  Check,
-  Loader2,
-  Sparkles,
-  Sliders,
-  X,
-  BookmarkPlus,
-  Move,
-  Maximize2,
-  AlignCenter,
-  Eye,
-  RotateCcw,
-} from "lucide-vue-next";
 import Button from "~/components/ui/Button.vue";
 import Badge from "~/components/ui/Badge.vue";
+import { getProductIcon } from "~/config/icons";
 
 interface MockupTemplateItem {
   id: string;
@@ -58,24 +43,24 @@ const isFetchingTemplates = ref(false);
 
 const selectedTemplateId = ref<string | null>(null);
 
-// Form state for upload
+// Upload state
 const uploadedFile = ref<File | null>(null);
 const uploadedPreviewUrl = ref<string | null>(null);
 const templateName = ref("");
 const saveToLibrary = ref(true);
 
-// Placement parameters
+// Placement state
 const leftPct = ref(25);
 const topPct = ref(25);
 const widthPct = ref(50);
 const heightPct = ref(50);
+const angleDeg = ref(0);
 const blendMode = ref<"multiply" | "over">("multiply");
 
-// Interactive Canvas Drag & Resize State
-const interactiveCanvasRef = ref<HTMLElement | null>(null);
-const isDragging = ref(false);
-const isResizing = ref(false);
-
+// Drag & Interaction refs
+const interactiveCanvasRef = ref<HTMLDivElement | null>(null);
+const isDraggingArtwork = ref(false);
+const isResizingArtwork = ref(false);
 let dragStartX = 0;
 let dragStartY = 0;
 let initialLeft = 25;
@@ -89,16 +74,16 @@ const compositeError = ref<string | null>(null);
 function getMockupDisplayName(type: string): string {
   switch (type.toLowerCase()) {
     case "mug":
-      return "☕ Ceramic Mug";
+      return "Ceramic Mug";
     case "tshirt":
-      return "👕 T-Shirt";
+      return "T-Shirt";
     case "sweatshirt":
-      return "🧥 Sweatshirt";
+      return "Sweatshirt";
     case "tote_bag":
     case "tote":
-      return "👜 Tote Bag";
+      return "Tote Bag";
     default:
-      return type.toUpperCase();
+      return type.charAt(0).toUpperCase() + type.slice(1);
   }
 }
 
@@ -118,210 +103,174 @@ function getCookie(name: string): string | null {
   return null;
 }
 
+// Reset state when opening or switching product
+watch(
+  () => [props.open, props.productType],
+  ([isOpen]) => {
+    if (isOpen) {
+      compositeError.value = null;
+      uploadedFile.value = null;
+      uploadedPreviewUrl.value = null;
+      selectedTemplateId.value = null;
+      templateName.value = "";
+      canvasViewMode.value = "edit";
+      fetchTemplates();
+    }
+  },
+  { immediate: true }
+);
+
 async function fetchTemplates(): Promise<void> {
   isFetchingTemplates.value = true;
   try {
-    const data = await $fetch<MockupTemplateItem[]>(
+    const data = await $fetch<{ items: MockupTemplateItem[] }>(
       `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates?product_type=${props.productType}`,
       { credentials: "include" }
     );
-    templates.value = data;
-    if (data.length > 0 && !selectedTemplateId.value && activeSubTab.value === "library") {
-      selectedTemplateId.value = data[0].id;
-      const first = data[0];
-      leftPct.value = Math.round(first.placement.left_pct * 100);
-      topPct.value = Math.round(first.placement.top_pct * 100);
-      widthPct.value = Math.round(first.placement.width_pct * 100);
-      heightPct.value = Math.round(first.placement.height_pct * 100);
-      blendMode.value = first.placement.blend_mode === "over" ? "over" : "multiply";
+    templates.value = data.items || [];
+    if (templates.value.length > 0 && !selectedTemplateId.value && activeSubTab.value === "library") {
+      selectLibraryTemplate(templates.value[0]);
     }
-  } catch {
-    templates.value = [];
+  } catch (err) {
+    console.error("Failed to load mockup templates", err);
   } finally {
     isFetchingTemplates.value = false;
   }
 }
 
-watch(
-  () => [props.open, props.productType] as const,
-  ([isOpen, prodType]) => {
-    if (isOpen) {
-      uploadedFile.value = null;
-      uploadedPreviewUrl.value = null;
-      selectedTemplateId.value = null;
-      activeSubTab.value = "upload";
-      canvasViewMode.value = "edit";
-      compositeError.value = null;
-      templateName.value = `Custom ${getMockupDisplayName(prodType)} Mockup`;
-      leftPct.value = 25;
-      topPct.value = 25;
-      widthPct.value = 50;
-      heightPct.value = 50;
-      fetchTemplates();
-    }
-  }
-);
-
-function handleFileSelect(event: Event): void {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    const f = target.files[0];
-    uploadedFile.value = f;
-    uploadedPreviewUrl.value = URL.createObjectURL(f);
-    if (!templateName.value || templateName.value.startsWith("Custom ")) {
-      templateName.value = f.name.replace(/\.[^/.]+$/, "");
-    }
-  }
-}
-
-function handleDrop(event: DragEvent): void {
-  event.preventDefault();
-  if (event.dataTransfer?.files && event.dataTransfer.files[0]) {
-    const f = event.dataTransfer.files[0];
-    uploadedFile.value = f;
-    uploadedPreviewUrl.value = URL.createObjectURL(f);
-    if (!templateName.value || templateName.value.startsWith("Custom ")) {
-      templateName.value = f.name.replace(/\.[^/.]+$/, "");
-    }
-  }
-}
-
 function selectLibraryTemplate(tpl: MockupTemplateItem): void {
   selectedTemplateId.value = tpl.id;
-  leftPct.value = Math.round(tpl.placement.left_pct * 100);
-  topPct.value = Math.round(tpl.placement.top_pct * 100);
-  widthPct.value = Math.round(tpl.placement.width_pct * 100);
-  heightPct.value = Math.round(tpl.placement.height_pct * 100);
-  blendMode.value = tpl.placement.blend_mode === "over" ? "over" : "multiply";
+  leftPct.value = tpl.placement.left_pct ?? 25;
+  topPct.value = tpl.placement.top_pct ?? 25;
+  widthPct.value = tpl.placement.width_pct ?? 50;
+  heightPct.value = tpl.placement.height_pct ?? 50;
+  angleDeg.value = tpl.placement.angle_deg ?? 0;
+  blendMode.value = (tpl.placement.blend_mode as "multiply" | "over") || "multiply";
 }
 
-// ----------------- Interactive Manual Drag & Move Logic -----------------
-function startDragMove(e: PointerEvent): void {
-  if (canvasViewMode.value === "preview") return;
-  if (!interactiveCanvasRef.value) return;
+function handleFileSelect(e: Event): void {
+  const input = e.target as HTMLInputElement;
+  if (input.files && input.files[0]) {
+    processFile(input.files[0]);
+  }
+}
+
+function handleDrop(e: DragEvent): void {
   e.preventDefault();
-  isDragging.value = true;
+  if (e.dataTransfer?.files && e.dataTransfer.files[0]) {
+    processFile(e.dataTransfer.files[0]);
+  }
+}
+
+function processFile(file: File): void {
+  if (!file.type.startsWith("image/")) {
+    compositeError.value = "Please upload an image file (PNG, JPG, or WebP).";
+    return;
+  }
+  uploadedFile.value = file;
+  uploadedPreviewUrl.value = URL.createObjectURL(file);
+  compositeError.value = null;
+  if (!templateName.value) {
+    const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+    templateName.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+  }
+}
+
+// Quick alignment presets
+function centerHorizontally(): void {
+  leftPct.value = Math.max(0, Math.round((100 - widthPct.value) / 2));
+}
+
+function centerVertically(): void {
+  topPct.value = Math.max(0, Math.round((100 - heightPct.value) / 2));
+}
+
+function applyChestPreset(): void {
+  widthPct.value = 25;
+  heightPct.value = 25;
+  leftPct.value = 55;
+  topPct.value = 28;
+}
+
+function applyFullCenterPreset(): void {
+  widthPct.value = 46;
+  heightPct.value = 46;
+  centerHorizontally();
+  topPct.value = 24;
+}
+
+// Pointer Event Handlers for Dragging & Resizing
+function onArtworkPointerDown(e: PointerEvent): void {
+  if (canvasViewMode.value !== "edit") return;
+  e.stopPropagation();
+  e.preventDefault();
+  isDraggingArtwork.value = true;
   dragStartX = e.clientX;
   dragStartY = e.clientY;
   initialLeft = leftPct.value;
   initialTop = topPct.value;
 
-  window.addEventListener("pointermove", onPointerMoveDrag);
-  window.addEventListener("pointerup", onPointerUpDrag);
-  window.addEventListener("pointercancel", onPointerUpDrag);
+  window.addEventListener("pointermove", onWindowPointerMove);
+  window.addEventListener("pointerup", onWindowPointerUp);
 }
 
-function onPointerMoveDrag(e: PointerEvent): void {
-  if (!isDragging.value || !interactiveCanvasRef.value) return;
-  const rect = interactiveCanvasRef.value.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
-
-  const deltaX = ((e.clientX - dragStartX) / rect.width) * 100;
-  const deltaY = ((e.clientY - dragStartY) / rect.height) * 100;
-
-  const maxLeft = Math.max(0, 100 - widthPct.value);
-  const maxTop = Math.max(0, 100 - heightPct.value);
-
-  const newLeft = Math.min(Math.max(0, initialLeft + deltaX), maxLeft);
-  const newTop = Math.min(Math.max(0, initialTop + deltaY), maxTop);
-
-  leftPct.value = Math.round(newLeft);
-  topPct.value = Math.round(newTop);
-}
-
-function onPointerUpDrag(): void {
-  isDragging.value = false;
-  window.removeEventListener("pointermove", onPointerMoveDrag);
-  window.removeEventListener("pointerup", onPointerUpDrag);
-  window.removeEventListener("pointercancel", onPointerUpDrag);
-}
-
-// ----------------- Interactive Manual Resize Logic -----------------
-function startDragResize(e: PointerEvent): void {
-  if (canvasViewMode.value === "preview") return;
-  if (!interactiveCanvasRef.value) return;
-  e.preventDefault();
+function onResizeHandlePointerDown(e: PointerEvent): void {
+  if (canvasViewMode.value !== "edit") return;
   e.stopPropagation();
-  isResizing.value = true;
+  e.preventDefault();
+  isResizingArtwork.value = true;
   dragStartX = e.clientX;
   dragStartY = e.clientY;
   initialWidth = widthPct.value;
   initialHeight = heightPct.value;
 
-  window.addEventListener("pointermove", onPointerMoveResize);
-  window.addEventListener("pointerup", onPointerUpResize);
-  window.addEventListener("pointercancel", onPointerUpResize);
+  window.addEventListener("pointermove", onWindowPointerMove);
+  window.addEventListener("pointerup", onWindowPointerUp);
 }
 
-function onPointerMoveResize(e: PointerEvent): void {
-  if (!isResizing.value || !interactiveCanvasRef.value) return;
+function onWindowPointerMove(e: PointerEvent): void {
+  if (!interactiveCanvasRef.value) return;
   const rect = interactiveCanvasRef.value.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
+  const deltaX = e.clientX - dragStartX;
+  const deltaY = e.clientY - dragStartY;
 
-  const deltaX = ((e.clientX - dragStartX) / rect.width) * 100;
-  const deltaY = ((e.clientY - dragStartY) / rect.height) * 100;
+  const deltaPctX = (deltaX / rect.width) * 100;
+  const deltaPctY = (deltaY / rect.height) * 100;
 
-  const maxWidth = 100 - leftPct.value;
-  const maxHeight = 100 - topPct.value;
+  if (isDraggingArtwork.value) {
+    let newLeft = Math.round(initialLeft + deltaPctX);
+    let newTop = Math.round(initialTop + deltaPctY);
 
-  const newWidth = Math.min(Math.max(10, initialWidth + deltaX), maxWidth);
-  const newHeight = Math.min(Math.max(10, initialHeight + deltaY), maxHeight);
+    newLeft = Math.max(0, Math.min(100 - widthPct.value, newLeft));
+    newTop = Math.max(0, Math.min(100 - heightPct.value, newTop));
 
-  widthPct.value = Math.round(newWidth);
-  heightPct.value = Math.round(newHeight);
+    leftPct.value = newLeft;
+    topPct.value = newTop;
+  } else if (isResizingArtwork.value) {
+    let newWidth = Math.round(initialWidth + deltaPctX);
+    let newHeight = Math.round(initialHeight + deltaPctY);
+
+    newWidth = Math.max(10, Math.min(100 - leftPct.value, newWidth));
+    newHeight = Math.max(10, Math.min(100 - topPct.value, newHeight));
+
+    widthPct.value = newWidth;
+    heightPct.value = newHeight;
+  }
 }
 
-function onPointerUpResize(): void {
-  isResizing.value = false;
-  window.removeEventListener("pointermove", onPointerMoveResize);
-  window.removeEventListener("pointerup", onPointerUpResize);
-  window.removeEventListener("pointercancel", onPointerUpResize);
-}
-
-// Quick Placement Presets
-function centerHorizontally(): void {
-  leftPct.value = Math.round((100 - widthPct.value) / 2);
-}
-
-function centerVertically(): void {
-  topPct.value = Math.round((100 - heightPct.value) / 2);
-}
-
-function applyChestPreset(): void {
-  widthPct.value = 38;
-  heightPct.value = 38;
-  leftPct.value = 31;
-  topPct.value = 24;
-}
-
-function applyFullCenterPreset(): void {
-  widthPct.value = 52;
-  heightPct.value = 52;
-  leftPct.value = 24;
-  topPct.value = 24;
+function onWindowPointerUp(): void {
+  isDraggingArtwork.value = false;
+  isResizingArtwork.value = false;
+  window.removeEventListener("pointermove", onWindowPointerMove);
+  window.removeEventListener("pointerup", onWindowPointerUp);
 }
 
 onUnmounted(() => {
-  window.removeEventListener("pointermove", onPointerMoveDrag);
-  window.removeEventListener("pointerup", onPointerUpDrag);
-  window.removeEventListener("pointercancel", onPointerUpDrag);
-  window.removeEventListener("pointermove", onPointerMoveResize);
-  window.removeEventListener("pointerup", onPointerUpResize);
-  window.removeEventListener("pointercancel", onPointerUpResize);
+  if (typeof window !== "undefined") {
+    window.removeEventListener("pointermove", onWindowPointerMove);
+    window.removeEventListener("pointerup", onWindowPointerUp);
+  }
 });
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64Data = result.split(",")[1] || result;
-      resolve(base64Data);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 async function handleComposite(): Promise<void> {
   isCompositing.value = true;
@@ -330,49 +279,45 @@ async function handleComposite(): Promise<void> {
   try {
     const csrf = getCookie("etsy_csrf");
     const headers: Record<string, string> = {};
-    if (csrf) {
-      headers["x-csrf-token"] = csrf;
-    }
+    if (csrf) headers["x-csrf-token"] = csrf;
 
-    let templateBase64: string | undefined = undefined;
+    const formData = new FormData();
+    formData.append("product_type", props.productType);
+    formData.append("left_pct", leftPct.value.toString());
+    formData.append("top_pct", topPct.value.toString());
+    formData.append("width_pct", widthPct.value.toString());
+    formData.append("height_pct", heightPct.value.toString());
+    formData.append("angle_deg", angleDeg.value.toString());
+    formData.append("blend_mode", blendMode.value);
+
     if (activeSubTab.value === "upload") {
       if (!uploadedFile.value) {
-        compositeError.value = "Please select a custom mockup template image to upload.";
+        compositeError.value = "Please upload a mockup photo first.";
         isCompositing.value = false;
         return;
       }
-      templateBase64 = await fileToBase64(uploadedFile.value);
+      formData.append("file", uploadedFile.value);
+      formData.append("save_to_library", saveToLibrary.value ? "true" : "false");
+      formData.append("name", templateName.value || `${getMockupDisplayName(props.productType)} Custom Template`);
     } else {
       if (!selectedTemplateId.value) {
-        compositeError.value = "Please select a saved template from your library.";
+        compositeError.value = "Please select a template from your library.";
         isCompositing.value = false;
         return;
       }
+      formData.append("template_id", selectedTemplateId.value);
     }
 
-    const payload = {
-      workflow_id: props.workflowId,
-      product_type: props.productType,
-      template_id: activeSubTab.value === "library" ? selectedTemplateId.value : undefined,
-      template_image_base64: templateBase64,
-      template_name: templateName.value || `Custom ${getMockupDisplayName(props.productType)} Mockup`,
-      save_as_template: saveToLibrary.value,
-      placement: {
-        left_pct: leftPct.value / 100,
-        top_pct: topPct.value / 100,
-        width_pct: widthPct.value / 100,
-        height_pct: heightPct.value / 100,
-        angle_deg: 0,
-        blend_mode: blendMode.value,
-      },
-    };
-
-    const result = await $fetch<{ mockup_url: string; product_type: string; template_id?: string }>(
-      `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates/composite`,
+    const result = await $fetch<{
+      mockup_url: string;
+      product_type: string;
+      template_id?: string;
+    }>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${props.workflowId}/mockup-templates/composite`,
       {
         method: "POST",
         headers,
-        body: payload,
+        body: formData,
         credentials: "include",
       }
     );
@@ -380,8 +325,8 @@ async function handleComposite(): Promise<void> {
     emit("mockupCreated", result);
     emit("update:open", false);
   } catch (err: unknown) {
-    const errObj = err as { data?: { detail?: string } };
-    compositeError.value = errObj.data?.detail || "Failed to composite custom mockup.";
+    const errorObj = err as { data?: { detail?: string } };
+    compositeError.value = errorObj.data?.detail || "Failed to composite mockup. Please try again.";
   } finally {
     isCompositing.value = false;
   }
@@ -391,20 +336,21 @@ async function handleComposite(): Promise<void> {
 <template>
   <div
     v-if="open"
-    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-xs animate-in fade-in duration-200"
   >
-    <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-6">
+    <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
       <!-- Modal Header -->
       <div class="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-        <div class="flex items-center gap-2.5">
+        <div class="flex items-center gap-3">
           <div class="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-            <Layers class="h-5 w-5" />
+            <Icon name="lucide:layers" class="size-5" aria-hidden="true" />
           </div>
           <div>
             <div class="flex items-center gap-2">
               <h3 class="text-base font-bold text-zinc-900">Custom Mockup Placer</h3>
-              <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-indigo-100 text-indigo-800">
-                {{ getMockupDisplayName(productType) }}
+              <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-indigo-100 text-indigo-800 inline-flex items-center gap-1">
+                <Icon :name="getProductIcon(productType)" class="size-3 text-indigo-700" aria-hidden="true" />
+                <span>{{ getMockupDisplayName(productType) }}</span>
               </span>
             </div>
             <p class="text-xs text-zinc-500">Upload, preview, and position your master artwork on {{ getMockupDisplayName(productType) }}</p>
@@ -413,9 +359,10 @@ async function handleComposite(): Promise<void> {
         <button
           type="button"
           class="h-8 w-8 rounded-lg hover:bg-zinc-200/70 text-zinc-400 hover:text-zinc-700 flex items-center justify-center transition-colors cursor-pointer"
+          aria-label="Close modal"
           @click="emit('update:open', false)"
         >
-          <X class="h-4 w-4" />
+          <Icon name="lucide:x" class="size-4" aria-hidden="true" />
         </button>
       </div>
 
@@ -427,7 +374,7 @@ async function handleComposite(): Promise<void> {
           :class="activeSubTab === 'upload' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900 bg-zinc-100'"
           @click="activeSubTab = 'upload'"
         >
-          <Upload class="h-3.5 w-3.5" />
+          <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
           <span>Upload New {{ getMockupDisplayName(productType) }} Photo</span>
         </button>
 
@@ -437,7 +384,7 @@ async function handleComposite(): Promise<void> {
           :class="activeSubTab === 'library' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900 bg-zinc-100'"
           @click="activeSubTab = 'library'"
         >
-          <BookmarkPlus class="h-3.5 w-3.5" />
+          <Icon name="lucide:bookmark-plus" class="size-3.5" aria-hidden="true" />
           <span>Saved {{ getMockupDisplayName(productType) }} Library ({{ templates.length }})</span>
         </button>
       </div>
@@ -469,7 +416,7 @@ async function handleComposite(): Promise<void> {
 
             <div class="space-y-2 py-4">
               <div class="h-12 w-12 mx-auto rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
-                <Upload class="h-6 w-6" />
+                <Icon name="lucide:upload" class="size-6" aria-hidden="true" />
               </div>
               <div class="text-xs font-semibold text-zinc-700">
                 <span class="text-indigo-600 hover:underline">Click to upload {{ getMockupDisplayName(productType) }} photo</span> or drag and drop
@@ -541,8 +488,12 @@ async function handleComposite(): Promise<void> {
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
               <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
-                <Move v-if="canvasViewMode === 'edit'" class="h-3.5 w-3.5 text-indigo-600" />
-                <Eye v-else class="h-3.5 w-3.5 text-emerald-600" />
+                <Icon
+                  :name="canvasViewMode === 'edit' ? 'lucide:move' : 'lucide:eye'"
+                  class="size-3.5"
+                  :class="canvasViewMode === 'edit' ? 'text-indigo-600' : 'text-emerald-600'"
+                  aria-hidden="true"
+                />
                 <span>{{ canvasViewMode === 'edit' ? 'Interactive Placement Canvas' : 'Realistic Mockup Preview' }}</span>
               </h4>
             </div>
@@ -555,7 +506,7 @@ async function handleComposite(): Promise<void> {
                 :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
                 @click="canvasViewMode = 'edit'"
               >
-                <Sliders class="h-3 w-3" />
+                <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
                 <span>Edit & Position</span>
               </button>
 
@@ -565,7 +516,7 @@ async function handleComposite(): Promise<void> {
                 :class="canvasViewMode === 'preview' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
                 @click="canvasViewMode = 'preview'"
               >
-                <Eye class="h-3 w-3" />
+                <Icon name="lucide:eye" class="size-3" aria-hidden="true" />
                 <span>Full Realistic Preview</span>
               </button>
             </div>
@@ -573,11 +524,13 @@ async function handleComposite(): Promise<void> {
 
           <!-- Instruction hint -->
           <div class="text-[11px] text-zinc-500 flex items-center justify-between">
-            <span v-if="canvasViewMode === 'edit'">
-              💡 <strong>Click & drag</strong> box to move · <strong>Drag corner handle</strong> to resize
+            <span v-if="canvasViewMode === 'edit'" class="flex items-center gap-1">
+              <Icon name="lucide:lightbulb" class="size-3.5 text-amber-500" aria-hidden="true" />
+              <span><strong>Click & drag</strong> box to move · <strong>Drag corner handle</strong> to resize</span>
             </span>
             <span v-else class="text-emerald-700 font-medium flex items-center gap-1">
-              ✨ Viewing photorealistic preview with natural fabric folds and shadows
+              <Icon name="lucide:sparkles" class="size-3.5 text-emerald-600" aria-hidden="true" />
+              <span>Viewing photorealistic preview with natural fabric folds and shadows</span>
             </span>
 
             <span class="font-mono text-[10px] text-zinc-400">
@@ -598,83 +551,72 @@ async function handleComposite(): Promise<void> {
             />
 
             <!-- Alignment Center Lines (only in edit mode) -->
+            <template v-if="canvasViewMode === 'edit'">
+              <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/40 pointer-events-none" />
+              <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/40 pointer-events-none" />
+            </template>
+
+            <!-- EDIT MODE: Draggable and Resizable Bounding Box -->
             <div
               v-if="canvasViewMode === 'edit'"
-              class="absolute inset-0 pointer-events-none transition-opacity duration-150"
-              :class="isDragging || isResizing ? 'opacity-100' : 'opacity-0'"
-            >
-              <div class="absolute top-0 bottom-0 left-1/2 w-px bg-indigo-500/40 border-l border-dashed border-indigo-400"></div>
-              <div class="absolute left-0 right-0 top-1/2 h-px bg-indigo-500/40 border-t border-dashed border-indigo-400"></div>
-            </div>
-
-            <!-- Artwork Box (Interactive in edit mode, Clean in preview mode) -->
-            <div
-              class="absolute transition-shadow"
-              :class="[
-                canvasViewMode === 'edit'
-                  ? 'border-2 border-indigo-500 bg-indigo-500/10 rounded-xs cursor-grab active:cursor-grabbing ring-1 ring-white/60 shadow-lg group z-10'
-                  : 'z-10 pointer-events-none'
-              ]"
+              class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-sm transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
               :style="{
                 left: `${leftPct}%`,
                 top: `${topPct}%`,
                 width: `${widthPct}%`,
                 height: `${heightPct}%`,
               }"
-              @pointerdown.stop="startDragMove"
+              @pointerdown="onArtworkPointerDown"
             >
-              <!-- Live Artwork Preview with Blend Mode -->
-              <div
-                class="w-full h-full flex items-center justify-center p-0.5 pointer-events-none"
-                :style="{
-                  mixBlendMode: blendMode === 'multiply' ? 'multiply' : 'normal',
-                }"
-              >
-                <img
-                  v-if="masterImageUrl"
-                  :src="masterImageUrl"
-                  alt="Master PNG Artwork"
-                  class="w-full h-full object-contain filter drop-shadow-xs"
-                />
-                <div v-else class="text-center text-indigo-800 font-bold text-[10px] p-1 bg-white/80 rounded border border-indigo-200">
-                  Print PNG
-                </div>
+              <!-- Coordinates tooltip pill -->
+              <div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-zinc-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-xs flex items-center gap-1">
+                <Icon name="lucide:move" class="size-2.5 text-indigo-400" aria-hidden="true" />
+                <span>{{ leftPct }}%, {{ topPct }}% ({{ widthPct }}×{{ heightPct }}%)</span>
               </div>
 
-              <!-- Floating Coordinates Tooltip while dragging -->
-              <div
-                v-if="canvasViewMode === 'edit' && (isDragging || isResizing)"
-                class="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-zinc-900/90 text-white rounded text-[10px] font-mono whitespace-nowrap pointer-events-none shadow-md z-20"
-              >
-                X: {{ leftPct }}% · Y: {{ topPct }}% · W: {{ widthPct }}%
+              <!-- Artwork Preview Thumbnail -->
+              <img
+                v-if="masterImageUrl"
+                :src="masterImageUrl"
+                alt="Artwork"
+                class="w-full h-full object-contain pointer-events-none select-none drop-shadow-md"
+                :class="blendMode === 'multiply' ? 'mix-blend-multiply' : 'mix-blend-normal'"
+              />
+              <div v-else class="text-center p-2 pointer-events-none">
+                <Icon name="lucide:image" class="size-6 text-indigo-700 mx-auto mb-0.5" aria-hidden="true" />
+                <span class="text-[10px] font-bold text-indigo-900 block leading-tight">Master Print Area</span>
               </div>
 
-              <!-- Resize Handle in Bottom-Right Corner (only in edit mode) -->
+              <!-- Corner Scaling Handle (Bottom-Right) -->
               <div
-                v-if="canvasViewMode === 'edit'"
-                class="absolute -bottom-2 -right-2 h-5 w-5 bg-indigo-600 border-2 border-white rounded-full cursor-se-resize flex items-center justify-center text-white shadow-md z-30 hover:scale-125 transition-transform"
+                class="absolute -bottom-2 -right-2 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
                 title="Drag to resize print area"
-                @pointerdown.stop="startDragResize"
+                @pointerdown="onResizeHandlePointerDown"
               >
-                <Maximize2 class="h-2.5 w-2.5" />
-              </div>
-
-              <!-- Top-Left Move Indicator (only in edit mode) -->
-              <div
-                v-if="canvasViewMode === 'edit'"
-                class="absolute top-1 left-1 p-0.5 bg-indigo-600/80 text-white rounded-xs opacity-70 group-hover:opacity-100 pointer-events-none"
-              >
-                <Move class="h-2 w-2" />
+                <Icon name="lucide:maximize-2" class="size-2 text-white" aria-hidden="true" />
               </div>
             </div>
 
-            <!-- Preview Mode Badge Overlay -->
+            <!-- PREVIEW MODE: Clean Natural Composite Rendering -->
             <div
-              v-if="canvasViewMode === 'preview'"
-              class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-zinc-900/80 text-white text-[10px] font-medium backdrop-blur-xs flex items-center gap-1 shadow-md pointer-events-none"
+              v-else-if="masterImageUrl"
+              class="absolute pointer-events-none flex items-center justify-center"
+              :style="{
+                left: `${leftPct}%`,
+                top: `${topPct}%`,
+                width: `${widthPct}%`,
+                height: `${heightPct}%`,
+              }"
             >
-              <Eye class="h-3 w-3 text-emerald-400" />
-              <span>Full Preview Mode</span>
+              <img
+                :src="masterImageUrl"
+                alt="Artwork Preview"
+                class="w-full h-full object-contain pointer-events-none select-none"
+                :class="blendMode === 'multiply' ? 'mix-blend-multiply opacity-95' : 'mix-blend-normal opacity-95'"
+                :style="{
+                  filter: blendMode === 'multiply' ? 'contrast(1.05) brightness(0.98)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))'
+                }"
+              />
             </div>
           </div>
 
@@ -687,7 +629,7 @@ async function handleComposite(): Promise<void> {
                 class="text-[11px] px-2 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-md font-medium flex items-center gap-1 transition-colors cursor-pointer"
                 @click="centerHorizontally"
               >
-                <AlignCenter class="h-3 w-3" />
+                <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
                 <span>Center Horizontally</span>
               </button>
               <button
@@ -695,7 +637,7 @@ async function handleComposite(): Promise<void> {
                 class="text-[11px] px-2 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-md font-medium flex items-center gap-1 transition-colors cursor-pointer"
                 @click="centerVertically"
               >
-                <AlignCenter class="h-3 w-3 rotate-90" />
+                <Icon name="lucide:align-center" class="size-3 rotate-90" aria-hidden="true" />
                 <span>Center Vertically</span>
               </button>
             </div>
@@ -724,7 +666,7 @@ async function handleComposite(): Promise<void> {
         <div class="border-t border-zinc-100 pt-4 space-y-3">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
-              <Sliders class="h-3.5 w-3.5 text-indigo-600" />
+              <Icon name="lucide:sliders-horizontal" class="size-3.5 text-indigo-600" aria-hidden="true" />
               <span>Fabric Texture & Blend Mode</span>
             </h4>
             <div class="flex items-center gap-1">
@@ -791,7 +733,7 @@ async function handleComposite(): Promise<void> {
           class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
           @click="canvasViewMode = 'preview'"
         >
-          <Eye class="h-3.5 w-3.5" />
+          <Icon name="lucide:eye" class="size-3.5" aria-hidden="true" />
           <span>Switch to Full Realistic Preview</span>
         </button>
 
@@ -801,7 +743,7 @@ async function handleComposite(): Promise<void> {
           class="text-xs font-semibold text-zinc-600 hover:text-zinc-900 flex items-center gap-1 cursor-pointer"
           @click="canvasViewMode = 'edit'"
         >
-          <Sliders class="h-3.5 w-3.5" />
+          <Icon name="lucide:sliders-horizontal" class="size-3.5" aria-hidden="true" />
           <span>Back to Adjust Position</span>
         </button>
 
@@ -818,8 +760,8 @@ async function handleComposite(): Promise<void> {
             :disabled="isCompositing || (activeSubTab === 'upload' && !uploadedFile) || (activeSubTab === 'library' && !selectedTemplateId)"
             @click="handleComposite"
           >
-            <Loader2 v-if="isCompositing" class="h-3.5 w-3.5 animate-spin" />
-            <Sparkles v-else class="h-3.5 w-3.5" />
+            <Icon v-if="isCompositing" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+            <Icon v-else name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
             <span>{{ isCompositing ? 'Compositing Mockup...' : `Generate ${getMockupDisplayName(productType)} Mockup` }}</span>
           </Button>
         </div>

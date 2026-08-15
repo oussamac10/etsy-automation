@@ -1,14 +1,4 @@
 <script setup lang="ts">
-import {
-  Sparkles,
-  Lightbulb,
-  Target,
-  RotateCw,
-  ShoppingBag,
-  ArrowRight,
-  Printer,
-  Palette,
-} from "lucide-vue-next";
 import Card from "~/components/ui/Card.vue";
 import CardHeader from "~/components/ui/CardHeader.vue";
 import CardTitle from "~/components/ui/CardTitle.vue";
@@ -17,6 +7,7 @@ import CardContent from "~/components/ui/CardContent.vue";
 import Badge from "~/components/ui/Badge.vue";
 import Button from "~/components/ui/Button.vue";
 import { isStopped } from "~/composables/useWorkflowControls";
+import { getProductIcon } from "~/config/icons";
 
 interface Workflow {
   id: string;
@@ -71,6 +62,15 @@ const emit = defineEmits<{
   (e: "control", action: string, options?: Record<string, unknown>): void;
   (e: "navigate", tab: string): void;
 }>();
+
+function formatProductLabel(product: string): string {
+  const norm = product.toLowerCase().replace(/[- ]/g, "_");
+  if (norm.includes("mug") || norm.includes("cup")) return "Ceramic Mug";
+  if (norm.includes("sweatshirt") || norm.includes("hoodie")) return "Sweatshirt";
+  if (norm.includes("tshirt") || norm.includes("t_shirt") || norm.includes("shirt")) return "T-Shirt";
+  if (norm.includes("tote") || norm.includes("bag")) return "Tote Bag";
+  return product.charAt(0).toUpperCase() + product.slice(1);
+}
 </script>
 
 <template>
@@ -86,17 +86,17 @@ const emit = defineEmits<{
           variant="default"
           size="sm"
           :disabled="pendingWorkflowId === workflow.id"
-          class="gap-1.5 font-semibold shadow-2xs bg-indigo-600 hover:bg-indigo-700"
+          class="gap-1.5 font-semibold shadow-2xs bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
           @click="emit('control', 'rerun')"
         >
-          <RotateCw class="h-3.5 w-3.5" />
+          <Icon name="lucide:rotate-cw" class="size-3.5" aria-hidden="true" />
           <span>Resume from Current Step</span>
         </Button>
         <Button
           variant="outline"
           size="sm"
           :disabled="pendingWorkflowId === workflow.id"
-          class="gap-1.5 text-xs text-zinc-600 border-zinc-200 bg-white hover:bg-zinc-100"
+          class="gap-1.5 text-xs text-zinc-600 border-zinc-200 bg-white hover:bg-zinc-100 cursor-pointer"
           @click="emit('control', 'rerun', { fromScratch: true })"
         >
           <span>Restart from Brief (New Research)</span>
@@ -112,13 +112,13 @@ const emit = defineEmits<{
       >
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Phase 1–5</span>
-          <Sparkles class="h-4 w-4 text-indigo-600" />
+          <Icon name="lucide:sparkles" class="size-4 text-indigo-600" aria-hidden="true" />
         </div>
         <h3 class="text-sm font-bold text-zinc-900">Market Concepts & Research</h3>
         <p class="text-xs text-zinc-500">Review AI idea analysis, scoring, IP risk checks, and prompt versions.</p>
         <div class="pt-2 flex items-center text-xs font-bold text-indigo-600 gap-1">
           <span>Open Concepts</span>
-          <ArrowRight class="h-3.5 w-3.5" />
+          <Icon name="lucide:arrow-right" class="size-3.5" aria-hidden="true" />
         </div>
       </div>
 
@@ -128,13 +128,13 @@ const emit = defineEmits<{
       >
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Phase 6</span>
-          <Palette class="h-4 w-4 text-indigo-600" />
+          <Icon name="lucide:image" class="size-4 text-indigo-600" aria-hidden="true" />
         </div>
         <h3 class="text-sm font-bold text-zinc-900">Artwork Studio & Review</h3>
         <p class="text-xs text-zinc-500">Configure Recraft/Gemini generators, review candidate designs, and refine.</p>
         <div class="pt-2 flex items-center text-xs font-bold text-indigo-600 gap-1">
           <span>Open Artwork Studio</span>
-          <ArrowRight class="h-3.5 w-3.5" />
+          <Icon name="lucide:arrow-right" class="size-3.5" aria-hidden="true" />
         </div>
       </div>
 
@@ -144,13 +144,13 @@ const emit = defineEmits<{
       >
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Phase 7</span>
-          <Printer class="h-4 w-4 text-indigo-600" />
+          <Icon name="lucide:file-image" class="size-4 text-indigo-600" aria-hidden="true" />
         </div>
         <h3 class="text-sm font-bold text-zinc-900">PNG Master & Mockups</h3>
         <p class="text-xs text-zinc-500">Deterministic 4500×5400 px master print PNG, QA validation, and realistic mockups.</p>
         <div class="pt-2 flex items-center text-xs font-bold text-indigo-600 gap-1">
           <span>Open Production Gallery</span>
-          <ArrowRight class="h-3.5 w-3.5" />
+          <Icon name="lucide:arrow-right" class="size-3.5" aria-hidden="true" />
         </div>
       </div>
     </div>
@@ -161,7 +161,7 @@ const emit = defineEmits<{
       <Card class="shadow-2xs">
         <CardHeader class="pb-3 border-b border-zinc-100 bg-zinc-50/50">
           <div class="flex items-center gap-2">
-            <Target class="h-4 w-4 text-indigo-600" />
+            <Icon name="lucide:target" class="size-4 text-indigo-600" aria-hidden="true" />
             <CardTitle class="text-base font-bold">Campaign Target Specifications</CardTitle>
           </div>
           <CardDescription class="text-xs text-zinc-500">
@@ -188,8 +188,9 @@ const emit = defineEmits<{
           <div>
             <span class="text-zinc-400 block uppercase tracking-wider text-[10px] font-semibold mb-1.5">Intended Physical Products</span>
             <div class="flex flex-wrap gap-1.5">
-              <Badge v-for="use in workflow.intended_product_uses" :key="use" variant="secondary" class="text-[11px] px-2.5 py-0.5">
-                {{ use === 'tshirt' ? '👕 T-Shirt' : use === 'sweatshirt' ? '🧥 Sweatshirt' : use === 'tote_bag' || use === 'tote' ? '👜 Tote Bag' : use === 'mug' ? '☕ Ceramic Mug' : use }}
+              <Badge v-for="use in workflow.intended_product_uses" :key="use" variant="secondary" class="text-[11px] px-2.5 py-1 inline-flex items-center gap-1.5">
+                <Icon :name="getProductIcon(use)" class="size-3.5 text-zinc-500" aria-hidden="true" />
+                <span>{{ formatProductLabel(use) }}</span>
               </Badge>
             </div>
           </div>
@@ -200,7 +201,7 @@ const emit = defineEmits<{
       <Card v-if="originalIdea" class="shadow-2xs bg-indigo-50/20 border-indigo-100">
         <CardHeader class="pb-3 border-b border-indigo-100/60 bg-indigo-50/40">
           <div class="flex items-center gap-2">
-            <Lightbulb class="h-4 w-4 text-indigo-600" />
+            <Icon name="lucide:lightbulb" class="size-4 text-indigo-600" aria-hidden="true" />
             <CardTitle class="text-base font-bold">
               Original {{ workflow.idea_mode === 'hybrid' ? 'Theme / Direction Brief' : 'Idea Brief' }}
             </CardTitle>

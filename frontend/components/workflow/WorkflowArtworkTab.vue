@@ -1,14 +1,5 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import {
-  Palette,
-  CheckCircle2,
-  AlertCircle,
-  RotateCw,
-  Sparkles,
-  Check,
-  Image as ImageIcon,
-} from "lucide-vue-next";
 import Card from "~/components/ui/Card.vue";
 import CardHeader from "~/components/ui/CardHeader.vue";
 import CardTitle from "~/components/ui/CardTitle.vue";
@@ -129,7 +120,7 @@ watch(artProvider, (newVal) => {
       <CardHeader class="pb-4 border-b border-zinc-100 bg-zinc-50/50">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <Palette class="h-5 w-5 text-indigo-600" />
+            <Icon name="lucide:image" class="size-5 text-indigo-600" aria-hidden="true" />
             <div>
               <CardTitle class="text-lg font-bold">Phase 6: Artwork Generation & Approval (Gate 2)</CardTitle>
               <CardDescription class="text-xs text-zinc-500">
@@ -137,8 +128,8 @@ watch(artProvider, (newVal) => {
               </CardDescription>
             </div>
           </div>
-          <Badge v-if="workflow.state === 'ARTWORK_APPROVED' || latestProductionJob !== null" variant="success" class="gap-1 px-3 py-1 font-semibold">
-            <Check class="h-3 w-3" />
+          <Badge v-if="workflow.state === 'ARTWORK_APPROVED' || latestProductionJob !== null" variant="success" class="gap-1 px-3 py-1 font-semibold inline-flex items-center">
+            <Icon name="lucide:check" class="size-3" aria-hidden="true" />
             <span>Artwork Approved</span>
           </Badge>
         </div>
@@ -182,7 +173,7 @@ watch(artProvider, (newVal) => {
               <select
                 id="image-provider"
                 v-model="artProvider"
-                class="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                class="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
               >
                 <option value="recraft">Recraft V4.1 (Vector & Illustration)</option>
                 <option value="gemini">Google Gemini (Photo & Creative)</option>
@@ -193,7 +184,7 @@ watch(artProvider, (newVal) => {
               <select
                 id="model-profile"
                 v-model="artModel"
-                class="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                class="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
               >
                 <option value="recraftv4_1">Recraft V4.1 (Standard)</option>
                 <option value="recraftv4_1_pro">Recraft V4.1 Pro (Premium, 1 Candidate)</option>
@@ -202,7 +193,7 @@ watch(artProvider, (newVal) => {
           </div>
 
           <Alert v-if="artworkError" variant="destructive">
-            <AlertCircle class="h-4 w-4" />
+            <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
             <AlertDescription>{{ artworkError }}</AlertDescription>
           </Alert>
 
@@ -212,10 +203,10 @@ watch(artProvider, (newVal) => {
               variant="default"
               size="default"
               :loading="isArtworkLoading"
-              class="font-bold shadow-md shadow-indigo-600/20 bg-indigo-600 hover:bg-indigo-700 px-6"
+              class="font-bold shadow-md shadow-indigo-600/20 bg-indigo-600 hover:bg-indigo-700 px-6 cursor-pointer inline-flex items-center"
               @click="emit('generate', artProvider, artModel)"
             >
-              <Sparkles class="h-4 w-4 mr-1.5" />
+              <Icon name="lucide:wand-sparkles" class="size-4 mr-1.5" aria-hidden="true" />
               <span>Generate Artwork</span>
             </Button>
           </div>
@@ -223,7 +214,7 @@ watch(artProvider, (newVal) => {
 
         <!-- Inner state 2: queued / running -->
         <div v-else-if="workflow.state === 'ART_QUEUED' || workflow.state === 'ART_GENERATION'" class="py-12 text-center space-y-3">
-          <RotateCw class="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
+          <Icon name="lucide:loader-circle" class="size-8 animate-spin text-indigo-600 mx-auto" aria-hidden="true" />
           <h4 class="text-base font-bold text-zinc-900">Artwork generation in progress...</h4>
           <p class="text-xs text-zinc-500 max-w-sm mx-auto">
             Our background worker is calling Recraft/Gemini to generate transparent-background PNG/SVG candidates matching the approved prompt. This will automatically refresh.
@@ -233,7 +224,7 @@ watch(artProvider, (newVal) => {
         <!-- Inner state 3: failed -->
         <div v-else-if="workflow.state === 'ART_GENERATION_FAILED'" class="space-y-4">
           <Alert variant="destructive">
-            <AlertCircle class="h-4 w-4" />
+            <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
             <AlertTitle>Artwork Generation Failed</AlertTitle>
             <AlertDescription class="text-xs mt-1">
               Reason: {{ artworkJobs[0]?.failure_message || 'An unexpected error occurred during image generation.' }}
@@ -241,10 +232,10 @@ watch(artProvider, (newVal) => {
           </Alert>
 
           <div class="flex justify-center gap-3">
-            <Button variant="destructive" size="sm" @click="emit('generate', artProvider, artModel)">
+            <Button variant="destructive" size="sm" class="cursor-pointer" @click="emit('generate', artProvider, artModel)">
               Retry Generation
             </Button>
-            <Button variant="outline" size="sm" @click="emit('regenerate')">
+            <Button variant="outline" size="sm" class="cursor-pointer" @click="emit('regenerate')">
               Reconfigure Parameters
             </Button>
           </div>
@@ -261,7 +252,7 @@ watch(artProvider, (newVal) => {
               v-if="workflow.state === 'ART_REVIEW'"
               variant="ghost"
               size="sm"
-              class="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+              class="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
               @click="emit('rejectAll', artworkJobs[0]?.id, workflow.version)"
             >
               Reject All Options
@@ -269,7 +260,7 @@ watch(artProvider, (newVal) => {
           </div>
 
           <Alert v-if="artworkError" variant="destructive">
-            <AlertCircle class="h-4 w-4" />
+            <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
             <AlertDescription>{{ artworkError }}</AlertDescription>
           </Alert>
 
@@ -300,9 +291,9 @@ watch(artProvider, (newVal) => {
                 <Badge
                   v-if="asset.id === chosenCandidateId"
                   variant="success"
-                  class="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0 font-bold shadow-xs gap-0.5"
+                  class="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0 font-bold shadow-xs gap-0.5 inline-flex items-center"
                 >
-                  <CheckCircle2 class="h-2.5 w-2.5" />
+                  <Icon name="lucide:circle-check" class="size-2.5" aria-hidden="true" />
                   <span>Chosen</span>
                 </Badge>
               </div>
@@ -318,7 +309,7 @@ watch(artProvider, (newVal) => {
                   <Button
                     variant="outline"
                     size="sm"
-                    class="text-[11px] h-7 px-1.5 font-medium"
+                    class="text-[11px] h-7 px-1.5 font-medium cursor-pointer"
                     @click.stop="emit('refine', asset.id)"
                   >
                     Refine Option
@@ -326,7 +317,7 @@ watch(artProvider, (newVal) => {
                   <Button
                     variant="success"
                     size="sm"
-                    class="text-[11px] h-7 px-1.5 font-bold"
+                    class="text-[11px] h-7 px-1.5 font-bold cursor-pointer"
                     @click.stop="emit('approve', asset.id)"
                   >
                     Approve Artwork
@@ -339,18 +330,18 @@ watch(artProvider, (newVal) => {
                     v-if="asset.id === chosenCandidateId"
                     class="flex items-center justify-center gap-1 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/60 rounded border border-emerald-200"
                   >
-                    <CheckCircle2 class="h-3 w-3" />
+                    <Icon name="lucide:circle-check" class="size-3" aria-hidden="true" />
                     <span>Active in Master</span>
                   </div>
                   <Button
                     v-else
                     variant="outline"
                     size="sm"
-                    class="w-full text-[11px] font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50 gap-1 h-7 px-1"
+                    class="w-full text-[11px] font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50 gap-1 h-7 px-1 cursor-pointer inline-flex items-center"
                     :disabled="isProductionLoading"
                     @click.stop="emit('switchCandidate', asset.id)"
                   >
-                    <Sparkles class="h-3 w-3" />
+                    <Icon name="lucide:sparkles" class="size-3" aria-hidden="true" />
                     <span>Switch & Produce</span>
                   </Button>
                 </div>
@@ -361,8 +352,8 @@ watch(artProvider, (newVal) => {
           <!-- Regeneration Option -->
           <div v-if="workflow.state === 'ART_REVIEW'" class="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
             <p class="text-xs text-zinc-500 mb-2">Not satisfied with any of these candidate options?</p>
-            <Button variant="outline" size="sm" class="text-xs gap-1.5" @click="emit('regenerate')">
-              <RotateCw class="h-3.5 w-3.5" />
+            <Button variant="outline" size="sm" class="text-xs gap-1.5 cursor-pointer inline-flex items-center" @click="emit('regenerate')">
+              <Icon name="lucide:refresh-cw" class="size-3.5" aria-hidden="true" />
               <span>Regenerate All Options</span>
             </Button>
           </div>

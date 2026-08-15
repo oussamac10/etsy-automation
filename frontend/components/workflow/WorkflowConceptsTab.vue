@@ -1,13 +1,4 @@
 <script setup lang="ts">
-import {
-  Sparkles,
-  CheckCircle2,
-  AlertCircle,
-  RotateCw,
-  Edit3,
-  Star,
-  ShieldAlert,
-} from "lucide-vue-next";
 import Card from "~/components/ui/Card.vue";
 import CardHeader from "~/components/ui/CardHeader.vue";
 import CardTitle from "~/components/ui/CardTitle.vue";
@@ -95,7 +86,7 @@ const emit = defineEmits<{
       v-if="workflow.state === 'RESEARCH_QUEUED' || workflow.state === 'RESEARCHING'"
       class="p-8 text-center bg-indigo-50/40 border-indigo-100 shadow-2xs"
     >
-      <RotateCw class="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-3" />
+      <Icon name="lucide:loader-circle" class="size-8 animate-spin text-indigo-600 mx-auto mb-3" aria-hidden="true" />
       <h2 class="text-lg font-bold text-zinc-900 mb-1">AI Market Research in Progress</h2>
       <p class="text-xs text-zinc-500 max-w-md mx-auto">
         Our background worker is analyzing seasonal demand on Etsy, matching keyword query angles, screening trademarks, and drafting structured prompts. This will automatically refresh.
@@ -108,14 +99,15 @@ const emit = defineEmits<{
       class="p-8 text-center bg-rose-50/50 border-rose-200"
     >
       <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 mb-3">
-        <AlertCircle class="h-6 w-6" />
+        <Icon name="lucide:circle-alert" class="size-6" aria-hidden="true" />
       </div>
       <h2 class="text-lg font-bold text-rose-900 mb-1">Research Campaign Failed</h2>
       <p class="text-xs text-rose-700 max-w-md mx-auto mb-4">
         Reason: {{ latestRun?.failure_reason || 'An unexpected worker error occurred.' }}
       </p>
-      <Button variant="destructive" size="default" class="font-semibold" @click="emit('startResearch')">
-        Retry Campaign Research
+      <Button variant="destructive" size="default" class="font-semibold cursor-pointer" @click="emit('startResearch')">
+        <Icon name="lucide:rotate-ccw" class="size-4 mr-1.5" aria-hidden="true" />
+        <span>Retry Campaign Research</span>
       </Button>
     </Card>
 
@@ -123,7 +115,7 @@ const emit = defineEmits<{
     <div v-else class="space-y-6">
       <!-- State Info / Guidance Alerts -->
       <Alert v-if="workflow.state === 'IDEA_REVIEW'" variant="info">
-        <Sparkles class="h-4 w-4" />
+        <Icon name="lucide:sparkles" class="size-4 text-indigo-600" aria-hidden="true" />
         <div>
           <AlertTitle class="font-bold text-zinc-900">Choose one concept to continue.</AlertTitle>
           <AlertDescription class="text-xs text-zinc-600 mt-0.5">
@@ -133,7 +125,7 @@ const emit = defineEmits<{
       </Alert>
 
       <Alert v-if="workflow.state === 'IDEA_APPROVED'" variant="success">
-        <CheckCircle2 class="h-4 w-4" />
+        <Icon name="lucide:circle-check" class="size-4 text-emerald-600" aria-hidden="true" />
         <div>
           <AlertTitle class="font-bold text-emerald-900">Concept Approved — Gate 1 Passed</AlertTitle>
           <AlertDescription class="text-xs text-emerald-700 mt-0.5">
@@ -177,18 +169,20 @@ const emit = defineEmits<{
               <div class="space-y-1">
                 <div class="flex items-center gap-2 flex-wrap">
                   <CardTitle class="text-lg font-bold">{{ concept.title }}</CardTitle>
-                  <Badge v-if="concept.status?.toUpperCase() === 'APPROVED'" variant="success" class="text-[10px] px-2 py-0 font-bold">
-                    Selected Concept
+                  <Badge v-if="concept.status?.toUpperCase() === 'APPROVED'" variant="success" class="text-[10px] px-2 py-0 font-bold inline-flex items-center gap-1">
+                    <Icon name="lucide:circle-check" class="size-3 text-emerald-700" aria-hidden="true" />
+                    <span>Selected Concept</span>
                   </Badge>
-                  <Badge v-if="concept.status?.toUpperCase() === 'REJECTED'" variant="destructive" class="text-[10px] px-2 py-0">
-                    Rejected
+                  <Badge v-if="concept.status?.toUpperCase() === 'REJECTED'" variant="destructive" class="text-[10px] px-2 py-0 inline-flex items-center gap-1">
+                    <Icon name="lucide:circle-x" class="size-3 text-rose-700" aria-hidden="true" />
+                    <span>Rejected</span>
                   </Badge>
                 </div>
                 <p class="text-xs text-zinc-400">Origin: {{ concept.origin }}</p>
               </div>
 
-              <Badge variant="outline" class="gap-1 font-bold text-xs bg-indigo-50 text-indigo-700 border-indigo-200 px-2.5 py-1">
-                <Star class="h-3 w-3 fill-indigo-600 text-indigo-600" />
+              <Badge variant="outline" class="gap-1 font-bold text-xs bg-indigo-50 text-indigo-700 border-indigo-200 px-2.5 py-1 inline-flex items-center">
+                <Icon name="lucide:gauge" class="size-3 text-indigo-600" aria-hidden="true" />
                 <span>{{ concept.score ? concept.score.toFixed(2) : 'N/A' }} / 5.0</span>
               </Badge>
             </div>
@@ -209,7 +203,7 @@ const emit = defineEmits<{
               class="rounded-lg bg-rose-50 p-3 border border-rose-200 text-rose-900"
             >
               <div class="flex items-center gap-1.5 font-bold text-[11px]">
-                <ShieldAlert class="h-3.5 w-3.5 text-rose-600" />
+                <Icon name="lucide:shield-alert" class="size-3.5 text-rose-600" aria-hidden="true" />
                 <span>IP Risk Level: {{ concept.risk_level.toUpperCase() }}</span>
               </div>
               <p class="mt-0.5 text-rose-700 text-[11px]">{{ concept.risk_note }}</p>
@@ -233,10 +227,10 @@ const emit = defineEmits<{
                   v-if="workflow.state === 'IDEA_REVIEW' && ['PROPOSED', 'SHORTLISTED'].includes(concept.status?.toUpperCase())"
                   variant="ghost"
                   size="sm"
-                  class="h-6 px-2 text-xs font-bold text-indigo-700 hover:text-indigo-800"
+                  class="h-6 px-2 text-xs font-bold text-indigo-700 hover:text-indigo-800 cursor-pointer inline-flex items-center gap-1"
                   @click="emit('editPrompt', concept.id)"
                 >
-                  <Edit3 class="h-3 w-3 mr-1" />
+                  <Icon name="lucide:pencil" class="size-3" aria-hidden="true" />
                   <span>Edit Prompt</span>
                 </Button>
               </div>
@@ -260,18 +254,20 @@ const emit = defineEmits<{
             <Button
               variant="outline"
               size="sm"
-              class="text-rose-700 hover:bg-rose-50 hover:border-rose-200"
+              class="text-rose-700 hover:bg-rose-50 hover:border-rose-200 cursor-pointer inline-flex items-center gap-1.5"
               @click="emit('decideGate', concept.id, 'REJECTED')"
             >
-              Reject Concept
+              <Icon name="lucide:circle-x" class="size-3.5" aria-hidden="true" />
+              <span>Reject Concept</span>
             </Button>
             <Button
               variant="success"
               size="sm"
-              class="font-bold"
+              class="font-bold cursor-pointer inline-flex items-center gap-1.5"
               @click="emit('decideGate', concept.id, 'APPROVED')"
             >
-              Approve This Concept
+              <Icon name="lucide:circle-check" class="size-3.5" aria-hidden="true" />
+              <span>Approve This Concept</span>
             </Button>
           </CardFooter>
         </Card>

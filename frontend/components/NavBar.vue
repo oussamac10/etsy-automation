@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /* global useRouter */
 import { useAuthStore } from "~/stores/auth";
-import { LayoutDashboard, Settings, LogOut, User, Sparkles } from "lucide-vue-next";
 import Button from "~/components/ui/Button.vue";
 
 const auth = useAuthStore();
@@ -29,7 +28,7 @@ async function handleLogout() {
           class="flex items-center gap-2.5 text-base font-bold tracking-tight text-zinc-900 hover:text-indigo-600 transition-colors group"
         >
           <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-2xs group-hover:bg-indigo-700 transition-colors">
-            <Sparkles class="h-4 w-4" />
+            <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
           </div>
           <span>Etsy Automation</span>
         </NuxtLink>
@@ -40,7 +39,7 @@ async function handleLogout() {
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
             active-class="bg-indigo-50 text-indigo-700 font-semibold"
           >
-            <LayoutDashboard class="h-3.5 w-3.5" />
+            <Icon name="lucide:layout-dashboard" class="size-3.5" aria-hidden="true" />
             <span>Dashboard</span>
           </NuxtLink>
           <NuxtLink
@@ -49,7 +48,7 @@ async function handleLogout() {
             active-class="bg-indigo-50 text-indigo-700 font-semibold"
             data-testid="nav-settings-link"
           >
-            <Settings class="h-3.5 w-3.5" />
+            <Icon name="lucide:settings" class="size-3.5" aria-hidden="true" />
             <span>Settings</span>
           </NuxtLink>
         </nav>
@@ -57,7 +56,7 @@ async function handleLogout() {
 
       <div v-if="auth.user" class="flex items-center gap-3">
         <div class="flex items-center gap-2 rounded-full border border-zinc-200/80 bg-zinc-50/80 px-3 py-1 text-xs text-zinc-600 shadow-2xs">
-          <User class="h-3.5 w-3.5 text-zinc-400" />
+          <Icon name="lucide:user" class="size-3.5 text-zinc-400" aria-hidden="true" />
           <span class="hidden sm:inline font-medium" data-testid="user-email">
             {{ auth.user.email }}
           </span>
@@ -66,10 +65,10 @@ async function handleLogout() {
           variant="outline"
           size="sm"
           data-testid="logout-btn"
-          class="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-rose-600 transition-colors"
+          class="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-rose-600 transition-colors cursor-pointer"
           @click="handleLogout"
         >
-          <LogOut class="h-3.5 w-3.5" />
+          <Icon name="lucide:log-out" class="size-3.5" aria-hidden="true" />
           <span class="hidden xs:inline">Logout</span>
         </Button>
       </div>

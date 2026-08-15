@@ -1,13 +1,5 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import {
-  ChevronLeft,
-  CheckCircle2,
-  Square,
-  RotateCw,
-  Trash2,
-  AlertCircle,
-} from "lucide-vue-next";
 import Button from "~/components/ui/Button.vue";
 import Badge from "~/components/ui/Badge.vue";
 import Alert from "~/components/ui/Alert.vue";
@@ -64,7 +56,7 @@ function handleDelete() {
       <div class="space-y-1.5">
         <div class="flex items-center gap-2 text-xs text-zinc-500">
           <NuxtLink to="/" class="flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-700">
-            <ChevronLeft class="h-3.5 w-3.5" />
+            <Icon name="lucide:arrow-left" class="size-3.5" aria-hidden="true" />
             <span>Campaigns</span>
           </NuxtLink>
           <span class="text-zinc-300">/</span>
@@ -92,16 +84,18 @@ function handleDelete() {
                     ? 'destructive'
                     : 'secondary'
           "
-          class="px-3 py-1 text-xs gap-1.5 font-semibold"
+          class="px-3 py-1 text-xs gap-1.5 font-semibold inline-flex items-center"
         >
           <span
             v-if="isWorkflowRunning"
             class="h-2 w-2 rounded-full bg-amber-500 motion-safe:animate-pulse"
             aria-hidden="true"
           />
-          <CheckCircle2
+          <Icon
             v-else-if="workflow.state === 'PRODUCTION' && latestProductionJob?.status === 'SUCCEEDED'"
-            class="h-3.5 w-3.5 text-emerald-600"
+            name="lucide:circle-check"
+            class="size-3.5 text-emerald-600"
+            aria-hidden="true"
           />
           <span>{{ displayStageLabel }}</span>
         </Badge>
@@ -111,10 +105,10 @@ function handleDelete() {
           variant="destructive"
           size="sm"
           :disabled="pendingWorkflowId === workflow.id"
-          class="gap-1.5 shadow-2xs font-semibold"
+          class="gap-1.5 shadow-2xs font-semibold cursor-pointer inline-flex items-center"
           @click="emit('control', 'cancel')"
         >
-          <Square class="h-3.5 w-3.5 fill-current" />
+          <Icon name="lucide:square" class="size-3.5 fill-current" aria-hidden="true" />
           <span>Stop</span>
         </Button>
 
@@ -123,10 +117,10 @@ function handleDelete() {
           variant="default"
           size="sm"
           :disabled="pendingWorkflowId === workflow.id"
-          class="gap-1.5 font-semibold shadow-2xs bg-indigo-600 hover:bg-indigo-700"
+          class="gap-1.5 font-semibold shadow-2xs bg-indigo-600 hover:bg-indigo-700 cursor-pointer inline-flex items-center"
           @click="emit('control', 'rerun')"
         >
-          <RotateCw class="h-3.5 w-3.5" />
+          <Icon name="lucide:play" class="size-3.5" aria-hidden="true" />
           <span>Resume</span>
         </Button>
 
@@ -134,10 +128,10 @@ function handleDelete() {
           v-if="canDelete(workflow.state) && !confirmingDelete"
           variant="outline"
           size="sm"
-          class="gap-1.5 text-zinc-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50"
+          class="gap-1.5 text-zinc-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 cursor-pointer inline-flex items-center"
           @click="confirmingDelete = true"
         >
-          <Trash2 class="h-3.5 w-3.5" />
+          <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
           <span>Delete</span>
         </Button>
 
@@ -150,7 +144,7 @@ function handleDelete() {
             variant="destructive"
             size="sm"
             :disabled="pendingWorkflowId === workflow.id"
-            class="h-6 px-2 text-[11px]"
+            class="h-6 px-2 text-[11px] cursor-pointer"
             @click="handleDelete"
           >
             Delete
@@ -158,7 +152,7 @@ function handleDelete() {
           <Button
             variant="ghost"
             size="sm"
-            class="h-6 px-2 text-[11px]"
+            class="h-6 px-2 text-[11px] cursor-pointer"
             @click="confirmingDelete = false"
           >
             Keep
@@ -168,7 +162,7 @@ function handleDelete() {
     </header>
 
     <Alert v-if="controlError" variant="destructive">
-      <AlertCircle class="h-4 w-4" />
+      <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
       <AlertDescription>{{ controlError }}</AlertDescription>
     </Alert>
   </div>

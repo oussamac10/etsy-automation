@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
-import { Check, ChevronDown, Plus, X } from "lucide-vue-next";
 import Badge from "./Badge.vue";
 
 interface ProductOption {
@@ -10,15 +9,15 @@ interface ProductOption {
 }
 
 const DEFAULT_PRODUCTS: ProductOption[] = [
-  { value: "mug", label: "Ceramic Mug", icon: "☕" },
-  { value: "tshirt", label: "T-Shirt", icon: "👕" },
-  { value: "sweatshirt", label: "Sweatshirt / Hoodie", icon: "🧥" },
-  { value: "tote_bag", label: "Tote Bag", icon: "👜" },
-  { value: "tumbler", label: "Tumbler / Cup", icon: "🥤" },
-  { value: "poster", label: "Poster / Wall Art", icon: "🖼️" },
-  { value: "sticker", label: "Stickers", icon: "🏷️" },
-  { value: "phone_case", label: "Phone Case", icon: "📱" },
-  { value: "candle", label: "Scented Candle", icon: "🕯️" },
+  { value: "mug", label: "Ceramic Mug", icon: "lucide:coffee" },
+  { value: "tshirt", label: "T-Shirt", icon: "lucide:shirt" },
+  { value: "sweatshirt", label: "Sweatshirt / Hoodie", icon: "lucide:shirt" },
+  { value: "tote_bag", label: "Tote Bag", icon: "lucide:shopping-bag" },
+  { value: "tumbler", label: "Tumbler / Cup", icon: "lucide:cup-soda" },
+  { value: "poster", label: "Poster / Wall Art", icon: "lucide:image" },
+  { value: "sticker", label: "Stickers", icon: "lucide:tags" },
+  { value: "phone_case", label: "Phone Case", icon: "lucide:smartphone" },
+  { value: "candle", label: "Scented Candle", icon: "lucide:flame" },
 ];
 
 const props = withDefaults(
@@ -45,7 +44,7 @@ function getProductInfo(val: string): ProductOption {
     (p) => p.value.toLowerCase() === val.toLowerCase() || p.label.toLowerCase() === val.toLowerCase()
   );
   if (found) return found;
-  return { value: val, label: val, icon: "📦" };
+  return { value: val, label: val, icon: "lucide:package" };
 }
 
 const filteredOptions = computed(() => {
@@ -59,11 +58,9 @@ const filteredOptions = computed(() => {
 const isCustomQueryNew = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
   if (!query) return false;
-  const matchInCatalog = DEFAULT_PRODUCTS.some(
-    (p) => p.value.toLowerCase() === query || p.label.toLowerCase() === query
+  return !DEFAULT_PRODUCTS.some(
+    (p) => p.label.toLowerCase() === query || p.value.toLowerCase() === query
   );
-  const alreadySelected = props.modelValue.some((v) => v.toLowerCase() === query);
-  return !matchInCatalog && !alreadySelected;
 });
 
 function isSelected(val: string): boolean {
@@ -71,16 +68,12 @@ function isSelected(val: string): boolean {
 }
 
 function toggleProduct(val: string) {
-  const normalized = val.trim();
-  if (!normalized) return;
-
   const current = [...props.modelValue];
-  const idx = current.findIndex((v) => v.toLowerCase() === normalized.toLowerCase());
-
+  const idx = current.findIndex((v) => v.toLowerCase() === val.toLowerCase());
   if (idx >= 0) {
     current.splice(idx, 1);
   } else {
-    current.push(normalized);
+    current.push(val);
   }
   emit("update:modelValue", current);
 }
@@ -93,8 +86,11 @@ function removeProduct(val: string) {
 function addCustomItem() {
   const query = searchQuery.value.trim();
   if (!query) return;
-  if (!isSelected(query)) {
-    toggleProduct(query);
+
+  const current = [...props.modelValue];
+  if (!current.some((v) => v.toLowerCase() === query.toLowerCase())) {
+    current.push(query);
+    emit("update:modelValue", current);
   }
   searchQuery.value = "";
 }
@@ -120,25 +116,26 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="containerRef" class="relative w-full text-xs">
-    <!-- Trigger Input Container -->
+    <!-- Trigger Button / Box -->
     <div
       class="min-h-9 w-full rounded-md border border-zinc-200 bg-white px-2 py-1.5 shadow-2xs transition-colors focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 flex flex-wrap items-center gap-1.5 cursor-pointer"
       @click="isOpen = true"
     >
-      <!-- Selected Tags -->
+      <!-- Selected tags -->
       <span
         v-for="item in modelValue"
         :key="item"
-        class="inline-flex items-center gap-1 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-800 shadow-3xs hover:bg-zinc-200/80 transition-colors"
+        class="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-800 shadow-3xs hover:bg-zinc-200/80 transition-colors"
       >
-        <span>{{ getProductInfo(item).icon }}</span>
+        <Icon :name="getProductInfo(item).icon" class="size-3 text-zinc-500 shrink-0" aria-hidden="true" />
         <span>{{ getProductInfo(item).label }}</span>
         <button
           type="button"
-          class="ml-0.5 rounded text-zinc-400 hover:text-zinc-700 focus:outline-none"
+          class="ml-0.5 rounded text-zinc-400 hover:text-zinc-700 focus:outline-hidden cursor-pointer"
+          aria-label="Remove item"
           @click.stop="removeProduct(item)"
         >
-          <X class="h-3 w-3" />
+          <Icon name="lucide:x" class="size-3" aria-hidden="true" />
         </button>
       </span>
 
@@ -147,13 +144,13 @@ onBeforeUnmount(() => {
         v-model="searchQuery"
         type="text"
         :placeholder="modelValue.length === 0 ? placeholder : 'Add more...'"
-        class="flex-1 min-w-[120px] bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none h-6"
+        class="flex-1 min-w-[120px] bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden h-6"
         @focus="isOpen = true"
         @keydown.enter.prevent="addCustomItem"
         @keydown.esc="isOpen = false"
       >
 
-      <ChevronDown class="h-3.5 w-3.5 text-zinc-400 transition-transform ml-auto shrink-0" :class="{ 'rotate-180': isOpen }" />
+      <Icon name="lucide:chevron-down" class="size-3.5 text-zinc-400 transition-transform ml-auto shrink-0" :class="{ 'rotate-180': isOpen }" aria-hidden="true" />
     </div>
 
     <!-- Dropdown Menu -->
@@ -177,26 +174,26 @@ onBeforeUnmount(() => {
           v-for="opt in filteredOptions"
           :key="opt.value"
           type="button"
-          class="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors hover:bg-zinc-100"
+          class="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors hover:bg-zinc-100 cursor-pointer"
           :class="{ 'bg-indigo-50/80 font-medium text-indigo-900': isSelected(opt.value) }"
           @click="toggleProduct(opt.value)"
         >
           <div class="flex items-center gap-2">
-            <span class="text-sm">{{ opt.icon }}</span>
+            <Icon :name="opt.icon" class="size-3.5 text-zinc-500 shrink-0" aria-hidden="true" />
             <span>{{ opt.label }}</span>
             <span class="text-[10px] text-zinc-400 font-mono">({{ opt.value }})</span>
           </div>
-          <Check v-if="isSelected(opt.value)" class="h-3.5 w-3.5 text-indigo-600 font-bold" />
+          <Icon v-if="isSelected(opt.value)" name="lucide:check" class="size-3.5 text-indigo-600 font-bold" aria-hidden="true" />
         </button>
 
         <!-- Custom Item Option -->
         <button
           v-if="isCustomQueryNew"
           type="button"
-          class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 font-semibold border-t border-zinc-100 mt-1"
+          class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 font-semibold border-t border-zinc-100 mt-1 cursor-pointer"
           @click="addCustomItem"
         >
-          <Plus class="h-3.5 w-3.5" />
+          <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
           <span>Add custom product "{{ searchQuery }}"</span>
         </button>
       </div>

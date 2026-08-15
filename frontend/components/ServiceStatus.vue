@@ -15,28 +15,28 @@ const presentation = computed(() => {
     case "ok":
       return {
         label: "Healthy",
-        symbol: "●",
+        icon: "lucide:circle-check",
         classes: "text-emerald-700 bg-emerald-50 border-emerald-200 shadow-2xs",
         dotColor: "bg-emerald-500",
       };
     case "degraded":
       return {
         label: "Degraded",
-        symbol: "▲",
+        icon: "lucide:triangle-alert",
         classes: "text-amber-700 bg-amber-50 border-amber-200 shadow-2xs",
         dotColor: "bg-amber-500",
       };
     case "down":
       return {
         label: "Unavailable",
-        symbol: "✕",
+        icon: "lucide:circle-x",
         classes: "text-rose-700 bg-rose-50 border-rose-200 shadow-2xs",
         dotColor: "bg-rose-500",
       };
     default:
       return {
         label: "Unknown",
-        symbol: "?",
+        icon: "lucide:help-circle",
         classes: "text-zinc-700 bg-zinc-50 border-zinc-200 shadow-2xs",
         dotColor: "bg-zinc-400",
       };
@@ -52,7 +52,7 @@ const presentation = computed(() => {
   >
     <span class="font-medium tracking-tight capitalize">{{ name }}</span>
     <span class="flex items-center gap-2 text-xs">
-      <span aria-hidden="true" class="text-[10px] font-bold">{{ presentation.symbol }}</span>
+      <Icon :name="presentation.icon" class="size-3.5 shrink-0" aria-hidden="true" />
       <span class="font-semibold">{{ presentation.label }}</span>
       <span v-if="latencyMs !== null && latencyMs !== undefined" class="tabular-nums opacity-75 text-xs font-mono">
         {{ latencyMs }} ms

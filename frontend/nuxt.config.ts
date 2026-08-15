@@ -5,7 +5,15 @@ export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: false },
 
-  modules: ["@pinia/nuxt"],
+  modules: ["@pinia/nuxt", "@nuxt/icon"],
+
+  icon: {
+    mode: "svg",
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 256,
+    },
+  },
 
   css: ["~/assets/css/main.css"],
 
