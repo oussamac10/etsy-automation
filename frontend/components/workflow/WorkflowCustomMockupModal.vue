@@ -84,6 +84,22 @@ let initialHeight = 50;
 const isCompositing = ref(false);
 const compositeError = ref<string | null>(null);
 
+function getMockupDisplayName(type: string): string {
+  switch (type.toLowerCase()) {
+    case "mug":
+      return "☕ Ceramic Mug";
+    case "tshirt":
+      return "👕 T-Shirt";
+    case "sweatshirt":
+      return "🧥 Sweatshirt";
+    case "tote_bag":
+    case "tote":
+      return "👜 Tote Bag";
+    default:
+      return type.toUpperCase();
+  }
+}
+
 const activeTemplateImageUrl = computed<string | null>(() => {
   if (activeSubTab.value === "upload") {
     return uploadedPreviewUrl.value;
@@ -108,9 +124,8 @@ async function fetchTemplates(): Promise<void> {
       { credentials: "include" }
     );
     templates.value = data;
-    if (data.length > 0 && !selectedTemplateId.value) {
+    if (data.length > 0 && !selectedTemplateId.value && activeSubTab.value === "library") {
       selectedTemplateId.value = data[0].id;
-      activeSubTab.value = "library";
       const first = data[0];
       leftPct.value = Math.round(first.placement.left_pct * 100);
       topPct.value = Math.round(first.placement.top_pct * 100);
@@ -126,12 +141,20 @@ async function fetchTemplates(): Promise<void> {
 }
 
 watch(
-  () => props.open,
-  (isOpen) => {
+  () => [props.open, props.productType] as const,
+  ([isOpen, prodType]) => {
     if (isOpen) {
-      fetchTemplates();
+      uploadedFile.value = null;
+      uploadedPreviewUrl.value = null;
+      selectedTemplateId.value = null;
+      activeSubTab.value = "upload";
       compositeError.value = null;
-      templateName.value = `Custom ${props.productType.toUpperCase()} Mockup`;
+      templateName.value = `Custom ${getMockupDisplayName(prodType)} Mockup`;
+      leftPct.value = 25;
+      topPct.value = 25;
+      widthPct.value = 50;
+      heightPct.value = 50;
+      fetchTemplates();
     }
   }
 );
@@ -327,7 +350,7 @@ async function handleComposite(): Promise<void> {
       product_type: props.productType,
       template_id: activeSubTab.value === "library" ? selectedTemplateId.value : undefined,
       template_image_base64: templateBase64,
-      template_name: templateName.value || "Custom Mockup",
+      template_name: templateName.value || `Custom ${getMockupDisplayName(props.productType)} Mockup`,
       save_as_template: saveToLibrary.value,
       placement: {
         left_pct: leftPct.value / 100,
@@ -373,8 +396,13 @@ async function handleComposite(): Promise<void> {
             <Layers class="h-5 w-5" />
           </div>
           <div>
-            <h3 class="text-base font-bold text-zinc-900">Custom Mockup Compositor & Visual Placer</h3>
-            <p class="text-xs text-zinc-500">Drag and move your print PNG manually anywhere on your mockup for {{ productType }}</p>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-bold text-zinc-900">Custom Mockup Placer</h3>
+              <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-indigo-100 text-indigo-800">
+                {{ getMockupDisplayName(productType) }}
+              </span>
+            </div>
+            <p class="text-xs text-zinc-500">Upload and position your master artwork directly on {{ getMockupDisplayName(productType) }}</p>
           </div>
         </div>
         <button
@@ -395,7 +423,7 @@ async function handleComposite(): Promise<void> {
           @click="activeSubTab = 'upload'"
         >
           <Upload class="h-3.5 w-3.5" />
-          <span>Upload New Template</span>
+          <span>Upload New {{ getMockupDisplayName(productType) }} Photo</span>
         </button>
 
         <button
@@ -405,7 +433,7 @@ async function handleComposite(): Promise<void> {
           @click="activeSubTab = 'library'"
         >
           <BookmarkPlus class="h-3.5 w-3.5" />
-          <span>Saved Template Library ({{ templates.length }})</span>
+          <span>Saved {{ getMockupDisplayName(productType) }} Library ({{ templates.length }})</span>
         </button>
       </div>
 
@@ -439,7 +467,7 @@ async function handleComposite(): Promise<void> {
                 <Upload class="h-6 w-6" />
               </div>
               <div class="text-xs font-semibold text-zinc-700">
-                <span class="text-indigo-600 hover:underline">Click to upload mockup photo</span> or drag and drop
+                <span class="text-indigo-600 hover:underline">Click to upload {{ getMockupDisplayName(productType) }} photo</span> or drag and drop
               </div>
               <p class="text-[11px] text-zinc-400">High-res JPEG, PNG, or WebP photo (up to 35MB)</p>
             </div>
@@ -453,7 +481,7 @@ async function handleComposite(): Promise<void> {
                 v-model="templateName"
                 type="text"
                 class="w-full text-xs px-3 py-1.5 rounded-lg border border-zinc-200 bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                placeholder="e.g. Bella Canvas 3001 White Flatlay"
+                :placeholder="`e.g. Bella Canvas ${getMockupDisplayName(productType)} Flatlay`"
               >
             </div>
 
@@ -466,7 +494,7 @@ async function handleComposite(): Promise<void> {
                   class="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                 >
                 <label for="saveToLib" class="text-xs font-medium text-zinc-700 cursor-pointer">
-                  Save to Library for reuse
+                  Save to Library for {{ getMockupDisplayName(productType) }}
                 </label>
               </div>
 
@@ -484,7 +512,7 @@ async function handleComposite(): Promise<void> {
         <!-- 2. Library Tab Content -->
         <div v-else class="space-y-3">
           <div v-if="templates.length === 0" class="text-center py-6 text-zinc-400 text-xs bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
-            No saved custom templates found for {{ productType }}. Switch to the Upload tab to add one!
+            No saved custom templates found for {{ getMockupDisplayName(productType) }}. Switch to the Upload tab to add one!
           </div>
 
           <div v-else class="grid grid-cols-3 sm:grid-cols-4 gap-2.5 max-h-36 overflow-y-auto p-1">
@@ -710,7 +738,7 @@ async function handleComposite(): Promise<void> {
         >
           <Loader2 v-if="isCompositing" class="h-3.5 w-3.5 animate-spin" />
           <Sparkles v-else class="h-3.5 w-3.5" />
-          <span>{{ isCompositing ? 'Compositing Mockup...' : 'Generate Custom Mockup' }}</span>
+          <span>{{ isCompositing ? 'Compositing Mockup...' : `Generate ${getMockupDisplayName(productType)} Mockup` }}</span>
         </Button>
       </div>
     </div>

@@ -160,15 +160,37 @@ async def composite_custom_mockup_endpoint(
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found.")
 
-    # 2. Find production master PNG or source artwork asset
-    assets = await uow.assets.list_for_workflow(payload.workflow_id)
-    master_asset = next(
-        (a for a in assets if a.storage_key.startswith("production/") and a.storage_key.endswith(".png")),
-        None,
-    )
+    # 2. Find true production master PNG (exclude all mockup assets)
+    master_asset: Asset | None = None
+    jobs = await uow.production_jobs.list_for_workflow(payload.workflow_id)
+    if jobs:
+        latest_job = jobs[-1]
+        if latest_job.output_asset_id:
+            master_asset = await uow.assets.get(latest_job.output_asset_id)
+
     if not master_asset:
-        # Fallback to artwork candidate asset
-        artwork_assets = [a for a in assets if a.artwork_job_id is not None]
+        assets = await uow.assets.list_for_workflow(payload.workflow_id)
+        # Find master PNG with profile etsy-png-standard or storage_key ending in master.png
+        master_asset = next(
+            (
+                a for a in assets
+                if (a.storage_key.endswith("/master.png") or (a.provenance and a.provenance.get("profile") == "etsy-png-standard"))
+                and "/mockups/" not in a.storage_key
+                and "mockup" not in a.storage_key
+                and (not a.provenance or a.provenance.get("asset_type") != "mockup")
+            ),
+            None,
+        )
+
+    if not master_asset:
+        # Fallback to artwork candidate asset (strictly not a mockup)
+        assets = await uow.assets.list_for_workflow(payload.workflow_id)
+        artwork_assets = [
+            a for a in assets
+            if a.artwork_job_id is not None
+            and "/mockups/" not in a.storage_key
+            and (not a.provenance or a.provenance.get("asset_type") != "mockup")
+        ]
         if artwork_assets:
             master_asset = artwork_assets[0]
 

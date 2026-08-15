@@ -174,8 +174,25 @@ const availableMockupTabs = computed<string[]>(() => {
 });
 
 const selectedMockupTab = ref<string>("mug");
-const selectedMockupColor = ref<string>("white");
+const selectedMockupColors = ref<Record<string, string>>({});
 const showCustomMockupModal = ref(false);
+
+function getSelectedColorForProduct(product: string): string {
+  const norm = normalizeProductKey(product);
+  if (selectedMockupColors.value[norm]) {
+    return selectedMockupColors.value[norm];
+  }
+  return (norm === "tote_bag" || norm === "tote") ? "natural" : "white";
+}
+
+function setSelectedColorForProduct(product: string, color: string): void {
+  const norm = normalizeProductKey(product);
+  selectedMockupColors.value = {
+    ...selectedMockupColors.value,
+    [norm]: color,
+    [product]: color,
+  };
+}
 
 const availableColorsForTab = computed<ColorOption[]>(() => {
   const norm = normalizeProductKey(selectedMockupTab.value);
@@ -194,15 +211,6 @@ watch(
   { immediate: true }
 );
 
-watch(selectedMockupTab, (tab) => {
-  const norm = normalizeProductKey(tab);
-  if (norm === "tote_bag" || norm === "tote") {
-    selectedMockupColor.value = "natural";
-  } else {
-    selectedMockupColor.value = "white";
-  }
-});
-
 const currentCustomMockupUrl = computed<string | null>(() => {
   const urls = props.latestProductionJob?.mockup_urls ?? {};
   const norm = normalizeProductKey(selectedMockupTab.value);
@@ -217,7 +225,7 @@ const currentDisplayedMockupUrl = computed<string | null>(() => {
   const urls = props.latestProductionJob?.mockup_urls ?? {};
   const tab = selectedMockupTab.value;
   const norm = normalizeProductKey(tab);
-  const color = selectedMockupColor.value;
+  const color = getSelectedColorForProduct(tab);
 
   if (color === "custom" && currentCustomMockupUrl.value) {
     return currentCustomMockupUrl.value;
@@ -239,13 +247,20 @@ const currentDisplayedMockupUrl = computed<string | null>(() => {
   return null;
 });
 
+const masterImageUrl = computed<string | null>(() => {
+  return props.latestProductionJob?.master_asset?.url || null;
+});
+
 function handleCustomMockupCreated(result: { mockup_url: string; product_type: string; template_id?: string }): void {
   if (props.latestProductionJob) {
     const urls = { ...(props.latestProductionJob.mockup_urls || {}) };
+    const norm = normalizeProductKey(result.product_type);
+    urls[`${norm}:custom_${result.template_id || 'new'}`] = result.mockup_url;
     urls[`${result.product_type}:custom_${result.template_id || 'new'}`] = result.mockup_url;
+    urls[norm] = result.mockup_url;
     urls[result.product_type] = result.mockup_url;
     props.latestProductionJob.mockup_urls = urls;
-    selectedMockupColor.value = "custom";
+    setSelectedColorForProduct(result.product_type, "custom");
   }
 }
 
@@ -532,7 +547,7 @@ function getMockupLabel(product: string): string {
                     <ImageIcon class="h-4 w-4 text-indigo-600" />
                     <h4 class="text-sm font-bold text-zinc-900">Product Mockup Gallery</h4>
                     <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200">
-                      {{ selectedMockupColor === 'custom' ? 'Custom Photo Engine' : 'Printful Engine' }}
+                      {{ getSelectedColorForProduct(selectedMockupTab) === 'custom' ? 'Custom Photo Engine' : 'Printful Engine' }}
                     </span>
                   </div>
 
@@ -543,7 +558,7 @@ function getMockupLabel(product: string): string {
                         v-for="p in availableMockupTabs"
                         :key="p"
                         type="button"
-                        class="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all"
+                        class="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all cursor-pointer"
                         :class="
                           (selectedMockupTab === p || (p === 'tote_bag' && selectedMockupTab === 'tote'))
                             ? 'bg-zinc-900 text-white shadow-xs'
@@ -558,7 +573,7 @@ function getMockupLabel(product: string): string {
                     <!-- Custom Mockup Button -->
                     <button
                       type="button"
-                      class="text-[11px] px-2.5 py-1 rounded-md font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all shadow-2xs"
+                      class="text-[11px] px-2.5 py-1 rounded-md font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
                       @click="showCustomMockupModal = true"
                     >
                       <Plus class="h-3 w-3" />
@@ -582,13 +597,13 @@ function getMockupLabel(product: string): string {
                         class="h-6 w-6 rounded-full border flex items-center justify-center transition-all relative cursor-pointer"
                         :class="[
                           col.border,
-                          selectedMockupColor === col.name ? 'ring-2 ring-indigo-600 scale-110 shadow-xs' : 'hover:scale-105 opacity-80 hover:opacity-100'
+                          getSelectedColorForProduct(selectedMockupTab) === col.name ? 'ring-2 ring-indigo-600 scale-110 shadow-xs' : 'hover:scale-105 opacity-80 hover:opacity-100'
                         ]"
                         :style="{ backgroundColor: col.bg }"
                         :title="col.label"
-                        @click="selectedMockupColor = col.name"
+                        @click="setSelectedColorForProduct(selectedMockupTab, col.name)"
                       >
-                        <Check v-if="selectedMockupColor === col.name" class="h-3 w-3" :class="col.name === 'white' || col.name === 'natural' ? 'text-zinc-900' : 'text-white'" />
+                        <Check v-if="getSelectedColorForProduct(selectedMockupTab) === col.name" class="h-3 w-3" :class="col.name === 'white' || col.name === 'natural' ? 'text-zinc-900' : 'text-white'" />
                       </button>
                     </div>
                   </div>
@@ -598,8 +613,8 @@ function getMockupLabel(product: string): string {
                     <button
                       type="button"
                       class="text-[11px] px-2.5 py-0.5 rounded-full font-medium transition-all flex items-center gap-1 cursor-pointer"
-                      :class="selectedMockupColor === 'custom' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'"
-                      @click="selectedMockupColor = 'custom'"
+                      :class="getSelectedColorForProduct(selectedMockupTab) === 'custom' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'"
+                      @click="setSelectedColorForProduct(selectedMockupTab, 'custom')"
                     >
                       <Layers class="h-3 w-3" />
                       <span>Custom Template</span>
@@ -620,7 +635,7 @@ function getMockupLabel(product: string): string {
                     v-if="currentDisplayedMockupUrl"
                     :href="currentDisplayedMockupUrl"
                     target="_blank"
-                    :download="`${selectedMockupTab}_${selectedMockupColor}_mockup.jpg`"
+                    :download="`${selectedMockupTab}_${getSelectedColorForProduct(selectedMockupTab)}_mockup.jpg`"
                     class="absolute bottom-2 right-2 rounded bg-white/90 hover:bg-white border border-zinc-200 p-1.5 text-zinc-700 shadow-xs text-[10px] font-mono flex items-center gap-1"
                   >
                     <Download class="h-3 w-3" />
@@ -681,7 +696,7 @@ function getMockupLabel(product: string): string {
       v-model:open="showCustomMockupModal"
       :workflow-id="workflow.id"
       :product-type="selectedMockupTab"
-      :master-image-url="latestProductionJob?.master_asset?.url"
+      :master-image-url="masterImageUrl"
       @mockup-created="handleCustomMockupCreated"
     />
   </div>
