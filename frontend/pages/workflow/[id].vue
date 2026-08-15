@@ -813,6 +813,7 @@ onBeforeUnmount(stopPolling);
               :is-production-loading="isProductionLoading"
               :production-error="productionError"
               @trigger-production="triggerProduction"
+              @mockup-updated="() => loadData(true)"
             />
           </div>
         </transition>

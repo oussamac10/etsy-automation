@@ -854,45 +854,41 @@ async def to_production_job_response(
                         mockup_urls["tote_bag"] = url
                     mockup_urls[str(mj.product_type)] = url
 
-    if not mockup_urls:
-        assets = await uow.assets.list_for_workflow(job.workflow_id)
-        job_mockups = [
-            a
-            for a in assets
-            if a.storage_key.startswith(f"production/{job.workflow_id}/{job.id}/mockups/")
-            or (a.provenance and a.provenance.get("production_job_id") == str(job.id))
-        ]
-        if not job_mockups:
-            job_mockups = [
-                a
-                for a in assets
-                if (job.output_asset_id is not None and a.derived_from_id == job.output_asset_id and (a.provenance.get("pipeline") == "mockup" or a.provenance.get("asset_type") == "mockup"))
-            ]
-        for asset in job_mockups:
-            url = await storage.signed_url(asset.storage_key, 3600)
-            mockup_resps.append(to_asset_response(asset, url))
-            product_type = asset.provenance.get("product_type") if asset.provenance else None
-            if not product_type:
+    # Always merge all custom and pipeline mockup assets for this workflow
+    from app.infrastructure.mockup_catalog import normalize_mockup_product
+    all_wf_assets = await uow.assets.list_for_workflow(job.workflow_id)
+    for asset in all_wf_assets:
+        if (
+            (asset.provenance and (asset.provenance.get("asset_type") == "mockup" or asset.provenance.get("pipeline") == "mockup"))
+            or "/mockups/" in asset.storage_key
+            or "mockup" in asset.storage_key
+        ):
+            url = await storage.signed_url(asset.storage_key, 86400 * 7)
+            if not any(r.id == asset.id for r in mockup_resps):
+                mockup_resps.append(to_asset_response(asset, url))
+
+            p_name = None
+            if asset.provenance:
+                p_name = asset.provenance.get("product_type")
+            if not p_name:
                 parts = asset.storage_key.split("/")
-                if "mockups" in parts:
-                    m_idx = parts.index("mockups")
-                    if len(parts) > m_idx + 1:
-                        product_type = parts[m_idx + 1].replace(".png", "").replace(".jpg", "")
-                if not product_type:
-                    product_type = asset.storage_key.rsplit("/", 1)[-1].replace(".png", "").replace(".jpg", "")
+                fname = parts[-1]
+                if "custom_" in fname:
+                    p_name = fname.split("custom_")[1].split("_")[0]
+                else:
+                    p_name = fname.split(".")[0]
 
-            p_name = str(product_type).lower()
-            if "sweat" in p_name or "hoodie" in p_name or "jumper" in p_name:
-                mockup_urls["sweatshirt"] = url
-            elif "tshirt" in p_name or "t-shirt" in p_name or "tee" in p_name or p_name == "shirt" or "apparel" in p_name or ("shirt" in p_name and "sweat" not in p_name):
-                mockup_urls["tshirt"] = url
-            elif "mug" in p_name or "cup" in p_name:
-                mockup_urls["mug"] = url
-            elif "tote" in p_name or "bag" in p_name:
-                mockup_urls["tote"] = url
-                mockup_urls["tote_bag"] = url
-
-            mockup_urls[str(product_type)] = url
+            if p_name:
+                canonical_p = normalize_mockup_product(str(p_name)) or str(p_name).lower()
+                mockup_urls[canonical_p] = url
+                mockup_urls[str(p_name)] = url
+                mockup_urls[f"{canonical_p}:custom"] = url
+                mockup_urls[f"{str(p_name)}:custom"] = url
+                if canonical_p == "tote_bag":
+                    mockup_urls["tote"] = url
+                elif canonical_p == "tumbler":
+                    mockup_urls["tumblers"] = url
+                    mockup_urls["tumbler_cup"] = url
 
     return ProductionJobResponse(
         id=job.id,

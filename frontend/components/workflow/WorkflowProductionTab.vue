@@ -97,14 +97,21 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "triggerProduction", forceNew: boolean): void;
+  (e: "mockupUpdated"): void;
 }>();
 
 function normalizeProductKey(raw: string): string {
+  if (!raw) return "product";
   const text = raw.toLowerCase().trim();
-  if (text.includes("shirt") || text.includes("tee") || text.includes("apparel") || text === "tshirt") return "tshirt";
+  if (text.includes("tumbler") || text === "tumblers") return "tumbler";
+  if (text.includes("mug") || text.includes("ceramic") || text === "mug" || text === "cup") return "mug";
   if (text.includes("sweat") || text.includes("hoodie") || text.includes("crewneck") || text === "sweatshirt") return "sweatshirt";
   if (text.includes("tote") || text.includes("bag") || text === "tote_bag") return "tote_bag";
-  if (text.includes("mug") || text.includes("cup") || text.includes("ceramic") || text === "mug") return "mug";
+  if (text.includes("shirt") || text.includes("tee") || text.includes("apparel") || text === "tshirt") return "tshirt";
+  if (text.includes("poster") || text.includes("wall_art")) return "poster";
+  if (text.includes("sticker")) return "sticker";
+  if (text.includes("phone")) return "phone_case";
+  if (text.includes("candle")) return "candle";
   return text.replace(/\s+/g, "_");
 }
 
@@ -118,10 +125,10 @@ const availableMockupTabs = computed<string[]>(() => {
 
   // 2. Fallback to generated mockup URLs
   const urls = props.latestProductionJob?.mockup_urls ?? {};
-  const keys = Object.keys(urls);
+  const keys = Object.keys(urls).map(normalizeProductKey);
   if (keys.length > 0) {
-    const order = ["mug", "tshirt", "sweatshirt", "tote_bag", "tote"];
-    return keys.sort((a, b) => {
+    const order = ["mug", "tshirt", "sweatshirt", "tote_bag", "tumbler", "poster", "sticker"];
+    return Array.from(new Set(keys)).sort((a, b) => {
       const idxA = order.indexOf(a);
       const idxB = order.indexOf(b);
       return (idxA >= 0 ? idxA : 99) - (idxB >= 0 ? idxB : 99);
@@ -148,17 +155,27 @@ const currentDisplayedMockupUrl = computed<string | null>(() => {
   const tab = selectedMockupTab.value;
   const norm = normalizeProductKey(tab);
 
-  // 1. Custom composite matching product key
+  // 1. Direct match by normalized key or tab
+  if (urls[norm]) return urls[norm];
+  if (urls[tab]) return urls[tab];
+
+  // 2. Custom keys
   const customKey = Object.keys(urls).find(
-    (k) => k.startsWith(`${norm}:custom_`) || k.startsWith(`${tab}:custom_`)
+    (k) =>
+      k.startsWith(`${norm}:custom`) ||
+      k.startsWith(`${tab}:custom`) ||
+      k.includes(`_${norm}_`) ||
+      k.includes(`_${tab}_`)
   );
   if (customKey && urls[customKey]) return urls[customKey];
 
-  // 2. Exact match
-  if (urls[norm]) return urls[norm];
-  if (urls[tab]) return urls[tab];
-  if (tab === "tote_bag" && urls["tote"]) return urls["tote"];
-  if (tab === "tote" && urls["tote_bag"]) return urls["tote_bag"];
+  // 3. Fallback product aliases
+  if (norm === "tumbler" && (urls["tumblers"] || urls["tumbler_cup"])) {
+    return urls["tumblers"] || urls["tumbler_cup"];
+  }
+  if (norm === "tote_bag" && (urls["tote"] || urls["tote_bag"])) {
+    return urls["tote"] || urls["tote_bag"];
+  }
 
   return null;
 });
@@ -168,30 +185,49 @@ const masterImageUrl = computed<string | null>(() => {
 });
 
 function handleCustomMockupCreated(result: { mockup_url: string; product_type: string; template_id?: string }): void {
+  const norm = normalizeProductKey(result.product_type);
+  selectedMockupTab.value = norm;
   if (props.latestProductionJob) {
     const urls = { ...(props.latestProductionJob.mockup_urls || {}) };
-    const norm = normalizeProductKey(result.product_type);
-    urls[`${norm}:custom_${result.template_id || 'new'}`] = result.mockup_url;
-    urls[`${result.product_type}:custom_${result.template_id || 'new'}`] = result.mockup_url;
     urls[norm] = result.mockup_url;
     urls[result.product_type] = result.mockup_url;
+    urls[`${norm}:custom`] = result.mockup_url;
+    urls[`${result.product_type}:custom`] = result.mockup_url;
     props.latestProductionJob.mockup_urls = urls;
   }
+  emit("mockupUpdated");
 }
 
 function getMockupLabel(product: string): string {
-  switch (product.toLowerCase()) {
+  if (!product) return "Product";
+  const clean = product.toLowerCase().trim();
+  switch (clean) {
     case "mug":
       return "Ceramic Mug";
     case "tshirt":
+    case "t_shirt":
       return "T-Shirt";
     case "sweatshirt":
       return "Sweatshirt";
     case "tote_bag":
     case "tote":
       return "Tote Bag";
+    case "tumbler":
+    case "tumblers":
+      return "Tumbler";
+    case "poster":
+    case "posters":
+      return "Poster";
+    case "sticker":
+    case "stickers":
+      return "Stickers";
+    case "phone_case":
+      return "Phone Case";
+    case "candle":
+    case "candles":
+      return "Scented Candle";
     default:
-      return product.charAt(0).toUpperCase() + product.slice(1);
+      return clean.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
 }
 </script>
