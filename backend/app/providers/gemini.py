@@ -11,6 +11,24 @@ from app.ports.providers import ImageRequest, ImageResponse, ImageCandidate, Tex
 from app.providers.openai import ResearchSynthesisSchema
 
 
+def inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
+    """Inline $defs in JSON schema because Google Gemini responseSchema does not support $defs / $ref."""
+    defs = schema.get("$defs", {})
+
+    def resolve(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            if "$ref" in obj:
+                ref_key = obj["$ref"].split("/")[-1]
+                if ref_key in defs:
+                    return resolve(defs[ref_key])
+            return {k: resolve(v) for k, v in obj.items() if k != "$defs"}
+        elif isinstance(obj, list):
+            return [resolve(elem) for elem in obj]
+        return obj
+
+    return resolve(schema)
+
+
 class GeminiImageAdapter:
     """Live Google Gemini image-generation adapter.
 
@@ -61,177 +79,168 @@ class GeminiImageAdapter:
                 "aspectRatio": aspect_ratio
             }
 
-        response = await client.post(url, headers=headers, json=payload)
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = await client.post(url, headers=headers, json=payload)
 
-        if response.status_code == 401:
-            raise ProviderError(
-                kind=ProviderErrorKind.AUTHENTICATION,
-                provider=self.name,
-                operation="generate",
-                message="Invalid API Key or unauthorized request to Gemini.",
-            )
-        elif response.status_code == 429:
-            raise ProviderError(
-                kind=ProviderErrorKind.RATE_LIMITED,
-                provider=self.name,
-                operation="generate",
-                message="Gemini API rate limit exceeded.",
-            )
-        elif response.status_code >= 500:
-            raise ProviderError(
-                kind=ProviderErrorKind.RETRYABLE,
-                provider=self.name,
-                operation="generate",
-                message=f"Gemini server error: {response.status_code}",
-            )
-        elif response.status_code >= 400:
-            raise ProviderError(
-                kind=ProviderErrorKind.INVALID_REQUEST,
-                provider=self.name,
-                operation="generate",
-                message=f"Gemini bad request: {response.text}",
-            )
+                if response.status_code == 401:
+                    raise ProviderError(
+                        kind=ProviderErrorKind.AUTHENTICATION,
+                        provider=self.name,
+                        operation="generate",
+                        message="Invalid API Key or unauthorized request to Gemini.",
+                    )
+                elif response.status_code == 429:
+                    if attempt < max_attempts:
+                        await asyncio.sleep(2.0 * attempt)
+                        continue
+                    raise ProviderError(
+                        kind=ProviderErrorKind.RATE_LIMITED,
+                        provider=self.name,
+                        operation="generate",
+                        retry_after_seconds=5.0,
+                        message="Gemini API rate limit exceeded.",
+                    )
+                elif response.status_code >= 500:
+                    if attempt < max_attempts:
+                        await asyncio.sleep(1.5 * attempt)
+                        continue
+                    raise ProviderError(
+                        kind=ProviderErrorKind.RETRYABLE,
+                        provider=self.name,
+                        operation="generate",
+                        retry_after_seconds=5.0,
+                        message=f"Gemini server error: {response.status_code}",
+                    )
+                elif response.status_code >= 400:
+                    raise ProviderError(
+                        kind=ProviderErrorKind.INVALID_REQUEST,
+                        provider=self.name,
+                        operation="generate",
+                        message=f"Gemini bad request: {response.text}",
+                    )
 
-        data = response.json()
-        candidates = data.get("candidates", [])
-        if not candidates:
-            raise ProviderError(
-                kind=ProviderErrorKind.INVALID_REQUEST,
-                provider=self.name,
-                operation="generate",
-                message=f"Gemini API returned no candidates. Raw response: {response.text}",
-            )
+                data = response.json()
+                candidates = data.get("candidates", [])
+                if not candidates:
+                    raise ProviderError(
+                        kind=ProviderErrorKind.INVALID_REQUEST,
+                        provider=self.name,
+                        operation="generate",
+                        message=f"Gemini API returned no candidates. Raw response: {response.text}",
+                    )
 
-        parts = candidates[0].get("content", {}).get("parts", [])
-        
-        # Look for inlineData representing the image bytes
-        inline_data = None
-        for part in parts:
-            if "inlineData" in part:
-                inline_data = part["inlineData"]
-                break
+                parts = candidates[0].get("content", {}).get("parts", [])
+                
+                # Look for inlineData representing the image bytes
+                inline_data = None
+                for part in parts:
+                    if "inlineData" in part:
+                        inline_data = part["inlineData"]
+                        break
 
-        if not inline_data or "data" not in inline_data:
-            raise ProviderError(
-                kind=ProviderErrorKind.INVALID_REQUEST,
-                provider=self.name,
-                operation="generate",
-                message="Gemini API did not return image inlineData in parts.",
-            )
+                if not inline_data or "data" not in inline_data:
+                    raise ProviderError(
+                        kind=ProviderErrorKind.INVALID_REQUEST,
+                        provider=self.name,
+                        operation="generate",
+                        message="Gemini API did not return image inlineData in parts.",
+                    )
 
-        mime_type = inline_data.get("mimeType", "image/png")
-        b64_data = inline_data["data"]
-        
-        try:
-            image_bytes = base64.b64decode(b64_data)
-        except Exception as exc:
-            raise ProviderError(
-                kind=ProviderErrorKind.INVALID_REQUEST,
-                provider=self.name,
-                operation="generate",
-                message=f"Failed to decode base64 image data from Gemini: {exc!s}",
-            ) from exc
+                mime_type = inline_data.get("mimeType", "image/png")
+                b64_data = inline_data["data"]
+                
+                try:
+                    image_bytes = base64.b64decode(b64_data)
+                except Exception as exc:
+                    raise ProviderError(
+                        kind=ProviderErrorKind.INVALID_REQUEST,
+                        provider=self.name,
+                        operation="generate",
+                        message=f"Failed to decode base64 image data from Gemini: {exc!s}",
+                    ) from exc
 
-        return ImageCandidate(
-            image_bytes=image_bytes,
-            mime_type=mime_type,
+                return ImageCandidate(
+                    image_bytes=image_bytes,
+                    mime_type=mime_type,
+                )
+
+            except (httpx.TimeoutException, httpx.RequestError) as net_exc:
+                if attempt < max_attempts:
+                    await asyncio.sleep(1.5 * attempt)
+                    continue
+                raise ProviderError(
+                    kind=ProviderErrorKind.RETRYABLE,
+                    provider=self.name,
+                    operation="generate",
+                    retry_after_seconds=5.0,
+                    message=f"Gemini image request error: {net_exc!s}",
+                ) from net_exc
+
+        raise ProviderError(
+            kind=ProviderErrorKind.RETRYABLE,
+            provider=self.name,
+            operation="generate",
+            retry_after_seconds=5.0,
+            message="Gemini image generation failed after retries.",
         )
 
     async def generate(self, request: ImageRequest) -> ImageResponse:
         model = request.model or self._default_model
         
-        # Format the prompt by appending the negative prompt if provided
-        prompt = request.positive_prompt
-        if request.negative_prompt:
-            prompt += f"\n[Avoid: {request.negative_prompt}]"
+        # Calculate aspect ratio string from dimensions
+        aspect_ratio: str | None = None
+        if request.width and request.height:
+            if request.width == request.height:
+                aspect_ratio = "1:1"
+            elif request.width > request.height:
+                aspect_ratio = "4:3" if abs(request.width / request.height - 4/3) < 0.1 else "16:9"
+            else:
+                aspect_ratio = "3:4" if abs(request.height / request.width - 4/3) < 0.1 else "9:16"
+
+        candidate_count = request.candidate_count or 1
 
         try:
-            # We call in parallel using asyncio.gather to acquire multiple candidates
-            # because native candidateCount is often constrained to 1 for image generation.
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 tasks = [
-                    self._generate_single(client, model, prompt, request.aspect_ratio)
-                    for _ in range(request.candidate_count)
+                    self._generate_single(client, model, request.prompt, aspect_ratio)
+                    for _ in range(candidate_count)
                 ]
                 candidates = await asyncio.gather(*tasks)
 
-            # Determine model unit price
-            if "pro" in model:
-                unit_price = Decimal("0.15")
-            else:
-                unit_price = Decimal("0.03")
-
-            cost_usd = unit_price * request.candidate_count
+            # Determine approximate pricing
+            is_premium = "pro" in model.lower()
+            cost_per_image = Decimal("0.040") if is_premium else Decimal("0.020")
+            total_cost = cost_per_image * Decimal(len(candidates))
 
             return ImageResponse(
                 candidates=list(candidates),
                 model=model,
-                cost_usd=cost_usd,
+                cost_estimate=total_cost,
+                metadata={
+                    "aspect_ratio": aspect_ratio,
+                    "provider": "gemini",
+                    "candidate_count": len(candidates),
+                },
             )
 
-        except httpx.TimeoutException as exc:
+        except ProviderError:
+            raise
+        except Exception as exc:
             raise ProviderError(
                 kind=ProviderErrorKind.RETRYABLE,
                 provider=self.name,
                 operation="generate",
-                message="Gemini API request timed out.",
+                message=f"Unexpected error in Gemini image generation: {exc!s}",
             ) from exc
-        except httpx.RequestError as exc:
-            raise ProviderError(
-                kind=ProviderErrorKind.RETRYABLE,
-                provider=self.name,
-                operation="generate",
-                message=f"HTTP request error: {exc!s}",
-            ) from exc
-
-
-def inline_refs(schema: Any, defs: dict | None = None) -> Any:
-    """Recursively resolves OpenAPI $ref references to inline schemas."""
-    if defs is None:
-        defs = schema.get("$defs", {})
-
-    if isinstance(schema, dict):
-        if "$ref" in schema:
-            ref_path = schema["$ref"]
-            ref_name = ref_path.split("/")[-1]
-            ref_schema = defs.get(ref_name, {})
-            return inline_refs(ref_schema, defs)
-        
-        if "anyOf" in schema:
-            subschemas = schema["anyOf"]
-            non_null_subschema = None
-            is_nullable = False
-            for sub in subschemas:
-                if isinstance(sub, dict) and sub.get("type") == "null":
-                    is_nullable = True
-                else:
-                    non_null_subschema = sub
-            
-            if non_null_subschema is not None:
-                resolved_sub = inline_refs(non_null_subschema, defs)
-                if isinstance(resolved_sub, dict):
-                    merged = {k: v for k, v in resolved_sub.items()}
-                    if is_nullable:
-                        merged["nullable"] = True
-                    for k in ["title", "description"]:
-                        if k in schema and k not in merged:
-                            merged[k] = schema[k]
-                    return merged
-
-        return {
-            k: inline_refs(v, defs)
-            for k, v in schema.items()
-            if k != "$defs" and k != "additionalProperties"
-        }
-    elif isinstance(schema, list):
-        return [inline_refs(item, defs) for item in schema]
-    return schema
 
 
 class GeminiSynthesisAdapter:
     """Live Google Gemini Structured Synthesis Adapter.
 
     Communicates with Google AI Studio REST API using the v1beta generateContent endpoint.
+    Includes built-in exponential backoff for transient 503 Service Unavailable and rate-limit errors.
     """
 
     name = "gemini"
@@ -247,8 +256,6 @@ class GeminiSynthesisAdapter:
         self._timeout = timeout_seconds
 
     async def generate(self, request: TextRequest) -> TextResponse:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent"
-
         headers = {
             "x-goog-api-key": self._api_key,
             "Content-Type": "application/json",
@@ -279,93 +286,122 @@ class GeminiSynthesisAdapter:
         if request.max_output_tokens:
             payload["generationConfig"]["maxOutputTokens"] = request.max_output_tokens
 
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.post(url, headers=headers, json=payload)
+        models_to_try = [self._model]
+        if "flash" in self._model:
+            for alt in ("gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"):
+                if alt not in models_to_try:
+                    models_to_try.append(alt)
 
-            if response.status_code == 401:
-                raise ProviderError(
-                    kind=ProviderErrorKind.AUTHENTICATION,
-                    provider=self.name,
-                    operation="generate",
-                    message="Invalid API Key or unauthorized request to Gemini.",
-                )
-            elif response.status_code == 429:
-                raise ProviderError(
-                    kind=ProviderErrorKind.RATE_LIMITED,
-                    provider=self.name,
-                    operation="generate",
-                    message="Gemini API rate limit exceeded.",
-                )
-            elif response.status_code >= 500:
-                raise ProviderError(
-                    kind=ProviderErrorKind.RETRYABLE,
-                    provider=self.name,
-                    operation="generate",
-                    message=f"Gemini server error: {response.status_code}",
-                )
-            elif response.status_code >= 400:
-                raise ProviderError(
-                    kind=ProviderErrorKind.INVALID_REQUEST,
-                    provider=self.name,
-                    operation="generate",
-                    message=f"Gemini bad request: {response.text}",
-                )
+        last_exc: Exception | None = None
+        max_attempts_per_model = 3
 
-            data = response.json()
-            candidates = data.get("candidates", [])
-            if not candidates:
-                raise ProviderError(
-                    kind=ProviderErrorKind.INVALID_REQUEST,
-                    provider=self.name,
-                    operation="generate",
-                    message="Gemini response did not return any candidates.",
-                )
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            for current_model in models_to_try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{current_model}:generateContent"
+                for attempt in range(1, max_attempts_per_model + 1):
+                    try:
+                        response = await client.post(url, headers=headers, json=payload)
 
-            part = candidates[0].get("content", {}).get("parts", [{}])[0]
-            text = part.get("text", "")
-            if not text:
-                raise ProviderError(
-                    kind=ProviderErrorKind.INVALID_REQUEST,
-                    provider=self.name,
-                    operation="generate",
-                    message="Gemini response candidate text is empty.",
-                )
+                        if response.status_code == 401:
+                            raise ProviderError(
+                                kind=ProviderErrorKind.AUTHENTICATION,
+                                provider=self.name,
+                                operation="generate",
+                                message="Invalid API Key or unauthorized request to Gemini.",
+                            )
+                        elif response.status_code == 429:
+                            if attempt < max_attempts_per_model:
+                                await asyncio.sleep(2.0 * attempt)
+                                continue
+                            raise ProviderError(
+                                kind=ProviderErrorKind.RATE_LIMITED,
+                                provider=self.name,
+                                operation="generate",
+                                retry_after_seconds=5.0,
+                                message="Gemini API rate limit exceeded.",
+                            )
+                        elif response.status_code >= 500:
+                            if attempt < max_attempts_per_model:
+                                await asyncio.sleep(1.5 * attempt)
+                                continue
+                            last_exc = ProviderError(
+                                kind=ProviderErrorKind.RETRYABLE,
+                                provider=self.name,
+                                operation="generate",
+                                retry_after_seconds=5.0,
+                                message=f"Gemini server error: {response.status_code}",
+                            )
+                            break
+                        elif response.status_code >= 400:
+                            raise ProviderError(
+                                kind=ProviderErrorKind.INVALID_REQUEST,
+                                provider=self.name,
+                                operation="generate",
+                                message=f"Gemini bad request: {response.text}",
+                            )
 
-            # Double-check schema validation
-            try:
-                ResearchSynthesisSchema.model_validate_json(text)
-            except Exception as exc:
-                raise ProviderError(
-                    kind=ProviderErrorKind.INVALID_REQUEST,
-                    provider=self.name,
-                    operation="generate",
-                    message=f"Model response did not validate against strict schema: {exc}",
-                ) from exc
+                        data = response.json()
+                        candidates = data.get("candidates", [])
+                        if not candidates:
+                            raise ProviderError(
+                                kind=ProviderErrorKind.INVALID_REQUEST,
+                                provider=self.name,
+                                operation="generate",
+                                message="Gemini response did not return any candidates.",
+                            )
 
-            usage = data.get("usageMetadata", {})
-            input_tokens = usage.get("promptTokenCount", 0)
-            output_tokens = usage.get("candidatesTokenCount", 0)
+                        part = candidates[0].get("content", {}).get("parts", [{}])[0]
+                        text = part.get("text", "")
+                        if not text:
+                            raise ProviderError(
+                                kind=ProviderErrorKind.INVALID_REQUEST,
+                                provider=self.name,
+                                operation="generate",
+                                message="Gemini response candidate text is empty.",
+                            )
 
-            return TextResponse(
-                text=text,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                model=self._model,
-            )
+                        # Double-check schema validation
+                        try:
+                            ResearchSynthesisSchema.model_validate_json(text)
+                        except Exception as exc:
+                            raise ProviderError(
+                                kind=ProviderErrorKind.INVALID_REQUEST,
+                                provider=self.name,
+                                operation="generate",
+                                message=f"Model response did not validate against strict schema: {exc}",
+                            ) from exc
 
-        except httpx.TimeoutException as exc:
-            raise ProviderError(
-                kind=ProviderErrorKind.RETRYABLE,
-                provider=self.name,
-                operation="generate",
-                message="Gemini API request timed out.",
-            ) from exc
-        except httpx.RequestError as exc:
-            raise ProviderError(
-                kind=ProviderErrorKind.RETRYABLE,
-                provider=self.name,
-                operation="generate",
-                message=f"HTTP request error: {exc!s}",
-            ) from exc
+                        usage = data.get("usageMetadata", {})
+                        input_tokens = usage.get("promptTokenCount", 0)
+                        output_tokens = usage.get("candidatesTokenCount", 0)
 
+                        return TextResponse(
+                            text=text,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            model=current_model,
+                        )
+
+                    except (httpx.TimeoutException, httpx.RequestError) as net_exc:
+                        if attempt < max_attempts_per_model:
+                            await asyncio.sleep(1.5 * attempt)
+                            continue
+                        last_exc = ProviderError(
+                            kind=ProviderErrorKind.RETRYABLE,
+                            provider=self.name,
+                            operation="generate",
+                            retry_after_seconds=5.0,
+                            message=f"Gemini network error: {net_exc!s}",
+                        )
+                        break
+
+        if last_exc:
+            raise last_exc
+
+        raise ProviderError(
+            kind=ProviderErrorKind.RETRYABLE,
+            provider=self.name,
+            operation="generate",
+            retry_after_seconds=5.0,
+            message="Gemini synthesis failed after multiple attempts.",
+        )
