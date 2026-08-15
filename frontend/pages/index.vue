@@ -146,7 +146,7 @@ const workflowName = ref("");
 const targetCountry = ref("US");
 const outputLanguage = ref("en");
 const targetMarketplace = ref("etsy");
-const targetBuyer = ref("");
+const targetBuyer = ref<string[]>([]);
 const intendedProductUses = ref<string[]>(["mug"]);
 const isCreating = ref(false);
 const creationError = ref<string | null>(null);
@@ -154,29 +154,29 @@ const creationError = ref<string | null>(null);
 // Original Idea fields (for user-idea/hybrid modes)
 const originalText = ref("");
 const slogan = ref("");
-const desiredStyle = ref("");
-const audience = ref("");
-const occasion = ref("");
-const season = ref("");
-const preferredNiche = ref("");
-
-// Filter state
-const searchQuery = ref("");
-const selectedFilter = ref<"all" | "active" | "needs-review" | "completed">("all");
+const desiredStyle = ref<string[]>([]);
+const audience = ref<string[]>([]);
+const occasion = ref<string[]>([]);
+const season = ref<string[]>([]);
+const preferredNiche = ref<string[]>([]);
 
 // Clear inapplicable fields when mode changes to prevent stale data submission
 watch(ideaMode, (newMode) => {
   if (newMode === "market-led") {
     originalText.value = "";
     slogan.value = "";
-    desiredStyle.value = "";
-    audience.value = "";
-    occasion.value = "";
-    season.value = "";
+    desiredStyle.value = [];
+    audience.value = [];
+    occasion.value = [];
+    season.value = [];
   } else {
-    preferredNiche.value = "";
+    preferredNiche.value = [];
   }
 });
+
+// Filter state
+const searchQuery = ref("");
+const selectedFilter = ref<"all" | "active" | "needs-review" | "completed">("all");
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -216,8 +216,8 @@ async function handleCreateWorkflow(): Promise<void> {
     let resolvedName = workflowName.value.trim();
     if (!resolvedName && ideaMode.value === "market-led") {
       const monthYear = new Date().toLocaleString("en-US", { month: "short", year: "numeric" });
-      if (preferredNiche.value.trim()) {
-        resolvedName = `${targetCountry.value.toUpperCase()} Trend Discovery (${preferredNiche.value.trim()}) - ${monthYear}`;
+      if (preferredNiche.value.length > 0) {
+        resolvedName = `${targetCountry.value.toUpperCase()} Trend Discovery (${preferredNiche.value.join(", ")}) - ${monthYear}`;
       } else {
         resolvedName = `${targetCountry.value.toUpperCase()} Trend Discovery - ${monthYear}`;
       }
@@ -236,7 +236,7 @@ async function handleCreateWorkflow(): Promise<void> {
       target_country: targetCountry.value.trim(),
       output_language: outputLanguage.value.trim(),
       target_marketplace: targetMarketplace.value.trim(),
-      target_buyer: targetBuyer.value.trim() || null,
+      target_buyer: targetBuyer.value.length > 0 ? targetBuyer.value.join(", ") : null,
       intended_product_uses: intendedProductUses.value,
     };
 
@@ -264,10 +264,10 @@ async function handleCreateWorkflow(): Promise<void> {
       const ideaPayload = {
         original_text: originalText.value.trim(),
         slogan: slogan.value.trim() || null,
-        desired_style: desiredStyle.value.trim() || null,
-        audience: audience.value.trim() || null,
-        occasion: occasion.value.trim() || null,
-        season: season.value.trim() || null,
+        desired_style: desiredStyle.value.length > 0 ? desiredStyle.value.join(", ") : null,
+        audience: audience.value.length > 0 ? audience.value.join(", ") : null,
+        occasion: occasion.value.length > 0 ? occasion.value.join(", ") : null,
+        season: season.value.length > 0 ? season.value.join(", ") : null,
         product_uses: intendedProductUses.value,
       };
 
@@ -311,15 +311,15 @@ async function handleCreateWorkflow(): Promise<void> {
     // Reset form and reload
     showCreateForm.value = false;
     workflowName.value = "";
-    targetBuyer.value = "";
+    targetBuyer.value = [];
     intendedProductUses.value = ["mug"];
     originalText.value = "";
     slogan.value = "";
-    desiredStyle.value = "";
-    audience.value = "";
-    occasion.value = "";
-    season.value = "";
-    preferredNiche.value = "";
+    desiredStyle.value = [];
+    audience.value = [];
+    occasion.value = [];
+    season.value = [];
+    preferredNiche.value = [];
 
     await loadWorkflows();
   } catch (err) {
@@ -633,7 +633,8 @@ onUnmounted(() => {
                   v-model="targetBuyer"
                   :options="BUYER_OPTIONS"
                   storage-key="etsy_custom_buyers"
-                  placeholder="Select or type buyer..."
+                  :is-multi="true"
+                  placeholder="Select or type buyers..."
                 />
               </div>
 
@@ -644,7 +645,8 @@ onUnmounted(() => {
                   v-model="preferredNiche"
                   :options="NICHE_OPTIONS"
                   storage-key="etsy_custom_niches"
-                  placeholder="Select or type niche..."
+                  :is-multi="true"
+                  placeholder="Select or type niches..."
                 />
               </div>
 
@@ -694,7 +696,8 @@ onUnmounted(() => {
                     v-model="desiredStyle"
                     :options="STYLE_OPTIONS"
                     storage-key="etsy_custom_styles"
-                    placeholder="Select or type style..."
+                    :is-multi="true"
+                    placeholder="Select or type styles..."
                   />
                 </div>
                 <div class="space-y-1.5">
@@ -711,7 +714,8 @@ onUnmounted(() => {
                     v-model="audience"
                     :options="BUYER_OPTIONS"
                     storage-key="etsy_custom_audiences"
-                    placeholder="Select or type audience..."
+                    :is-multi="true"
+                    placeholder="Select or type audiences..."
                   />
                 </div>
                 <div class="space-y-1.5">
@@ -721,7 +725,8 @@ onUnmounted(() => {
                     v-model="occasion"
                     :options="OCCASION_OPTIONS"
                     storage-key="etsy_custom_occasions"
-                    placeholder="Select or type occasion..."
+                    :is-multi="true"
+                    placeholder="Select or type occasions..."
                   />
                 </div>
                 <div class="space-y-1.5">
@@ -731,7 +736,8 @@ onUnmounted(() => {
                     v-model="season"
                     :options="SEASON_OPTIONS"
                     storage-key="etsy_custom_seasons"
-                    placeholder="Select or type season..."
+                    :is-multi="true"
+                    placeholder="Select or type seasons..."
                   />
                 </div>
               </div>
