@@ -1,14 +1,6 @@
 <script setup lang="ts">
-// Imported explicitly rather than relying on Nuxt auto-imports, so the
-// component can be mounted directly in a Vitest unit test.
 import { computed } from "vue";
 
-/**
- * One dependency's health.
- *
- * Status is never encoded by colour alone: each state carries a text label and
- * a distinct symbol (frontend/CLAUDE.md, accessibility rules).
- */
 type Status = "ok" | "degraded" | "down" | "unknown";
 
 const props = defineProps<{
@@ -21,31 +13,51 @@ const props = defineProps<{
 const presentation = computed(() => {
   switch (props.status) {
     case "ok":
-      return { label: "Healthy", symbol: "●", classes: "text-emerald-800 bg-emerald-50 border-emerald-300" };
+      return {
+        label: "Healthy",
+        symbol: "●",
+        classes: "text-emerald-800 bg-emerald-50/80 border-emerald-200 shadow-2xs",
+        dotColor: "bg-emerald-500",
+      };
     case "degraded":
-      return { label: "Degraded", symbol: "▲", classes: "text-amber-900 bg-amber-50 border-amber-300" };
+      return {
+        label: "Degraded",
+        symbol: "▲",
+        classes: "text-amber-900 bg-amber-50/80 border-amber-200 shadow-2xs",
+        dotColor: "bg-amber-500",
+      };
     case "down":
-      return { label: "Unavailable", symbol: "✕", classes: "text-red-900 bg-red-50 border-red-300" };
+      return {
+        label: "Unavailable",
+        symbol: "✕",
+        classes: "text-red-900 bg-red-50/80 border-red-200 shadow-2xs",
+        dotColor: "bg-red-500",
+      };
     default:
-      return { label: "Unknown", symbol: "?", classes: "text-slate-700 bg-slate-50 border-slate-300" };
+      return {
+        label: "Unknown",
+        symbol: "?",
+        classes: "text-slate-700 bg-slate-50 border-slate-200 shadow-2xs",
+        dotColor: "bg-slate-400",
+      };
   }
 });
 </script>
 
 <template>
   <li
-    class="flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
+    class="flex items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-sm transition-all"
     :class="presentation.classes"
     :data-testid="`status-${name}`"
   >
-    <span class="font-medium">{{ name }}</span>
-    <span class="flex items-center gap-2 text-sm">
-      <span aria-hidden="true">{{ presentation.symbol }}</span>
-      <span>{{ presentation.label }}</span>
-      <span v-if="latencyMs !== null && latencyMs !== undefined" class="tabular-nums opacity-70">
+    <span class="font-medium tracking-tight capitalize">{{ name }}</span>
+    <span class="flex items-center gap-2 text-xs">
+      <span aria-hidden="true" class="text-[10px] font-bold">{{ presentation.symbol }}</span>
+      <span class="font-semibold">{{ presentation.label }}</span>
+      <span v-if="latencyMs !== null && latencyMs !== undefined" class="tabular-nums opacity-75 text-xs font-mono">
         {{ latencyMs }} ms
       </span>
-      <span v-if="detail" class="opacity-70">({{ detail }})</span>
+      <span v-if="detail" class="opacity-75 font-mono text-[11px]">({{ detail }})</span>
     </span>
   </li>
 </template>

@@ -1,6 +1,19 @@
 <script setup lang="ts">
 /* global useRouter */
+import { ref } from "vue";
 import { useAuthStore } from "~/stores/auth";
+import { Sparkles, Mail, Lock, User, AlertCircle, ArrowRight } from "lucide-vue-next";
+import Button from "~/components/ui/Button.vue";
+import Input from "~/components/ui/Input.vue";
+import Label from "~/components/ui/Label.vue";
+import Card from "~/components/ui/Card.vue";
+import CardHeader from "~/components/ui/CardHeader.vue";
+import CardTitle from "~/components/ui/CardTitle.vue";
+import CardDescription from "~/components/ui/CardDescription.vue";
+import CardContent from "~/components/ui/CardContent.vue";
+import CardFooter from "~/components/ui/CardFooter.vue";
+import Alert from "~/components/ui/Alert.vue";
+import AlertDescription from "~/components/ui/AlertDescription.vue";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -41,81 +54,103 @@ async function handleRegister() {
 </script>
 
 <template>
-  <main id="main" class="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-    <div class="w-full max-w-md bg-white rounded-2xl border border-slate-200 p-8 shadow-lg">
-      <header class="mb-6 text-center">
-        <h1 class="text-2xl font-bold tracking-tight text-slate-800">Etsy Automation</h1>
-        <p class="mt-2 text-sm text-slate-500">Create a new owner account</p>
-      </header>
-
-      <form class="space-y-4" @submit.prevent="handleRegister">
-        <div>
-          <label for="displayName" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-            Display Name
-          </label>
-          <input
-            id="displayName"
-            v-model="displayName"
-            type="text"
-            required
-            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-            placeholder="John Doe"
-            data-testid="register-name-input"
-          >
+  <main
+    id="main"
+    class="min-h-screen bg-gradient-to-br from-slate-50 via-sky-50/30 to-indigo-50/20 flex items-center justify-center p-4 sm:p-6"
+  >
+    <div class="w-full max-w-md">
+      <div class="mb-8 text-center">
+        <div class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-600 text-white shadow-md shadow-sky-600/20 mb-3">
+          <Sparkles class="h-6 w-6" />
         </div>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Etsy Automation</h1>
+        <p class="mt-1 text-sm text-slate-500">Autonomous research-to-draft PNG engine</p>
+      </div>
 
-        <div>
-          <label for="email" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-            Email Address
-          </label>
-          <input
-            id="email"
-            v-model="email"
-            type="email"
-            required
-            autocomplete="email"
-            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-            placeholder="owner@example.com"
-            data-testid="register-email-input"
-          >
-        </div>
+      <Card class="shadow-xl border-slate-200/80 backdrop-blur-xs">
+        <CardHeader class="space-y-1 pb-4">
+          <CardTitle class="text-xl">Create your account</CardTitle>
+          <CardDescription>Setup your shop owner profile to get started</CardDescription>
+        </CardHeader>
 
-        <div>
-          <label for="password" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-            Password
-          </label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            required
-            autocomplete="new-password"
-            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-            placeholder="••••••••"
-            data-testid="register-password-input"
-          >
-        </div>
+        <CardContent>
+          <form class="space-y-4" @submit.prevent="handleRegister">
+            <div class="space-y-1.5">
+              <Label for="displayName">Display Name</Label>
+              <div class="relative">
+                <Input
+                  id="displayName"
+                  v-model="displayName"
+                  type="text"
+                  required
+                  placeholder="Alex Rivers"
+                  data-testid="register-name-input"
+                  class="pl-9"
+                />
+                <User class="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
 
-        <div v-if="error" class="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert" data-testid="register-error">
-          {{ error }}
-        </div>
+            <div class="space-y-1.5">
+              <Label for="email">Email Address</Label>
+              <div class="relative">
+                <Input
+                  id="email"
+                  v-model="email"
+                  type="email"
+                  required
+                  autocomplete="email"
+                  placeholder="owner@example.com"
+                  data-testid="register-email-input"
+                  class="pl-9"
+                />
+                <Mail class="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
 
-        <button
-          type="submit"
-          :disabled="loading"
-          class="w-full inline-flex justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          data-testid="register-submit-btn"
-        >
-          {{ loading ? 'Creating Account...' : 'Sign Up' }}
-        </button>
-      </form>
+            <div class="space-y-1.5">
+              <Label for="password">Password (min 8 characters)</Label>
+              <div class="relative">
+                <Input
+                  id="password"
+                  v-model="password"
+                  type="password"
+                  required
+                  autocomplete="new-password"
+                  placeholder="••••••••"
+                  data-testid="register-password-input"
+                  class="pl-9"
+                />
+                <Lock class="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
 
-      <footer class="mt-6 text-center text-xs text-slate-500">
-        Already have an account?
-        <NuxtLink to="/login" class="font-medium text-sky-600 hover:text-sky-800 transition-colors">
-          Sign In
-        </NuxtLink>
-      </footer>
+            <Alert v-if="error" variant="destructive" data-testid="register-error">
+              <AlertCircle class="h-4 w-4" />
+              <AlertDescription>{{ error }}</AlertDescription>
+            </Alert>
+
+            <Button
+              type="submit"
+              variant="default"
+              size="lg"
+              :loading="loading"
+              class="w-full font-semibold shadow-md shadow-sky-600/20"
+              data-testid="register-submit-btn"
+            >
+              <span>{{ loading ? 'Creating Account...' : 'Sign Up' }}</span>
+              <ArrowRight v-if="!loading" class="h-4 w-4 ml-1" />
+            </Button>
+          </form>
+        </CardContent>
+
+        <CardFooter class="flex justify-center border-t border-slate-100 pt-4 text-xs text-slate-500">
+          Already have an account?
+          <NuxtLink to="/login" class="ml-1 font-semibold text-sky-600 hover:text-sky-700 underline-offset-4 hover:underline">
+            Sign In
+          </NuxtLink>
+        </CardFooter>
+      </Card>
     </div>
   </main>
 </template>

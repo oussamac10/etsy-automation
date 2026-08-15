@@ -22,8 +22,8 @@ const NavBarMock = {
   template: "<div>NavBar Mock</div>",
 };
 
-function stubFetch(telegramMock: any) {
-  const fetchMock = vi.fn().mockImplementation((url: string, options?: any) => {
+function stubFetch(telegramMock: (url: string, options?: unknown) => Promise<unknown>) {
+  const fetchMock = vi.fn().mockImplementation((url: string, options?: unknown) => {
     if (url.includes("/settings/credentials")) {
       return Promise.resolve({ items: [] });
     }
@@ -80,7 +80,7 @@ describe("settings page - Telegram card", () => {
       telegram_username: "john_doe",
       pairing_code_expires_at: null,
     });
-    const fetchMock = stubFetch(telegramMock);
+    const _fetchMock = stubFetch(telegramMock);
 
     const wrapper = mount(settingsPage, {
       global: {
@@ -155,7 +155,7 @@ describe("settings page - Telegram card", () => {
         expires_at: expiresAt.toISOString(),
       });
 
-    const fetchMock = stubFetch(telegramMock);
+    const _fetchMock = stubFetch(telegramMock);
 
     const wrapper = mount(settingsPage, {
       global: {

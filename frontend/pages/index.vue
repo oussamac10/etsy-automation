@@ -8,8 +8,37 @@ import {
   problemDetail,
   stageLabel,
   stageProgress,
-  useWorkflowControls
+  useWorkflowControls,
 } from "~/composables/useWorkflowControls";
+import {
+  Sparkles,
+  Plus,
+  Compass,
+  Lightbulb,
+  Layers,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  ArrowRight,
+  RotateCw,
+  Square,
+  ChevronRight,
+  Sliders,
+} from "lucide-vue-next";
+import Button from "~/components/ui/Button.vue";
+import Input from "~/components/ui/Input.vue";
+import Label from "~/components/ui/Label.vue";
+import Textarea from "~/components/ui/Textarea.vue";
+import Card from "~/components/ui/Card.vue";
+import CardHeader from "~/components/ui/CardHeader.vue";
+import CardTitle from "~/components/ui/CardTitle.vue";
+import CardDescription from "~/components/ui/CardDescription.vue";
+import CardContent from "~/components/ui/CardContent.vue";
+import Badge from "~/components/ui/Badge.vue";
+import Alert from "~/components/ui/Alert.vue";
+import AlertDescription from "~/components/ui/AlertDescription.vue";
+import Progress from "~/components/ui/Progress.vue";
 
 interface Workflow {
   id: string;
@@ -54,6 +83,10 @@ const occasion = ref("");
 const season = ref("");
 const preferredNiche = ref("");
 
+// Filter state
+const searchQuery = ref("");
+const selectedFilter = ref<"all" | "active" | "needs-review" | "completed">("all");
+
 // Clear inapplicable fields when mode changes to prevent stale data submission
 watch(ideaMode, (newMode) => {
   if (newMode === "market-led") {
@@ -77,8 +110,6 @@ function getCookie(name: string): string | null {
 }
 
 async function loadWorkflows(): Promise<void> {
-  // Only the first load blanks the table; a poll refresh must not replace the
-  // list the owner is reading with a spinner every five seconds.
   isListLoading.value = workflows.value.length === 0;
   listError.value = null;
   try {
@@ -135,7 +166,7 @@ async function handleCreateWorkflow(): Promise<void> {
         .filter((u) => u.length > 0),
     };
 
-    let newWorkflow;
+    let newWorkflow: Workflow;
     try {
       newWorkflow = await $fetch<Workflow>(
         `${apiBase.replace(/\/$/, "")}/api/v1/workflows`,
@@ -146,8 +177,9 @@ async function handleCreateWorkflow(): Promise<void> {
           credentials: "include",
         }
       );
-    } catch (err: any) {
-      const detail = err.data?.detail || "Failed to create workflow.";
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { detail?: string } };
+      const detail = errorObj.data?.detail || "Failed to create workflow.";
       creationError.value = `Failed to create workflow: ${detail}`;
       isCreating.value = false;
       return;
@@ -178,15 +210,16 @@ async function handleCreateWorkflow(): Promise<void> {
             credentials: "include",
           }
         );
-      } catch (err: any) {
-        const detail = err.data?.detail || "Failed to save idea.";
+      } catch (err: unknown) {
+        const errorObj = err as { data?: { detail?: string } };
+        const detail = errorObj.data?.detail || "Failed to save idea.";
         creationError.value = `Failed to save idea: ${detail}`;
         isCreating.value = false;
         return;
       }
     }
 
-    // Step 3: Trigger the background research run automatically!
+    // Step 3: Trigger background research
     try {
       await $fetch(
         `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${newWorkflow.id}/research`,
@@ -196,8 +229,9 @@ async function handleCreateWorkflow(): Promise<void> {
           credentials: "include",
         }
       );
-    } catch (err: any) {
-      const detail = err.data?.detail || "Failed to start research.";
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { detail?: string } };
+      const detail = errorObj.data?.detail || "Failed to start research.";
       creationError.value = `Failed to start research: ${detail}`;
       isCreating.value = false;
       return;
@@ -229,7 +263,36 @@ const { controlError, pendingWorkflowId, controlWorkflow } = useWorkflowControls
   loadWorkflows
 );
 
-// Polling exists for the same reason the Stop button does: something is running.
+// Metrics
+const totalCount = computed(() => workflows.value.length);
+const runningCount = computed(() => workflows.value.filter((wf) => isRunning(wf.state)).length);
+const attentionCount = computed(() => workflows.value.filter((wf) => needsOwner(wf.state)).length);
+const completedCount = computed(() =>
+  workflows.value.filter((wf) => wf.state === "LISTING_APPROVED" || wf.state === "COMPLETED").length
+);
+
+const filteredWorkflows = computed(() => {
+  let list = workflows.value;
+  if (selectedFilter.value === "active") {
+    list = list.filter((wf) => isRunning(wf.state));
+  } else if (selectedFilter.value === "needs-review") {
+    list = list.filter((wf) => needsOwner(wf.state));
+  } else if (selectedFilter.value === "completed") {
+    list = list.filter((wf) => wf.state === "LISTING_APPROVED" || wf.state === "COMPLETED");
+  }
+
+  if (searchQuery.value.trim()) {
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter(
+      (wf) =>
+        wf.name.toLowerCase().includes(q) ||
+        wf.idea_mode.toLowerCase().includes(q) ||
+        wf.target_country.toLowerCase().includes(q)
+    );
+  }
+  return list;
+});
+
 const hasActiveWorkflows = computed(() => workflows.value.some((wf) => isRunning(wf.state)));
 
 let pollInterval: ReturnType<typeof setInterval> | null = null;
@@ -267,448 +330,496 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50">
+  <div class="min-h-screen bg-slate-50/60 pb-16">
     <NavBar />
 
-    <main id="main" class="mx-auto max-w-6xl px-6 py-12">
-      <!-- Premium Design Header -->
-      <header class="mb-12 flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-slate-200 pb-8">
-        <div>
-          <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 bg-gradient-to-r from-indigo-600 to-sky-500 bg-clip-text text-transparent">
+    <main id="main" class="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10 space-y-8">
+      <!-- Dashboard Hero Header -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-slate-200/80 pb-8">
+        <div class="space-y-1.5">
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-sky-600">
+            <Sparkles class="h-4 w-4" />
+            <span>Digital Product Automation</span>
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
             Etsy PNG Automation
           </h1>
-          <p class="mt-3 max-w-2xl text-slate-600">
-            Generate and list optimized digital art designs. Select target audiences, research search queries, synthesise ideas, and approve assets with complete manual verification controls.
+          <p class="text-sm text-slate-500 max-w-2xl">
+            Autonomous research-to-draft engine for high-resolution digital PNG art. Human approval gates at every milestone.
           </p>
         </div>
-        <div>
-          <button
+
+        <div class="flex items-center gap-3">
+          <Button
             v-if="!showCreateForm"
-            type="button"
-            class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-100 hover:shadow-indigo-200 hover:from-indigo-700 hover:to-sky-600 transition-all duration-200 transform hover:-translate-y-0.5 focus:ring-2 focus:ring-indigo-500"
+            variant="default"
+            size="lg"
+            class="shadow-md shadow-sky-600/20 gap-2 font-semibold"
             @click="showCreateForm = true"
           >
-            Create New Campaign
-          </button>
-          <button
+            <Plus class="h-4 w-4" />
+            <span>Create New Campaign</span>
+          </Button>
+          <Button
             v-else
-            type="button"
-            class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-all duration-200 focus:ring-2 focus:ring-slate-500"
+            variant="outline"
+            size="lg"
+            class="font-semibold"
             @click="showCreateForm = false"
           >
             Cancel Creation
-          </button>
+          </Button>
         </div>
-      </header>
+      </div>
 
-      <!-- New Workflow Form with selection cards -->
-      <section v-if="showCreateForm" class="mb-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-xl animate-fade-in">
-        <h2 class="text-2xl font-bold text-slate-800 mb-6">Start a New Design Campaign</h2>
-
-        <div v-if="creationError" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-          {{ creationError }}
-        </div>
-
-        <form @submit.prevent="handleCreateWorkflow" class="space-y-8">
-          <!-- Step 1: Mode Selection Cards -->
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-3">Choose Design Input Mode</label>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <!-- Mode 1: Market Led -->
-              <div
-                class="relative rounded-2xl border-2 p-5 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                :class="ideaMode === 'market-led' ? 'border-indigo-600 bg-indigo-50/50 shadow-md' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'"
-                @click="ideaMode = 'market-led'"
-              >
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-md font-bold text-slate-800">Discover Ideas</span>
-                  <span v-if="ideaMode === 'market-led'" class="h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs">✓</span>
-                </div>
-                <p class="text-xs font-semibold text-indigo-600 mb-1">Find opportunities for me</p>
-                <p class="text-xs text-slate-500">
-                  Fully automated market trend discovery. The AI searches seasonal demand and devises three unique concepts from search queries.
-                </p>
-                <span class="inline-block mt-3 text-xs font-semibold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">market-led</span>
-              </div>
-
-              <!-- Mode 2: User Idea -->
-              <div
-                class="relative rounded-2xl border-2 p-5 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                :class="ideaMode === 'user-idea' ? 'border-indigo-600 bg-indigo-50/50 shadow-md' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'"
-                @click="ideaMode = 'user-idea'"
-              >
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-md font-bold text-slate-800">Use My Idea</span>
-                  <span v-if="ideaMode === 'user-idea'" class="h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs">✓</span>
-                </div>
-                <p class="text-xs font-semibold text-indigo-600 mb-1">Research and improve my concept</p>
-                <p class="text-xs text-slate-500">
-                  Supply your own direct theme/concept. The engine optimizes your concept, queries related keywords, and outputs a ready-to-test brief.
-                </p>
-                <span class="inline-block mt-3 text-xs font-semibold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">user-idea</span>
-              </div>
-
-              <!-- Mode 3: Hybrid -->
-              <div
-                class="relative rounded-2xl border-2 p-5 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                :class="ideaMode === 'hybrid' ? 'border-indigo-600 bg-indigo-50/50 shadow-md' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'"
-                @click="ideaMode = 'hybrid'"
-              >
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-md font-bold text-slate-800">Hybrid Approach</span>
-                  <span v-if="ideaMode === 'hybrid'" class="h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs">✓</span>
-                </div>
-                <p class="text-xs font-semibold text-indigo-600 mb-1">Use my direction + market signals</p>
-                <p class="text-xs text-slate-500">
-                  Blend user direction with market signals. The engine maps your brief against general trends to produce derived variations.
-                </p>
-                <span class="inline-block mt-3 text-xs font-semibold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">hybrid</span>
-              </div>
-            </div>
+      <!-- Top KPI Stats Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Campaigns</span>
+            <Layers class="h-4 w-4 text-slate-400" />
           </div>
+          <p class="text-2xl font-bold text-slate-900 mt-2">{{ totalCount }}</p>
+          <span class="text-[11px] text-slate-400">All registered workflows</span>
+        </Card>
 
-          <!-- Step 2: Campaign Settings -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label for="campaign-name" class="block text-sm font-semibold text-slate-700">
-                Campaign Name <span v-if="ideaMode !== 'market-led'" class="text-red-500">*</span>
-              </label>
-              <input
-                id="campaign-name"
-                v-model="workflowName"
-                type="text"
-                :required="ideaMode !== 'market-led'"
-                :placeholder="ideaMode === 'market-led' ? 'e.g. US Trend Discovery - Aug 2026' : 'e.g. Autumn Mugs 2026'"
-                class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-              />
-              <span v-if="ideaMode === 'market-led'" class="text-xs text-slate-400 block mt-1">Optional - auto-generates if left blank</span>
+        <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-amber-600 uppercase tracking-wide">In Progress</span>
+            <RotateCw class="h-4 w-4 text-amber-500 animate-spin" />
+          </div>
+          <p class="text-2xl font-bold text-amber-900 mt-2">{{ runningCount }}</p>
+          <span class="text-[11px] text-amber-600/80">Active background tasks</span>
+        </Card>
+
+        <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-sky-600 uppercase tracking-wide">Needs Gate Review</span>
+            <Clock class="h-4 w-4 text-sky-500" />
+          </div>
+          <p class="text-2xl font-bold text-sky-900 mt-2">{{ attentionCount }}</p>
+          <span class="text-[11px] text-sky-600/80">Awaiting human sign-off</span>
+        </Card>
+
+        <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Approved / Complete</span>
+            <CheckCircle2 class="h-4 w-4 text-emerald-500" />
+          </div>
+          <p class="text-2xl font-bold text-emerald-900 mt-2">{{ completedCount }}</p>
+          <span class="text-[11px] text-emerald-600/80">Ready for listing</span>
+        </Card>
+      </div>
+
+      <!-- Campaign Creation Card -->
+      <Card v-if="showCreateForm" class="shadow-lg border-sky-200 bg-gradient-to-b from-white to-sky-50/20">
+        <CardHeader class="pb-4">
+          <div class="flex items-center gap-2.5">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+              <Sparkles class="h-5 w-5" />
             </div>
             <div>
-              <label for="target-country" class="block text-sm font-semibold text-slate-700">Target Marketplace Country</label>
-              <select
-                id="target-country"
-                v-model="targetCountry"
-                class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-              >
-                <option value="US">United States (US)</option>
-                <option value="CA">Canada (CA)</option>
-                <option value="GB">United Kingdom (GB)</option>
-                <option value="AU">Australia (AU)</option>
-              </select>
+              <CardTitle class="text-xl">Start a New Design Campaign</CardTitle>
+              <CardDescription>Configure market targeting, choose an input mode, and kick off AI synthesis</CardDescription>
             </div>
           </div>
+        </CardHeader>
 
-          <!-- Optional Targeting Filters -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-              <label for="output-language" class="block text-sm font-semibold text-slate-700">Output Language</label>
-              <input
-                id="output-language"
-                v-model="outputLanguage"
-                type="text"
-                required
-                class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-              />
-            </div>
-            <div>
-              <label for="target-buyer" class="block text-sm font-semibold text-slate-700">Target Buyer Persona (Optional)</label>
-              <input
-                id="target-buyer"
-                v-model="targetBuyer"
-                type="text"
-                placeholder="e.g. coffee lovers, teachers"
-                class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-              />
-            </div>
-            <div v-if="ideaMode === 'market-led'">
-              <label for="preferred-niche" class="block text-sm font-semibold text-slate-700">Preferred Niche / Theme (Optional)</label>
-              <input
-                id="preferred-niche"
-                v-model="preferredNiche"
-                type="text"
-                placeholder="e.g. retro camping, black cats"
-                class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-              />
-            </div>
-            <div :class="ideaMode !== 'market-led' ? 'md:col-span-1 lg:col-span-2' : ''">
-              <label for="product-uses" class="block text-sm font-semibold text-slate-700">Intended Physical Products</label>
-              <input
-                id="product-uses"
-                v-model="intendedProductUses"
-                type="text"
-                placeholder="e.g. mug, tumbler, tshirt"
-                class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-              />
-              <span class="text-xs text-slate-400">Comma-separated list.</span>
-            </div>
-          </div>
+        <CardContent>
+          <Alert v-if="creationError" variant="destructive" class="mb-6">
+            <AlertCircle class="h-4 w-4" />
+            <AlertDescription>{{ creationError }}</AlertDescription>
+          </Alert>
 
-          <!-- Step 3: Wording / Brief inputs (for user-idea/hybrid modes) -->
-          <div v-if="ideaMode !== 'market-led'" class="border-t border-slate-200 pt-6 space-y-6">
-            <h3 class="text-lg font-bold text-slate-800">
-              {{ ideaMode === 'hybrid' ? 'Your Theme / Direction Details' : 'Your Design Idea Details' }}
-            </h3>
-            
-            <div>
-              <label for="original-text" class="block text-sm font-semibold text-slate-700">
-                {{ ideaMode === 'hybrid' ? 'Theme / Direction Brief' : 'Idea Brief / Prompt Wording' }} <span class="text-red-500">*</span>
-              </label>
-              <textarea
-                id="original-text"
-                v-model="originalText"
-                required
-                rows="3"
-                :placeholder="
-                  ideaMode === 'hybrid' 
-                    ? 'e.g. retro camping theme for outdoorsy adults, warm colors, humorous but not childish' 
-                    : 'Detail the subject, elements, colors, and layout you want (minimum 3 characters)'
-                "
-                class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-              ></textarea>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label for="desired-style" class="block text-sm font-semibold text-slate-700">
-                  {{ ideaMode === 'hybrid' ? 'Preferred Style (Optional)' : 'Desired Style (Optional)' }}
-                </label>
-                <input
-                  id="desired-style"
-                  v-model="desiredStyle"
-                  type="text"
-                  placeholder="e.g. watercolor, retro vector, minimalist pencil line art"
-                  class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                />
-              </div>
-              <div>
-                <label for="slogan" class="block text-sm font-semibold text-slate-700">Exact Slogan / Typography Text (Optional)</label>
-                <input
-                  id="slogan"
-                  v-model="slogan"
-                  type="text"
-                  placeholder="e.g. BUT FIRST COFFEE"
-                  class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label for="audience" class="block text-sm font-semibold text-slate-700">Audience (Optional)</label>
-                <input
-                  id="audience"
-                  v-model="audience"
-                  type="text"
-                  placeholder="e.g. dog moms"
-                  class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                />
-              </div>
-              <div>
-                <label for="occasion" class="block text-sm font-semibold text-slate-700">Occasion (Optional)</label>
-                <input
-                  id="occasion"
-                  v-model="occasion"
-                  type="text"
-                  placeholder="e.g. Mother's Day"
-                  class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                />
-              </div>
-              <div>
-                <label for="season" class="block text-sm font-semibold text-slate-700">Season (Optional)</label>
-                <input
-                  id="season"
-                  v-model="season"
-                  type="text"
-                  placeholder="e.g. Fall / Halloween"
-                  class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Helper text outlining next steps -->
-          <div class="rounded-xl bg-slate-50 border border-slate-100 p-4 text-xs text-slate-500 flex items-start gap-2.5">
-            <span class="text-base">ℹ️</span>
-            <div>
-              <p class="font-semibold text-slate-700 mb-0.5">What happens next?</p>
-              <p>Research runs in the background and stops at Idea Review before any artwork is generated.</p>
-            </div>
-          </div>
-
-          <div class="flex justify-end pt-4">
-            <button
-              type="submit"
-              :disabled="isCreating"
-              class="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 px-6 py-3 text-sm font-bold text-white shadow-lg hover:from-indigo-700 hover:to-sky-600 transition-all duration-200 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer"
-            >
-              <span v-if="isCreating">
-                {{ 
-                  ideaMode === 'market-led' ? 'Starting market discovery...' :
-                  ideaMode === 'user-idea' ? 'Starting idea research...' :
-                  'Starting hybrid research...'
-                }}
-              </span>
-              <span v-else>
-                {{ 
-                  ideaMode === 'market-led' ? 'Discover 3 Ideas' :
-                  ideaMode === 'user-idea' ? 'Research My Idea' :
-                  'Generate Variations'
-                }}
-              </span>
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <!-- Active Workflows List -->
-      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 class="text-2xl font-bold text-slate-800 mb-6">Your Design Workflows</h2>
-
-        <div v-if="controlError" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-          {{ controlError }}
-        </div>
-
-        <div v-if="isListLoading" class="flex flex-col items-center justify-center py-12 text-slate-500 animate-pulse">
-          <p>Loading your campaigns...</p>
-        </div>
-
-        <div v-else-if="listError" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          <p>{{ listError }}</p>
-        </div>
-
-        <div v-else-if="workflows.length === 0" class="text-center py-16">
-          <div class="mx-auto h-12 w-12 text-slate-300 mb-4 font-bold text-3xl">🎨</div>
-          <h3 class="text-lg font-semibold text-slate-700 mb-1">No Active Campaigns</h3>
-          <p class="text-slate-500 text-sm mb-6 max-w-sm mx-auto">
-            Get started by creating your first product design workflow using one of the research modes.
-          </p>
-          <button
-            type="button"
-            class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700"
-            @click="showCreateForm = true"
-          >
-            Create Your First Campaign
-          </button>
-        </div>
-
-        <div v-else class="overflow-x-auto rounded-xl border border-slate-200">
-          <table class="min-w-full text-left text-sm">
-            <thead class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              <tr>
-                <th scope="col" class="px-6 py-3">Campaign</th>
-                <th scope="col" class="px-6 py-3">Stage</th>
-                <th scope="col" class="px-6 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white align-top text-slate-600">
-              <tr
-                v-for="wf in workflows"
-                :key="wf.id"
-                class="transition-colors duration-150 hover:bg-slate-50/70"
-              >
-                <!-- Name carries the row; the brief sits underneath it as quiet
-                     metadata rather than competing for its own columns. -->
-                <td class="px-6 py-4">
-                  <NuxtLink
-                    :to="`/workflow/${wf.id}`"
-                    class="font-semibold text-slate-900 hover:text-indigo-700 focus:outline-none focus:underline"
-                  >
-                    {{ wf.name }}
-                  </NuxtLink>
-                  <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                    <span class="font-medium text-slate-600">{{ wf.idea_mode }}</span>
-                    <span aria-hidden="true" class="text-slate-300">·</span>
-                    <span>{{ wf.target_country }}/{{ wf.output_language }}</span>
-                    <span aria-hidden="true" class="text-slate-300">·</span>
-                    <time :datetime="wf.created_at">{{ new Date(wf.created_at).toLocaleDateString() }}</time>
+          <form class="space-y-6" @submit.prevent="handleCreateWorkflow">
+            <!-- Step 1: Mode Selection Cards -->
+            <div class="space-y-3">
+              <Label>Select Design Input Mode</Label>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Mode 1: Market Led -->
+                <div
+                  :class="[
+                    'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
+                    ideaMode === 'market-led'
+                      ? 'border-sky-600 bg-sky-50/50 shadow-xs'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
+                  ]"
+                  @click="ideaMode = 'market-led'"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                      <Compass class="h-4 w-4 text-sky-600" />
+                      <span class="font-bold text-sm text-slate-900">Discover Ideas</span>
+                    </div>
+                    <Badge v-if="ideaMode === 'market-led'" variant="default" class="h-5 px-1.5 text-[10px]">
+                      Selected
+                    </Badge>
+                  </div>
+                  <p class="text-xs font-semibold text-sky-700 mb-1">Market-Led Discovery</p>
+                  <p class="text-xs text-slate-500 leading-relaxed">
+                    AI searches seasonal Etsy trends and generates 3 validated design concepts automatically.
                   </p>
-                </td>
+                </div>
 
-                <!-- Stage, not raw state: a dot for scanning, a sentence for
-                     meaning, and a track showing how far along the pipeline is.
-                     Colour is never the only signal. -->
-                <td class="px-6 py-4">
-                  <span class="flex items-center gap-2 font-medium text-slate-800">
-                    <span
-                      class="h-2 w-2 shrink-0 rounded-full"
-                      :class="{
-                        'bg-amber-500 motion-safe:animate-pulse': isRunning(wf.state),
-                        'bg-blue-500': needsOwner(wf.state),
-                        'bg-slate-400': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
-                        'bg-red-500': wf.state.endsWith('_FAILED'),
-                        'bg-emerald-500': !isRunning(wf.state) && !needsOwner(wf.state) && !wf.state.endsWith('_FAILED') && wf.state !== 'DRAFT' && wf.state !== 'CANCELLED'
-                      }"
-                      aria-hidden="true"
-                    />
-                    {{ stageLabel(wf.state) }}
-                  </span>
-                  <span v-if="stageProgress(wf.state)[0] > 0" class="mt-2 flex items-center gap-2">
-                    <span class="flex gap-[3px]" aria-hidden="true">
-                      <span
-                        v-for="step in stageProgress(wf.state)[1]"
-                        :key="step"
-                        class="h-1 w-2 rounded-full"
-                        :class="step <= stageProgress(wf.state)[0] ? 'bg-indigo-500' : 'bg-slate-200'"
-                      />
-                    </span>
-                    <span class="text-xs text-slate-500">
-                      Step {{ stageProgress(wf.state)[0] }} of {{ stageProgress(wf.state)[1] }}
-                    </span>
-                  </span>
-                </td>
+                <!-- Mode 2: User Idea -->
+                <div
+                  :class="[
+                    'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
+                    ideaMode === 'user-idea'
+                      ? 'border-sky-600 bg-sky-50/50 shadow-xs'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
+                  ]"
+                  @click="ideaMode = 'user-idea'"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                      <Lightbulb class="h-4 w-4 text-sky-600" />
+                      <span class="font-bold text-sm text-slate-900">Use My Idea</span>
+                    </div>
+                    <Badge v-if="ideaMode === 'user-idea'" variant="default" class="h-5 px-1.5 text-[10px]">
+                      Selected
+                    </Badge>
+                  </div>
+                  <p class="text-xs font-semibold text-sky-700 mb-1">Idea Optimization</p>
+                  <p class="text-xs text-slate-500 leading-relaxed">
+                    Provide your own theme or slogan. The engine refines keywords, prompts, and target appeal.
+                  </p>
+                </div>
 
-                <td class="px-6 py-4">
-                  <div class="flex items-center justify-end gap-2">
-                    <button
-                      v-if="isRunning(wf.state)"
-                      type="button"
-                      :disabled="pendingWorkflowId === wf.id"
-                      :title="`Stop ${wf.name}`"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition-colors hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-                      @click="controlWorkflow(wf.id, 'cancel')"
-                    >
-                      <span class="sr-only">Stop campaign {{ wf.name }}</span>
-                      <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor" />
-                      </svg>
-                    </button>
-                    <button
-                      v-if="isStopped(wf.state)"
-                      type="button"
-                      :disabled="pendingWorkflowId === wf.id"
-                      :title="`Rerun ${wf.name}`"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-                      @click="controlWorkflow(wf.id, 'rerun')"
-                    >
-                      <span class="sr-only">Rerun campaign {{ wf.name }}</span>
-                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M20 11a8 8 0 1 0-.6 4" />
-                        <path d="M20 4v7h-7" />
-                      </svg>
-                    </button>
+                <!-- Mode 3: Hybrid -->
+                <div
+                  :class="[
+                    'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
+                    ideaMode === 'hybrid'
+                      ? 'border-sky-600 bg-sky-50/50 shadow-xs'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
+                  ]"
+                  @click="ideaMode = 'hybrid'"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                      <Sliders class="h-4 w-4 text-sky-600" />
+                      <span class="font-bold text-sm text-slate-900">Hybrid Approach</span>
+                    </div>
+                    <Badge v-if="ideaMode === 'hybrid'" variant="default" class="h-5 px-1.5 text-[10px]">
+                      Selected
+                    </Badge>
+                  </div>
+                  <p class="text-xs font-semibold text-sky-700 mb-1">Direction + Signals</p>
+                  <p class="text-xs text-slate-500 leading-relaxed">
+                    Combine your creative direction with real-time market data to create derived variations.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2: Campaign Settings -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <Label for="campaign-name" :required="ideaMode !== 'market-led'">
+                  Campaign Name
+                </Label>
+                <Input
+                  id="campaign-name"
+                  v-model="workflowName"
+                  :required="ideaMode !== 'market-led'"
+                  :placeholder="ideaMode === 'market-led' ? 'e.g. US Trend Discovery - Aug 2026' : 'e.g. Autumn Mugs 2026'"
+                />
+                <span v-if="ideaMode === 'market-led'" class="text-[11px] text-slate-400">
+                  Optional — auto-generates if left blank
+                </span>
+              </div>
+
+              <div class="space-y-1.5">
+                <Label for="target-country">Target Marketplace Country</Label>
+                <select
+                  id="target-country"
+                  v-model="targetCountry"
+                  class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                >
+                  <option value="US">United States (US)</option>
+                  <option value="CA">Canada (CA)</option>
+                  <option value="GB">United Kingdom (GB)</option>
+                  <option value="AU">Australia (AU)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Optional Targeting Filters -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="space-y-1.5">
+                <Label for="output-language">Output Language</Label>
+                <Input id="output-language" v-model="outputLanguage" required />
+              </div>
+
+              <div class="space-y-1.5">
+                <Label for="target-buyer">Buyer Persona (Optional)</Label>
+                <Input id="target-buyer" v-model="targetBuyer" placeholder="e.g. coffee lovers, teachers" />
+              </div>
+
+              <div v-if="ideaMode === 'market-led'" class="space-y-1.5">
+                <Label for="preferred-niche">Preferred Niche (Optional)</Label>
+                <Input id="preferred-niche" v-model="preferredNiche" placeholder="e.g. retro camping, black cats" />
+              </div>
+
+              <div :class="ideaMode !== 'market-led' ? 'md:col-span-1 lg:col-span-2' : ''" class="space-y-1.5">
+                <Label for="product-uses">Intended Physical Products</Label>
+                <Input id="product-uses" v-model="intendedProductUses" placeholder="e.g. mug, tumbler, tshirt" />
+              </div>
+            </div>
+
+            <!-- Step 3: Wording / Brief inputs (for user-idea/hybrid modes) -->
+            <div v-if="ideaMode !== 'market-led'" class="border-t border-slate-200/80 pt-6 space-y-4">
+              <h3 class="text-base font-bold text-slate-900">
+                {{ ideaMode === 'hybrid' ? 'Your Theme / Direction Details' : 'Your Design Idea Details' }}
+              </h3>
+
+              <div class="space-y-1.5">
+                <Label for="original-text" required>
+                  {{ ideaMode === 'hybrid' ? 'Theme / Direction Brief' : 'Idea Brief / Prompt Wording' }}
+                </Label>
+                <Textarea
+                  id="original-text"
+                  v-model="originalText"
+                  required
+                  :rows="3"
+                  :placeholder="
+                    ideaMode === 'hybrid'
+                      ? 'e.g. retro camping theme for outdoorsy adults, warm colors, humorous but not childish'
+                      : 'Detail the subject, elements, colors, and layout you want (minimum 3 characters)'
+                  "
+                />
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-1.5">
+                  <Label for="desired-style">
+                    {{ ideaMode === 'hybrid' ? 'Preferred Style (Optional)' : 'Desired Style (Optional)' }}
+                  </Label>
+                  <Input id="desired-style" v-model="desiredStyle" placeholder="e.g. watercolor, retro vector, line art" />
+                </div>
+                <div class="space-y-1.5">
+                  <Label for="slogan">Exact Slogan / Typography (Optional)</Label>
+                  <Input id="slogan" v-model="slogan" placeholder="e.g. BUT FIRST COFFEE" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="space-y-1.5">
+                  <Label for="audience">Audience (Optional)</Label>
+                  <Input id="audience" v-model="audience" placeholder="e.g. dog moms" />
+                </div>
+                <div class="space-y-1.5">
+                  <Label for="occasion">Occasion (Optional)</Label>
+                  <Input id="occasion" v-model="occasion" placeholder="e.g. Mother's Day" />
+                </div>
+                <div class="space-y-1.5">
+                  <Label for="season">Season (Optional)</Label>
+                  <Input id="season" v-model="season" placeholder="e.g. Fall / Halloween" />
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-slate-100 pt-4">
+              <div class="flex items-center gap-2 text-xs text-slate-500">
+                <Clock class="h-4 w-4 text-sky-600" />
+                <span>Runs in background · Pauses at Gate 1 for review</span>
+              </div>
+
+              <Button
+                type="submit"
+                variant="default"
+                size="lg"
+                :loading="isCreating"
+                class="shadow-md shadow-sky-600/20 font-bold"
+              >
+                <span>
+                  {{
+                    ideaMode === 'market-led' ? 'Discover 3 Ideas' :
+                    ideaMode === 'user-idea' ? 'Research My Idea' :
+                    'Generate Variations'
+                  }}
+                </span>
+                <ArrowRight v-if="!isCreating" class="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <!-- Active Workflows List Card -->
+      <Card class="shadow-sm">
+        <CardHeader class="pb-4">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle class="text-xl">Your Design Workflows</CardTitle>
+              <CardDescription>Track pipeline execution, monitor approval gates, and manage drafts</CardDescription>
+            </div>
+
+            <!-- Search & Filters -->
+            <div class="flex items-center gap-2">
+              <div class="relative w-48 sm:w-60">
+                <Input
+                  v-model="searchQuery"
+                  placeholder="Search campaigns..."
+                  class="pl-8 text-xs h-8"
+                />
+                <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent class="pt-0">
+          <Alert v-if="controlError" variant="destructive" class="mb-4">
+            <AlertCircle class="h-4 w-4" />
+            <AlertDescription>{{ controlError }}</AlertDescription>
+          </Alert>
+
+          <div v-if="isListLoading" class="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
+            <RotateCw class="h-6 w-6 animate-spin text-sky-600" />
+            <p class="text-sm font-medium">Loading campaigns...</p>
+          </div>
+
+          <Alert v-else-if="listError" variant="warning" class="mb-4">
+            <AlertCircle class="h-4 w-4" />
+            <AlertDescription>{{ listError }}</AlertDescription>
+          </Alert>
+
+          <!-- Empty State -->
+          <div v-else-if="filteredWorkflows.length === 0" class="text-center py-16 px-4">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-600 mb-4 border border-sky-100 shadow-2xs">
+              <Sparkles class="h-7 w-7" />
+            </div>
+            <h3 class="text-base font-bold text-slate-900 mb-1">
+              {{ searchQuery ? 'No matching campaigns' : 'No active campaigns' }}
+            </h3>
+            <p class="text-slate-500 text-xs mb-6 max-w-sm mx-auto">
+              {{ searchQuery ? 'Try adjusting your search query or clear filters.' : 'Get started by creating your first product design workflow with automated research.' }}
+            </p>
+            <Button
+              v-if="!searchQuery"
+              variant="default"
+              size="default"
+              class="gap-1.5 font-semibold"
+              @click="showCreateForm = true"
+            >
+              <Plus class="h-4 w-4" />
+              <span>Create Your First Campaign</span>
+            </Button>
+          </div>
+
+          <!-- Workflows Table -->
+          <div v-else class="overflow-x-auto rounded-xl border border-slate-200/80">
+            <table class="min-w-full text-left text-sm">
+              <thead class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th scope="col" class="px-6 py-3">Campaign</th>
+                  <th scope="col" class="px-6 py-3">Stage & Progress</th>
+                  <th scope="col" class="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 bg-white align-middle text-slate-600">
+                <tr
+                  v-for="wf in filteredWorkflows"
+                  :key="wf.id"
+                  class="transition-colors hover:bg-slate-50/80 group"
+                >
+                  <td class="px-6 py-4">
                     <NuxtLink
                       :to="`/workflow/${wf.id}`"
-                      class="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+                      class="font-bold text-slate-900 group-hover:text-sky-600 transition-colors focus:outline-none focus:underline"
                     >
-                      Open
+                      {{ wf.name }}
                     </NuxtLink>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                      <Badge variant="secondary" class="text-[10px] px-2 py-0">
+                        {{ wf.idea_mode }}
+                      </Badge>
+                      <span aria-hidden="true" class="text-slate-300">·</span>
+                      <span class="font-medium text-slate-600">{{ wf.target_country }}/{{ wf.output_language }}</span>
+                      <span aria-hidden="true" class="text-slate-300">·</span>
+                      <time :datetime="wf.created_at" class="text-slate-400">
+                        {{ new Date(wf.created_at).toLocaleDateString() }}
+                      </time>
+                    </p>
+                  </td>
+
+                  <td class="px-6 py-4">
+                    <div class="space-y-1.5">
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="h-2 w-2 shrink-0 rounded-full"
+                          :class="{
+                            'bg-amber-500 motion-safe:animate-pulse': isRunning(wf.state),
+                            'bg-sky-500': needsOwner(wf.state),
+                            'bg-slate-400': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
+                            'bg-red-500': wf.state.endsWith('_FAILED'),
+                            'bg-emerald-500': !isRunning(wf.state) && !needsOwner(wf.state) && !wf.state.endsWith('_FAILED') && wf.state !== 'DRAFT' && wf.state !== 'CANCELLED'
+                          }"
+                          aria-hidden="true"
+                        />
+                        <span class="font-semibold text-xs text-slate-800">
+                          {{ stageLabel(wf.state) }}
+                        </span>
+                      </div>
+
+                      <div v-if="stageProgress(wf.state)[0] > 0" class="flex items-center gap-2">
+                        <Progress
+                          :value="stageProgress(wf.state)[0]"
+                          :max="stageProgress(wf.state)[1]"
+                          class="h-1.5 w-24 bg-slate-100"
+                          indicator-class="bg-sky-600"
+                        />
+                        <span class="text-[11px] font-medium text-slate-400 tabular-nums">
+                          Step {{ stageProgress(wf.state)[0] }}/{{ stageProgress(wf.state)[1] }}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="px-6 py-4">
+                    <div class="flex items-center justify-end gap-2">
+                      <Button
+                        v-if="isRunning(wf.state)"
+                        variant="destructive"
+                        size="sm"
+                        :disabled="pendingWorkflowId === wf.id"
+                        :title="`Stop ${wf.name}`"
+                        class="h-8 px-2.5 text-xs gap-1"
+                        @click="controlWorkflow(wf.id, 'cancel')"
+                      >
+                        <Square class="h-3 w-3 fill-current" />
+                        <span>Stop</span>
+                      </Button>
+
+                      <Button
+                        v-if="isStopped(wf.state)"
+                        variant="secondary"
+                        size="sm"
+                        :disabled="pendingWorkflowId === wf.id"
+                        :title="`Rerun ${wf.name}`"
+                        class="h-8 px-2.5 text-xs gap-1"
+                        @click="controlWorkflow(wf.id, 'rerun')"
+                      >
+                        <RotateCw class="h-3 w-3" />
+                        <span>Rerun</span>
+                      </Button>
+
+                      <NuxtLink :to="`/workflow/${wf.id}`">
+                        <Button variant="outline" size="sm" class="h-8 px-3 text-xs gap-1 font-semibold">
+                          <span>Open</span>
+                          <ChevronRight class="h-3.5 w-3.5" />
+                        </Button>
+                      </NuxtLink>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </main>
   </div>
 </template>
-
-<style scoped>
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in {
-  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-</style>
