@@ -19,16 +19,16 @@ async function handleLogout() {
 
 <template>
   <header
-    class="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/85 backdrop-blur-md transition-all shadow-xs"
+    class="sticky top-0 z-40 w-full border-b border-zinc-200/80 bg-white/85 backdrop-blur-md transition-all shadow-2xs"
     role="banner"
   >
     <div class="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-3">
       <div class="flex items-center gap-8">
         <NuxtLink
           to="/"
-          class="flex items-center gap-2.5 text-base font-bold tracking-tight text-slate-900 hover:text-sky-600 transition-colors group"
+          class="flex items-center gap-2.5 text-base font-bold tracking-tight text-zinc-900 hover:text-indigo-600 transition-colors group"
         >
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-600 text-white shadow-xs group-hover:bg-sky-700 transition-colors">
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-2xs group-hover:bg-indigo-700 transition-colors">
             <Sparkles class="h-4 w-4" />
           </div>
           <span>Etsy Automation</span>
@@ -37,16 +37,16 @@ async function handleLogout() {
         <nav class="flex items-center gap-1" role="navigation" aria-label="Main Navigation">
           <NuxtLink
             to="/"
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-            active-class="bg-sky-50 text-sky-700 font-semibold"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+            active-class="bg-indigo-50 text-indigo-700 font-semibold"
           >
             <LayoutDashboard class="h-3.5 w-3.5" />
             <span>Dashboard</span>
           </NuxtLink>
           <NuxtLink
             to="/settings"
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-            active-class="bg-sky-50 text-sky-700 font-semibold"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+            active-class="bg-indigo-50 text-indigo-700 font-semibold"
             data-testid="nav-settings-link"
           >
             <Settings class="h-3.5 w-3.5" />
@@ -56,8 +56,8 @@ async function handleLogout() {
       </div>
 
       <div v-if="auth.user" class="flex items-center gap-3">
-        <div class="flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50/80 px-3 py-1 text-xs text-slate-600 shadow-2xs">
-          <User class="h-3.5 w-3.5 text-slate-400" />
+        <div class="flex items-center gap-2 rounded-full border border-zinc-200/80 bg-zinc-50/80 px-3 py-1 text-xs text-zinc-600 shadow-2xs">
+          <User class="h-3.5 w-3.5 text-zinc-400" />
           <span class="hidden sm:inline font-medium" data-testid="user-email">
             {{ auth.user.email }}
           </span>
@@ -66,7 +66,7 @@ async function handleLogout() {
           variant="outline"
           size="sm"
           data-testid="logout-btn"
-          class="h-8 gap-1.5 px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-red-600 transition-colors"
+          class="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-rose-600 transition-colors"
           @click="handleLogout"
         >
           <LogOut class="h-3.5 w-3.5" />

@@ -330,21 +330,21 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50/60 pb-16">
+  <div class="min-h-screen bg-zinc-50/80 pb-16">
     <NavBar />
 
     <main id="main" class="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10 space-y-8">
       <!-- Dashboard Hero Header -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-slate-200/80 pb-8">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-zinc-200/80 pb-8">
         <div class="space-y-1.5">
-          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-sky-600">
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
             <Sparkles class="h-4 w-4" />
             <span>Digital Product Automation</span>
           </div>
-          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
             Etsy PNG Automation
           </h1>
-          <p class="text-sm text-slate-500 max-w-2xl">
+          <p class="text-sm text-zinc-500 max-w-2xl">
             Autonomous research-to-draft engine for high-resolution digital PNG art. Human approval gates at every milestone.
           </p>
         </div>
@@ -354,7 +354,7 @@ onUnmounted(() => {
             v-if="!showCreateForm"
             variant="default"
             size="lg"
-            class="shadow-md shadow-sky-600/20 gap-2 font-semibold"
+            class="shadow-md shadow-indigo-600/20 gap-2 font-semibold"
             @click="showCreateForm = true"
           >
             <Plus class="h-4 w-4" />
@@ -376,46 +376,46 @@ onUnmounted(() => {
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Campaigns</span>
-            <Layers class="h-4 w-4 text-slate-400" />
+            <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Total Campaigns</span>
+            <Layers class="h-4 w-4 text-zinc-400" />
           </div>
-          <p class="text-2xl font-bold text-slate-900 mt-2">{{ totalCount }}</p>
-          <span class="text-[11px] text-slate-400">All registered workflows</span>
+          <p class="text-2xl font-bold text-zinc-900 mt-2">{{ totalCount }}</p>
+          <span class="text-[11px] text-zinc-400">All registered workflows</span>
         </Card>
 
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-amber-600 uppercase tracking-wide">In Progress</span>
-            <RotateCw class="h-4 w-4 text-amber-500 animate-spin" />
+            <span class="text-xs font-semibold text-amber-700 uppercase tracking-wide">In Progress</span>
+            <RotateCw class="h-4 w-4 text-amber-600 animate-spin" />
           </div>
           <p class="text-2xl font-bold text-amber-900 mt-2">{{ runningCount }}</p>
-          <span class="text-[11px] text-amber-600/80">Active background tasks</span>
+          <span class="text-[11px] text-amber-700/80">Active background tasks</span>
         </Card>
 
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-sky-600 uppercase tracking-wide">Needs Gate Review</span>
-            <Clock class="h-4 w-4 text-sky-500" />
+            <span class="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Needs Gate Review</span>
+            <Clock class="h-4 w-4 text-indigo-600" />
           </div>
-          <p class="text-2xl font-bold text-sky-900 mt-2">{{ attentionCount }}</p>
-          <span class="text-[11px] text-sky-600/80">Awaiting human sign-off</span>
+          <p class="text-2xl font-bold text-indigo-900 mt-2">{{ attentionCount }}</p>
+          <span class="text-[11px] text-indigo-700/80">Awaiting human sign-off</span>
         </Card>
 
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Approved / Complete</span>
-            <CheckCircle2 class="h-4 w-4 text-emerald-500" />
+            <span class="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Approved / Complete</span>
+            <CheckCircle2 class="h-4 w-4 text-emerald-600" />
           </div>
           <p class="text-2xl font-bold text-emerald-900 mt-2">{{ completedCount }}</p>
-          <span class="text-[11px] text-emerald-600/80">Ready for listing</span>
+          <span class="text-[11px] text-emerald-700/80">Ready for listing</span>
         </Card>
       </div>
 
       <!-- Campaign Creation Card -->
-      <Card v-if="showCreateForm" class="shadow-lg border-sky-200 bg-gradient-to-b from-white to-sky-50/20">
+      <Card v-if="showCreateForm" class="shadow-lg border-indigo-200 bg-gradient-to-b from-white to-indigo-50/20">
         <CardHeader class="pb-4">
           <div class="flex items-center gap-2.5">
-            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
               <Sparkles class="h-5 w-5" />
             </div>
             <div>
@@ -441,22 +441,22 @@ onUnmounted(() => {
                   :class="[
                     'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
                     ideaMode === 'market-led'
-                      ? 'border-sky-600 bg-sky-50/50 shadow-xs'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
+                      ? 'border-indigo-600 bg-indigo-50/50 shadow-2xs'
+                      : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50',
                   ]"
                   @click="ideaMode = 'market-led'"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                      <Compass class="h-4 w-4 text-sky-600" />
-                      <span class="font-bold text-sm text-slate-900">Discover Ideas</span>
+                      <Compass class="h-4 w-4 text-indigo-600" />
+                      <span class="font-bold text-sm text-zinc-900">Discover Ideas</span>
                     </div>
                     <Badge v-if="ideaMode === 'market-led'" variant="default" class="h-5 px-1.5 text-[10px]">
                       Selected
                     </Badge>
                   </div>
-                  <p class="text-xs font-semibold text-sky-700 mb-1">Market-Led Discovery</p>
-                  <p class="text-xs text-slate-500 leading-relaxed">
+                  <p class="text-xs font-semibold text-indigo-700 mb-1">Market-Led Discovery</p>
+                  <p class="text-xs text-zinc-500 leading-relaxed">
                     AI searches seasonal Etsy trends and generates 3 validated design concepts automatically.
                   </p>
                 </div>
@@ -466,22 +466,22 @@ onUnmounted(() => {
                   :class="[
                     'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
                     ideaMode === 'user-idea'
-                      ? 'border-sky-600 bg-sky-50/50 shadow-xs'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
+                      ? 'border-indigo-600 bg-indigo-50/50 shadow-2xs'
+                      : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50',
                   ]"
                   @click="ideaMode = 'user-idea'"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                      <Lightbulb class="h-4 w-4 text-sky-600" />
-                      <span class="font-bold text-sm text-slate-900">Use My Idea</span>
+                      <Lightbulb class="h-4 w-4 text-indigo-600" />
+                      <span class="font-bold text-sm text-zinc-900">Use My Idea</span>
                     </div>
                     <Badge v-if="ideaMode === 'user-idea'" variant="default" class="h-5 px-1.5 text-[10px]">
                       Selected
                     </Badge>
                   </div>
-                  <p class="text-xs font-semibold text-sky-700 mb-1">Idea Optimization</p>
-                  <p class="text-xs text-slate-500 leading-relaxed">
+                  <p class="text-xs font-semibold text-indigo-700 mb-1">Idea Optimization</p>
+                  <p class="text-xs text-zinc-500 leading-relaxed">
                     Provide your own theme or slogan. The engine refines keywords, prompts, and target appeal.
                   </p>
                 </div>
@@ -491,22 +491,22 @@ onUnmounted(() => {
                   :class="[
                     'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
                     ideaMode === 'hybrid'
-                      ? 'border-sky-600 bg-sky-50/50 shadow-xs'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
+                      ? 'border-indigo-600 bg-indigo-50/50 shadow-2xs'
+                      : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50',
                   ]"
                   @click="ideaMode = 'hybrid'"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                      <Sliders class="h-4 w-4 text-sky-600" />
-                      <span class="font-bold text-sm text-slate-900">Hybrid Approach</span>
+                      <Sliders class="h-4 w-4 text-indigo-600" />
+                      <span class="font-bold text-sm text-zinc-900">Hybrid Approach</span>
                     </div>
                     <Badge v-if="ideaMode === 'hybrid'" variant="default" class="h-5 px-1.5 text-[10px]">
                       Selected
                     </Badge>
                   </div>
-                  <p class="text-xs font-semibold text-sky-700 mb-1">Direction + Signals</p>
-                  <p class="text-xs text-slate-500 leading-relaxed">
+                  <p class="text-xs font-semibold text-indigo-700 mb-1">Direction + Signals</p>
+                  <p class="text-xs text-zinc-500 leading-relaxed">
                     Combine your creative direction with real-time market data to create derived variations.
                   </p>
                 </div>
@@ -525,7 +525,7 @@ onUnmounted(() => {
                   :required="ideaMode !== 'market-led'"
                   :placeholder="ideaMode === 'market-led' ? 'e.g. US Trend Discovery - Aug 2026' : 'e.g. Autumn Mugs 2026'"
                 />
-                <span v-if="ideaMode === 'market-led'" class="text-[11px] text-slate-400">
+                <span v-if="ideaMode === 'market-led'" class="text-[11px] text-zinc-400">
                   Optional — auto-generates if left blank
                 </span>
               </div>
@@ -535,7 +535,7 @@ onUnmounted(() => {
                 <select
                   id="target-country"
                   v-model="targetCountry"
-                  class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  class="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 >
                   <option value="US">United States (US)</option>
                   <option value="CA">Canada (CA)</option>
@@ -569,8 +569,8 @@ onUnmounted(() => {
             </div>
 
             <!-- Step 3: Wording / Brief inputs (for user-idea/hybrid modes) -->
-            <div v-if="ideaMode !== 'market-led'" class="border-t border-slate-200/80 pt-6 space-y-4">
-              <h3 class="text-base font-bold text-slate-900">
+            <div v-if="ideaMode !== 'market-led'" class="border-t border-zinc-200/80 pt-6 space-y-4">
+              <h3 class="text-base font-bold text-zinc-900">
                 {{ ideaMode === 'hybrid' ? 'Your Theme / Direction Details' : 'Your Design Idea Details' }}
               </h3>
 
@@ -620,9 +620,9 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="flex items-center justify-between border-t border-slate-100 pt-4">
-              <div class="flex items-center gap-2 text-xs text-slate-500">
-                <Clock class="h-4 w-4 text-sky-600" />
+            <div class="flex items-center justify-between border-t border-zinc-100 pt-4">
+              <div class="flex items-center gap-2 text-xs text-zinc-500">
+                <Clock class="h-4 w-4 text-indigo-600" />
                 <span>Runs in background · Pauses at Gate 1 for review</span>
               </div>
 
@@ -631,7 +631,7 @@ onUnmounted(() => {
                 variant="default"
                 size="lg"
                 :loading="isCreating"
-                class="shadow-md shadow-sky-600/20 font-bold"
+                class="shadow-md shadow-indigo-600/20 font-bold"
               >
                 <span>
                   {{
@@ -648,7 +648,7 @@ onUnmounted(() => {
       </Card>
 
       <!-- Active Workflows List Card -->
-      <Card class="shadow-sm">
+      <Card class="shadow-2xs">
         <CardHeader class="pb-4">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -664,7 +664,7 @@ onUnmounted(() => {
                   placeholder="Search campaigns..."
                   class="pl-8 text-xs h-8"
                 />
-                <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <Search class="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
               </div>
             </div>
           </div>
@@ -676,8 +676,8 @@ onUnmounted(() => {
             <AlertDescription>{{ controlError }}</AlertDescription>
           </Alert>
 
-          <div v-if="isListLoading" class="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-            <RotateCw class="h-6 w-6 animate-spin text-sky-600" />
+          <div v-if="isListLoading" class="flex flex-col items-center justify-center py-16 text-zinc-400 gap-2">
+            <RotateCw class="h-6 w-6 animate-spin text-indigo-600" />
             <p class="text-sm font-medium">Loading campaigns...</p>
           </div>
 
@@ -688,13 +688,13 @@ onUnmounted(() => {
 
           <!-- Empty State -->
           <div v-else-if="filteredWorkflows.length === 0" class="text-center py-16 px-4">
-            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-600 mb-4 border border-sky-100 shadow-2xs">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-4 border border-indigo-100 shadow-2xs">
               <Sparkles class="h-7 w-7" />
             </div>
-            <h3 class="text-base font-bold text-slate-900 mb-1">
+            <h3 class="text-base font-bold text-zinc-900 mb-1">
               {{ searchQuery ? 'No matching campaigns' : 'No active campaigns' }}
             </h3>
-            <p class="text-slate-500 text-xs mb-6 max-w-sm mx-auto">
+            <p class="text-zinc-500 text-xs mb-6 max-w-sm mx-auto">
               {{ searchQuery ? 'Try adjusting your search query or clear filters.' : 'Get started by creating your first product design workflow with automated research.' }}
             </p>
             <Button
@@ -710,36 +710,36 @@ onUnmounted(() => {
           </div>
 
           <!-- Workflows Table -->
-          <div v-else class="overflow-x-auto rounded-xl border border-slate-200/80">
+          <div v-else class="overflow-x-auto rounded-xl border border-zinc-200/80">
             <table class="min-w-full text-left text-sm">
-              <thead class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <thead class="border-b border-zinc-200 bg-zinc-50/80 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                 <tr>
                   <th scope="col" class="px-6 py-3">Campaign</th>
                   <th scope="col" class="px-6 py-3">Stage & Progress</th>
                   <th scope="col" class="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100 bg-white align-middle text-slate-600">
+              <tbody class="divide-y divide-zinc-100 bg-white align-middle text-zinc-600">
                 <tr
                   v-for="wf in filteredWorkflows"
                   :key="wf.id"
-                  class="transition-colors hover:bg-slate-50/80 group"
+                  class="transition-colors hover:bg-zinc-50/80 group"
                 >
                   <td class="px-6 py-4">
                     <NuxtLink
                       :to="`/workflow/${wf.id}`"
-                      class="font-bold text-slate-900 group-hover:text-sky-600 transition-colors focus:outline-none focus:underline"
+                      class="font-bold text-zinc-900 group-hover:text-indigo-600 transition-colors focus:outline-none focus:underline"
                     >
                       {{ wf.name }}
                     </NuxtLink>
-                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
                       <Badge variant="secondary" class="text-[10px] px-2 py-0">
                         {{ wf.idea_mode }}
                       </Badge>
-                      <span aria-hidden="true" class="text-slate-300">·</span>
-                      <span class="font-medium text-slate-600">{{ wf.target_country }}/{{ wf.output_language }}</span>
-                      <span aria-hidden="true" class="text-slate-300">·</span>
-                      <time :datetime="wf.created_at" class="text-slate-400">
+                      <span aria-hidden="true" class="text-zinc-300">·</span>
+                      <span class="font-medium text-zinc-600">{{ wf.target_country }}/{{ wf.output_language }}</span>
+                      <span aria-hidden="true" class="text-zinc-300">·</span>
+                      <time :datetime="wf.created_at" class="text-zinc-400">
                         {{ new Date(wf.created_at).toLocaleDateString() }}
                       </time>
                     </p>
@@ -752,14 +752,14 @@ onUnmounted(() => {
                           class="h-2 w-2 shrink-0 rounded-full"
                           :class="{
                             'bg-amber-500 motion-safe:animate-pulse': isRunning(wf.state),
-                            'bg-sky-500': needsOwner(wf.state),
-                            'bg-slate-400': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
-                            'bg-red-500': wf.state.endsWith('_FAILED'),
+                            'bg-indigo-500': needsOwner(wf.state),
+                            'bg-zinc-400': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
+                            'bg-rose-500': wf.state.endsWith('_FAILED'),
                             'bg-emerald-500': !isRunning(wf.state) && !needsOwner(wf.state) && !wf.state.endsWith('_FAILED') && wf.state !== 'DRAFT' && wf.state !== 'CANCELLED'
                           }"
                           aria-hidden="true"
                         />
-                        <span class="font-semibold text-xs text-slate-800">
+                        <span class="font-semibold text-xs text-zinc-800">
                           {{ stageLabel(wf.state) }}
                         </span>
                       </div>
@@ -768,10 +768,10 @@ onUnmounted(() => {
                         <Progress
                           :value="stageProgress(wf.state)[0]"
                           :max="stageProgress(wf.state)[1]"
-                          class="h-1.5 w-24 bg-slate-100"
-                          indicator-class="bg-sky-600"
+                          class="h-1.5 w-24 bg-zinc-100"
+                          indicator-class="bg-indigo-600"
                         />
-                        <span class="text-[11px] font-medium text-slate-400 tabular-nums">
+                        <span class="text-[11px] font-medium text-zinc-400 tabular-nums">
                           Step {{ stageProgress(wf.state)[0] }}/{{ stageProgress(wf.state)[1] }}
                         </span>
                       </div>

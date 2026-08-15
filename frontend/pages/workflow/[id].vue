@@ -597,13 +597,13 @@ onBeforeUnmount(stopPolling);
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50/60 pb-16">
+  <div class="min-h-screen bg-zinc-50/80 pb-16">
     <NavBar />
 
     <main id="main" class="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10">
       <!-- Loading State -->
-      <div v-if="isPageLoading" class="flex flex-col items-center justify-center py-28 text-slate-400 gap-3">
-        <RotateCw class="h-8 w-8 animate-spin text-sky-600" />
+      <div v-if="isPageLoading" class="flex flex-col items-center justify-center py-28 text-zinc-400 gap-3">
+        <RotateCw class="h-8 w-8 animate-spin text-indigo-600" />
         <p class="text-sm font-medium">Fetching campaign details...</p>
       </div>
 
@@ -622,22 +622,22 @@ onBeforeUnmount(stopPolling);
       <!-- Workflow Detail Dashboard -->
       <div v-else-if="workflow" class="space-y-8">
         <!-- Campaign Header -->
-        <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-slate-200/80 pb-6">
+        <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-zinc-200/80 pb-6">
           <div class="space-y-1.5">
-            <div class="flex items-center gap-2 text-xs text-slate-500">
-              <NuxtLink to="/" class="flex items-center gap-1 font-semibold text-sky-600 hover:text-sky-700">
+            <div class="flex items-center gap-2 text-xs text-zinc-500">
+              <NuxtLink to="/" class="flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-700">
                 <ChevronLeft class="h-3.5 w-3.5" />
                 <span>Campaigns</span>
               </NuxtLink>
-              <span class="text-slate-300">/</span>
+              <span class="text-zinc-300">/</span>
               <Badge variant="secondary" class="text-[10px] px-2 py-0">
                 {{ workflow.idea_mode }}
               </Badge>
             </div>
-            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">
               {{ workflow.name }}
             </h1>
-            <p class="text-xs text-slate-400 font-mono">ID: {{ workflow.id }}</p>
+            <p class="text-xs text-zinc-400 font-mono">ID: {{ workflow.id }}</p>
           </div>
 
           <!-- Actions Toolbar -->
@@ -692,7 +692,7 @@ onBeforeUnmount(stopPolling);
               v-if="canDelete(workflow.state) && !confirmingDelete"
               variant="outline"
               size="sm"
-              class="gap-1.5 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50"
+              class="gap-1.5 text-zinc-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50"
               @click="confirmingDelete = true"
             >
               <Trash2 class="h-3.5 w-3.5" />
@@ -701,7 +701,7 @@ onBeforeUnmount(stopPolling);
 
             <span
               v-else-if="confirmingDelete"
-              class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800"
+              class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-800"
             >
               <span>Delete this campaign?</span>
               <Button
@@ -731,9 +731,9 @@ onBeforeUnmount(stopPolling);
         </Alert>
 
         <!-- Stopped Banner -->
-        <Card v-if="isStopped(workflow.state)" class="p-8 text-center bg-slate-50 border-dashed">
-          <h2 class="text-lg font-bold text-slate-900 mb-1">Campaign stopped</h2>
-          <p class="text-xs text-slate-500 max-w-md mx-auto">
+        <Card v-if="isStopped(workflow.state)" class="p-8 text-center bg-zinc-50 border-dashed">
+          <h2 class="text-lg font-bold text-zinc-900 mb-1">Campaign stopped</h2>
+          <p class="text-xs text-zinc-500 max-w-md mx-auto">
             Nothing is running. Everything already gathered stays on the record — rerun to start a new research run from the same brief.
           </p>
         </Card>
@@ -741,11 +741,11 @@ onBeforeUnmount(stopPolling);
         <!-- Polling / Researching State -->
         <Card
           v-if="workflow.state === 'RESEARCH_QUEUED' || workflow.state === 'RESEARCHING'"
-          class="p-8 text-center bg-sky-50/40 border-sky-100 shadow-2xs"
+          class="p-8 text-center bg-indigo-50/40 border-indigo-100 shadow-2xs"
         >
-          <RotateCw class="h-8 w-8 animate-spin text-sky-600 mx-auto mb-3" />
-          <h2 class="text-lg font-bold text-slate-900 mb-1">AI Market Research in Progress</h2>
-          <p class="text-xs text-slate-500 max-w-md mx-auto">
+          <RotateCw class="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-3" />
+          <h2 class="text-lg font-bold text-zinc-900 mb-1">AI Market Research in Progress</h2>
+          <p class="text-xs text-zinc-500 max-w-md mx-auto">
             Our background worker is analyzing seasonal demand on Etsy, matching keyword query angles, screening trademarks, and drafting structured prompts. This will automatically refresh.
           </p>
         </Card>
@@ -753,13 +753,13 @@ onBeforeUnmount(stopPolling);
         <!-- Failed State -->
         <Card
           v-else-if="workflow.state === 'RESEARCH_FAILED'"
-          class="p-8 text-center bg-red-50/50 border-red-200"
+          class="p-8 text-center bg-rose-50/50 border-rose-200"
         >
-          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600 mb-3">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 mb-3">
             <AlertCircle class="h-6 w-6" />
           </div>
-          <h2 class="text-lg font-bold text-red-900 mb-1">Research Campaign Failed</h2>
-          <p class="text-xs text-red-700 max-w-md mx-auto mb-4">
+          <h2 class="text-lg font-bold text-rose-900 mb-1">Research Campaign Failed</h2>
+          <p class="text-xs text-rose-700 max-w-md mx-auto mb-4">
             Reason: {{ latestRun?.failure_reason || 'An unexpected worker error occurred.' }}
           </p>
           <Button variant="destructive" size="default" class="font-semibold" @click="startResearch">
@@ -772,17 +772,17 @@ onBeforeUnmount(stopPolling);
           <!-- Concepts & Approvals (Left 2 Columns) -->
           <div class="lg:col-span-2 space-y-8">
             <!-- State Info / Guidance Alerts -->
-            <Alert v-if="workflow.state === 'IDEA_REVIEW'" variant="info" class="border-sky-200 bg-sky-50/60">
+            <Alert v-if="workflow.state === 'IDEA_REVIEW'" variant="info">
               <Sparkles class="h-4 w-4" />
               <div>
-                <AlertTitle class="font-bold text-slate-900">Choose one concept to continue.</AlertTitle>
-                <AlertDescription class="text-xs text-slate-600 mt-0.5">
+                <AlertTitle class="font-bold text-zinc-900">Choose one concept to continue.</AlertTitle>
+                <AlertDescription class="text-xs text-zinc-600 mt-0.5">
                   Approve a concept to begin generating high-resolution candidate artwork options.
                 </AlertDescription>
               </div>
             </Alert>
 
-            <Alert v-if="workflow.state === 'IDEA_APPROVED' && artworkJobs.length === 0" variant="success" class="border-emerald-200 bg-emerald-50/60">
+            <Alert v-if="workflow.state === 'IDEA_APPROVED' && artworkJobs.length === 0" variant="success">
               <CheckCircle2 class="h-4 w-4" />
               <div>
                 <AlertTitle class="font-bold text-emerald-900">Concept approved — ready for artwork generation</AlertTitle>
@@ -793,8 +793,8 @@ onBeforeUnmount(stopPolling);
             </Alert>
 
             <!-- Phase 6: Artwork Generation & Approval Section -->
-            <Card v-if="isGate1Approved" class="shadow-sm">
-              <CardHeader class="pb-4 border-b border-slate-100">
+            <Card v-if="isGate1Approved" class="shadow-2xs">
+              <CardHeader class="pb-4 border-b border-zinc-100">
                 <div class="flex items-center justify-between">
                   <div>
                     <CardTitle class="text-lg font-bold">Phase 6: Artwork Generation & Approval</CardTitle>
@@ -811,24 +811,24 @@ onBeforeUnmount(stopPolling);
 
               <CardContent class="space-y-6 pt-6">
                 <!-- Selected Concept Info -->
-                <div v-if="approvedConcept" class="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 text-sm space-y-3">
+                <div v-if="approvedConcept" class="rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-4 text-sm space-y-3">
                   <div>
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-sky-700">Approved Concept</span>
-                    <h4 class="text-base font-bold text-slate-900">{{ approvedConcept.title }}</h4>
-                    <p class="text-xs text-slate-600 mt-0.5">{{ approvedConcept.description }}</p>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Approved Concept</span>
+                    <h4 class="text-base font-bold text-zinc-900">{{ approvedConcept.title }}</h4>
+                    <p class="text-xs text-zinc-600 mt-0.5">{{ approvedConcept.description }}</p>
                   </div>
 
-                  <div class="rounded-lg border border-slate-200 bg-white p-3 space-y-1 text-xs font-mono">
+                  <div class="rounded-lg border border-zinc-200 bg-white p-3 space-y-1 text-xs font-mono">
                     <p>
-                      <span class="font-bold text-slate-400">Positive:</span>
+                      <span class="font-bold text-zinc-400">Positive:</span>
                       {{ approvedConcept.prompts[approvedConcept.prompts.length - 1]?.positive_prompt }}
                     </p>
                     <p>
-                      <span class="font-bold text-slate-400">Negative:</span>
+                      <span class="font-bold text-zinc-400">Negative:</span>
                       {{ approvedConcept.prompts[approvedConcept.prompts.length - 1]?.negative_prompt }}
                     </p>
                     <p v-if="approvedConcept.prompts[approvedConcept.prompts.length - 1]?.exact_slogan">
-                      <span class="font-bold text-slate-400">Slogan:</span>
+                      <span class="font-bold text-zinc-400">Slogan:</span>
                       "{{ approvedConcept.prompts[approvedConcept.prompts.length - 1]?.exact_slogan }}"
                     </p>
                   </div>
@@ -836,7 +836,7 @@ onBeforeUnmount(stopPolling);
 
                 <!-- Inner state 1: Gate 1 approved + no jobs yet -->
                 <div v-if="workflow.state === 'IDEA_APPROVED' && artworkJobs.length === 0" class="space-y-4">
-                  <div class="rounded-xl bg-sky-50/60 border border-sky-200 p-4 text-xs text-slate-700 font-medium">
+                  <div class="rounded-xl bg-indigo-50/60 border border-indigo-200 p-4 text-xs text-zinc-700 font-medium">
                     Your concept is approved. Generate artwork to continue.
                   </div>
 
@@ -847,7 +847,7 @@ onBeforeUnmount(stopPolling);
                       <select
                         id="image-provider"
                         v-model="artProvider"
-                        class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                        class="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                       >
                         <option value="recraft">Recraft V4.1 (Vector & Illustration)</option>
                         <option value="gemini">Google Gemini (Photo & Creative)</option>
@@ -858,7 +858,7 @@ onBeforeUnmount(stopPolling);
                       <select
                         id="model-profile"
                         v-model="artModel"
-                        class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                        class="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                       >
                         <option value="recraftv4_1">Recraft V4.1 (Standard)</option>
                         <option value="recraftv4_1_pro">Recraft V4.1 Pro (Premium, 1 Candidate)</option>
@@ -871,13 +871,13 @@ onBeforeUnmount(stopPolling);
                     <AlertDescription>{{ artworkError }}</AlertDescription>
                   </Alert>
 
-                  <div class="flex items-center justify-between border-t border-slate-100 pt-4">
-                    <span class="text-xs text-slate-400">Estimated cost: $0.00 (Fake Adapter)</span>
+                  <div class="flex items-center justify-between border-t border-zinc-100 pt-4">
+                    <span class="text-xs text-zinc-400">Estimated cost: $0.00 (Fake Adapter)</span>
                     <Button
                       variant="default"
                       size="default"
                       :loading="isArtworkLoading"
-                      class="font-bold shadow-md shadow-sky-600/20"
+                      class="font-bold shadow-md shadow-indigo-600/20"
                       @click="() => startArtwork()"
                     >
                       <span>Generate Artwork</span>
@@ -887,9 +887,9 @@ onBeforeUnmount(stopPolling);
 
                 <!-- Inner state 2: queued / running -->
                 <div v-else-if="workflow.state === 'ART_QUEUED' || workflow.state === 'ART_GENERATION'" class="py-12 text-center space-y-3">
-                  <RotateCw class="h-8 w-8 animate-spin text-sky-600 mx-auto" />
-                  <h4 class="text-base font-bold text-slate-900">Artwork generation in progress...</h4>
-                  <p class="text-xs text-slate-500 max-w-sm mx-auto">
+                  <RotateCw class="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
+                  <h4 class="text-base font-bold text-zinc-900">Artwork generation in progress...</h4>
+                  <p class="text-xs text-zinc-500 max-w-sm mx-auto">
                     Artwork generation in progress. Our background worker is calling Recraft/Gemini to generate transparent-background PNG/SVG candidates matching the approved prompt. This will automatically refresh.
                   </p>
                 </div>
@@ -917,12 +917,12 @@ onBeforeUnmount(stopPolling);
                 <!-- Inner state 4: completed candidates grid -->
                 <div v-else-if="artworkJobs.length > 0" class="space-y-6">
                   <div class="flex items-center justify-between">
-                    <h4 class="text-sm font-bold text-slate-800">Generated Candidate Assets</h4>
+                    <h4 class="text-sm font-bold text-zinc-800">Generated Candidate Assets</h4>
                     <Button
                       v-if="workflow.state === 'ART_REVIEW'"
                       variant="ghost"
                       size="sm"
-                      class="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      class="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                       @click="() => workflow && rejectArtwork(artworkJobs[0]?.id, workflow.version)"
                     >
                       Reject All Options
@@ -943,24 +943,24 @@ onBeforeUnmount(stopPolling);
                       :class="
                         workflow.state === 'ARTWORK_APPROVED' && asset.derived_from_id === null
                           ? 'border-emerald-500 ring-2 ring-emerald-500/20'
-                          : 'border-slate-200'
+                          : 'border-zinc-200'
                       "
                     >
-                      <div class="aspect-square bg-slate-100 relative flex items-center justify-center p-4">
+                      <div class="aspect-square bg-zinc-100 relative flex items-center justify-center p-4">
                         <img
                           v-if="asset.url"
                           :src="asset.url"
                           alt="Candidate Preview"
                           class="object-contain w-full h-full max-h-[220px]"
                         >
-                        <div v-else class="text-slate-400 text-xs">Preview Loading...</div>
+                        <div v-else class="text-zinc-400 text-xs">Preview Loading...</div>
                         <Badge variant="default" class="absolute top-2 left-2 text-[10px] px-2 py-0 font-mono">
                           Candidate {{ idx + 1 }}
                         </Badge>
                       </div>
 
-                      <div class="p-4 border-t border-slate-100 bg-slate-50/50 space-y-3">
-                        <div class="flex items-center justify-between text-xs text-slate-500">
+                      <div class="p-4 border-t border-zinc-100 bg-zinc-50/50 space-y-3">
+                        <div class="flex items-center justify-between text-xs text-zinc-500">
                           <span class="font-mono">{{ asset.width }}×{{ asset.height }} · {{ (asset.byte_size / 1024).toFixed(1) }} KB</span>
                           <span class="uppercase text-[10px] font-bold">{{ asset.mime_type.split('/')[1] }}</span>
                         </div>
@@ -988,8 +988,8 @@ onBeforeUnmount(stopPolling);
                   </div>
 
                   <!-- Regeneration Option -->
-                  <div v-if="workflow.state === 'ART_REVIEW'" class="rounded-xl border border-dashed border-slate-200 p-4 text-center">
-                    <p class="text-xs text-slate-500 mb-2">Not satisfied with any of these candidates?</p>
+                  <div v-if="workflow.state === 'ART_REVIEW'" class="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
+                    <p class="text-xs text-zinc-500 mb-2">Not satisfied with any of these candidates?</p>
                     <Button variant="outline" size="sm" class="text-xs gap-1.5" @click="() => regenerateArtwork()">
                       <RotateCw class="h-3.5 w-3.5" />
                       <span>Regenerate All Options</span>
@@ -1000,39 +1000,39 @@ onBeforeUnmount(stopPolling);
             </Card>
 
             <!-- Original User Input Card -->
-            <Card v-if="workflow && originalIdea" class="shadow-2xs bg-sky-50/20 border-sky-100">
+            <Card v-if="workflow && originalIdea" class="shadow-2xs bg-indigo-50/20 border-indigo-100">
               <CardHeader class="pb-3">
                 <div class="flex items-center gap-2">
-                  <Lightbulb class="h-4 w-4 text-sky-600" />
+                  <Lightbulb class="h-4 w-4 text-indigo-600" />
                   <CardTitle class="text-base font-bold">
                     Original {{ workflow.idea_mode === 'hybrid' ? 'Theme / Direction' : 'Idea Brief' }}
                   </CardTitle>
                 </div>
               </CardHeader>
-              <CardContent class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-700">
+              <CardContent class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-zinc-700">
                 <div>
-                  <span class="font-semibold text-slate-500 block mb-1">Verbatim Wording:</span>
-                  <p class="italic bg-white p-3 rounded-lg border border-slate-200/80">"{{ originalIdea.original_text }}"</p>
+                  <span class="font-semibold text-zinc-500 block mb-1">Verbatim Wording:</span>
+                  <p class="italic bg-white p-3 rounded-lg border border-zinc-200/80">"{{ originalIdea.original_text }}"</p>
                 </div>
                 <div class="space-y-1.5">
                   <div v-if="originalIdea.slogan">
-                    <span class="font-semibold text-slate-500">Slogan:</span>
-                    <span class="ml-1 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">{{ originalIdea.slogan }}</span>
+                    <span class="font-semibold text-zinc-500">Slogan:</span>
+                    <span class="ml-1 font-mono bg-white px-1.5 py-0.5 rounded border border-zinc-200">{{ originalIdea.slogan }}</span>
                   </div>
                   <div v-if="originalIdea.desired_style">
-                    <span class="font-semibold text-slate-500">Desired Style:</span>
+                    <span class="font-semibold text-zinc-500">Desired Style:</span>
                     <span class="ml-1">{{ originalIdea.desired_style }}</span>
                   </div>
                   <div v-if="originalIdea.audience">
-                    <span class="font-semibold text-slate-500">Audience:</span>
+                    <span class="font-semibold text-zinc-500">Audience:</span>
                     <span class="ml-1">{{ originalIdea.audience }}</span>
                   </div>
                   <div v-if="originalIdea.occasion">
-                    <span class="font-semibold text-slate-500">Occasion:</span>
+                    <span class="font-semibold text-zinc-500">Occasion:</span>
                     <span class="ml-1">{{ originalIdea.occasion }}</span>
                   </div>
                   <div v-if="originalIdea.season">
-                    <span class="font-semibold text-slate-500">Season:</span>
+                    <span class="font-semibold text-zinc-500">Season:</span>
                     <span class="ml-1">{{ originalIdea.season }}</span>
                   </div>
                 </div>
@@ -1041,14 +1041,14 @@ onBeforeUnmount(stopPolling);
 
             <!-- Synthesised Product Concepts Header -->
             <div class="flex items-center justify-between">
-              <h2 class="text-xl font-bold tracking-tight text-slate-900">Synthesised Product Concepts</h2>
+              <h2 class="text-xl font-bold tracking-tight text-zinc-900">Synthesised Product Concepts</h2>
               <Badge variant="secondary" class="text-xs">
                 {{ concepts.length }} Options
               </Badge>
             </div>
 
             <Card v-if="concepts.length === 0" class="p-8 text-center">
-              <p class="text-slate-500 text-xs">No concepts generated for this workflow yet.</p>
+              <p class="text-zinc-500 text-xs">No concepts generated for this workflow yet.</p>
             </Card>
 
             <!-- Concept Cards List -->
@@ -1056,13 +1056,13 @@ onBeforeUnmount(stopPolling);
               <Card
                 v-for="concept in concepts"
                 :key="concept.id"
-                class="shadow-sm transition-all"
+                class="shadow-2xs transition-all"
                 :class="[
                   concept.status?.toUpperCase() === 'APPROVED'
                     ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10'
                     : concept.status?.toUpperCase() === 'REJECTED'
-                      ? 'border-red-200 opacity-60 bg-red-50/10'
-                      : 'border-slate-200',
+                      ? 'border-rose-200 opacity-60 bg-rose-50/10'
+                      : 'border-zinc-200',
                   approvedConcept && concept.status?.toUpperCase() !== 'APPROVED' ? 'opacity-40 pointer-events-none' : '',
                 ]"
               >
@@ -1078,53 +1078,53 @@ onBeforeUnmount(stopPolling);
                           Rejected
                         </Badge>
                       </div>
-                      <p class="text-xs text-slate-400">Origin: {{ concept.origin }}</p>
+                      <p class="text-xs text-zinc-400">Origin: {{ concept.origin }}</p>
                     </div>
 
-                    <Badge variant="outline" class="gap-1 font-bold text-xs bg-sky-50 text-sky-700 border-sky-200 px-2.5 py-1">
-                      <Star class="h-3 w-3 fill-sky-600 text-sky-600" />
+                    <Badge variant="outline" class="gap-1 font-bold text-xs bg-indigo-50 text-indigo-700 border-indigo-200 px-2.5 py-1">
+                      <Star class="h-3 w-3 fill-indigo-600 text-indigo-600" />
                       <span>{{ concept.score ? concept.score.toFixed(2) : 'N/A' }}</span>
                     </Badge>
                   </div>
                 </CardHeader>
 
-                <CardContent class="space-y-4 text-xs text-slate-600">
-                  <p class="text-sm text-slate-700 leading-relaxed">{{ concept.description }}</p>
+                <CardContent class="space-y-4 text-xs text-zinc-600">
+                  <p class="text-sm text-zinc-700 leading-relaxed">{{ concept.description }}</p>
 
                   <!-- Differentiation -->
-                  <div class="rounded-lg bg-slate-50 p-3 border border-slate-100">
-                    <span class="font-bold text-slate-800 block mb-0.5">Differentiation Strategy:</span>
+                  <div class="rounded-lg bg-zinc-50 p-3 border border-zinc-100">
+                    <span class="font-bold text-zinc-800 block mb-0.5">Differentiation Strategy:</span>
                     <p>{{ concept.differentiation }}</p>
                   </div>
 
                   <!-- Risk Alert -->
                   <div
                     v-if="concept.risk_level !== 'low'"
-                    class="rounded-lg bg-red-50 p-3 border border-red-200 text-red-900"
+                    class="rounded-lg bg-rose-50 p-3 border border-rose-200 text-rose-900"
                   >
                     <span class="font-bold block">⚠️ IP Risk Level: {{ concept.risk_level.toUpperCase() }}</span>
-                    <p class="mt-0.5 text-red-700">{{ concept.risk_note }}</p>
+                    <p class="mt-0.5 text-rose-700">{{ concept.risk_note }}</p>
                   </div>
 
                   <!-- Score Breakdown -->
-                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
-                    <div v-for="(val, key) in concept.score_breakdown" :key="key" class="bg-slate-50 p-2 rounded border border-slate-100">
-                      <span class="text-slate-400 uppercase tracking-wider block text-[10px]">{{ key.replace('_', ' ') }}</span>
-                      <span class="text-slate-900 font-bold text-xs">{{ val }} / 5</span>
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-zinc-100">
+                    <div v-for="(val, key) in concept.score_breakdown" :key="key" class="bg-zinc-50 p-2 rounded border border-zinc-100">
+                      <span class="text-zinc-400 uppercase tracking-wider block text-[10px]">{{ key.replace('_', ' ') }}</span>
+                      <span class="text-zinc-900 font-bold text-xs">{{ val }} / 5</span>
                     </div>
                   </div>
 
                   <!-- Active Design Prompt -->
-                  <div class="rounded-xl bg-sky-50/30 p-3.5 border border-sky-100 space-y-2">
-                    <div class="flex items-center justify-between border-b border-sky-100 pb-1.5">
-                      <span class="font-bold text-sky-900 text-xs">
+                  <div class="rounded-xl bg-indigo-50/30 p-3.5 border border-indigo-100 space-y-2">
+                    <div class="flex items-center justify-between border-b border-indigo-100 pb-1.5">
+                      <span class="font-bold text-indigo-900 text-xs">
                         Active Design Prompt (v{{ concept.prompts[concept.prompts.length - 1]?.version || 1 }})
                       </span>
                       <Button
                         v-if="workflow.state === 'IDEA_REVIEW' && ['PROPOSED', 'SHORTLISTED'].includes(concept.status?.toUpperCase())"
                         variant="ghost"
                         size="sm"
-                        class="h-6 px-2 text-xs font-bold text-sky-700 hover:text-sky-800"
+                        class="h-6 px-2 text-xs font-bold text-indigo-700 hover:text-indigo-800"
                         @click="openReviseForm(concept.id)"
                       >
                         <Edit3 class="h-3 w-3 mr-1" />
@@ -1133,10 +1133,10 @@ onBeforeUnmount(stopPolling);
                     </div>
 
                     <div class="space-y-1 font-mono text-[11px]">
-                      <p><span class="font-bold text-slate-500">Positive:</span> {{ concept.prompts[concept.prompts.length - 1]?.positive_prompt }}</p>
-                      <p><span class="font-bold text-slate-500">Negative:</span> {{ concept.prompts[concept.prompts.length - 1]?.negative_prompt }}</p>
+                      <p><span class="font-bold text-zinc-500">Positive:</span> {{ concept.prompts[concept.prompts.length - 1]?.positive_prompt }}</p>
+                      <p><span class="font-bold text-zinc-500">Negative:</span> {{ concept.prompts[concept.prompts.length - 1]?.negative_prompt }}</p>
                       <p v-if="concept.prompts[concept.prompts.length - 1]?.exact_slogan">
-                        <span class="font-bold text-slate-500">Typography:</span>
+                        <span class="font-bold text-zinc-500">Typography:</span>
                         "{{ concept.prompts[concept.prompts.length - 1]?.exact_slogan }}"
                       </p>
                     </div>
@@ -1146,12 +1146,12 @@ onBeforeUnmount(stopPolling);
                 <!-- Gate Actions -->
                 <CardFooter
                   v-if="workflow.state === 'IDEA_REVIEW' && ['PROPOSED', 'SHORTLISTED'].includes(concept.status?.toUpperCase())"
-                  class="flex justify-end gap-3 border-t border-slate-100 pt-4"
+                  class="flex justify-end gap-3 border-t border-zinc-100 pt-4"
                 >
                   <Button
                     variant="outline"
                     size="sm"
-                    class="text-red-700 hover:bg-red-50 hover:border-red-200"
+                    class="text-rose-700 hover:bg-rose-50 hover:border-rose-200"
                     @click="handleDecideGate(concept.id, 'REJECTED')"
                   >
                     Reject Concept
@@ -1171,25 +1171,25 @@ onBeforeUnmount(stopPolling);
 
           <!-- Campaign Target Brief Sidebar (Right 1 Column) -->
           <div class="space-y-6">
-            <Card class="shadow-sm">
+            <Card class="shadow-2xs">
               <CardHeader class="pb-3">
                 <CardTitle class="text-base font-bold">Campaign Target Brief</CardTitle>
               </CardHeader>
               <CardContent class="space-y-4 text-xs">
                 <div>
-                  <span class="text-slate-400 block uppercase tracking-wider text-[10px]">Marketplace</span>
-                  <span class="text-slate-900 font-bold uppercase">{{ workflow.target_marketplace }}</span>
+                  <span class="text-zinc-400 block uppercase tracking-wider text-[10px]">Marketplace</span>
+                  <span class="text-zinc-900 font-bold uppercase">{{ workflow.target_marketplace }}</span>
                 </div>
                 <div>
-                  <span class="text-slate-400 block uppercase tracking-wider text-[10px]">Target Country & Language</span>
-                  <span class="text-slate-900 font-bold uppercase">{{ workflow.target_country }} ({{ workflow.output_language }})</span>
+                  <span class="text-zinc-400 block uppercase tracking-wider text-[10px]">Target Country & Language</span>
+                  <span class="text-zinc-900 font-bold uppercase">{{ workflow.target_country }} ({{ workflow.output_language }})</span>
                 </div>
                 <div>
-                  <span class="text-slate-400 block uppercase tracking-wider text-[10px]">Target Buyer</span>
-                  <span class="text-slate-900 font-medium">{{ workflow.target_buyer || 'Generic Market' }}</span>
+                  <span class="text-zinc-400 block uppercase tracking-wider text-[10px]">Target Buyer</span>
+                  <span class="text-zinc-900 font-medium">{{ workflow.target_buyer || 'Generic Market' }}</span>
                 </div>
                 <div>
-                  <span class="text-slate-400 block uppercase tracking-wider text-[10px] mb-1">Physical Products</span>
+                  <span class="text-zinc-400 block uppercase tracking-wider text-[10px] mb-1">Physical Products</span>
                   <div class="flex flex-wrap gap-1">
                     <Badge v-for="use in workflow.intended_product_uses" :key="use" variant="secondary" class="text-[10px]">
                       {{ use }}
@@ -1200,15 +1200,15 @@ onBeforeUnmount(stopPolling);
             </Card>
 
             <!-- Original User Wording Section -->
-            <Card v-if="originalIdea" class="shadow-sm">
+            <Card v-if="originalIdea" class="shadow-2xs">
               <CardHeader class="pb-3">
                 <CardTitle class="text-base font-bold">Original Concept Wording</CardTitle>
               </CardHeader>
               <CardContent class="space-y-3 text-xs">
-                <blockquote class="border-l-2 border-sky-500 pl-3 italic text-slate-600">
+                <blockquote class="border-l-2 border-indigo-500 pl-3 italic text-zinc-600">
                   "{{ originalIdea.original_text }}"
                 </blockquote>
-                <div class="space-y-1 text-slate-500">
+                <div class="space-y-1 text-zinc-500">
                   <p v-if="originalIdea.desired_style">Style: {{ originalIdea.desired_style }}</p>
                   <p v-if="originalIdea.slogan">Typography: "{{ originalIdea.slogan }}"</p>
                   <p v-if="originalIdea.season">Season: {{ originalIdea.season }}</p>

@@ -46,18 +46,18 @@ async function handleLogin() {
 <template>
   <main
     id="main"
-    class="min-h-screen bg-gradient-to-br from-slate-50 via-sky-50/30 to-indigo-50/20 flex items-center justify-center p-4 sm:p-6"
+    class="min-h-screen bg-gradient-to-br from-zinc-50 via-indigo-50/20 to-zinc-50 flex items-center justify-center p-4 sm:p-6"
   >
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
-        <div class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-600 text-white shadow-md shadow-sky-600/20 mb-3">
+        <div class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20 mb-3">
           <Sparkles class="h-6 w-6" />
         </div>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Etsy Automation</h1>
-        <p class="mt-1 text-sm text-slate-500">Autonomous research-to-draft PNG engine</p>
+        <h1 class="text-2xl font-bold tracking-tight text-zinc-900">Etsy Automation</h1>
+        <p class="mt-1 text-sm text-zinc-500">Autonomous research-to-draft PNG engine</p>
       </div>
 
-      <Card class="shadow-xl border-slate-200/80 backdrop-blur-xs">
+      <Card class="shadow-xl border-zinc-200/80 backdrop-blur-xs">
         <CardHeader class="space-y-1 pb-4">
           <CardTitle class="text-xl">Sign in to your shop</CardTitle>
           <CardDescription>Enter your credentials to manage campaigns and drafts</CardDescription>
@@ -78,7 +78,7 @@ async function handleLogin() {
                   data-testid="login-email-input"
                   class="pl-9"
                 />
-                <Mail class="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+                <Mail class="absolute left-3 top-2.5 h-4 w-4 text-zinc-400 pointer-events-none" />
               </div>
             </div>
 
@@ -97,7 +97,7 @@ async function handleLogin() {
                   data-testid="login-password-input"
                   class="pl-9"
                 />
-                <Lock class="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+                <Lock class="absolute left-3 top-2.5 h-4 w-4 text-zinc-400 pointer-events-none" />
               </div>
             </div>
 
@@ -111,7 +111,7 @@ async function handleLogin() {
               variant="default"
               size="lg"
               :loading="loading"
-              class="w-full font-semibold shadow-md shadow-sky-600/20"
+              class="w-full font-semibold shadow-md shadow-indigo-600/20"
               data-testid="login-submit-btn"
             >
               <span>{{ loading ? 'Signing in...' : 'Sign In' }}</span>
@@ -120,9 +120,9 @@ async function handleLogin() {
           </form>
         </CardContent>
 
-        <CardFooter class="flex justify-center border-t border-slate-100 pt-4 text-xs text-slate-500">
+        <CardFooter class="flex justify-center border-t border-zinc-100 pt-4 text-xs text-zinc-500">
           Don't have an account yet?
-          <NuxtLink to="/register" class="ml-1 font-semibold text-sky-600 hover:text-sky-700 underline-offset-4 hover:underline">
+          <NuxtLink to="/register" class="ml-1 font-semibold text-indigo-600 hover:text-indigo-700 underline-offset-4 hover:underline">
             Create account
           </NuxtLink>
         </CardFooter>

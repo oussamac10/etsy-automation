@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type HTMLAttributes, computed } from "vue";
+import { computed } from "vue";
 import { cn } from "~/lib/utils";
 
 interface Props {
@@ -8,29 +8,30 @@ interface Props {
   placeholder?: string;
   disabled?: boolean;
   required?: boolean;
-  autocomplete?: string;
   id?: string;
-  class?: HTMLAttributes["class"];
+  class?: string;
+  error?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: "",
   type: "text",
-  placeholder: "",
+  placeholder: undefined,
   disabled: false,
   required: false,
-  autocomplete: undefined,
   id: undefined,
   class: undefined,
+  error: false,
 });
 
 const emit = defineEmits<{
-  (e: "update:modelValue", value: string): void;
+  (e: "update:modelValue", value: string | number): void;
 }>();
 
 const classes = computed(() =>
   cn(
-    "flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-50",
+    "flex h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 focus-visible:border-indigo-500 disabled:cursor-not-allowed disabled:opacity-50",
+    props.error && "border-rose-500 focus-visible:ring-rose-500",
     props.class
   )
 );
@@ -49,7 +50,6 @@ function onInput(event: Event) {
     :placeholder="placeholder"
     :disabled="disabled"
     :required="required"
-    :autocomplete="autocomplete"
     :class="classes"
     @input="onInput"
   >

@@ -16,29 +16,29 @@ const presentation = computed(() => {
       return {
         label: "Healthy",
         symbol: "●",
-        classes: "text-emerald-800 bg-emerald-50/80 border-emerald-200 shadow-2xs",
+        classes: "text-emerald-700 bg-emerald-50 border-emerald-200 shadow-2xs",
         dotColor: "bg-emerald-500",
       };
     case "degraded":
       return {
         label: "Degraded",
         symbol: "▲",
-        classes: "text-amber-900 bg-amber-50/80 border-amber-200 shadow-2xs",
+        classes: "text-amber-700 bg-amber-50 border-amber-200 shadow-2xs",
         dotColor: "bg-amber-500",
       };
     case "down":
       return {
         label: "Unavailable",
         symbol: "✕",
-        classes: "text-red-900 bg-red-50/80 border-red-200 shadow-2xs",
-        dotColor: "bg-red-500",
+        classes: "text-rose-700 bg-rose-50 border-rose-200 shadow-2xs",
+        dotColor: "bg-rose-500",
       };
     default:
       return {
         label: "Unknown",
         symbol: "?",
-        classes: "text-slate-700 bg-slate-50 border-slate-200 shadow-2xs",
-        dotColor: "bg-slate-400",
+        classes: "text-zinc-700 bg-zinc-50 border-zinc-200 shadow-2xs",
+        dotColor: "bg-zinc-400",
       };
   }
 });

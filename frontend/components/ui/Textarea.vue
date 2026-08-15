@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type HTMLAttributes, computed } from "vue";
+import { computed } from "vue";
 import { cn } from "~/lib/utils";
 
 interface Props {
@@ -9,26 +9,29 @@ interface Props {
   required?: boolean;
   rows?: number;
   id?: string;
-  class?: HTMLAttributes["class"];
+  class?: string;
+  error?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: "",
-  placeholder: "",
+  placeholder: undefined,
   disabled: false,
   required: false,
   rows: 3,
   id: undefined,
   class: undefined,
+  error: false,
 });
 
 const emit = defineEmits<{
-  (e: "update:modelValue", value: string): void;
+  (e: "update:modelValue", value: string | number): void;
 }>();
 
 const classes = computed(() =>
   cn(
-    "flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-50",
+    "flex min-h-[80px] w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-2xs placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 focus-visible:border-indigo-500 disabled:cursor-not-allowed disabled:opacity-50",
+    props.error && "border-rose-500 focus-visible:ring-rose-500",
     props.class
   )
 );

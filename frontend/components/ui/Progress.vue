@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { type HTMLAttributes, computed } from "vue";
+import { computed } from "vue";
 import { cn } from "~/lib/utils";
 
 interface Props {
   value?: number;
   max?: number;
-  class?: HTMLAttributes["class"];
-  indicatorClass?: HTMLAttributes["class"];
+  class?: string;
+  indicatorClass?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -17,21 +17,22 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const percentage = computed(() => {
-  const clamped = Math.min(Math.max(props.value || 0, 0), props.max);
-  return (clamped / props.max) * 100;
+  if (props.max <= 0) return 0;
+  return Math.min(Math.max((props.value / props.max) * 100, 0), 100);
 });
-
-const rootClasses = computed(() =>
-  cn("relative h-2 w-full overflow-hidden rounded-full bg-slate-100", props.class)
-);
-
-const indicatorClasses = computed(() =>
-  cn("h-full w-full flex-1 bg-sky-600 transition-all duration-300 ease-in-out", props.indicatorClass)
-);
 </script>
 
 <template>
-  <div :class="rootClasses" role="progressbar" :aria-valuenow="value" :aria-valuemin="0" :aria-valuemax="max">
-    <div :class="indicatorClasses" :style="{ transform: `translateX(-${100 - percentage}%)` }" />
+  <div
+    role="progressbar"
+    :aria-valuenow="value"
+    :aria-valuemin="0"
+    :aria-valuemax="max"
+    :class="cn('relative h-2 w-full overflow-hidden rounded-full bg-zinc-100', props.class)"
+  >
+    <div
+      :class="cn('h-full w-full flex-1 bg-indigo-600 transition-all duration-300 ease-in-out', props.indicatorClass)"
+      :style="{ transform: `translateX(-${100 - percentage}%)` }"
+    />
   </div>
 </template>

@@ -151,50 +151,50 @@ function stopCountdown(): void {
     clearInterval(countdownInterval);
     countdownInterval = null;
   }
-  countdownText.value = "";
 }
 
 function updateCountdown(): void {
   if (!pairingCodeExpiresAt.value) {
+    countdownText.value = "";
     stopCountdown();
     return;
   }
   const expiry = new Date(pairingCodeExpiresAt.value).getTime();
   const now = new Date().getTime();
-  const diff = expiry - now;
-  if (diff <= 0) {
-    stopCountdown();
+  const diffSec = Math.max(0, Math.floor((expiry - now) / 1000));
+
+  if (diffSec <= 0) {
+    countdownText.value = "Code expired";
     activePairingCode.value = null;
-    pairingCodeExpiresAt.value = null;
-    countdownText.value = "Code expired. Please generate a new one.";
+    stopCountdown();
     return;
   }
-  const minutes = Math.floor(diff / 60000);
-  const seconds = Math.floor((diff % 60000) / 1000);
-  countdownText.value = `Expires in ${minutes}m ${seconds}s`;
+
+  const mins = Math.floor(diffSec / 60);
+  const secs = diffSec % 60;
+  countdownText.value = `Expires in ${mins}m ${secs}s`;
 }
 
 async function fetchCredentials(): Promise<void> {
-  credentialsError.value = null;
   isCredentialsLoading.value = true;
+  credentialsError.value = null;
   try {
     const data = await $fetch<{ items: CredentialItem[] }>(
       `${apiBase.replace(/\/$/, "")}/api/v1/settings/credentials`,
       { credentials: "include" }
     );
-    credentialsList.value = (data?.items || []).filter((item) =>
-      ["gemini", "tavily", "recraft", "telegram", "openai", "etsy", "uspto"].includes(item.provider)
-    );
+    credentialsList.value = data.items;
   } catch {
-    credentialsList.value = [];
+    credentialsError.value = "Failed to load credentials.";
   } finally {
     isCredentialsLoading.value = false;
   }
 }
 
 async function saveCredential(provider: string): Promise<void> {
-  const secret = newSecrets.value[provider];
+  const secret = newSecrets.value[provider]?.trim();
   if (!secret) return;
+
   credentialsError.value = null;
   try {
     const csrf = getCookie("etsy_csrf");
@@ -252,28 +252,28 @@ onBeforeUnmount(stopCountdown);
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50/60 pb-16">
+  <div class="min-h-screen bg-zinc-50/80 pb-16">
     <NavBar />
 
     <main id="main" class="mx-auto max-w-5xl px-4 sm:px-6 py-10 space-y-8">
       <!-- Page Header -->
-      <header class="flex flex-col gap-1 border-b border-slate-200/80 pb-6">
-        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-sky-600">
+      <header class="flex flex-col gap-1 border-b border-zinc-200/80 pb-6">
+        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
           <ShieldCheck class="h-4 w-4" />
           <span>Security & Integrations</span>
         </div>
-        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Owner Settings</h1>
-        <p class="text-sm text-slate-500 max-w-2xl">
+        <h1 class="text-3xl font-bold tracking-tight text-zinc-900">Owner Settings</h1>
+        <p class="text-sm text-zinc-500 max-w-2xl">
           Manage API connection credentials, encryption keys, and active Telegram remote control pairings.
         </p>
       </header>
 
       <!-- Telegram Section -->
-      <Card class="shadow-sm">
+      <Card class="shadow-2xs">
         <CardHeader class="pb-4">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600 border border-sky-100">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
                 <Bot class="h-5 w-5" />
               </div>
               <div>
@@ -287,7 +287,7 @@ onBeforeUnmount(stopCountdown);
               <CheckCircle2 class="h-3 w-3" />
               <span>Paired</span>
             </Badge>
-            <Badge v-else variant="secondary" class="gap-1 px-3 py-1 text-slate-600">
+            <Badge v-else variant="secondary" class="gap-1 px-3 py-1 text-zinc-600">
               <Clock class="h-3 w-3" />
               <span>Unpaired</span>
             </Badge>
@@ -295,8 +295,8 @@ onBeforeUnmount(stopCountdown);
         </CardHeader>
 
         <CardContent class="pt-2">
-          <div v-if="isTelegramLoading" class="text-slate-500 text-sm animate-pulse py-4 flex items-center gap-2" data-testid="telegram-loading">
-            <RotateCcw class="h-4 w-4 animate-spin text-sky-600" />
+          <div v-if="isTelegramLoading" class="text-zinc-500 text-sm animate-pulse py-4 flex items-center gap-2" data-testid="telegram-loading">
+            <RotateCcw class="h-4 w-4 animate-spin text-indigo-600" />
             <span>Updating Telegram settings...</span>
           </div>
 
@@ -345,14 +345,14 @@ onBeforeUnmount(stopCountdown);
 
             <!-- Case 2: Unpaired -->
             <div v-else class="space-y-4" data-testid="telegram-unpaired-container">
-              <div class="rounded-xl bg-slate-50 border border-slate-200/80 p-4 text-xs text-slate-600 space-y-2">
-                <div class="flex items-center gap-1.5 font-semibold text-slate-800 text-sm">
-                  <HelpCircle class="h-4 w-4 text-sky-600" />
+              <div class="rounded-xl bg-zinc-50 border border-zinc-200/80 p-4 text-xs text-zinc-600 space-y-2">
+                <div class="flex items-center gap-1.5 font-semibold text-zinc-800 text-sm">
+                  <HelpCircle class="h-4 w-4 text-indigo-600" />
                   <span>Setup Instructions:</span>
                 </div>
-                <ol class="list-decimal pl-5 space-y-1 text-slate-600 leading-relaxed">
-                  <li>Open Telegram and search for the bot (e.g. <code class="bg-white px-1.5 py-0.5 rounded border border-slate-200 text-sky-700 font-mono font-semibold">@EtsyAutomationBot</code>).</li>
-                  <li>Click <b>Start</b> or send <code class="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono">/start</code>.</li>
+                <ol class="list-decimal pl-5 space-y-1 text-zinc-600 leading-relaxed">
+                  <li>Open Telegram and search for the bot (e.g. <code class="bg-white px-1.5 py-0.5 rounded border border-zinc-200 text-indigo-700 font-mono font-semibold">@EtsyAutomationBot</code>).</li>
+                  <li>Click <b>Start</b> or send <code class="bg-white px-1.5 py-0.5 rounded border border-zinc-200 font-mono">/start</code>.</li>
                   <li>Generate a pairing code below and send it to the bot within 10 minutes.</li>
                 </ol>
               </div>
@@ -360,18 +360,18 @@ onBeforeUnmount(stopCountdown);
               <!-- Active Code display -->
               <div
                 v-if="activePairingCode"
-                class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-sky-200 bg-sky-50/40 rounded-xl"
+                class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-indigo-200 bg-indigo-50/40 rounded-xl"
               >
-                <span class="text-xs text-sky-600 uppercase tracking-widest font-bold mb-1">Active Pairing Code</span>
+                <span class="text-xs text-indigo-600 uppercase tracking-widest font-bold mb-1">Active Pairing Code</span>
                 <div
-                  class="text-4xl font-mono font-extrabold tracking-widest text-slate-900 select-all my-2 px-4 py-1.5 bg-white rounded-lg border border-sky-200 shadow-xs"
+                  class="text-4xl font-mono font-extrabold tracking-widest text-zinc-900 select-all my-2 px-4 py-1.5 bg-white rounded-lg border border-indigo-200 shadow-2xs"
                   data-testid="pairing-code"
                 >
                   {{ activePairingCode.slice(0, 3) }} {{ activePairingCode.slice(3) }}
                 </div>
-                <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mt-1" data-testid="pairing-code-countdown">
-                  <Clock class="h-3.5 w-3.5 text-sky-600" />
-                  <span>{{ countdownText }}</span>
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 mt-1" data-testid="pairing-code-countdown">
+                  <Clock class="h-3.5 w-3.5 text-amber-600" />
+                  <span class="text-amber-700 font-mono">{{ countdownText }}</span>
                 </div>
               </div>
 
@@ -380,7 +380,7 @@ onBeforeUnmount(stopCountdown);
                   variant="default"
                   size="default"
                   data-testid="generate-pairing-code-btn"
-                  class="gap-2 shadow-xs"
+                  class="gap-2 shadow-2xs"
                   @click="generateCode"
                 >
                   <Sparkles class="h-4 w-4" />
@@ -393,7 +393,7 @@ onBeforeUnmount(stopCountdown);
       </Card>
 
       <!-- Credentials Management Section -->
-      <Card class="shadow-sm">
+      <Card class="shadow-2xs">
         <CardHeader class="pb-4">
           <div class="flex items-center gap-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
@@ -409,7 +409,7 @@ onBeforeUnmount(stopCountdown);
         </CardHeader>
 
         <CardContent class="pt-2">
-          <div v-if="isCredentialsLoading" class="text-slate-500 text-sm animate-pulse py-4 flex items-center gap-2">
+          <div v-if="isCredentialsLoading" class="text-zinc-500 text-sm animate-pulse py-4 flex items-center gap-2">
             <RotateCcw class="h-4 w-4 animate-spin text-indigo-600" />
             <span>Loading credentials status...</span>
           </div>
@@ -419,7 +419,7 @@ onBeforeUnmount(stopCountdown);
             <AlertDescription>{{ credentialsError }}</AlertDescription>
           </Alert>
 
-          <div v-else class="divide-y divide-slate-100">
+          <div v-else class="divide-y divide-zinc-100">
             <div
               v-for="cred in credentialsList"
               :key="cred.provider"
@@ -429,7 +429,7 @@ onBeforeUnmount(stopCountdown);
                 <!-- Provider info -->
                 <div class="space-y-1">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm font-bold capitalize text-slate-900">{{ cred.provider }}</span>
+                    <span class="text-sm font-bold capitalize text-zinc-900">{{ cred.provider }}</span>
                     <Badge v-if="cred.configured" variant="success" class="text-[11px] px-2 py-0">
                       Configured ({{ cred.masked_value }})
                     </Badge>
@@ -437,7 +437,7 @@ onBeforeUnmount(stopCountdown);
                       Not Configured
                     </Badge>
                   </div>
-                  <p v-if="cred.updated_at" class="text-xs text-slate-400">
+                  <p v-if="cred.updated_at" class="text-xs text-zinc-400">
                     Last updated: {{ new Date(cred.updated_at).toLocaleString() }}
                   </p>
                 </div>
