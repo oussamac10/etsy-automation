@@ -13,6 +13,7 @@ import {
   Move,
   Maximize2,
   AlignCenter,
+  Eye,
   RotateCcw,
 } from "lucide-vue-next";
 import Button from "~/components/ui/Button.vue";
@@ -51,6 +52,7 @@ const config = useRuntimeConfig();
 const apiBase = config.public.apiBase;
 
 const activeSubTab = ref<"library" | "upload">("upload");
+const canvasViewMode = ref<"edit" | "preview">("edit");
 const templates = ref<MockupTemplateItem[]>([]);
 const isFetchingTemplates = ref(false);
 
@@ -148,6 +150,7 @@ watch(
       uploadedPreviewUrl.value = null;
       selectedTemplateId.value = null;
       activeSubTab.value = "upload";
+      canvasViewMode.value = "edit";
       compositeError.value = null;
       templateName.value = `Custom ${getMockupDisplayName(prodType)} Mockup`;
       leftPct.value = 25;
@@ -194,6 +197,7 @@ function selectLibraryTemplate(tpl: MockupTemplateItem): void {
 
 // ----------------- Interactive Manual Drag & Move Logic -----------------
 function startDragMove(e: PointerEvent): void {
+  if (canvasViewMode.value === "preview") return;
   if (!interactiveCanvasRef.value) return;
   e.preventDefault();
   isDragging.value = true;
@@ -234,6 +238,7 @@ function onPointerUpDrag(): void {
 
 // ----------------- Interactive Manual Resize Logic -----------------
 function startDragResize(e: PointerEvent): void {
+  if (canvasViewMode.value === "preview") return;
   if (!interactiveCanvasRef.value) return;
   e.preventDefault();
   e.stopPropagation();
@@ -402,7 +407,7 @@ async function handleComposite(): Promise<void> {
                 {{ getMockupDisplayName(productType) }}
               </span>
             </div>
-            <p class="text-xs text-zinc-500">Upload and position your master artwork directly on {{ getMockupDisplayName(productType) }}</p>
+            <p class="text-xs text-zinc-500">Upload, preview, and position your master artwork on {{ getMockupDisplayName(productType) }}</p>
           </div>
         </div>
         <button
@@ -531,22 +536,59 @@ async function handleComposite(): Promise<void> {
           </div>
         </div>
 
-        <!-- 3. INTERACTIVE VISUAL CANVAS & DIRECT MOVE TOOL -->
+        <!-- 3. INTERACTIVE VISUAL CANVAS & PREVIEW SWITCHER -->
         <div v-if="activeTemplateImageUrl" class="space-y-3 border-t border-zinc-100 pt-4">
-          <div class="flex items-center justify-between">
-            <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
-              <Move class="h-3.5 w-3.5 text-indigo-600" />
-              <span>Interactive Positioning & Live Preview</span>
-            </h4>
-            <span class="text-[11px] text-zinc-500">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+                <Move v-if="canvasViewMode === 'edit'" class="h-3.5 w-3.5 text-indigo-600" />
+                <Eye v-else class="h-3.5 w-3.5 text-emerald-600" />
+                <span>{{ canvasViewMode === 'edit' ? 'Interactive Placement Canvas' : 'Realistic Mockup Preview' }}</span>
+              </h4>
+            </div>
+
+            <!-- View Mode Switcher (Edit vs Realistic Preview) -->
+            <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200">
+              <button
+                type="button"
+                class="text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                @click="canvasViewMode = 'edit'"
+              >
+                <Sliders class="h-3 w-3" />
+                <span>Edit & Position</span>
+              </button>
+
+              <button
+                type="button"
+                class="text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                :class="canvasViewMode === 'preview' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                @click="canvasViewMode = 'preview'"
+              >
+                <Eye class="h-3 w-3" />
+                <span>Full Realistic Preview</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Instruction hint -->
+          <div class="text-[11px] text-zinc-500 flex items-center justify-between">
+            <span v-if="canvasViewMode === 'edit'">
               💡 <strong>Click & drag</strong> box to move · <strong>Drag corner handle</strong> to resize
+            </span>
+            <span v-else class="text-emerald-700 font-medium flex items-center gap-1">
+              ✨ Viewing photorealistic preview with natural fabric folds and shadows
+            </span>
+
+            <span class="font-mono text-[10px] text-zinc-400">
+              X: {{ leftPct }}% · Y: {{ topPct }}% · W: {{ widthPct }}%
             </span>
           </div>
 
           <!-- Visual Canvas Container -->
           <div
             ref="interactiveCanvasRef"
-            class="relative aspect-square max-h-[320px] mx-auto bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
+            class="relative aspect-square max-h-[340px] mx-auto bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
           >
             <!-- Background Mockup Template Photo -->
             <img
@@ -555,8 +597,9 @@ async function handleComposite(): Promise<void> {
               class="w-full h-full object-contain pointer-events-none"
             />
 
-            <!-- Alignment Center Lines -->
+            <!-- Alignment Center Lines (only in edit mode) -->
             <div
+              v-if="canvasViewMode === 'edit'"
               class="absolute inset-0 pointer-events-none transition-opacity duration-150"
               :class="isDragging || isResizing ? 'opacity-100' : 'opacity-0'"
             >
@@ -564,9 +607,14 @@ async function handleComposite(): Promise<void> {
               <div class="absolute left-0 right-0 top-1/2 h-px bg-indigo-500/40 border-t border-dashed border-indigo-400"></div>
             </div>
 
-            <!-- Draggable & Resizable Artwork Box -->
+            <!-- Artwork Box (Interactive in edit mode, Clean in preview mode) -->
             <div
-              class="absolute border-2 border-indigo-500 bg-indigo-500/10 rounded-xs cursor-grab active:cursor-grabbing transition-shadow ring-1 ring-white/60 shadow-lg group z-10"
+              class="absolute transition-shadow"
+              :class="[
+                canvasViewMode === 'edit'
+                  ? 'border-2 border-indigo-500 bg-indigo-500/10 rounded-xs cursor-grab active:cursor-grabbing ring-1 ring-white/60 shadow-lg group z-10'
+                  : 'z-10 pointer-events-none'
+              ]"
               :style="{
                 left: `${leftPct}%`,
                 top: `${topPct}%`,
@@ -577,7 +625,7 @@ async function handleComposite(): Promise<void> {
             >
               <!-- Live Artwork Preview with Blend Mode -->
               <div
-                class="w-full h-full flex items-center justify-center p-1 pointer-events-none"
+                class="w-full h-full flex items-center justify-center p-0.5 pointer-events-none"
                 :style="{
                   mixBlendMode: blendMode === 'multiply' ? 'multiply' : 'normal',
                 }"
@@ -595,14 +643,15 @@ async function handleComposite(): Promise<void> {
 
               <!-- Floating Coordinates Tooltip while dragging -->
               <div
-                v-if="isDragging || isResizing"
+                v-if="canvasViewMode === 'edit' && (isDragging || isResizing)"
                 class="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-zinc-900/90 text-white rounded text-[10px] font-mono whitespace-nowrap pointer-events-none shadow-md z-20"
               >
                 X: {{ leftPct }}% · Y: {{ topPct }}% · W: {{ widthPct }}%
               </div>
 
-              <!-- Resize Handle in Bottom-Right Corner -->
+              <!-- Resize Handle in Bottom-Right Corner (only in edit mode) -->
               <div
+                v-if="canvasViewMode === 'edit'"
                 class="absolute -bottom-2 -right-2 h-5 w-5 bg-indigo-600 border-2 border-white rounded-full cursor-se-resize flex items-center justify-center text-white shadow-md z-30 hover:scale-125 transition-transform"
                 title="Drag to resize print area"
                 @pointerdown.stop="startDragResize"
@@ -610,17 +659,27 @@ async function handleComposite(): Promise<void> {
                 <Maximize2 class="h-2.5 w-2.5" />
               </div>
 
-              <!-- Top-Left Move Indicator -->
+              <!-- Top-Left Move Indicator (only in edit mode) -->
               <div
+                v-if="canvasViewMode === 'edit'"
                 class="absolute top-1 left-1 p-0.5 bg-indigo-600/80 text-white rounded-xs opacity-70 group-hover:opacity-100 pointer-events-none"
               >
                 <Move class="h-2 w-2" />
               </div>
             </div>
+
+            <!-- Preview Mode Badge Overlay -->
+            <div
+              v-if="canvasViewMode === 'preview'"
+              class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-zinc-900/80 text-white text-[10px] font-medium backdrop-blur-xs flex items-center gap-1 shadow-md pointer-events-none"
+            >
+              <Eye class="h-3 w-3 text-emerald-400" />
+              <span>Full Preview Mode</span>
+            </div>
           </div>
 
-          <!-- Quick Alignment & Preset Buttons -->
-          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <!-- Quick Alignment & Preset Buttons (only in edit mode) -->
+          <div v-if="canvasViewMode === 'edit'" class="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div class="flex items-center gap-1.5 text-xs">
               <span class="text-[11px] text-zinc-500 font-semibold">Quick Align:</span>
               <button
@@ -666,7 +725,7 @@ async function handleComposite(): Promise<void> {
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
               <Sliders class="h-3.5 w-3.5 text-indigo-600" />
-              <span>Fine-Tuning Sliders & Fabric Blending</span>
+              <span>Fabric Texture & Blend Mode</span>
             </h4>
             <div class="flex items-center gap-1">
               <button
@@ -675,7 +734,7 @@ async function handleComposite(): Promise<void> {
                 :class="blendMode === 'multiply' ? 'bg-indigo-100 text-indigo-700 font-bold' : 'bg-zinc-100 text-zinc-600'"
                 @click="blendMode = 'multiply'"
               >
-                Multiply (Light Garment)
+                Multiply (Light Garments)
               </button>
               <button
                 type="button"
@@ -683,12 +742,12 @@ async function handleComposite(): Promise<void> {
                 :class="blendMode === 'over' ? 'bg-indigo-100 text-indigo-700 font-bold' : 'bg-zinc-100 text-zinc-600'"
                 @click="blendMode = 'over'"
               >
-                Opaque Over (Dark Garment)
+                Opaque Over (Dark Garments)
               </button>
             </div>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div v-if="canvasViewMode === 'edit'" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div>
               <div class="flex justify-between text-[11px] text-zinc-500 mb-1">
                 <span>Left Position (X)</span>
@@ -725,21 +784,45 @@ async function handleComposite(): Promise<void> {
       </div>
 
       <!-- Modal Footer -->
-      <div class="px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-end gap-3">
-        <Button variant="outline" size="sm" :disabled="isCompositing" @click="emit('update:open', false)">
-          Cancel
-        </Button>
-        <Button
-          variant="default"
-          size="sm"
-          class="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer"
-          :disabled="isCompositing || (activeSubTab === 'upload' && !uploadedFile) || (activeSubTab === 'library' && !selectedTemplateId)"
-          @click="handleComposite"
+      <div class="px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between gap-3">
+        <button
+          v-if="canvasViewMode === 'edit' && activeTemplateImageUrl"
+          type="button"
+          class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+          @click="canvasViewMode = 'preview'"
         >
-          <Loader2 v-if="isCompositing" class="h-3.5 w-3.5 animate-spin" />
-          <Sparkles v-else class="h-3.5 w-3.5" />
-          <span>{{ isCompositing ? 'Compositing Mockup...' : `Generate ${getMockupDisplayName(productType)} Mockup` }}</span>
-        </Button>
+          <Eye class="h-3.5 w-3.5" />
+          <span>Switch to Full Realistic Preview</span>
+        </button>
+
+        <button
+          v-else-if="canvasViewMode === 'preview'"
+          type="button"
+          class="text-xs font-semibold text-zinc-600 hover:text-zinc-900 flex items-center gap-1 cursor-pointer"
+          @click="canvasViewMode = 'edit'"
+        >
+          <Sliders class="h-3.5 w-3.5" />
+          <span>Back to Adjust Position</span>
+        </button>
+
+        <div v-else></div>
+
+        <div class="flex items-center gap-2">
+          <Button variant="outline" size="sm" :disabled="isCompositing" @click="emit('update:open', false)">
+            Cancel
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            class="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer"
+            :disabled="isCompositing || (activeSubTab === 'upload' && !uploadedFile) || (activeSubTab === 'library' && !selectedTemplateId)"
+            @click="handleComposite"
+          >
+            <Loader2 v-if="isCompositing" class="h-3.5 w-3.5 animate-spin" />
+            <Sparkles v-else class="h-3.5 w-3.5" />
+            <span>{{ isCompositing ? 'Compositing Mockup...' : `Generate ${getMockupDisplayName(productType)} Mockup` }}</span>
+          </Button>
+        </div>
       </div>
     </div>
   </div>
