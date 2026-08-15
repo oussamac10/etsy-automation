@@ -230,6 +230,7 @@ def _build_allowed_transitions() -> Mapping[RunStatus, frozenset[RunStatus]]:
     # Withdrawing queued work before it starts.
     transitions[RunStatus.RESEARCH_QUEUED].add(RunStatus.DRAFT)
     transitions[RunStatus.ART_QUEUED].add(RunStatus.IDEA_APPROVED)
+    transitions[RunStatus.PRODUCTION].add(RunStatus.ARTWORK_APPROVED)
 
     # Publication is a human action performed in Etsy. The application records
     # it after the fact; it never performs it. Only ETSY_DRAFT_CREATED may lead

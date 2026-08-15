@@ -386,7 +386,10 @@ onUnmounted(() => {
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-amber-700 uppercase tracking-wide">In Progress</span>
-            <RotateCw class="h-4 w-4 text-amber-600 animate-spin" />
+            <RotateCw
+              class="h-4 w-4"
+              :class="runningCount > 0 ? 'text-amber-600 animate-spin' : 'text-amber-600/50'"
+            />
           </div>
           <p class="text-2xl font-bold text-amber-900 mt-2">{{ runningCount }}</p>
           <span class="text-[11px] text-amber-700/80">Active background tasks</span>

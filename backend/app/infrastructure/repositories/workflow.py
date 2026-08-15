@@ -12,6 +12,7 @@ from app.domain.errors import ConcurrentModificationError
 from app.domain.workflow import (
     ApprovalDecision,
     ApprovalGate,
+    FailureStatus,
     IllegalTransitionError,
     RunStatus,
     advance,

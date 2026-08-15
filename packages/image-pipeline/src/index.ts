@@ -12,7 +12,40 @@ export type {
   ImageRejectionCode,
 } from "./limits.js";
 
-export { encodeSelfTest, libvipsVersion } from "./selftest.js";
+export { createSolidPng, encodeSelfTest, libvipsVersion } from "./selftest.js";
+
+export { DEFAULT_PRINT_PROFILE, PRINT_PROFILES } from "./profiles.js";
+export type { PrintProfile, PrintProfileName } from "./profiles.js";
 
 export { inspectImage, sha256 } from "./inspect.js";
-export type { ImageFacts } from "./inspect.js";
+export type { BoundingBox, EdgeMargins, ImageFacts } from "./inspect.js";
+
+export { trimAndPad } from "./trim.js";
+export type { TrimOptions, TrimResult } from "./trim.js";
+
+export { upscaleToPrint } from "./upscale.js";
+export type { UpscaleOptions, UpscaleResult } from "./upscale.js";
+
+export {
+  ALLOWED_FONTS,
+  compositeTypography,
+  generateTypographySvg,
+  parseTypographyLayout,
+} from "./typography.js";
+export type {
+  TypographyLayout,
+  TypographyOptions,
+  TypographyResult,
+} from "./typography.js";
+
+export { generateMockup, generateMugWrapCanvas, normalizeProductType } from "./mockup.js";
+export type {
+  MockupOptions,
+  MockupProductType,
+  MockupResult,
+  MugWrapOptions,
+  MugWrapResult,
+} from "./mockup.js";
+
+export { runQaReport } from "./qa.js";
+export type { QaOptions, QaReport } from "./qa.js";

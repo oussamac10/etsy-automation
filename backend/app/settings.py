@@ -87,6 +87,9 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     telegram_webhook_secret: SecretStr | None = Field(default=None, alias="TELEGRAM_WEBHOOK_SECRET")
     tavily_api_key: SecretStr | None = Field(default=None, alias="TAVILY_API_KEY")
+    printful_access_token: SecretStr | None = Field(default=None, alias="PRINTFUL_ACCESS_TOKEN")
+    printful_store_id: str | None = Field(default=None, alias="PRINTFUL_STORE_ID")
+    printful_image_base_url: str | None = Field(default=None, alias="PRINTFUL_IMAGE_BASE_URL")
 
     @field_validator("log_level")
     @classmethod

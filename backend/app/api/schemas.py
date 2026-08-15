@@ -319,3 +319,34 @@ class RefineArtworkRequest(BaseModel):
     negative_prompt: str | None = None
     change_note: Annotated[str, Field(min_length=1, max_length=1000)]
 
+
+class StartProductionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    force_new: bool = False
+    candidate_asset_id: uuid.UUID | None = None
+
+
+class ProductionJobResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    source_asset_id: uuid.UUID | None
+    output_asset_id: uuid.UUID | None
+    operations: list[str]
+    status: str
+    idempotency_key: str
+    attempt_count: int
+    qa_report: dict[str, object]
+    qa_passed: bool | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    failure_kind: str | None
+    failure_message: str | None
+    created_at: datetime
+    master_asset: AssetResponse | None = None
+    mockup_assets: list[AssetResponse] = []
+    mockup_urls: dict[str, str] = {}
+
+

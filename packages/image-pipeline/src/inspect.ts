@@ -10,9 +10,22 @@ import {
   type DecodeLimits,
 } from "./limits.js";
 
+export interface BoundingBox {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface EdgeMargins {
+  readonly top: number;
+  readonly bottom: number;
+  readonly left: number;
+  readonly right: number;
+}
+
 /**
- * Everything we record about an asset before it is allowed into the pipeline.
- * Phase 1 only inspects; trimming, typography and mockups arrive in Phase 6.
+ * Everything we record about an asset before and after pipeline processing.
  */
 export interface ImageFacts {
   readonly format: string;
@@ -21,6 +34,11 @@ export interface ImageFacts {
   readonly hasAlpha: boolean;
   /** True only when an alpha channel exists *and* some pixel is not fully opaque. */
   readonly hasTransparentPixels: boolean;
+  readonly transparentPixelRatio: number;
+  readonly boundingBox: BoundingBox;
+  readonly edgeMargins: EdgeMargins;
+  readonly colorSpace: string;
+  readonly densityDpi: number;
   readonly byteLength: number;
   readonly sha256: string;
 }
@@ -66,9 +84,50 @@ export async function inspectImage(
   assertWithinPixelLimits(width, height, limits);
 
   const hasAlpha = metadata.hasAlpha === true;
-  // `hasAlpha` only means a channel exists. A fully opaque alpha channel is a
-  // common generator output and must not be reported as a transparent PNG.
-  const minAlpha = hasAlpha ? await minimumAlpha(bytes, limits) : 255;
+
+  const { data, info } = await sharp(bytes, { limitInputPixels: limits.maxPixels })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  let minX = info.width;
+  let minY = info.height;
+  let maxX = -1;
+  let maxY = -1;
+  let transparentCount = 0;
+  let minAlpha = 255;
+  const totalPixels = info.width * info.height;
+
+  for (let y = 0; y < info.height; y++) {
+    const rowOffset = y * info.width * 4;
+    for (let x = 0; x < info.width; x++) {
+      const alpha = data[rowOffset + x * 4 + 3] ?? 255;
+      if (alpha < minAlpha) {
+        minAlpha = alpha;
+      }
+      if (alpha < 128) {
+        transparentCount++;
+      }
+      if (alpha > 10) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  const hasContent = maxX >= minX && maxY >= minY;
+  const boundingBox: BoundingBox = hasContent
+    ? { left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+    : { left: 0, top: 0, width: info.width, height: info.height };
+
+  const edgeMargins: EdgeMargins = {
+    top: hasContent ? minY : 0,
+    bottom: hasContent ? Math.max(0, info.height - 1 - maxY) : 0,
+    left: hasContent ? minX : 0,
+    right: hasContent ? Math.max(0, info.width - 1 - maxX) : 0,
+  };
 
   return {
     format: metadata.format ?? "unknown",
@@ -76,19 +135,12 @@ export async function inspectImage(
     height,
     hasAlpha,
     hasTransparentPixels: hasAlpha && minAlpha < 255,
+    transparentPixelRatio: totalPixels > 0 ? transparentCount / totalPixels : 0,
+    boundingBox,
+    edgeMargins,
+    colorSpace: metadata.space ?? "srgb",
+    densityDpi: metadata.density ?? 72,
     byteLength: bytes.byteLength,
     sha256: sha256(bytes),
   };
-}
-
-/** Minimum alpha value across the image, read from Sharp's channel statistics. */
-async function minimumAlpha(
-  bytes: Uint8Array,
-  limits: DecodeLimits,
-): Promise<number> {
-  const stats = await sharp(bytes, {
-    limitInputPixels: limits.maxPixels,
-  }).stats();
-  const alpha = stats.channels.at(-1);
-  return alpha?.min ?? 255;
 }

@@ -29,8 +29,10 @@ from app.api.schemas import (
     GenerateArtworkRequest,
     OriginalIdeaResponse,
     ProductConceptResponse,
+    ProductionJobResponse,
     RefineArtworkRequest,
     ResearchRunResponse,
+    StartProductionRequest,
     SubmitIdeaRequest,
     TimelineEntryResponse,
     TimelineResponse,
@@ -39,11 +41,13 @@ from app.api.schemas import (
 )
 from app.application import workflows as use_cases
 from app.application.artwork import ensure_artwork_within_budget, estimate_artwork_cost
+from app.application.production import start_production_job
 from app.application.research import queue_research_run
+from app.application.unit_of_work import UnitOfWork
 from app.domain import ip_risk
 from app.domain.enums import ConceptStatus, ProviderName
 from app.domain.workflow import RiskLevel, RunStatus, JobStatus
-from app.infrastructure.models import ArtworkJob, Asset
+from app.infrastructure.models import ArtworkJob, Asset, ProductionJob
 from app.providers.s3 import S3ObjectStorage
 from app.settings import get_settings
 
@@ -812,5 +816,217 @@ async def refine_artwork(
     await uow.commit()
 
     return to_job_response(job)
+
+
+async def to_production_job_response(
+    job: ProductionJob,
+    storage: S3ObjectStorage,
+    uow: UnitOfWork,
+) -> ProductionJobResponse:
+    master_asset_resp: AssetResponse | None = None
+    if job.output_asset_id is not None:
+        master_asset = await uow.assets.get(job.output_asset_id)
+        if master_asset is not None:
+            url = await storage.signed_url(master_asset.storage_key, 3600)
+            master_asset_resp = to_asset_response(master_asset, url)
+
+    mockup_jobs = await uow.mockup_jobs.list_for_production_job(job.id)
+    mockup_resps: list[AssetResponse] = []
+    mockup_urls: dict[str, str] = {}
+
+    if mockup_jobs:
+        for mj in mockup_jobs:
+            if mj.output_asset_id is not None:
+                asset = await uow.assets.get(mj.output_asset_id)
+                if asset is not None:
+                    url = await storage.signed_url(asset.storage_key, 3600)
+                    mockup_resps.append(to_asset_response(asset, url))
+                    p_name = str(mj.product_type).lower()
+                    if "sweat" in p_name or "hoodie" in p_name or "jumper" in p_name:
+                        mockup_urls["sweatshirt"] = url
+                    elif "tshirt" in p_name or "t-shirt" in p_name or "tee" in p_name or p_name == "shirt" or "apparel" in p_name or ("shirt" in p_name and "sweat" not in p_name):
+                        mockup_urls["tshirt"] = url
+                    elif "mug" in p_name or "cup" in p_name:
+                        mockup_urls["mug"] = url
+                    elif "tote" in p_name or "bag" in p_name:
+                        mockup_urls["tote"] = url
+                        mockup_urls["tote_bag"] = url
+                    mockup_urls[str(mj.product_type)] = url
+
+    if not mockup_urls:
+        assets = await uow.assets.list_for_workflow(job.workflow_id)
+        job_mockups = [
+            a
+            for a in assets
+            if a.storage_key.startswith(f"production/{job.workflow_id}/{job.id}/mockups/")
+            or (a.provenance and a.provenance.get("production_job_id") == str(job.id))
+        ]
+        if not job_mockups:
+            job_mockups = [
+                a
+                for a in assets
+                if (job.output_asset_id is not None and a.derived_from_id == job.output_asset_id and (a.provenance.get("pipeline") == "mockup" or a.provenance.get("asset_type") == "mockup"))
+            ]
+        for asset in job_mockups:
+            url = await storage.signed_url(asset.storage_key, 3600)
+            mockup_resps.append(to_asset_response(asset, url))
+            product_type = asset.provenance.get("product_type") if asset.provenance else None
+            if not product_type:
+                parts = asset.storage_key.split("/")
+                if "mockups" in parts:
+                    m_idx = parts.index("mockups")
+                    if len(parts) > m_idx + 1:
+                        product_type = parts[m_idx + 1].replace(".png", "").replace(".jpg", "")
+                if not product_type:
+                    product_type = asset.storage_key.rsplit("/", 1)[-1].replace(".png", "").replace(".jpg", "")
+
+            p_name = str(product_type).lower()
+            if "sweat" in p_name or "hoodie" in p_name or "jumper" in p_name:
+                mockup_urls["sweatshirt"] = url
+            elif "tshirt" in p_name or "t-shirt" in p_name or "tee" in p_name or p_name == "shirt" or "apparel" in p_name or ("shirt" in p_name and "sweat" not in p_name):
+                mockup_urls["tshirt"] = url
+            elif "mug" in p_name or "cup" in p_name:
+                mockup_urls["mug"] = url
+            elif "tote" in p_name or "bag" in p_name:
+                mockup_urls["tote"] = url
+                mockup_urls["tote_bag"] = url
+
+            mockup_urls[str(product_type)] = url
+
+    return ProductionJobResponse(
+        id=job.id,
+        workflow_id=job.workflow_id,
+        source_asset_id=job.source_asset_id,
+        output_asset_id=job.output_asset_id,
+        operations=job.operations,
+        status=job.status.value if hasattr(job.status, "value") else str(job.status),
+        idempotency_key=job.idempotency_key,
+        attempt_count=job.attempt_count,
+        qa_report=job.qa_report or {},
+        qa_passed=job.qa_passed,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        failure_kind=job.failure_kind,
+        failure_message=job.failure_message,
+        created_at=job.created_at,
+        master_asset=master_asset_resp,
+        mockup_assets=mockup_resps,
+        mockup_urls=mockup_urls,
+    )
+
+
+@router.post(
+    "/{workflow_id}/production",
+    response_model=ProductionJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Trigger the PNG Production Pipeline for an approved Gate 2 artwork asset",
+)
+async def trigger_production(
+    workflow_id: uuid.UUID,
+    payload: StartProductionRequest,
+    user: CurrentUser,
+    uow: UowDep,
+) -> ProductionJobResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    job = await start_production_job(
+        uow,
+        workflow_id=workflow_id,
+        owner_id=user.id,
+        actor=user.email,
+        force_new=payload.force_new,
+        candidate_asset_id=payload.candidate_asset_id,
+    )
+    await uow.commit()
+
+    settings = get_settings()
+    storage = S3ObjectStorage(
+        endpoint_url=settings.s3_endpoint_url,
+        bucket_name=settings.s3_bucket,
+        access_key_id=settings.s3_access_key_id,
+        secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+        region_name=settings.s3_region,
+        force_path_style=settings.s3_force_path_style,
+        public_endpoint_url=settings.s3_public_endpoint_url,
+    )
+
+    return await to_production_job_response(job, storage, uow)
+
+
+@router.get(
+    "/{workflow_id}/production-jobs",
+    response_model=list[ProductionJobResponse],
+    summary="List all production jobs for this workflow",
+)
+async def list_production_jobs(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+) -> list[ProductionJobResponse]:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    settings = get_settings()
+    storage = S3ObjectStorage(
+        endpoint_url=settings.s3_endpoint_url,
+        bucket_name=settings.s3_bucket,
+        access_key_id=settings.s3_access_key_id,
+        secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+        region_name=settings.s3_region,
+        force_path_style=settings.s3_force_path_style,
+        public_endpoint_url=settings.s3_public_endpoint_url,
+    )
+
+    jobs = await uow.production_jobs.list_for_workflow(workflow_id)
+    responses = []
+    for job in jobs:
+        resp = await to_production_job_response(job, storage, uow)
+        responses.append(resp)
+    return responses
+
+
+@router.get(
+    "/{workflow_id}/production",
+    response_model=ProductionJobResponse | None,
+    summary="Get current or latest production job for this workflow",
+)
+async def get_latest_production(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+) -> ProductionJobResponse | None:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    latest_job = await uow.production_jobs.get_latest_for_workflow(workflow_id)
+    if latest_job is None:
+        return None
+
+    settings = get_settings()
+    storage = S3ObjectStorage(
+        endpoint_url=settings.s3_endpoint_url,
+        bucket_name=settings.s3_bucket,
+        access_key_id=settings.s3_access_key_id,
+        secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+        region_name=settings.s3_region,
+        force_path_style=settings.s3_force_path_style,
+        public_endpoint_url=settings.s3_public_endpoint_url,
+    )
+
+    return await to_production_job_response(latest_job, storage, uow)
+
 
 

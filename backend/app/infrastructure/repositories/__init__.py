@@ -20,6 +20,8 @@ from app.infrastructure.repositories.owner_settings import (
     SqlOwnerSettingsRepository,
     SqlProviderCredentialRepository,
 )
+from app.infrastructure.repositories.mockup import SqlMockupJobRepository
+from app.infrastructure.repositories.production import SqlProductionJobRepository
 from app.infrastructure.repositories.research import SqlResearchRepository
 from app.infrastructure.repositories.telegram import SqlTelegramConnectionRepository
 from app.infrastructure.repositories.user import SqlUserRepository
@@ -37,8 +39,10 @@ __all__ = [
     "SqlConceptRepository",
     "SqlCostRepository",
     "SqlIdeaRepository",
+    "SqlMockupJobRepository",
     "SqlOutboxRepository",
     "SqlOwnerSettingsRepository",
+    "SqlProductionJobRepository",
     "SqlProviderCredentialRepository",
     "SqlResearchRepository",
     "SqlSessionRepository",

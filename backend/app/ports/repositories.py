@@ -19,7 +19,7 @@ from typing import Protocol, runtime_checkable
 
 from app.domain.enums import AuditAction, CostStatus, ProviderName
 from app.domain.money import Money
-from app.domain.workflow import ApprovalDecision, ApprovalGate, RunStatus
+from app.domain.workflow import ApprovalDecision, ApprovalGate, FailureStatus, JobStatus, RunStatus
 from app.infrastructure.models import (
     Approval,
     ArtworkJob,
@@ -27,11 +27,13 @@ from app.infrastructure.models import (
     AuditEvent,
     DesignPrompt,
     KeywordCluster,
+    MockupJob,
     OriginalIdea,
     OriginalIdeaRevision,
     OutboxMessage,
     OwnerSettings,
     ProductConcept,
+    ProductionJob,
     ProductWorkflow,
     ProviderCredential,
     ProviderUsage,
@@ -190,7 +192,7 @@ class WorkflowRepository(Protocol):
         self,
         workflow: ProductWorkflow,
         *,
-        to_state: RunStatus,
+        to_state: RunStatus | FailureStatus | str,
         expected_version: int,
         reason: str,
         actor: str = "system",
@@ -489,3 +491,61 @@ class AssetRepository(Protocol):
     async def list_for_job(self, job_id: uuid.UUID) -> Sequence[Asset]: ...
 
     async def get_by_checksum_sha256(self, workflow_id: uuid.UUID, sha256: str) -> Asset | None: ...
+
+
+@runtime_checkable
+class ProductionJobRepository(Protocol):
+    async def add(self, job: ProductionJob) -> ProductionJob: ...
+
+    async def get(self, job_id: uuid.UUID) -> ProductionJob | None: ...
+
+    async def get_by_idempotency_key(self, key: str) -> ProductionJob | None: ...
+
+    async def list_for_workflow(self, workflow_id: uuid.UUID) -> Sequence[ProductionJob]: ...
+
+    async def get_latest_for_workflow(self, workflow_id: uuid.UUID) -> ProductionJob | None: ...
+
+    async def update(
+        self,
+        job_id: uuid.UUID,
+        *,
+        status: object,
+        output_asset_id: uuid.UUID | None = None,
+        operations: list[str] | None = None,
+        attempt_count: int | None = None,
+        qa_report: dict[str, object] | None = None,
+        qa_passed: bool | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        failure_kind: str | None = None,
+        failure_message: str | None = None,
+    ) -> ProductionJob: ...
+
+
+@runtime_checkable
+class MockupJobRepository(Protocol):
+    async def add(self, job: MockupJob) -> MockupJob: ...
+
+    async def get(self, job_id: uuid.UUID) -> MockupJob | None: ...
+
+    async def get_by_production_and_product(
+        self, production_job_id: uuid.UUID, product_type: str
+    ) -> MockupJob | None: ...
+
+    async def list_for_production_job(self, production_job_id: uuid.UUID) -> Sequence[MockupJob]: ...
+
+    async def list_for_workflow(self, workflow_id: uuid.UUID) -> Sequence[MockupJob]: ...
+
+    async def update(
+        self,
+        job_id: uuid.UUID,
+        *,
+        status: JobStatus | None = None,
+        external_task_id: str | None = None,
+        output_asset_id: uuid.UUID | None = None,
+        attempt_count: int | None = None,
+        result_mockup_url: str | None = None,
+        failure_kind: str | None = None,
+        failure_message: str | None = None,
+        completed_at: datetime | None = None,
+    ) -> MockupJob: ...

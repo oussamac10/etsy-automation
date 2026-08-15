@@ -123,6 +123,7 @@ class ProviderName(StrEnum):
     TAVILY = "tavily"
     GEMINI = "gemini"
     TELEGRAM = "telegram"
+    PRINTFUL = "printful"
 
 
 class CostStatus(StrEnum):

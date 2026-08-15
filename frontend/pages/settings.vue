@@ -402,7 +402,7 @@ onBeforeUnmount(stopCountdown);
             <div>
               <CardTitle class="text-lg">API Connection Keys</CardTitle>
               <CardDescription>
-                Configure AES-GCM encrypted keys for Tavily, Gemini, Recraft, and OpenAI
+                Configure AES-GCM encrypted keys for Tavily, Gemini, Recraft, and Printful
               </CardDescription>
             </div>
           </div>
