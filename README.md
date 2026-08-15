@@ -13,17 +13,14 @@ design or phrase is free of third-party rights.
 
 ## Status
 
-**Phase 1 — Foundation: complete.** Monorepo, services, health checks, tooling,
-CI and fake providers.
+- **Phase 1 — Foundation:** Complete. Monorepo, Docker Compose, health checks, CI, fake adapters.
+- **Phase 2 — Domain & Database:** Complete. PostgreSQL persistence, migrations, repositories, state machine, cost ledger, and audit log.
+- **Phase 3 — Authentication & Settings:** Complete. Argon2id session authentication, CSRF, encrypted credential storage with key rotation.
+- **Phase 4 — Telegram Remote Control:** Complete. Webhook and polling bot, interactive command handling, pairing flow.
+- **Phase 5 — Idea Input & Research:** Complete. 3 discovery modes (Discover Ideas, Use My Idea, Hybrid), Gemini/OpenAI structured research, Tavily web search, opportunity scoring, and Gate 1 human approval.
+- **Phase 6 — Artwork Generation & Approval:** Complete. Recraft V4.1 and Gemini image generation, MinIO/S3 pre-signed asset delivery, comparison gallery, and Gate 2 approval.
 
-**Phase 2 — Domain and database: complete.** The full domain model, PostgreSQL
-persistence, migrations, repositories, the persisted workflow state machine,
-approval history, the cost ledger and the audit log — plus a minimal workflow API
-and development fixtures.
-
-There is no authentication, research, artwork generation or Etsy integration yet;
-those arrive in Phases 3–9. See [`docs/PHASES.md`](docs/PHASES.md) and the
-progress reports in [`docs/progress/`](docs/progress/).
+Next up: **Phase 7 — PNG Production Pipeline** (alpha/background processing, upscale, deterministic typography). See [`docs/PHASES.md`](docs/PHASES.md) and progress reports in [`docs/progress/`](docs/progress/).
 
 ---
 

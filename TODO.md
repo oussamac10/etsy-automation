@@ -26,8 +26,11 @@ One new table, one reversible migration, 427 backend tests passing, 30 frontend 
 **Phase 5 — Idea input, research, and approval: complete.**
 Campaign creation forms, opportunity scores, keyword clusters, risk scans, design prompt revisions, and Gate 1 human approvals via Nuxt 3 dashboard and Telegram Bot inline query callbacks. 471 backend tests and 23 worker tests passing, ruff and mypy strict clean on both Python projects, vue-tsc typechecks clean.
 
-**Next: Phase 6 — Artwork generation and approval.** Not started. Do not begin without
-an explicit instruction.
+**Phase 6 — Artwork generation and approval: complete.**
+See [`docs/progress/phase-6-artwork-generation-approval.md`](docs/progress/phase-6-artwork-generation-approval.md).
+Recraft V4.1 and Gemini AI generation providers, MinIO/S3 object storage with public pre-signed URL signing, comparison gallery, Gate 2 human approval, and Settings page API credentials management.
+
+**Next: Phase 7 — PNG production pipeline.** Alpha/background removal, safe trim, upscale, deterministic typography, and QA preview.
 
 ---
 
@@ -149,7 +152,7 @@ Hardening after the first Phase 5 pass:
       duplicate delivery, missing run, budget refusal, and the permanent versus
       transient error split
 
-## Phase 6 — Artwork generation and approval
+## Phase 6 — Artwork generation and approval ✅
 
 - [x] Recraft V4.1 (Primary) and Gemini (Secondary fallback) adapters
 - [x] Queued generation with retry, idempotency, and cost capture
