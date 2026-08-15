@@ -42,12 +42,12 @@ docker compose up -d --wait api web worker image-worker
 Then open:
 
 | Service | URL |
-|---|---|
-| Web app | http://localhost:3000 |
-| API health | http://localhost:8000/api/health |
-| API docs | http://localhost:8000/api/docs |
-| Image worker health | http://localhost:8100/health |
-| MinIO console | http://localhost:9001 |
+| --- | --- |
+| Web app | <http://localhost:3000> |
+| API health | <http://localhost:8000/api/health> |
+| API docs | <http://localhost:8000/api/docs> |
+| Image worker health | <http://localhost:8100/health> |
+| MinIO console | <http://localhost:9001> |
 
 Stop everything with `docker compose down` (add `-v` to drop the volumes).
 
@@ -207,7 +207,7 @@ before dispatch and reconciled against recorded usage afterwards.
 ## Documentation
 
 | Document | What it covers |
-|---|---|
+| --- | --- |
 | [`CLAUDE.md`](CLAUDE.md) | Product rules and engineering constraints (authoritative) |
 | [`docs/architecture.md`](docs/architecture.md) | Services, layering, data flow, decisions |
 | [`docs/domain-model.md`](docs/domain-model.md) | Entities, relationships, constraints, ER diagram |

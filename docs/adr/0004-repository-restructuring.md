@@ -9,6 +9,7 @@ Accepted
 The repository contains multiple services written in Python (FastAPI, Dramatiq worker) and Node.js/TypeScript (Nuxt frontend, Fastify image-worker). These services, as well as shared packages, were originally grouped into a single, generic `apps/` directory.
 
 Additionally:
+
 - Python services utilized a nested `src/app/` layout, causing typechecking and runtime import configurations to be unnecessarily complex and deeply nested.
 - Database migrations and Docker configuration directories were nested deep inside package structures or placed in isolated stubs, reducing visibility into core lifecycle artifacts.
 

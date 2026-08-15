@@ -6,7 +6,7 @@ How the system is put together, and why. Product rules live in
 ## Services
 
 | Service | Technology | Responsibility |
-|---|---|---|
+| --- | --- | --- |
 | `web` | Nuxt 3, Vue 3, Pinia, Tailwind 4 | Owner UI: briefs, ranked ideas, the three approval gates, listing editor |
 | `api` | FastAPI, Python 3.12, SQLAlchemy 2 | HTTP surface, orchestration, domain invariants, persistence |
 | `worker` | Dramatiq on Redis | Every slow or paid operation: research, generation, production, packaging, Etsy calls |
@@ -137,7 +137,7 @@ Both fail the process on an invalid environment rather than surfacing an
 ## Health checks
 
 | Endpoint | Meaning |
-|---|---|
+| --- | --- |
 | `GET /api/health/live` | The API process is up. Touches nothing else |
 | `GET /api/health` | Readiness: PostgreSQL, Redis and the image worker, each probed independently |
 | `GET /health/live` (image worker) | The Node process is up |

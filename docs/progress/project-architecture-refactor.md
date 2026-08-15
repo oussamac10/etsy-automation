@@ -11,7 +11,7 @@ This document tracks the repository organization cleanup, refactoring, and direc
 ## Old-to-New Directory Mapping
 
 | Old Path | New Path | Description |
-|---|---|---|
+| --- | --- | --- |
 | `apps/api/src/app` | `backend/app` | Flat Python backend application |
 | `apps/api/alembic` | `backend/migrations` | Database migrations |
 | `apps/api/tests` | `backend/tests` | Backend unit & integration tests |
@@ -26,7 +26,9 @@ This document tracks the repository organization cleanup, refactoring, and direc
 ## Directory Responsibilities
 
 ### `backend/`
+
 Contains the Python FastAPI server. It implements Clean Architecture:
+
 - `domain/`: Pure business entities and validations.
 - `application/`: Application use cases, command validation, and UnitOfWork orchestration.
 - `ports/`: Standard interfaces for storage, external APIs, and gateways.
@@ -34,27 +36,36 @@ Contains the Python FastAPI server. It implements Clean Architecture:
 - `presentation/api/`: FastAPI route configurations, JSON-schemas, and error definitions.
 
 ### `frontend/`
+
 Contains the Nuxt 3 web client. Built following standard Nuxt directory layout:
+
 - `components/`: UI components.
 - `composables/`: Reusable runtime functions and API request helpers.
 - `pages/`: File-based route components.
 - `stores/`: Pinia state definitions.
 
 ### `workers/`
+
 Contains background queues and asynchronous tasks:
+
 - `general-worker/`: Python Dramatiq consumer that processes long-running workflows.
 - `image-worker/`: Node.js worker optimizing and validating output PNG files.
 
 ### `infrastructure/`
+
 Contains environment instructions, custom MCP definitions, and base Docker constraints.
 
 ### `packages/`
+
 Shared libraries in the monorepo:
+
 - `domain/`: Shared TS workflow dictionary and tag models.
 - `image-pipeline/`: Shared TS validation logic using Sharp.
 
 ### `tests/`
+
 Root integration and E2E validation:
+
 - `e2e/`: Playwright E2E tests.
 
 ---
@@ -72,6 +83,7 @@ Root integration and E2E validation:
 ## Verification Results
 
 All verification suites ran successfully:
+
 - **Backend Tests**: 419 passed (unit & integration)
 - **General Worker Tests**: 23 passed
 - **Frontend/TypeScript Tests**: 67 passed
@@ -83,4 +95,5 @@ All verification suites ran successfully:
 - **Type Checking**: Mypy and vue-tsc pass with zero errors.
 
 ## Roadmap Alignment
+
 Phase 1, Phase 2, and Phase 3 features remain fully completed and validated. Phase 4 has not been started.

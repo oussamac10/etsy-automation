@@ -37,7 +37,7 @@ Break any of these and the output is invalid, no matter how good it reads.
 Before any research, capture and restate:
 
 | Field | Example |
-|---|---|
+| --- | --- |
 | Marketplace | Etsy |
 | Country / language | United States / English |
 | Buyer | Someone buying a birthday gift for a coworker |

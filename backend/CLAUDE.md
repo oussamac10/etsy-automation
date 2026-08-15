@@ -66,4 +66,3 @@ Each adapter normalizes provider errors into retryable, rate-limited, authentica
 - HTTP adapter tests use mocked transports and sanitized fixtures.
 - OAuth tests cover invalid state, expiry, refresh, scope rejection, and revoked access.
 - State-transition tests cover stale versions and repeated requests.
-

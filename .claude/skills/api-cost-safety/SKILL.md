@@ -8,6 +8,7 @@ description: Handle cost ledger rules, run budgets, provider usage, and pricing 
 Maintain strict cost ceilings and audit logs before initiating network requests to paid providers.
 
 ## Absolute Rules
+
 1. **Estimate Before Dispatch**: Calculate the pricing estimate based on context tokens or image sizes. If a job exceeds the remaining budget, reject it immediately.
 2. **Centralized Prices**: Read current pricing configurations from a versioned store (e.g. `docs/API_COSTS.md` or settings). Do not hardcode rates directly in the client logic.
 3. **Idempotency Keys**: Guarantee that all paid calls use an `idempotency_key` derived from the workflow state, to prevent multiple charges in case of retries.

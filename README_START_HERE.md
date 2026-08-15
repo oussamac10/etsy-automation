@@ -35,4 +35,3 @@ The root `CLAUDE.md` applies everywhere. A nested `CLAUDE.md` adds rules for its
 ## Product decision already made
 
 Build a private, single-shop MVP first. It creates Etsy drafts but never publishes automatically. After the private tool works reliably, multi-user SaaS support can be added as a separate phase.
-

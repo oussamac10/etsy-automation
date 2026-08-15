@@ -28,6 +28,7 @@ Always build frontend components following **shadcn-vue** design principles: acc
 ## 2. Standard Component Patterns
 
 ### Button (`ui/Button.vue`)
+
 ```vue
 <script setup lang="ts">
 interface Props {
@@ -78,6 +79,7 @@ const sizeClasses = {
 ```
 
 ### Card (`ui/Card.vue`)
+
 ```vue
 <template>
   <div class="rounded-xl border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md">
@@ -87,6 +89,7 @@ const sizeClasses = {
 ```
 
 ### Badge (`ui/Badge.vue`)
+
 ```vue
 <script setup lang="ts">
 defineProps<{

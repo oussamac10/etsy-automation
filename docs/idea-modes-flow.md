@@ -29,7 +29,7 @@ flowchart TD
 ## Idea modes
 
 | Mode | Starting point | What research does |
-|---|---|---|
+| --- | --- | --- |
 | **Market-led** | No idea yet | Runs the query angles, finds seasonal and evergreen opportunities, and proposes concepts from the evidence |
 | **Enter my own idea** | You already have the concept | Preserves the original idea and validates it against evidence rather than replacing it |
 | **Hybrid** | You have a direction | Combines your idea with market evidence — keyword clusters, competition signals and timing |

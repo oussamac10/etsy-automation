@@ -48,4 +48,3 @@ Do not write or claim a DPI value as proof of print quality. Pixel dimensions an
 ## QA
 
 Automated QA flags issues; it does not replace artwork approval. Tests use fixture images for alpha, crop, edge halo, oversize, corrupt, and malicious SVG cases.
-

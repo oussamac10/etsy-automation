@@ -12,7 +12,7 @@
 Met. Evidence below.
 
 | Checklist item | Status | Evidence |
-|---|---|---|
+| --- | --- | --- |
 | Monorepo structure and pinned runtime versions | Done | pnpm workspaces + two Python projects; every dependency pinned exactly (Python) or with a caret and a lockfile (Node) |
 | Nuxt, FastAPI, worker, PostgreSQL, Redis, MinIO | Done | 7 services in `compose.yaml`, all reported healthy |
 | Docker Compose health checks | Done | Health check on every long-running service; `depends_on` waits on `service_healthy` / `service_completed_successfully` |
@@ -25,7 +25,7 @@ Met. Evidence below.
 ### Services
 
 | Service | Stack | Port | Health |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `web` | Nuxt 3.21, Vue 3.5, Pinia 3, Tailwind 4 | 3000 | `GET /api/_health` |
 | `api` | FastAPI 0.141, Python 3.12, SQLAlchemy 2.0, Alembic | 8000 | `GET /api/health`, `GET /api/health/live` |
 | `worker` | Dramatiq 2.2 on Redis | — | `python -m worker.healthcheck` |
@@ -68,7 +68,7 @@ All commands run on 2026-08-01.
 ### Tests
 
 | Suite | Command | Result |
-|---|---|---|
+| --- | --- | --- |
 | API | `cd apps/api && pytest` | **74 passed** |
 | Worker | `cd apps/worker && pytest` | **23 passed** |
 | `@etsy/domain` | `vitest run` | **16 passed** |
@@ -82,7 +82,7 @@ All commands run on 2026-08-01.
 ### Static analysis
 
 | Check | Result |
-|---|---|
+| --- | --- |
 | `ruff format --check` (api, worker) | clean |
 | `ruff check` (api, worker) | All checks passed |
 | `mypy --strict` (api) | no issues in 31 source files |

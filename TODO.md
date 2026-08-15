@@ -23,6 +23,7 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 ## Completed Phases
 
 ### Phase 1 — Foundation ✅
+
 - [x] Monorepo: pnpm workspaces (`frontend`, `workers/image-worker`, `packages/*`) plus two Python projects (`backend`, `workers/general-worker`).
 - [x] Nuxt 3 + Vue 3 + TypeScript + Pinia + Tailwind CSS 4.
 - [x] FastAPI + Pydantic 2 + SQLAlchemy 2 + Alembic + asyncpg.
@@ -35,6 +36,7 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [x] CI pipelines: unit, integration, linting, type-checking, and security scans.
 
 ### Phase 2 — Domain and Persistence ✅
+
 - [x] Core domain model entities: `User`, `ProductWorkflow`, `OriginalIdea`, `ResearchRun`, `ProductConcept`, `DesignPrompt`, `ArtworkJob`, `Asset`, `Approval`, `ProductionJob`, `ListingDraft`, `ProviderUsage`, `AuditEvent`, `WorkflowTransition`.
 - [x] Three design modes: `market-led` (Discover Ideas), `user-idea` (Use My Idea), `hybrid` (Hybrid Approach).
 - [x] Preserved immutable user original idea alongside separately optimized market concept.
@@ -42,18 +44,21 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [x] Reversible Alembic migration `0002_phase_2_domain` and repository layer.
 
 ### Phase 3 — Authentication and Settings ✅
+
 - [x] Single-owner Argon2id password authentication with secure HTTP-only cookies and CSRF protection.
 - [x] Strict session-derived ownership enforcement across all endpoints.
 - [x] Encrypted provider credentials storage with AES-GCM and key rotation (`0003_phase_3_auth_settings`).
 - [x] Defaults configuration for budget, image quality, target country, language, and product types.
 
 ### Phase 4 — Telegram Remote Control ✅
+
 - [x] Telegram Bot gateway with secure webhook verification and paired owner ID allow-list.
 - [x] Poller daemon for local development (`worker.telegram_poller`).
 - [x] Command handlers for `/status`, `/pause`, `/resume`, and `/stop`.
 - [x] Interactive pairing flow with temporary code generation and expiration.
 
 ### Phase 5 — Idea Input, Research, and Gate 1 Approval ✅
+
 - [x] Dashboard campaign forms for all 3 modes with dynamic validation and tailored helper text.
 - [x] Multi-angle market research with Tavily Search API.
 - [x] Structured opportunity synthesis via Gemini Flash and OpenAI models.
@@ -61,6 +66,7 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [x] Gate 1 Concept Selection & Approval screen with design prompt revision tools.
 
 ### Phase 6 — Artwork Generation and Gate 2 Approval ✅
+
 - [x] Recraft V4.1 (primary) with dynamic negative prompt omission for V4+ models.
 - [x] Gemini Flash / Pro fallback image generation adapter.
 - [x] S3 / MinIO asset upload, SHA-256 checksums, and public endpoint pre-signed URL signing (`http://localhost:9000`).
@@ -74,7 +80,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 
 ### Phase 7 — PNG Production Pipeline ⏳ (Next)
 
-#### Backend & Workers
+#### Phase 7 Backend & Workers
+
 - [ ] **Image Worker Fastify Endpoints (`workers/image-worker`)**:
   - [ ] `POST /pipeline/remove-background`: High-precision alpha channel background extraction via Sharp / rembg.
   - [ ] `POST /pipeline/trim-and-pad`: Safe-bounding box trim, transparency margin alignment (10% padding).
@@ -95,7 +102,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [ ] **Telegram Notifications**:
   - [ ] Send production complete message with compressed mockup preview photos and link to dashboard.
 
-#### Frontend (Nuxt 3)
+#### Phase 7 Frontend (Nuxt 3)
+
 - [ ] **Workflow Detail Page Updates (`frontend/pages/workflow/[id].vue`)**:
   - [ ] Support `PRODUCTION_QUEUED`, `PRODUCING`, and `PRODUCTION_COMPLETE` state visualization.
   - [ ] Interactive Production Progress bar and realtime step tracker.
@@ -112,7 +120,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 
 ### Phase 8 — SEO, IP Risk Review, and Download Package ⏳
 
-#### Backend & Workers
+#### Phase 8 Backend & Workers
+
 - [ ] **AI Listing SEO Generator**:
   - [ ] LLM prompt pipeline generating:
     - [ ] Etsy Listing Title (under 140 characters, front-loaded with high-intent keywords).
@@ -136,7 +145,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [ ] **Telegram Gate 3 Integration**:
   - [ ] Send listing summary, tag cloud, IP risk notice, and inline `[Approve Listing]` / `[Edit Listing]` buttons.
 
-#### Frontend (Nuxt 3)
+#### Phase 8 Frontend (Nuxt 3)
+
 - [ ] **Gate 3 Review Screen (`frontend/pages/workflow/[id].vue`)**:
   - [ ] Title & Description editor with character limit counters and live validation.
   - [ ] Interactive 13-Tag Tag Chip Editor with auto-trimming and 20-character counter per tag.
@@ -148,7 +158,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 
 ### Phase 9 — Etsy Integration & Draft Creation ⏳
 
-#### Backend & Workers
+#### Phase 9 Backend & Workers
+
 - [ ] **Etsy Open API v3 OAuth 2.0 Integration**:
   - [ ] PKCE authorization URL generation with secure state verification.
   - [ ] Token exchange callback (`GET /api/v1/auth/etsy/callback`) and token refresh loop.
@@ -164,7 +175,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [ ] **Telegram Completion Notification**:
   - [ ] Send direct link to the newly created draft in the seller's Etsy Shop Manager.
 
-#### Frontend (Nuxt 3)
+#### Phase 9 Frontend (Nuxt 3)
+
 - [ ] **Settings Page — Etsy Shop Connection Card (`frontend/pages/settings.vue`)**:
   - [ ] "Connect Etsy Shop" OAuth button, shop name display, and token status badge.
   - [ ] Disconnect / Reconnect options.
@@ -176,7 +188,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 
 ### Phase 10 — Deployment, Scheduling, and Monitoring ⏳
 
-#### Backend & Infrastructure
+#### Phase 10 Backend & Infrastructure
+
 - [ ] **Continuous Research Scheduler**:
   - [ ] Configurable background cron to trigger market-led seasonal research runs automatically.
 - [ ] **Spend Caps & Cost Alerting**:
@@ -188,7 +201,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [ ] **Telegram Digest Reports**:
   - [ ] Weekly summary of research runs, approved artworks, created drafts, and ledger spend.
 
-#### Frontend (Nuxt 3)
+#### Phase 10 Frontend (Nuxt 3)
+
 - [ ] **Analytics & Ledger Dashboard (`frontend/pages/analytics.vue`)**:
   - [ ] Monthly cost breakdown charts by AI provider (Recraft, Gemini, Tavily, OpenAI).
   - [ ] Cost-per-listing metrics and total draft count.
@@ -198,6 +212,7 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 ---
 
 ### Phase 11 — Optional Multi-Shop SaaS Expansion (Future)
+
 - [ ] Multi-tenant isolation and user role management.
 - [ ] Multiple Etsy shop connections per account.
 - [ ] Subscription tiers and usage metering.

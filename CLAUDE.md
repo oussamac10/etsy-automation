@@ -292,4 +292,3 @@ Before stopping:
 3. Update the checklist in `docs/PHASES.md` with evidence.
 4. Report: completed work, files changed, tests run, known limitations, cost-impact changes, and exact next step.
 5. Stop at the phase boundary.
-

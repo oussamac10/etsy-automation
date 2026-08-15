@@ -37,4 +37,3 @@ Never share provider credentials or OAuth redirect URIs across environments.
 ## CI
 
 CI runs formatting, lint, type checks, unit tests, integration tests, migration checks, dependency audit, secret scan, container build, and Compose validation. CI must never call paid APIs or create Etsy resources.
-

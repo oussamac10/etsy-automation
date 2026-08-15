@@ -44,4 +44,3 @@ These rules extend the root instructions for `frontend`.
 - Playwright for the full approval flow with mocked provider jobs.
 - Accessibility checks for every gate page.
 - No snapshot-only testing for behavior.
-

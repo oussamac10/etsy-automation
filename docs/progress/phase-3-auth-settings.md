@@ -24,7 +24,7 @@ document records what was built and what was verified.
 ### Authentication (ADR-0002, now implemented)
 
 | Module | Contents |
-|---|---|
+| --- | --- |
 | `infrastructure/security.py` | Argon2id hashing, session token generation and hashing, constant-time comparison, `CredentialCipher`, `mask_secret` |
 | `application/auth.py` | `create_owner`, `authenticate`, `resolve_session`, `end_session` — the use cases that own the transaction |
 | `api/dependencies.py` | `get_current_user` (session cookie → user, CSRF on mutations), `build_credential_cipher` |
@@ -67,7 +67,7 @@ the session, not the request body.
 so an account created by a fixture or a migration cannot end up without one.
 
 | Group | Fields |
-|---|---|
+| --- | --- |
 | Target market | `target_marketplace`, `target_country`, `currency`, `default_language` |
 | Idea/research | `default_idea_mode`, `default_target_buyer`, `default_product_uses` |
 | Style | `style_preferences` (≤ 20, trimmed and deduped), `style_notes`, `avoid_terms` |
@@ -124,7 +124,7 @@ Phase 1 and Phase 2 tables are untouched. 21 tables total.
 ## API endpoints
 
 | Method | Path | Auth |
-|---|---|---|
+| --- | --- | --- |
 | POST | `/api/v1/auth/login` | no |
 | POST | `/api/v1/auth/logout` | no (idempotent) |
 | GET | `/api/v1/auth/me` | yes |
@@ -180,7 +180,7 @@ idempotent.
 All new, none weakened or removed. Phase 1 and Phase 2 suites are intact.
 
 | Suite | Tests | Covers |
-|---|---|---|
+| --- | --- | --- |
 | `tests/test_security.py` | 26 | Argon2 hashing and verification, session tokens, Fernet round-trip and failures, retired-key rotation, masking |
 | `tests/test_settings_schemas.py` | 19 | Boundary validation, partial updates, currency/marketplace/country, budget precision, collections, secrets unprintable from request models |
 | `tests/test_settings.py` | 17 | Environment validation including key length, cookie security and rotation pairing |
@@ -198,7 +198,7 @@ Every check below was run. Commands are reproducible from the repository root
 unless noted.
 
 | # | Check | Command | Result |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | Clean migration upgrade | `alembic upgrade head` on a fresh `etsy_fresh` database | Pass — `0001 → 0002 → 0003` |
 | 2 | Downgrade then upgrade | `alembic downgrade base && alembic upgrade head` | Pass |
 | 3 | Backend unit tests | `pytest --ignore=tests/integration` (apps/api) | **233 passed** |

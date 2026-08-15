@@ -31,4 +31,3 @@ These rules extend the root instructions for `tests`.
 - Provider fixtures are minimal, sanitized, and versioned.
 - Generated image fixtures are original simple geometric samples.
 - Freeze time and random seeds when determinism matters.
-

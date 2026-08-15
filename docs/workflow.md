@@ -62,7 +62,7 @@ in a document.
 ## The three human gates
 
 | Gate | Decided from | Approved → | Rejected → | Revision requested → |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `IDEA_APPROVAL` | `IDEA_REVIEW` | `IDEA_APPROVED` | `DRAFT` | `RESEARCH_QUEUED` |
 | `ARTWORK_APPROVAL` | `ART_REVIEW` | `ARTWORK_APPROVED` | `IDEA_APPROVED` | `ART_QUEUED` |
 | `LISTING_APPROVAL` | `LISTING_REVIEW` | `READY_FOR_ETSY_DRAFT` | `ARTWORK_APPROVED` | `PRODUCTION` |
@@ -120,7 +120,7 @@ Every stage that can fail has its own state, so a failure never loses the work
 already approved and always knows where to resume.
 
 | Failure state | Raised from | Retry resumes at |
-|---|---|---|
+| --- | --- | --- |
 | `RESEARCH_FAILED` | `RESEARCHING` | `RESEARCHING` |
 | `ART_GENERATION_FAILED` | `ART_GENERATION` | `ART_GENERATION` |
 | `PRODUCTION_FAILED` | `PRODUCTION` | `PRODUCTION` |

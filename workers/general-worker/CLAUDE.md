@@ -37,4 +37,3 @@ These rules extend the root instructions for `workers/general-worker`.
 - Test duplicate message delivery and worker crash after provider success but before local commit.
 - Test timeouts, rate limits, cancellation, budget exhaustion, and partial Etsy upload recovery.
 - Use fake clock and deterministic providers.
-

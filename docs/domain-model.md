@@ -66,7 +66,7 @@ The Phase 2 brief lists fifteen domain areas. Where a different name fits the
 project better, this is the mapping.
 
 | Required area | Entity | Why the name differs |
-|---|---|---|
+| --- | --- | --- |
 | Users / account ownership | `User` | — |
 | Projects / product workflows | `ProductWorkflow` | "Project" is ambiguous next to the repo itself; a workflow *is* the unit that moves through the state machine |
 | Original user idea submissions | `OriginalIdea` + `OriginalIdeaRevision` | Split so the first submission is write-once and corrections are appended |
@@ -99,7 +99,7 @@ Owner identity. `ProductWorkflow.owner_id` exists so ownership can be enforced
 (Phase 3) and Phase 11 can add tenancy without backfilling every row.
 
 | Column | Notes |
-|---|---|
+| --- | --- |
 | `email` | unique |
 | `display_name`, `is_active` | an inactive user cannot authenticate |
 | `password_hash` | Argon2id, nullable; a row without one cannot sign in (Phase 3) |
@@ -107,7 +107,7 @@ Owner identity. `ProductWorkflow.owner_id` exists so ownership can be enforced
 ### `UserSession`, `OwnerSettings`, `ProviderCredential` (Phase 3)
 
 | Table | Notes |
-|---|---|
+| --- | --- |
 | `user_sessions` | `token_hash` (unique, SHA-256 — the token itself is never stored), `csrf_token`, `expires_at` (`CHECK expires_at > created_at`), `revoked_at`, `last_seen_at`. `ON DELETE CASCADE` |
 | `owner_settings` | one row per user (`user_id` unique), created on first read. Target market, idea/style preferences, quality floor, budgets in minor units, schedule and notification flags. Nine `CHECK` constraints, including `daily_budget_minor <= monthly_budget_minor` |
 | `provider_credentials` | one row per `(user_id, provider)` (unique). `ciphertext` (Fernet, non-empty), `key_version` (`>= 1`), `masked_value`, `label`. **No column can hold plaintext** |
@@ -121,7 +121,7 @@ the removal. See [`authentication-and-secrets.md`](authentication-and-secrets.md
 The aggregate root. One product being taken from idea to Etsy draft.
 
 | Column | Notes |
-|---|---|
+| --- | --- |
 | `owner_id` | → `users`, `ON DELETE CASCADE` |
 | `idea_mode` | `market-led` \| `user-idea` \| `hybrid`. Fixed at creation |
 | `name`, `target_marketplace`, `target_country`, `output_language` | the brief |
@@ -137,7 +137,7 @@ Indexes: `(owner_id, state)`, `created_at`.
 **The centre of this phase.** `original_text` is written once and never updated.
 
 | Column | Notes |
-|---|---|
+| --- | --- |
 | `workflow_id` | unique — one idea per workflow |
 | `original_text` | **immutable.** The owner's exact words |
 | `normalized_text` | NFKC, collapsed whitespace, casefolded. Stored *beside* the original for comparison and search, never instead of it |
@@ -179,7 +179,7 @@ backed by the observation text that justifies it.
 ### `ProductConcept` and `DesignPrompt`
 
 | Column | Notes |
-|---|---|
+| --- | --- |
 | `origin` | `user` \| `market` \| `hybrid` — recorded on **every** concept |
 | `original_idea_id` | → `original_ideas`, `ON DELETE SET NULL`. Losing the link must not delete a concept the owner approved |
 | `differentiation` | `NOT NULL` and non-empty: "the same but prettier" is not a differentiator, and an empty column would hide that |
@@ -213,7 +213,7 @@ production output back to the untouched master.
 Append-only. One row per decision.
 
 | Column | Notes |
-|---|---|
+| --- | --- |
 | `gate`, `decision` | three gates; `PENDING` \| `APPROVED` \| `REJECTED` \| `REVISION_REQUESTED` |
 | `actor`, `decided_at` | `decided_at` is null while `PENDING` — an unanswered request is not a decision |
 | `comment`, `revision_request` | a `CHECK` requires `revision_request` when the decision is `REVISION_REQUESTED` |
@@ -242,7 +242,7 @@ their name on it.
 ### `ProviderUsage`
 
 | Column | Notes |
-|---|---|
+| --- | --- |
 | `provider`, `service`, `operation` | |
 | `input_units`, `output_units`, `unit_kind` | tokens, images, requests — named so a reader is not guessing |
 | `currency`, `estimated_cost_minor`, `actual_cost_minor` | `BIGINT` minor units |
@@ -280,7 +280,7 @@ and records the workflow's creation.
 ## Deletion behaviour
 
 | Relationship | On delete | Why |
-|---|---|---|
+| --- | --- | --- |
 | `product_workflows` → children | `CASCADE` | Deleting a workflow removes its whole story |
 | `product_concepts.original_idea_id` | `SET NULL` | Losing the link must not delete an approved concept |
 | `artwork_jobs.prompt_id` | `RESTRICT` | An asset must stay traceable to its prompt version |

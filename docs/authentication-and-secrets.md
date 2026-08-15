@@ -82,11 +82,11 @@ beyond what Argon2 itself imposes.
 
 ### Endpoints
 
-| Method | Path                 | Auth | Notes                             |
-| ------ | -------------------- | ---- | --------------------------------- |
-| POST   | `/api/v1/auth/login` | no   | Sets both cookies                 |
-| POST   | `/api/v1/auth/logout`| no   | Idempotent; safe without a session |
-| GET    | `/api/v1/auth/me`    | yes  | Current owner; never a hash        |
+| Method | Path                  | Auth | Notes                              |
+| ------ | --------------------- | ---- | ---------------------------------- |
+| POST   | `/api/v1/auth/login`  | no   | Sets both cookies                  |
+| POST   | `/api/v1/auth/logout` | no   | Idempotent; safe without a session |
+| GET    | `/api/v1/auth/me`     | yes  | Current owner; never a hash        |
 
 Everything under `/api/v1/settings` and `/api/v1/workflows` requires a session.
 `/api/health`, `/api/health/live` and `/api/v1/workflow` (the static pipeline

@@ -18,7 +18,7 @@ moments Phase 1 collapsed together.
 ### Happy path, in order
 
 | # | State | Meaning | New in Phase 2 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | `DRAFT` | Created, brief captured, nothing dispatched | ✅ |
 | 2 | `RESEARCH_QUEUED` | Research job enqueued, not started | ✅ |
 | 3 | `RESEARCHING` | Research running | |
@@ -37,7 +37,7 @@ moments Phase 1 collapsed together.
 ### Off the happy path
 
 | State | Meaning |
-|---|---|
+| --- | --- |
 | `PUBLISHED` | The owner published the draft **themselves** and told us. Terminal |
 | `CANCELLED` | Abandoned by the owner. Terminal |
 
@@ -46,7 +46,7 @@ moments Phase 1 collapsed together.
 Explicit and retryable, each from its own stage.
 
 | Failure state | Raised from | Retry resumes at |
-|---|---|---|
+| --- | --- | --- |
 | `RESEARCH_FAILED` | `RESEARCHING` | `RESEARCHING` |
 | `ART_GENERATION_FAILED` | `ART_GENERATION` | `ART_GENERATION` |
 | `PRODUCTION_FAILED` | `PRODUCTION` | `PRODUCTION` |
@@ -66,7 +66,7 @@ unrelated failure state and lose the trail.
 `IllegalTransitionError`.
 
 | From | To | Trigger |
-|---|---|---|
+| --- | --- | --- |
 | `DRAFT` | `RESEARCH_QUEUED` | research enqueued |
 | `DRAFT` | `CANCELLED` | owner cancels |
 | `RESEARCH_QUEUED` | `RESEARCHING` | worker picks the job up |
@@ -115,7 +115,7 @@ outright — that is what makes "never skip these three gates" a property of the
 code rather than a note in a document.
 
 | Gate | Decided from | Approved → | Rejected → | Revision requested → |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `IDEA_APPROVAL` | `IDEA_REVIEW` | `IDEA_APPROVED` | `DRAFT` | `RESEARCH_QUEUED` |
 | `ARTWORK_APPROVAL` | `ART_REVIEW` | `ARTWORK_APPROVED` | `IDEA_APPROVED` | `ART_QUEUED` |
 | `LISTING_APPROVAL` | `LISTING_REVIEW` | `READY_FOR_ETSY_DRAFT` | `ARTWORK_APPROVED` | `PRODUCTION` |
@@ -209,7 +209,7 @@ third-party rights, and there is no value it could store to say so.
 ## Where this is tested
 
 | Guarantee | Test |
-|---|---|
+| --- | --- |
 | Happy path order and reachability | `tests/test_workflow.py::TestStates` |
 | Every permitted and forbidden transition | `TestTransitions` |
 | Gates cannot be bypassed by a state change | `test_a_gated_state_cannot_be_advanced_directly` |

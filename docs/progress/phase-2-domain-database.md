@@ -20,7 +20,7 @@ Met. Evidence below.
 ### Domain layer (pure, no framework imports)
 
 | Module | Contents |
-|---|---|
+| --- | --- |
 | `domain/workflow.py` | The state machine, extended from 8 to 16 states with an explicit transition table, three gates, rejection/revision routing, per-stage failure states and the stage guards |
 | `domain/enums.py` | `IdeaMode`, `ConceptOrigin`, `SourceType`, `SignalStrength`, `CompetitionLevel`, `Seasonality`, `ConfidenceLevel`, `ConceptStatus`, `ProviderName`, `CostStatus`, `AuditAction`, `ProductUse` |
 | `domain/money.py` | `Money` — integer minor units, `Decimal` at the boundaries, never a float |
@@ -88,7 +88,7 @@ Two were **replaced because the behaviour genuinely changed**, each by a stronge
 assertion:
 
 | Removed | Why | Replaced by |
-|---|---|---|
+| --- | --- | --- |
 | `test_no_published_or_active_state_exists` | `PUBLISHED` now exists as a human-recorded state | `TestPublicationIsHumanOnly` — 3 tests asserting it is reachable only from `ETSY_DRAFT_CREATED`, that no gate targets it, and that gate 3 still guards the draft |
 | `test_rejection_keeps_the_run_in_review` | A rejection now returns the workflow to the producing stage instead of parking it at the gate | `test_rejection_returns_to_the_producing_stage`, parametrised over all three gates and asserting the result is strictly earlier on the happy path |
 
@@ -163,7 +163,7 @@ so a migration that only works on an empty database cannot pass unnoticed.
 All commands run on 2026-08-02.
 
 | Suite | Command | Result |
-|---|---|---|
+| --- | --- | --- |
 | API (unit + integration) | `pytest` | **261 passed** |
 | Worker | `pytest` | **23 passed** |
 | `@etsy/domain` | `vitest run` | **22 passed** |
@@ -184,7 +184,7 @@ rejected with `gate-not-satisfied`.
 ### Static analysis
 
 | Check | Result |
-|---|---|
+| --- | --- |
 | `ruff format --check` (api, worker) | 72 files already formatted |
 | `ruff check` (api, worker) | All checks passed |
 | `mypy --strict` (api) | no issues in 71 source files |
@@ -197,7 +197,7 @@ rejected with `gate-not-satisfied`.
 ### What the Phase 2 tests actually prove
 
 | Requirement | Test |
-|---|---|
+| --- | --- |
 | All three idea modes | `test_ideas.py::TestModes`, `test_repositories.py::test_every_idea_mode_persists`, `test_api_workflows.py::test_creates_in_every_idea_mode` |
 | Original idea immutability | `test_original_text_survives_revisions`, `test_editing_original_text_is_refused`, `test_second_submission_is_a_conflict` |
 | Idea revisions | `test_revisions_are_numbered_and_ordered`, `test_duplicate_revision_number_is_refused` |

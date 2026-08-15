@@ -24,4 +24,3 @@ These rules extend the root instructions for `packages/domain`.
 ## Testing
 
 Use table-driven tests for every transition and invariant. Property-test scoring bounds, money addition, tag normalization, and idempotency-key stability where useful.
-

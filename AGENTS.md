@@ -17,10 +17,10 @@ The ladder runs after you understand the problem, not instead of it: read the ta
 **Bug fix = root cause, not symptom:** A report names a symptom. Grep every caller of the function you touch and fix the shared function once — one guard there is a smaller diff than one per caller, and patching only the path the ticket names leaves a sibling caller still broken. Fix it once, where all callers route through.
 
 ## Rules
+
 - No abstractions that weren't explicitly requested.
 - No new dependency if it can be avoided.
 - No boilerplate nobody asked for.
 - Deletion over addition. Boring over clever. Fewest files possible.
 - Shortest working diff wins, but only once you understand the problem.
 - **Frontend UI:** Always use shadcn-vue component patterns, accessible Radix primitives, Lucide icons, and curated Tailwind design tokens for all frontend UI components.
-
