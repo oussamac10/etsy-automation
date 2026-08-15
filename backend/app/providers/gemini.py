@@ -11,22 +11,79 @@ from app.ports.providers import ImageRequest, ImageResponse, ImageCandidate, Tex
 from app.providers.openai import ResearchSynthesisSchema
 
 
-def inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
-    """Inline $defs in JSON schema because Google Gemini responseSchema does not support $defs / $ref."""
+ALLOWED_GEMINI_SCHEMA_KEYS = {
+    "type",
+    "format",
+    "description",
+    "nullable",
+    "enum",
+    "maxItems",
+    "minItems",
+    "properties",
+    "required",
+    "items",
+}
+
+
+def clean_gemini_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Clean JSON schema for Google Gemini responseSchema.
+
+    1. Inlines $defs / $ref because Google Gemini responseSchema does not support $defs / $ref.
+    2. Converts anyOf/oneOf null unions into nullable: True.
+    3. Recursively removes unsupported keywords like additionalProperties, title, $schema, default, etc.
+    """
     defs = schema.get("$defs", {})
 
-    def resolve(obj: Any) -> Any:
-        if isinstance(obj, dict):
-            if "$ref" in obj:
-                ref_key = obj["$ref"].split("/")[-1]
-                if ref_key in defs:
-                    return resolve(defs[ref_key])
-            return {k: resolve(v) for k, v in obj.items() if k != "$defs"}
-        elif isinstance(obj, list):
-            return [resolve(elem) for elem in obj]
-        return obj
+    def resolve_schema_node(obj: Any) -> Any:
+        if not isinstance(obj, dict):
+            if isinstance(obj, list):
+                return [resolve_schema_node(elem) for elem in obj]
+            return obj
 
-    return resolve(schema)
+        # Handle $ref
+        if "$ref" in obj:
+            ref_key = obj["$ref"].split("/")[-1]
+            if ref_key in defs:
+                resolved_target = resolve_schema_node(defs[ref_key])
+                other_keys = {
+                    k: resolve_schema_node(v)
+                    for k, v in obj.items()
+                    if k != "$ref" and k in ALLOWED_GEMINI_SCHEMA_KEYS
+                }
+                if isinstance(resolved_target, dict):
+                    return {**resolved_target, **other_keys}
+                return resolved_target
+
+        # Handle anyOf / oneOf (e.g. nullable: anyOf [type: string, type: null])
+        if "anyOf" in obj or "oneOf" in obj:
+            sub_list = obj.get("anyOf") or obj.get("oneOf") or []
+            sub_types = [resolve_schema_node(sub) for sub in sub_list if isinstance(sub, dict)]
+            non_null = [sub for sub in sub_types if sub.get("type") != "null"]
+            if non_null:
+                res = dict(non_null[0])
+                res["nullable"] = True
+                return res
+
+        cleaned: dict[str, Any] = {}
+        for k, v in obj.items():
+            if k == "properties" and isinstance(v, dict):
+                cleaned["properties"] = {
+                    prop_name: resolve_schema_node(prop_schema)
+                    for prop_name, prop_schema in v.items()
+                }
+            elif k == "items":
+                cleaned["items"] = resolve_schema_node(v)
+            elif k in ALLOWED_GEMINI_SCHEMA_KEYS:
+                if isinstance(v, (dict, list)):
+                    cleaned[k] = resolve_schema_node(v)
+                else:
+                    cleaned[k] = v
+        return cleaned
+
+    return resolve_schema_node(schema)
+
+
+inline_refs = clean_gemini_schema
 
 
 class GeminiImageAdapter:

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
 import {
   Printer,
   CheckCircle2,
@@ -107,7 +107,47 @@ const emit = defineEmits<{
   (e: "triggerProduction", forceNew: boolean): void;
 }>();
 
-const selectedMockupTab = ref<string>("tshirt");
+const availableMockupTabs = computed<string[]>(() => {
+  const urls = props.latestProductionJob?.mockup_urls ?? {};
+  const keys = Object.keys(urls);
+  if (keys.length > 0) {
+    const order = ["mug", "tshirt", "sweatshirt", "tote_bag", "tote"];
+    return keys.sort((a, b) => {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      return (idxA >= 0 ? idxA : 99) - (idxB >= 0 ? idxB : 99);
+    });
+  }
+  return ["mug", "tshirt"];
+});
+
+const selectedMockupTab = ref<string>("mug");
+
+watch(
+  availableMockupTabs,
+  (tabs) => {
+    if (tabs.length > 0 && !tabs.includes(selectedMockupTab.value)) {
+      selectedMockupTab.value = tabs[0];
+    }
+  },
+  { immediate: true }
+);
+
+function getMockupLabel(product: string): string {
+  switch (product.toLowerCase()) {
+    case "mug":
+      return "☕ Ceramic Mug";
+    case "tshirt":
+      return "👕 T-Shirt";
+    case "sweatshirt":
+      return "🧥 Sweatshirt";
+    case "tote_bag":
+    case "tote":
+      return "👜 Tote Bag";
+    default:
+      return `📦 ${product}`;
+  }
+}
 </script>
 
 <template>
@@ -381,7 +421,7 @@ const selectedMockupTab = ref<string>("tshirt");
                   </div>
                   <div class="flex flex-wrap gap-1">
                     <button
-                      v-for="p in ['tshirt', 'sweatshirt', 'tote_bag', 'mug']"
+                      v-for="p in availableMockupTabs"
                       :key="p"
                       type="button"
                       class="text-[11px] px-2.5 py-1 rounded-md font-medium transition-all"
@@ -392,7 +432,7 @@ const selectedMockupTab = ref<string>("tshirt");
                       "
                       @click="selectedMockupTab = p"
                     >
-                      {{ p === 'tshirt' ? '👕 T-Shirt' : p === 'sweatshirt' ? '🧥 Sweatshirt' : p === 'tote_bag' ? '👜 Tote Bag' : '☕ Ceramic Mug' }}
+                      {{ getMockupLabel(p) }}
                     </button>
                   </div>
                 </div>

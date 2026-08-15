@@ -1110,32 +1110,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
 
 
 def _normalize_mockup_products(raw_products: list[str] | None) -> list[str]:
-    if not raw_products:
-        return ["tshirt", "sweatshirt", "tote", "mug"]
-
-    seen = set()
-    normalized = []
-    for item in raw_products:
-        text = str(item).lower()
-        if any(w in text for w in ("shirt", "tee", "apparel", "top", "cloth")):
-            p = "tshirt"
-        elif any(w in text for w in ("hoodie", "sweat", "jacket", "fleece", "jumper")):
-            p = "sweatshirt"
-        elif any(w in text for w in ("mug", "cup", "drink", "tumbler", "ceramic")):
-            p = "mug"
-        else:
-            p = "tote"
-
-        if p not in seen:
-            seen.add(p)
-            normalized.append(p)
-
-    for standard in ("tshirt", "sweatshirt", "tote", "mug"):
-        if standard not in seen:
-            seen.add(standard)
-            normalized.append(standard)
-
-    return normalized
+    return get_requested_mockup_products(raw_products)
 
 
 @dramatiq.actor(queue_name="production", max_retries=3)
@@ -1199,12 +1174,14 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
 
             source_storage_key = source_asset.storage_key
 
+            # Prioritize workflow intended products, fallback to approved concept prompt
+            raw_uses = workflow.intended_product_uses if workflow and workflow.intended_product_uses else None
+
             # Get design prompt for exact slogan and typography instructions
             concepts = await uow.concepts.list_for_workflow(workflow_id)
             approved_concept = next((c for c in concepts if c.status == ConceptStatus.APPROVED), None)
             exact_slogan: str | None = None
             typography_instructions: str | None = None
-            intended_products: list[str] = ["tshirt", "sweatshirt", "tote", "mug"]
 
             if approved_concept:
                 prompts = await uow.concepts.prompts(approved_concept.id)
@@ -1212,7 +1189,10 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                     latest_prompt = prompts[-1]
                     exact_slogan = latest_prompt.exact_slogan
                     typography_instructions = latest_prompt.typography_instructions
-                    intended_products = _normalize_mockup_products(latest_prompt.intended_product_uses)
+                    if not raw_uses and latest_prompt.intended_product_uses:
+                        raw_uses = latest_prompt.intended_product_uses
+
+            intended_products: list[str] = get_requested_mockup_products(raw_uses)
 
             await uow.production_jobs.update(
                 job_id,
