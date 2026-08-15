@@ -136,17 +136,17 @@ async def cancel_workflow(
 @router.post(
     "/{workflow_id}/rerun",
     response_model=WorkflowResponse,
-    summary="Rerun a cancelled workflow",
+    summary="Resume or rerun a cancelled workflow",
 )
 async def rerun_workflow(
     workflow_id: uuid.UUID,
     user: CurrentUser,
     uow: UowDep,
+    from_scratch: bool = False,
 ) -> WorkflowResponse:
-    """Restart a stopped campaign: back to DRAFT and straight into a new run.
+    """Smart-resumes a stopped campaign from its furthest completed step (preserving tokens).
 
-    Answers 409 when the workflow was not stopped, and when the budget cannot
-    absorb another research run.
+    If from_scratch is True, restarts from DRAFT into a fresh research run.
     """
     workflow = await use_cases.rerun_workflow(
         uow,
@@ -154,6 +154,7 @@ async def rerun_workflow(
         owner_id=user.id,
         provider_mode=get_settings().provider_mode,
         actor=user.email,
+        from_scratch=from_scratch,
     )
     return WorkflowResponse.model_validate(workflow)
 

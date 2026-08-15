@@ -678,14 +678,14 @@ onBeforeUnmount(stopPolling);
 
             <Button
               v-if="isStopped(workflow.state)"
-              variant="secondary"
+              variant="default"
               size="sm"
               :disabled="pendingWorkflowId === workflow.id"
-              class="gap-1.5"
+              class="gap-1.5 font-semibold shadow-2xs"
               @click="controlWorkflow(workflow.id, 'rerun')"
             >
               <RotateCw class="h-3.5 w-3.5" />
-              <span>Rerun</span>
+              <span>Resume</span>
             </Button>
 
             <Button
@@ -732,10 +732,31 @@ onBeforeUnmount(stopPolling);
 
         <!-- Stopped Banner -->
         <Card v-if="isStopped(workflow.state)" class="p-8 text-center bg-zinc-50 border-dashed">
-          <h2 class="text-lg font-bold text-zinc-900 mb-1">Campaign stopped</h2>
-          <p class="text-xs text-zinc-500 max-w-md mx-auto">
-            Nothing is running. Everything already gathered stays on the record — rerun to start a new research run from the same brief.
+          <h2 class="text-lg font-bold text-zinc-900 mb-1">Campaign paused</h2>
+          <p class="text-xs text-zinc-500 max-w-md mx-auto mb-4">
+            Nothing is currently running. All generated concepts, prompts, and artwork candidates are preserved. Click Resume to continue without wasting tokens.
           </p>
+          <div class="flex items-center justify-center gap-3 flex-wrap">
+            <Button
+              variant="default"
+              size="sm"
+              :disabled="pendingWorkflowId === workflow.id"
+              class="gap-1.5 font-semibold shadow-2xs"
+              @click="controlWorkflow(workflow.id, 'rerun')"
+            >
+              <RotateCw class="h-3.5 w-3.5" />
+              <span>Resume from Current Step</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="pendingWorkflowId === workflow.id"
+              class="gap-1.5 text-xs text-zinc-600 border-zinc-200 bg-white hover:bg-zinc-100"
+              @click="controlWorkflow(workflow.id, 'rerun', { fromScratch: true })"
+            >
+              <span>Restart from Brief (New Research)</span>
+            </Button>
+          </div>
         </Card>
 
         <!-- Polling / Researching State -->

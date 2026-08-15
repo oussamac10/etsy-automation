@@ -292,48 +292,97 @@ async def rerun_workflow(
     owner_id: uuid.UUID,
     provider_mode: str,
     actor: str,
+    from_scratch: bool = False,
 ) -> ProductWorkflow:
-    """Restart a cancelled campaign from the beginning.
+    """Resume a stopped campaign from its furthest completed stage, or restart from brief.
 
-    One transaction: CANCELLED → DRAFT → RESEARCH_QUEUED plus the queued run and
-    its outbox message. A rerun that failed halfway would otherwise leave a
-    workflow reset to DRAFT with nothing queued and no sign of why.
-
-    The research itself is queued by :func:`queue_research_run`, the same path
-    the manual trigger uses, so the budget gate cannot be skipped by rerunning.
+    Smart Token-Preserving Resume:
+    - If from_scratch is False (default):
+      1. If Gate 2 (Artwork) is approved -> resumes at ARTWORK_APPROVED.
+      2. If candidate artwork assets already exist -> resumes at ART_REVIEW.
+      3. If Gate 1 (Concept) is approved -> resumes at IDEA_APPROVED.
+      4. If synthesized concepts already exist -> resumes at IDEA_REVIEW.
+      5. Otherwise (cancelled during initial research) -> CANCELLED → DRAFT → RESEARCH_QUEUED.
+    - If from_scratch is True:
+      - Unconditionally restarts from DRAFT → RESEARCH_QUEUED.
     """
     workflow = await _owned_workflow(uow, workflow_id, owner_id)
     if workflow.state is not RunStatus.CANCELLED:
         raise IllegalTransitionError(
             workflow.state,
             RunStatus.DRAFT,
-            "only a cancelled workflow can be rerun",
+            "only a cancelled workflow can be resumed or rerun",
         )
 
-    await uow.workflows.transition(
-        workflow,
-        to_state=RunStatus.DRAFT,
-        expected_version=workflow.version,
-        reason="Rerun requested by the owner",
-        actor=actor,
-    )
-    await queue_research_run(
-        uow,
-        workflow,
-        provider_mode=provider_mode,
-        actor=actor,
-        reason="Rerun research trigger",
-    )
-    await uow.audit.record(
-        action=AuditAction.WORKFLOW_TRANSITION,
-        entity_type="ProductWorkflow",
-        entity_id=workflow.id,
-        workflow_id=workflow.id,
-        actor=actor,
-        summary=f"{RunStatus.CANCELLED} → {RunStatus.RESEARCH_QUEUED} (rerun)",
-        before={"state": RunStatus.CANCELLED.value},
-        after={"state": RunStatus.RESEARCH_QUEUED.value, "version": workflow.version},
-    )
+    target_state = RunStatus.DRAFT
+
+    if not from_scratch:
+        has_artwork_approved = await uow.approvals.is_approved(
+            workflow_id, ApprovalGate.ARTWORK_APPROVAL
+        )
+        has_idea_approved = await uow.approvals.is_approved(
+            workflow_id, ApprovalGate.IDEA_APPROVAL
+        )
+
+        concepts = await uow.concepts.list_for_workflow(workflow_id)
+        concept_approved = any(c.status == ConceptStatus.APPROVED for c in concepts)
+
+        assets = await uow.assets.list_for_workflow(workflow_id)
+        has_artwork_assets = len(assets) > 0
+
+        if has_artwork_approved:
+            target_state = RunStatus.ARTWORK_APPROVED
+        elif (has_idea_approved or concept_approved) and has_artwork_assets:
+            target_state = RunStatus.ART_REVIEW
+        elif has_idea_approved or concept_approved:
+            target_state = RunStatus.IDEA_APPROVED
+        elif len(concepts) > 0:
+            target_state = RunStatus.IDEA_REVIEW
+
+    if target_state is RunStatus.DRAFT:
+        await uow.workflows.transition(
+            workflow,
+            to_state=RunStatus.DRAFT,
+            expected_version=workflow.version,
+            reason="Restart requested from brief",
+            actor=actor,
+        )
+        await queue_research_run(
+            uow,
+            workflow,
+            provider_mode=provider_mode,
+            actor=actor,
+            reason="Rerun research trigger",
+        )
+        await uow.audit.record(
+            action=AuditAction.WORKFLOW_TRANSITION,
+            entity_type="ProductWorkflow",
+            entity_id=workflow.id,
+            workflow_id=workflow.id,
+            actor=actor,
+            summary=f"{RunStatus.CANCELLED} → {RunStatus.RESEARCH_QUEUED} (rerun from brief)",
+            before={"state": RunStatus.CANCELLED.value},
+            after={"state": RunStatus.RESEARCH_QUEUED.value, "version": workflow.version},
+        )
+    else:
+        await uow.workflows.transition(
+            workflow,
+            to_state=target_state,
+            expected_version=workflow.version,
+            reason=f"Smart resume: continuing from {target_state.value} to preserve API tokens and previous assets",
+            actor=actor,
+        )
+        await uow.audit.record(
+            action=AuditAction.WORKFLOW_TRANSITION,
+            entity_type="ProductWorkflow",
+            entity_id=workflow.id,
+            workflow_id=workflow.id,
+            actor=actor,
+            summary=f"{RunStatus.CANCELLED} → {target_state.value} (token-saving resume)",
+            before={"state": RunStatus.CANCELLED.value},
+            after={"state": target_state.value, "version": workflow.version},
+        )
+
     await uow.commit()
     return workflow
 

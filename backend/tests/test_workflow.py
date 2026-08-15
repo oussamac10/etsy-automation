@@ -137,15 +137,21 @@ class TestTransitions:
 class TestStoppingAndRestarting:
     """Cancelling is a decision the owner may change, unlike publishing."""
 
-    def test_a_stopped_workflow_restarts_from_the_beginning(self) -> None:
-        assert advance(RunStatus.CANCELLED, RunStatus.DRAFT) is RunStatus.DRAFT
-
-    def test_a_stopped_workflow_cannot_resume_where_it_left_off(self) -> None:
-        # DRAFT is the only exit. Resuming mid-stage would restart a paid job
-        # whose inputs were abandoned.
-        assert ALLOWED_TRANSITIONS[RunStatus.CANCELLED] == frozenset({RunStatus.DRAFT})
-        with pytest.raises(IllegalTransitionError):
-            advance(RunStatus.CANCELLED, RunStatus.ART_REVIEW)
+    def test_a_stopped_workflow_can_resume_or_restart(self) -> None:
+        # CANCELLED allows DRAFT (restart from scratch) and completed review/approved stages (smart resume)
+        # to avoid wasting API tokens and previously computed assets.
+        expected_exits = frozenset({
+            RunStatus.DRAFT,
+            RunStatus.IDEA_REVIEW,
+            RunStatus.IDEA_APPROVED,
+            RunStatus.ART_REVIEW,
+            RunStatus.ARTWORK_APPROVED,
+            RunStatus.PRODUCTION,
+            RunStatus.LISTING_REVIEW,
+        })
+        assert ALLOWED_TRANSITIONS[RunStatus.CANCELLED] == expected_exits
+        assert advance(RunStatus.CANCELLED, RunStatus.IDEA_APPROVED) is RunStatus.IDEA_APPROVED
+        assert advance(RunStatus.CANCELLED, RunStatus.ART_REVIEW) is RunStatus.ART_REVIEW
 
     def test_stopping_twice_is_refused(self) -> None:
         # Not a silent no-op: the second request is answering for a state the

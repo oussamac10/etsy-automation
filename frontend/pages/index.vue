@@ -798,12 +798,12 @@ onUnmounted(() => {
                         variant="secondary"
                         size="sm"
                         :disabled="pendingWorkflowId === wf.id"
-                        :title="`Rerun ${wf.name}`"
-                        class="h-8 px-2.5 text-xs gap-1"
+                        :title="`Resume ${wf.name}`"
+                        class="h-8 px-2.5 text-xs gap-1 font-medium"
                         @click="controlWorkflow(wf.id, 'rerun')"
                       >
                         <RotateCw class="h-3 w-3" />
-                        <span>Rerun</span>
+                        <span>Resume</span>
                       </Button>
 
                       <NuxtLink :to="`/workflow/${wf.id}`">

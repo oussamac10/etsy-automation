@@ -95,12 +95,17 @@ export function useWorkflowControls(apiBase: string, onDone: () => Promise<void>
   async function controlWorkflow(
     id: string,
     action: "cancel" | "rerun" | "delete",
+    options?: { fromScratch?: boolean },
   ): Promise<boolean> {
     pendingWorkflowId.value = id;
     controlError.value = null;
     const base = `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${id}`;
+    let url = action === "delete" ? base : `${base}/${action}`;
+    if (action === "rerun" && options?.fromScratch) {
+      url += "?from_scratch=true";
+    }
     try {
-      await $fetch(action === "delete" ? base : `${base}/${action}`, {
+      await $fetch(url, {
         method: action === "delete" ? "DELETE" : "POST",
         credentials: "include",
         headers: csrfHeaders(),
