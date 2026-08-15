@@ -12,12 +12,13 @@ see ``docs/authentication-and-secrets.md``.
 
 from __future__ import annotations
 
+import base64
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
 
-from app.api.dependencies import CurrentUser, UowDep
+from app.api.dependencies import CurrentUser, SettingsDep, StorageDep, UowDep
 from app.api.schemas import (
     ApprovalResponse,
     ArtworkJobResponse,
@@ -1027,6 +1028,85 @@ async def get_latest_production(
     )
 
     return await to_production_job_response(latest_job, storage, uow)
+
+
+@router.post(
+    "/{workflow_id}/mockup-templates/composite",
+    summary="Composite master PNG onto custom mockup template (JSON or multipart)",
+)
+async def workflow_composite_mockup_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+    settings: SettingsDep,
+    request: Request,
+):
+    from app.api.routes.mockup_templates import (
+        CompositeCustomMockupRequest,
+        CompositeMockupResponse,
+        PlacementSchema,
+        composite_custom_mockup_endpoint,
+    )
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        product_type = str(form.get("product_type", "tshirt"))
+        template_id = str(form.get("template_id")) if form.get("template_id") else None
+        template_name = str(form.get("name")) if form.get("name") else None
+        save_as_template = str(form.get("save_to_library", "true")).lower() in ("true", "1")
+
+        file_obj = form.get("file")
+        template_image_base64 = None
+        if file_obj and hasattr(file_obj, "read"):
+            file_bytes = await file_obj.read()
+            template_image_base64 = base64.b64encode(file_bytes).decode("utf-8")
+
+        def _get_float(key: str, default: float) -> float:
+            val = form.get(key)
+            if val is None:
+                return default
+            try:
+                return float(str(val))
+            except (ValueError, TypeError):
+                return default
+
+        placement = PlacementSchema(
+            left_pct=_get_float("left_pct", 0.25),
+            top_pct=_get_float("top_pct", 0.25),
+            width_pct=_get_float("width_pct", 0.50),
+            height_pct=_get_float("height_pct", 0.50),
+            angle_deg=_get_float("angle_deg", 0.0),
+            blend_mode=str(form.get("blend_mode") or "multiply"),
+        )
+        payload = CompositeCustomMockupRequest(
+            workflow_id=workflow_id,
+            product_type=product_type,
+            template_id=template_id,
+            template_image_base64=template_image_base64,
+            template_name=template_name,
+            save_as_template=save_as_template,
+            placement=placement,
+        )
+    else:
+        body = await request.json()
+        body["workflow_id"] = str(workflow_id)
+        payload = CompositeCustomMockupRequest.model_validate(body)
+
+    return await composite_custom_mockup_endpoint(
+        payload=payload,
+        uow=uow,
+        storage=storage,
+        settings=settings,
+    )
 
 
 
