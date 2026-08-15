@@ -2,16 +2,21 @@ from __future__ import annotations
 
 import asyncio
 from decimal import Decimal
+import hashlib
 import json
 import uuid
 from datetime import UTC, datetime
 
 import dramatiq
 from dramatiq.middleware import CurrentMessage
+import httpx
+from sqlalchemy import select
 
 from app.api.dependencies import build_credential_cipher
+from app.application.artwork import ensure_artwork_within_budget, estimate_artwork_cost
 from app.application.owner_settings import reveal_credential
 from app.application.research import ensure_research_within_budget
+from app.application.telegram import send_telegram_notification
 from app.application.unit_of_work import UnitOfWork
 from app.domain import ip_risk
 from app.domain.enums import (
@@ -36,13 +41,18 @@ from app.domain.workflow import (
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import get_logger
 from app.infrastructure.models import (
+    Asset,
+    DesignPrompt,
     KeywordCluster,
     ProductConcept,
+    ProviderCredential,
     ResearchEvidence,
 )
+from app.infrastructure.models.audit import WorkflowFailure
 from app.infrastructure.security import CredentialCipher
 from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import (
+    ImageRequest,
     ResearchProvider,
     SearchQuery,
     SearchResult,
@@ -51,9 +61,12 @@ from app.ports.providers import (
 )
 
 # Providers
-from app.providers.fake import FakeResearchProvider, FakeTextProvider
-from app.providers.gemini import GeminiSynthesisAdapter
+from app.providers.fake import FakeImageProvider, FakeResearchProvider, FakeTextProvider
+from app.providers.gemini import GeminiImageAdapter, GeminiSynthesisAdapter
+from app.providers.recraft import RecraftImageAdapter
+from app.providers.s3 import S3ObjectStorage
 from app.providers.search import TavilySearchAdapter
+from app.providers.telegram import FakeTelegramGateway, RealTelegramGateway, escape_html
 from app.settings import Settings, get_settings
 from worker.retry import retry_after, should_retry
 
@@ -153,7 +166,6 @@ async def _mark_failure_async(workflow_id: uuid.UUID, run_id: uuid.UUID, reason:
                     failure_reason=reason,
                 )
             # Add a WorkflowFailure record
-            from app.infrastructure.models.audit import WorkflowFailure
             is_transient = "timeout" in reason.lower() or "http" in reason.lower()
             failure = WorkflowFailure(
                 workflow_id=workflow_id,
@@ -730,7 +742,6 @@ async def _mark_artwork_failure_async(workflow_id: uuid.UUID, job_id: uuid.UUID,
                 )
             
             # Record a WorkflowFailure record
-            from app.infrastructure.models.audit import WorkflowFailure
             is_transient = "timeout" in reason.lower() or "http" in reason.lower()
             failure = WorkflowFailure(
                 workflow_id=workflow_id,
@@ -761,16 +772,6 @@ async def _mark_artwork_failure_async(workflow_id: uuid.UUID, job_id: uuid.UUID,
 
 
 async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
-    import hashlib
-    import httpx
-    from app.providers.recraft import RecraftImageAdapter
-    from app.providers.gemini import GeminiImageAdapter
-    from app.providers.s3 import S3ObjectStorage
-    from app.providers.fake import FakeImageProvider
-    from app.application.artwork import ensure_artwork_within_budget, estimate_artwork_cost
-    from app.infrastructure.models import DesignPrompt, Asset
-    from app.ports.providers import ImageRequest
-
     settings = get_settings()
     engine = create_engine(settings.database_url)
     session_factory = create_session_factory(engine)
@@ -1050,7 +1051,6 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                     signed_url = await storage.signed_url(asset.storage_key, 3600)
                     preview_links.append(f"• <a href=\"{signed_url}\">Candidate {idx+1} Preview</a>")
 
-            from app.providers.telegram import escape_html
             notify_text = (
                 f"🎨 <b>Artwork Generation Complete!</b>\n\n"
                 f"Workflow: <b>{escape_html(workflow_name)}</b>\n"
@@ -1061,18 +1061,12 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                 f"Please review and approve a candidate below."
             )
 
-            from app.providers.telegram import FakeTelegramGateway, RealTelegramGateway
-            from app.application.telegram import send_telegram_notification
-
             bot_token = None
             if settings.telegram_bot_token:
                 bot_token = settings.telegram_bot_token.get_secret_value()
             elif settings.provider_mode == "live":
                 try:
                     if cipher:
-                        from app.infrastructure.models import ProviderCredential
-                        from app.domain.enums import ProviderName
-                        from sqlalchemy import select
                         async with session_factory() as session:
                             stmt = select(ProviderCredential).where(ProviderCredential.provider == ProviderName.TELEGRAM).limit(1)
                             result = await session.execute(stmt)
