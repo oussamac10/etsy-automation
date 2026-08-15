@@ -332,10 +332,10 @@ onBeforeUnmount(stopCountdown);
                 </div>
               </div>
               <Button
-                variant="destructive"
+                variant="outline"
                 size="sm"
                 data-testid="disconnect-btn"
-                class="gap-1.5"
+                class="gap-1.5 border-emerald-200 bg-white text-emerald-800 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 transition-colors shadow-2xs font-medium"
                 @click="disconnectTelegram"
               >
                 <Trash2 class="h-3.5 w-3.5" />
@@ -380,7 +380,7 @@ onBeforeUnmount(stopCountdown);
                   variant="default"
                   size="default"
                   data-testid="generate-pairing-code-btn"
-                  class="gap-2 shadow-2xs"
+                  class="gap-2 shadow-2xs font-semibold"
                   @click="generateCode"
                 >
                   <Sparkles class="h-4 w-4" />
@@ -455,7 +455,7 @@ onBeforeUnmount(stopCountdown);
                       variant="default"
                       size="sm"
                       :disabled="!newSecrets[cred.provider]"
-                      class="h-9 gap-1 font-semibold"
+                      class="h-9 gap-1 font-semibold shadow-2xs"
                       @click="saveCredential(cred.provider)"
                     >
                       <Save class="h-3.5 w-3.5" />
@@ -464,9 +464,9 @@ onBeforeUnmount(stopCountdown);
                   </div>
                   <div v-else class="flex items-center justify-end gap-2 w-full">
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       size="sm"
-                      class="h-8 gap-1.5 text-xs"
+                      class="h-8 gap-1.5 text-xs text-zinc-600 border-zinc-200 bg-white hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 transition-colors shadow-2xs font-medium"
                       @click="removeCredential(cred.provider)"
                     >
                       <Trash2 class="h-3.5 w-3.5" />
