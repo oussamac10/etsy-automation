@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 import redis.asyncio as aioredis
 
+from app.api.dependencies import build_credential_cipher
 from app.application.telegram import handle_telegram_command
 from app.application.unit_of_work import UnitOfWork
 from app.infrastructure.database import create_engine, create_session_factory
@@ -44,7 +45,6 @@ async def run_poller() -> None:
         bot_token = settings.telegram_bot_token.get_secret_value()
     elif settings.provider_mode == "live":
         try:
-            from app.api.dependencies import build_credential_cipher
             cipher = build_credential_cipher(settings)
             if cipher:
                 from app.infrastructure.models import ProviderCredential

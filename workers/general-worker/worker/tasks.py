@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 import dramatiq
 from dramatiq.middleware import CurrentMessage
 
+from app.api.dependencies import build_credential_cipher
 from app.application.owner_settings import reveal_credential
 from app.application.research import ensure_research_within_budget
 from app.application.unit_of_work import UnitOfWork
@@ -258,6 +259,13 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
 
             if settings.provider_mode == "live":
                 cipher = build_credential_cipher(settings)
+                if not cipher:
+                    raise ProviderError(
+                        kind=ProviderErrorKind.AUTHENTICATION,
+                        provider="system",
+                        operation="build_credential_cipher",
+                        message="Encryption cipher could not be initialized. Check ENCRYPTION_KEY.",
+                    )
                 try:
                     gemini_api_key = await reveal_credential(
                         uow,
@@ -779,6 +787,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             if workflow is None:
                 raise ValueError("Workflow not found")
 
+            assert uow._session is not None
             prompt = await uow._session.get(DesignPrompt, job.prompt_id)
             if prompt is None:
                 raise ValueError("DesignPrompt not found")
@@ -857,6 +866,13 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             currency = owner_settings.currency
 
             if is_live:
+                if not cipher:
+                    raise ProviderError(
+                        kind=ProviderErrorKind.AUTHENTICATION,
+                        provider=job_provider.value,
+                        operation="reveal_credential",
+                        message="Encryption cipher could not be initialized. Check ENCRYPTION_KEY.",
+                    )
                 try:
                     provider_key = await reveal_credential(
                         uow, workflow_owner_id, provider=job_provider, cipher=cipher
@@ -1053,8 +1069,6 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                 bot_token = settings.telegram_bot_token.get_secret_value()
             elif settings.provider_mode == "live":
                 try:
-                    from app.api.dependencies import build_credential_cipher
-                    cipher = build_credential_cipher(settings)
                     if cipher:
                         from app.infrastructure.models import ProviderCredential
                         from app.domain.enums import ProviderName
@@ -1092,12 +1106,3 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
         raise exc
     finally:
         await engine.dispose()
-
-
-def build_credential_cipher(settings: Settings) -> CredentialCipher:
-    """Build a helper to decrypt credentials in background workers."""
-    from app.api.dependencies import build_credential_cipher as api_build
-    cipher = api_build(settings)
-    if not cipher:
-        raise ValueError("Cipher configuration missing or invalid. Check ENCRYPTION_KEY.")
-    return cipher
