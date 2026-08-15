@@ -64,10 +64,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         from app.ports.telegram import TelegramGateway
         from app.providers.telegram import FakeTelegramGateway, RealTelegramGateway
 
+        bot_token = None
+        if resolved.telegram_bot_token:
+            bot_token = resolved.telegram_bot_token.get_secret_value()
+        elif resolved.provider_mode == "live" and cipher:
+            try:
+                from app.infrastructure.models import ProviderCredential
+                from app.domain.enums import ProviderName
+                from sqlalchemy import select
+                async with application.state.session_factory() as session:
+                    stmt = select(ProviderCredential).where(ProviderCredential.provider == ProviderName.TELEGRAM).limit(1)
+                    result = await session.execute(stmt)
+                    cred = result.scalar_one_or_none()
+                    if cred:
+                        bot_token = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
+            except Exception as e:
+                logger.warning("failed_to_load_telegram_token_from_db", error=str(e))
+
         telegram_gateway: TelegramGateway
-        if resolved.provider_mode == "live" and resolved.telegram_bot_token:
+        if resolved.provider_mode == "live" and bot_token:
             telegram_gateway = RealTelegramGateway(
-                resolved.telegram_bot_token.get_secret_value(),
+                bot_token,
                 http_client,
             )
         else:

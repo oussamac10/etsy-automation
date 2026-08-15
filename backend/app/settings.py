@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     queue_namespace: str = Field(default="etsy_automation", alias="QUEUE_NAMESPACE")
 
     s3_endpoint_url: str = Field(default="http://localhost:9000", alias="S3_ENDPOINT_URL")
+    s3_public_endpoint_url: str | None = Field(default=None, alias="S3_PUBLIC_ENDPOINT_URL")
     s3_bucket: str = Field(default="etsy-assets", alias="S3_BUCKET")
     s3_region: str = Field(default="us-east-1", alias="S3_REGION")
     s3_access_key_id: str = Field(default="minioadmin", alias="S3_ACCESS_KEY_ID")
@@ -139,8 +140,7 @@ class Settings(BaseSettings):
                 "ENCRYPTION_KEY_PREVIOUS_VERSION must be lower than ENCRYPTION_KEY_VERSION; "
                 "bump ENCRYPTION_KEY_VERSION when you change ENCRYPTION_KEY."
             )
-        if self.provider_mode == "live" and not self.telegram_bot_token:
-            raise ValueError("TELEGRAM_BOT_TOKEN must be set when PROVIDER_MODE=live.")
+        # TELEGRAM_BOT_TOKEN can be loaded from DB, so we do not enforce it being present in the env at startup.
         if self.app_env != "local" and not self.session_cookie_secure:
             raise ValueError(
                 "SESSION_COOKIE_SECURE must be true outside APP_ENV=local; a "

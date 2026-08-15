@@ -159,7 +159,7 @@ async function fetchCredentials(): Promise<void> {
       { credentials: "include" }
     );
     credentialsList.value = (data?.items || []).filter((item) =>
-      ["gemini", "tavily", "recraft", "openai", "etsy", "uspto"].includes(item.provider)
+      ["gemini", "tavily", "recraft", "telegram", "openai", "etsy", "uspto"].includes(item.provider)
     );
   } catch {
     credentialsList.value = [];

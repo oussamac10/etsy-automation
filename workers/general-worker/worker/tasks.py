@@ -1048,10 +1048,30 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             from app.providers.telegram import FakeTelegramGateway, RealTelegramGateway
             from app.application.telegram import send_telegram_notification
 
-            if settings.provider_mode == "live" and settings.telegram_bot_token:
+            bot_token = None
+            if settings.telegram_bot_token:
+                bot_token = settings.telegram_bot_token.get_secret_value()
+            elif settings.provider_mode == "live":
+                try:
+                    from app.api.dependencies import build_credential_cipher
+                    cipher = build_credential_cipher(settings)
+                    if cipher:
+                        from app.infrastructure.models import ProviderCredential
+                        from app.domain.enums import ProviderName
+                        from sqlalchemy import select
+                        async with session_factory() as session:
+                            stmt = select(ProviderCredential).where(ProviderCredential.provider == ProviderName.TELEGRAM).limit(1)
+                            result = await session.execute(stmt)
+                            cred = result.scalar_one_or_none()
+                            if cred:
+                                bot_token = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
+                except Exception:
+                    pass
+
+            if settings.provider_mode == "live" and bot_token:
                 async with httpx.AsyncClient(timeout=10.0) as http_client:
                     tg_gateway = RealTelegramGateway(
-                        settings.telegram_bot_token.get_secret_value(), http_client
+                        bot_token, http_client
                     )
                     async with UnitOfWork(session_factory) as uow:
                         await send_telegram_notification(

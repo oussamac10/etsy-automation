@@ -68,11 +68,12 @@ def test_placeholder_secret_is_allowed_locally(monkeypatch: pytest.MonkeyPatch) 
     assert settings.app_env == "local"
 
 
-def test_live_provider_mode_is_refused_in_phase_1(
+def test_live_provider_mode_is_allowed_without_telegram_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with pytest.raises(ValidationError, match="PROVIDER_MODE=live"):
-        _build(monkeypatch, PROVIDER_MODE="live")
+    settings = _build(monkeypatch, PROVIDER_MODE="live")
+    assert settings.provider_mode == "live"
+    assert settings.telegram_bot_token is None
 
 
 def test_secrets_are_not_printed(monkeypatch: pytest.MonkeyPatch) -> None:

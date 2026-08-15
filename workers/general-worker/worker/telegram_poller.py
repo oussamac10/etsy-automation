@@ -39,10 +39,30 @@ async def run_poller() -> None:
     redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
     http_client = httpx.AsyncClient(timeout=10.0)
 
+    bot_token = None
+    if settings.telegram_bot_token:
+        bot_token = settings.telegram_bot_token.get_secret_value()
+    elif settings.provider_mode == "live":
+        try:
+            from app.api.dependencies import build_credential_cipher
+            cipher = build_credential_cipher(settings)
+            if cipher:
+                from app.infrastructure.models import ProviderCredential
+                from app.domain.enums import ProviderName
+                from sqlalchemy import select
+                async with session_factory() as session:
+                    stmt = select(ProviderCredential).where(ProviderCredential.provider == ProviderName.TELEGRAM).limit(1)
+                    result = await session.execute(stmt)
+                    cred = result.scalar_one_or_none()
+                    if cred:
+                        bot_token = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
+        except Exception as e:
+            logger.warning("Failed to load telegram token from db in poller", error=str(e))
+
     gateway: TelegramGateway
-    if settings.provider_mode == "live" and settings.telegram_bot_token:
+    if settings.provider_mode == "live" and bot_token:
         gateway = RealTelegramGateway(
-            settings.telegram_bot_token.get_secret_value(),
+            bot_token,
             http_client,
         )
     else:
