@@ -7,13 +7,14 @@ and compositing workflow master PNGs onto user-supplied or saved mockup template
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.dependencies import CurrentUser, SettingsDep, StorageDep, UowDep
 from app.domain.workflow import JobStatus
@@ -30,12 +31,38 @@ router = APIRouter(prefix="/mockup-templates", tags=["mockup-templates"])
 
 
 class PlacementSchema(BaseModel):
-    left_pct: float = Field(default=0.25, ge=0.0, le=0.95)
-    top_pct: float = Field(default=0.25, ge=0.0, le=0.95)
-    width_pct: float = Field(default=0.50, ge=0.05, le=1.0)
-    height_pct: float = Field(default=0.50, ge=0.05, le=1.0)
-    angle_deg: float = Field(default=0.0, ge=-180.0, le=180.0)
-    blend_mode: str = Field(default="multiply", pattern="^(multiply|over)$")
+    left_pct: float = Field(default=0.25)
+    top_pct: float = Field(default=0.25)
+    width_pct: float = Field(default=0.50)
+    height_pct: float = Field(default=0.50)
+    angle_deg: float = Field(default=0.0)
+    blend_mode: str = Field(default="multiply")
+
+    @field_validator("left_pct", "top_pct", "width_pct", "height_pct", mode="before")
+    @classmethod
+    def normalize_pct(cls, v: Any) -> float:
+        try:
+            val = float(v)
+        except (ValueError, TypeError):
+            return 0.25
+        if val > 1.0:
+            val = val / 100.0
+        return max(0.0, min(1.0, val))
+
+    @field_validator("angle_deg", mode="before")
+    @classmethod
+    def normalize_angle(cls, v: Any) -> float:
+        try:
+            val = float(v)
+        except (ValueError, TypeError):
+            return 0.0
+        return max(-180.0, min(180.0, val))
+
+    @field_validator("blend_mode", mode="before")
+    @classmethod
+    def normalize_blend(cls, v: Any) -> str:
+        s = str(v).lower().strip()
+        return "over" if s == "over" else "multiply"
 
 
 class UploadTemplateRequest(BaseModel):
@@ -78,11 +105,12 @@ class CompositeMockupResponse(BaseModel):
 @router.get("", response_model=list[MockupTemplateResponse])
 async def list_templates(
     storage: StorageDep,
-    product_type: str | None = Query(None, description="Optional canonical product filter (e.g. tshirt, mug)"),
+    product_type: str | None = Query(None, description="Optional canonical product filter (e.g. tshirt, mug, tumbler)"),
 ) -> list[MockupTemplateResponse]:
     """List all saved custom mockup templates."""
+    canonical_type = normalize_mockup_product(product_type) if product_type else None
     store = MockupTemplateStore(storage)
-    items = await store.list_templates(product_type)
+    items = await store.list_templates(canonical_type)
     return [
         MockupTemplateResponse(
             id=item.id,
@@ -119,11 +147,12 @@ async def upload_template(
         raise HTTPException(status_code=400, detail="Mockup template image exceeds 35MB limit.")
 
     placement_dict = payload.placement.model_dump() if payload.placement else {}
+    canonical_type = normalize_mockup_product(payload.product_type) or payload.product_type
 
     store = MockupTemplateStore(storage)
     item = await store.save_template(
         name=payload.name,
-        product_type=payload.product_type,
+        product_type=canonical_type,
         image_bytes=content,
         content_type=payload.content_type,
         placement=placement_dict,
@@ -159,6 +188,8 @@ async def composite_custom_mockup_endpoint(
     workflow = await uow.workflows.get(payload.workflow_id)
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found.")
+
+    canonical_prod = normalize_mockup_product(payload.product_type) or payload.product_type
 
     # 2. Find true production master PNG (exclude all mockup assets)
     master_asset: Asset | None = None
@@ -203,7 +234,14 @@ async def composite_custom_mockup_endpoint(
     # 4. Resolve template bytes & placement
     store = MockupTemplateStore(storage)
     template_bytes: bytes | None = None
-    resolved_placement: dict = payload.placement.model_dump() if payload.placement else {}
+    resolved_placement: dict = payload.placement.model_dump() if payload.placement else {
+        "left_pct": 0.25,
+        "top_pct": 0.25,
+        "width_pct": 0.50,
+        "height_pct": 0.50,
+        "angle_deg": 0.0,
+        "blend_mode": "multiply",
+    }
     resolved_template_id = payload.template_id
 
     if payload.template_image_base64:
@@ -214,8 +252,8 @@ async def composite_custom_mockup_endpoint(
 
         if payload.save_as_template:
             saved_item = await store.save_template(
-                name=payload.template_name or f"Custom {payload.product_type.capitalize()} Mockup",
-                product_type=payload.product_type,
+                name=payload.template_name or f"Custom {canonical_prod.capitalize()} Mockup",
+                product_type=canonical_prod,
                 image_bytes=template_bytes,
                 content_type="image/jpeg",
                 placement=resolved_placement,
@@ -226,7 +264,7 @@ async def composite_custom_mockup_endpoint(
         if not existing_template:
             raise HTTPException(status_code=404, detail="Selected template not found.")
         template_bytes = await storage.get(existing_template.storage_key)
-        if not resolved_placement:
+        if not payload.placement:
             resolved_placement = {
                 "left_pct": existing_template.placement.left_pct,
                 "top_pct": existing_template.placement.top_pct,
@@ -265,14 +303,12 @@ async def composite_custom_mockup_endpoint(
     out_h = result_data.get("height", 1200)
 
     # 6. Save composited mockup to S3
-    canonical_prod = normalize_mockup_product(payload.product_type) or "custom"
     mockup_id = uuid.uuid4()
     mockup_storage_key = f"production/{payload.workflow_id}/mockups/custom_{canonical_prod}_{mockup_id}.jpg"
     await storage.put(mockup_storage_key, composited_bytes, content_type="image/jpeg")
     mockup_url = await storage.signed_url(mockup_storage_key, expires_in_seconds=86400 * 7)
 
     # 7. Record as workflow Asset
-    import hashlib
     mock_sha256 = hashlib.sha256(composited_bytes).hexdigest()
     custom_asset = Asset(
         id=mockup_id,

@@ -262,6 +262,25 @@ _PRODUCT_ALIASES: dict[str, str] = {
     "coffee mug": "mug",
     "coffee-mug": "mug",
     "ceramic mug": "mug",
+    "tumbler": "tumbler",
+    "tumblers": "tumbler",
+    "tumbler / cup": "tumbler",
+    "tumbler_cup": "tumbler",
+    "tumbler-cup": "tumbler",
+    "travel mug": "tumbler",
+    "poster": "poster",
+    "posters": "poster",
+    "poster / wall art": "poster",
+    "wall art": "poster",
+    "art print": "poster",
+    "sticker": "sticker",
+    "stickers": "sticker",
+    "phone case": "phone_case",
+    "phone_case": "phone_case",
+    "phone cover": "phone_case",
+    "candle": "candle",
+    "candles": "candle",
+    "scented candle": "candle",
 }
 
 
@@ -269,7 +288,10 @@ def normalize_mockup_product(raw: str | None) -> str | None:
     """Normalize user input or alias to canonical product type."""
     if not raw:
         return None
-    cleaned = raw.strip().lower().replace(" ", "_").replace("-", "_")
+    cleaned = raw.strip().lower().replace(" ", "_").replace("-", "_").replace("/", "_")
+    while "__" in cleaned:
+        cleaned = cleaned.replace("__", "_")
+    cleaned = cleaned.strip("_")
     if cleaned in MOCKUP_CATALOG:
         return cleaned
     raw_clean = raw.strip().lower()

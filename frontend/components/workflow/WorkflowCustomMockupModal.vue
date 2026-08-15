@@ -72,18 +72,35 @@ const isCompositing = ref(false);
 const compositeError = ref<string | null>(null);
 
 function getMockupDisplayName(type: string): string {
-  switch (type.toLowerCase()) {
+  if (!type) return "Product";
+  const clean = type.toLowerCase().trim();
+  switch (clean) {
     case "mug":
       return "Ceramic Mug";
     case "tshirt":
+    case "t_shirt":
       return "T-Shirt";
     case "sweatshirt":
       return "Sweatshirt";
     case "tote_bag":
     case "tote":
       return "Tote Bag";
+    case "tumbler":
+    case "tumblers":
+      return "Tumbler";
+    case "poster":
+    case "posters":
+      return "Poster";
+    case "sticker":
+    case "stickers":
+      return "Stickers";
+    case "phone_case":
+      return "Phone Case";
+    case "candle":
+    case "candles":
+      return "Scented Candle";
     default:
-      return type.charAt(0).toUpperCase() + type.slice(1);
+      return clean.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
 }
 
@@ -101,6 +118,19 @@ function getCookie(name: string): string | null {
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop()?.split(";").shift() ?? null;
   return null;
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 // Reset state when opening or switching product
@@ -123,11 +153,15 @@ watch(
 async function fetchTemplates(): Promise<void> {
   isFetchingTemplates.value = true;
   try {
-    const data = await $fetch<{ items: MockupTemplateItem[] }>(
+    const data = await $fetch<{ items: MockupTemplateItem[] } | MockupTemplateItem[]>(
       `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates?product_type=${props.productType}`,
       { credentials: "include" }
     );
-    templates.value = data.items || [];
+    if (Array.isArray(data)) {
+      templates.value = data;
+    } else {
+      templates.value = data.items || [];
+    }
     if (templates.value.length > 0 && !selectedTemplateId.value && activeSubTab.value === "library") {
       selectLibraryTemplate(templates.value[0]);
     }
@@ -140,10 +174,10 @@ async function fetchTemplates(): Promise<void> {
 
 function selectLibraryTemplate(tpl: MockupTemplateItem): void {
   selectedTemplateId.value = tpl.id;
-  leftPct.value = tpl.placement.left_pct ?? 25;
-  topPct.value = tpl.placement.top_pct ?? 25;
-  widthPct.value = tpl.placement.width_pct ?? 50;
-  heightPct.value = tpl.placement.height_pct ?? 50;
+  leftPct.value = Math.round(tpl.placement.left_pct * (tpl.placement.left_pct <= 1.0 ? 100 : 1));
+  topPct.value = Math.round(tpl.placement.top_pct * (tpl.placement.top_pct <= 1.0 ? 100 : 1));
+  widthPct.value = Math.round(tpl.placement.width_pct * (tpl.placement.width_pct <= 1.0 ? 100 : 1));
+  heightPct.value = Math.round(tpl.placement.height_pct * (tpl.placement.height_pct <= 1.0 ? 100 : 1));
   angleDeg.value = tpl.placement.angle_deg ?? 0;
   blendMode.value = (tpl.placement.blend_mode as "multiply" | "over") || "multiply";
 }
@@ -278,46 +312,54 @@ async function handleComposite(): Promise<void> {
 
   try {
     const csrf = getCookie("etsy_csrf");
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
     if (csrf) headers["x-csrf-token"] = csrf;
 
-    const formData = new FormData();
-    formData.append("product_type", props.productType);
-    formData.append("left_pct", leftPct.value.toString());
-    formData.append("top_pct", topPct.value.toString());
-    formData.append("width_pct", widthPct.value.toString());
-    formData.append("height_pct", heightPct.value.toString());
-    formData.append("angle_deg", angleDeg.value.toString());
-    formData.append("blend_mode", blendMode.value);
-
+    let templateBase64: string | null = null;
     if (activeSubTab.value === "upload") {
       if (!uploadedFile.value) {
         compositeError.value = "Please upload a mockup photo first.";
         isCompositing.value = false;
         return;
       }
-      formData.append("file", uploadedFile.value);
-      formData.append("save_to_library", saveToLibrary.value ? "true" : "false");
-      formData.append("name", templateName.value || `${getMockupDisplayName(props.productType)} Custom Template`);
+      templateBase64 = await fileToBase64(uploadedFile.value);
     } else {
       if (!selectedTemplateId.value) {
         compositeError.value = "Please select a template from your library.";
         isCompositing.value = false;
         return;
       }
-      formData.append("template_id", selectedTemplateId.value);
     }
+
+    const payload = {
+      workflow_id: props.workflowId,
+      product_type: props.productType,
+      template_id: activeSubTab.value === "library" ? selectedTemplateId.value : undefined,
+      template_image_base64: templateBase64 || undefined,
+      template_name: templateName.value || `${getMockupDisplayName(props.productType)} Custom Template`,
+      save_as_template: saveToLibrary.value,
+      placement: {
+        left_pct: leftPct.value / 100,
+        top_pct: topPct.value / 100,
+        width_pct: widthPct.value / 100,
+        height_pct: heightPct.value / 100,
+        angle_deg: angleDeg.value,
+        blend_mode: blendMode.value,
+      },
+    };
 
     const result = await $fetch<{
       mockup_url: string;
       product_type: string;
       template_id?: string;
     }>(
-      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${props.workflowId}/mockup-templates/composite`,
+      `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates/composite`,
       {
         method: "POST",
         headers,
-        body: formData,
+        body: payload,
         credentials: "include",
       }
     );
@@ -325,8 +367,8 @@ async function handleComposite(): Promise<void> {
     emit("mockupCreated", result);
     emit("update:open", false);
   } catch (err: unknown) {
-    const errorObj = err as { data?: { detail?: string } };
-    compositeError.value = errorObj.data?.detail || "Failed to composite mockup. Please try again.";
+    const errorObj = err as { data?: { detail?: string }; message?: string };
+    compositeError.value = errorObj.data?.detail || errorObj.message || "Failed to composite mockup. Please try again.";
   } finally {
     isCompositing.value = false;
   }
