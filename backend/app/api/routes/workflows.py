@@ -851,7 +851,7 @@ async def to_production_job_response(
         is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
         order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
         created = a.created_at or datetime.min
-        return (0 if is_cov else 1, order, created)
+        return (order, 0 if is_cov else 1, created)
 
     sorted_mockups = sorted(raw_mockups, key=_mockup_sort_key)
 
@@ -1095,7 +1095,7 @@ async def reorder_mockups_endpoint(
     def _order_key(a: Asset):
         is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
         order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
-        return (0 if is_cov else 1, order, a.created_at or datetime.min)
+        return (order, 0 if is_cov else 1, a.created_at or datetime.min)
 
     sorted_mockups = sorted(mockups, key=_order_key)
     resps = []

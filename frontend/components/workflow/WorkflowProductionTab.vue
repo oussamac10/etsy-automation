@@ -190,12 +190,15 @@ const mockupsByProduct = computed<Record<string, Asset[]>>(() => {
   }
   for (const k in map) {
     map[k].sort((a, b) => {
+      const aOrd = Number(a.provenance?.listing_order ?? 999);
+      const bOrd = Number(b.provenance?.listing_order ?? 999);
+      if (aOrd !== bOrd) return aOrd - bOrd;
       const aCov = a.provenance?.is_cover ? 0 : 1;
       const bCov = b.provenance?.is_cover ? 0 : 1;
       if (aCov !== bCov) return aCov - bCov;
-      const aOrd = a.provenance?.listing_order ?? 999;
-      const bOrd = b.provenance?.listing_order ?? 999;
-      return aOrd - bOrd;
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return aTime - bTime;
     });
   }
   return map;
@@ -426,19 +429,36 @@ async function handleMoveMockup(asset: Asset, direction: "left" | "right"): Prom
   currentList[idx] = currentList[targetIdx];
   currentList[targetIdx] = temp;
 
-  // Update order payload
-  const allOrderedIds = localMockupAssets.value.map((a) => {
-    const foundInTab = currentList.find((c) => c.id === a.id);
-    return foundInTab ? foundInTab.id : a.id;
+  // Assign updated listing_order to all items in currentTab
+  const updatedTabItems = currentList.map((item, i) => ({
+    ...item,
+    provenance: {
+      ...item.provenance,
+      listing_order: i + 1,
+    },
+  }));
+
+  // Update localMockupAssets with new array reference for instant Vue reactivity
+  localMockupAssets.value = localMockupAssets.value.map((a) => {
+    const updated = updatedTabItems.find((u) => u.id === a.id);
+    return updated ? { ...updated } : { ...a };
   });
 
+  // Construct full ordered asset IDs for backend persistence
+  const tabItemIds = updatedTabItems.map((u) => u.id);
+  const otherItemIds = localMockupAssets.value
+    .filter((a) => !tabItemIds.includes(a.id))
+    .map((a) => a.id);
+  const allOrderedIds = [...tabItemIds, ...otherItemIds];
+
   isActionLoading.value = true;
+  mockupActionError.value = null;
   try {
     const csrf = getCookie("etsy_csrf");
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (csrf) headers["x-csrf-token"] = csrf;
 
-    await $fetch(
+    const data = await $fetch<Asset[]>(
       `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${props.workflow.id}/mockups/reorder`,
       {
         method: "PATCH",
@@ -448,17 +468,14 @@ async function handleMoveMockup(asset: Asset, direction: "left" | "right"): Prom
       }
     );
 
-    // Apply updated order indices locally
-    currentList.forEach((a, i) => {
-      const match = localMockupAssets.value.find((item) => item.id === a.id);
-      if (match) {
-        match.provenance = { ...match.provenance, listing_order: i + 1 };
-      }
-    });
+    if (data && Array.isArray(data)) {
+      localMockupAssets.value = data;
+    }
 
     emit("mockupUpdated");
   } catch (err: unknown) {
-    console.error("Failed to reorder mockups", err);
+    const errorObj = err as { data?: { detail?: string }; message?: string };
+    mockupActionError.value = errorObj.data?.detail || errorObj.message || "Failed to reorder mockups.";
   } finally {
     isActionLoading.value = false;
   }
