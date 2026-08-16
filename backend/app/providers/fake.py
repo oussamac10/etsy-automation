@@ -506,6 +506,9 @@ class InMemoryObjectStorage:
     async def signed_url(self, key: str, expires_in_seconds: int) -> str:
         return f"memory://{key}?expires_in={expires_in_seconds}"
 
+    async def delete(self, key: str) -> None:
+        self._objects.pop(key, None)
+
 
 class FakeTrademarkGateway:
     """Always returns ``unknown`` risk with an explicit disclaimer.

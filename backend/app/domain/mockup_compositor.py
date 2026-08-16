@@ -31,7 +31,14 @@ async def recomposite_workflow_mockups(
     all_assets = await uow.assets.list_for_workflow(workflow_id)
     mockup_assets = [
         a for a in all_assets
-        if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key
+        if (
+            a.provenance
+            and a.provenance.get("asset_type") == "mockup"
+            and a.provenance.get("source") == "user_template"
+            and (a.provenance.get("template_id") or a.provenance.get("template_storage_key"))
+            and a.provenance.get("provider") not in ("fake", "default")
+            and not a.provenance.get("default_mockup")
+        )
     ]
     if not mockup_assets:
         return []
@@ -87,8 +94,17 @@ async def recomposite_workflow_mockups(
 
                 result_data = resp.json()
                 composited_bytes = base64.b64decode(result_data["mockup_base64"])
-                await storage.put(mockup.storage_key, composited_bytes, content_type="image/jpeg")
+                prod_type = str(prov.get("product_type", "mockup"))
+                new_storage_key = f"production/{workflow_id}/mockups/custom_{prod_type}_{mockup.id}_{uuid.uuid4().hex[:8]}.jpg"
+                await storage.put(new_storage_key, composited_bytes, content_type="image/jpeg")
 
+                if mockup.storage_key and mockup.storage_key != new_storage_key:
+                    try:
+                        await storage.delete(mockup.storage_key)
+                    except Exception:
+                        pass
+
+                mockup.storage_key = new_storage_key
                 mockup.derived_from_id = master_asset_id
                 mockup.byte_size = len(composited_bytes)
                 mockup.checksum_sha256 = hashlib.sha256(composited_bytes).hexdigest()

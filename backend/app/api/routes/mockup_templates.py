@@ -430,6 +430,7 @@ async def composite_custom_mockup_endpoint(
             raw_tpl_key = f"mockup-templates/{user.id}/{canonical_prod}/source_{tpl_img_id}.jpg"
             await storage.put(raw_tpl_key, template_bytes, content_type="image/jpeg")
             resolved_template_storage_key = raw_tpl_key
+            resolved_template_id = str(tpl_img_id)
     elif payload.template_id:
         existing_template = await store.get_template(owner_id=user.id, template_id=payload.template_id)
         if not existing_template:

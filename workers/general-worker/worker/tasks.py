@@ -1234,13 +1234,12 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
         master_bytes = base64.b64decode(master_b64)
         qa_report = pipeline_data["qa_report"]
         qa_passed = qa_report.get("qa_passed", False)
-        mockups_map: dict[str, str] = pipeline_data.get("mockups", {})
 
         # 4. Upload Master PNG to S3
         master_storage_key = f"production/{workflow_id}/{job_id}/master.png"
         stored_master = await storage.put(master_storage_key, master_bytes, "image/png")
 
-        # 5. Save Asset row and update ProductionJob
+        # 5. Save Master Asset, Recomposite User Library Mockups, and Mark SUCCEEDED Atomically
         async with UnitOfWork(session_factory) as uow:
             existing_master = await uow.assets.get_by_checksum_sha256(workflow_id, stored_master.sha256)
             if existing_master is not None:
@@ -1271,6 +1270,23 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                 )
                 await uow.assets.add(master_asset)
 
+            # 5b. Automatically recomposite all existing user-uploaded library mockups with the new master PNG
+            try:
+                workflow = await uow.workflows.get(workflow_id)
+                if workflow:
+                    await recomposite_workflow_mockups(
+                        uow=uow,
+                        storage=storage,
+                        workflow_id=workflow_id,
+                        master_bytes=master_bytes,
+                        master_asset_id=master_asset_id,
+                        owner_id=workflow.owner_id,
+                        image_worker_url=settings.image_worker_url,
+                    )
+            except Exception as recomp_exc:
+                logger.warning("failed_to_recomposite_existing_mockups", error=str(recomp_exc))
+
+            # 5c. Now mark ProductionJob SUCCEEDED and transition workflow state after master and user mockups are saved
             await uow.production_jobs.update(
                 job_id,
                 status=JobStatus.SUCCEEDED if qa_passed else JobStatus.FAILED,
@@ -1306,92 +1322,6 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                 },
             )
             await uow.commit()
-
-        # 5b. Automatically recomposite all existing custom library mockups with the new master PNG
-        try:
-            async with UnitOfWork(session_factory) as uow:
-                workflow = await uow.workflows.get(workflow_id)
-                if workflow:
-                    await recomposite_workflow_mockups(
-                        uow=uow,
-                        storage=storage,
-                        workflow_id=workflow_id,
-                        master_bytes=master_bytes,
-                        master_asset_id=master_asset_id,
-                        owner_id=workflow.owner_id,
-                        image_worker_url=settings.image_worker_url,
-                    )
-                    await uow.commit()
-        except Exception as recomp_exc:
-            logger.warning("failed_to_recomposite_existing_mockups", error=str(recomp_exc))
-
-        # 5c. For any intended product without a custom library mockup, save/update standard mockup from pipeline
-        if mockups_map:
-            async with UnitOfWork(session_factory) as uow:
-                existing_assets = await uow.assets.list_for_workflow(workflow_id)
-                custom_products = {
-                    str(a.provenance.get("product_type") or "").lower()
-                    for a in existing_assets
-                    if a.provenance and a.provenance.get("source") == "user_template"
-                }
-
-                for prod_name, mockup_b64 in mockups_map.items():
-                    # If user has a custom library mockup for this product, preserve their custom library mockup
-                    if str(prod_name).lower() in custom_products:
-                        continue
-
-                    try:
-                        mockup_bytes = base64.b64decode(mockup_b64)
-                        existing_std = next(
-                            (
-                                a for a in existing_assets
-                                if a.provenance and a.provenance.get("product_type") == prod_name and a.provenance.get("source") != "user_template"
-                            ),
-                            None,
-                        )
-
-                        if existing_std:
-                            await storage.put(existing_std.storage_key, mockup_bytes, "image/jpeg")
-                            existing_std.derived_from_id = master_asset_id
-                            existing_std.byte_size = len(mockup_bytes)
-                            existing_std.checksum_sha256 = hashlib.sha256(mockup_bytes).hexdigest()
-                            existing_std.provenance = dict(
-                                existing_std.provenance or {},
-                                source_asset_id=str(master_asset_id),
-                            )
-                            await uow.session.flush()
-                        else:
-                            mockup_id = uuid.uuid4()
-                            mockup_storage_key = f"production/{workflow_id}/mockups/{prod_name}_{mockup_id}.jpg"
-                            stored_mockup = await storage.put(mockup_storage_key, mockup_bytes, "image/jpeg")
-
-                            mockup_asset = Asset(
-                                id=mockup_id,
-                                workflow_id=workflow_id,
-                                artwork_job_id=None,
-                                derived_from_id=master_asset_id,
-                                storage_key=stored_mockup.storage_key,
-                                mime_type="image/jpeg",
-                                byte_size=stored_mockup.byte_size,
-                                checksum_sha256=stored_mockup.sha256,
-                                width=1200,
-                                height=1200,
-                                has_alpha=False,
-                                has_transparent_pixels=False,
-                                provenance={
-                                    "phase": 7,
-                                    "asset_type": "mockup",
-                                    "pipeline": "mockup",
-                                    "product_type": prod_name,
-                                    "is_cover": (prod_name == "tshirt"),
-                                    "listing_order": 1 if prod_name == "tshirt" else 2,
-                                    "source_asset_id": str(master_asset_id),
-                                },
-                            )
-                            await uow.assets.add(mockup_asset)
-                    except Exception as m_err:
-                        logger.warning("failed_to_store_standard_mockup", product=prod_name, error=str(m_err))
-                await uow.commit()
 
         # 6. Telegram Completion Notification
         try:

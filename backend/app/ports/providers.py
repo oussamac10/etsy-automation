@@ -170,6 +170,8 @@ class ObjectStorage(Protocol):
 
     async def signed_url(self, key: str, expires_in_seconds: int) -> str: ...
 
+    async def delete(self, key: str) -> None: ...
+
 
 @runtime_checkable
 class EtsyGateway(Protocol):
