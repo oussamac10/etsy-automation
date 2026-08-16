@@ -47,6 +47,7 @@ interface AssetProvenance {
 interface Asset {
   id: string;
   workflow_id: string;
+  derived_from_id?: string | null;
   storage_key: string;
   mime_type: string;
   byte_size: number;
@@ -182,11 +183,35 @@ watch(
   { immediate: true, deep: true }
 );
 
-// Group mockups by product
+const activeMasterAssetId = computed(
+  () => props.latestProductionJob?.output_asset_id || props.latestProductionJob?.master_asset?.id || null
+);
+
+// Group mockups by product (ONLY valid user-uploaded mockup templates)
 const mockupsByProduct = computed<Record<string, Asset[]>>(() => {
   const map: Record<string, Asset[]> = {};
+  const currentMasterId = activeMasterAssetId.value;
+
   for (const a of localMockupAssets.value) {
-    const p = normalizeProductKey(a.provenance?.product_type || extractProductFromKey(a.storage_key));
+    const prov = a.provenance;
+    // Strict user-template validation: must be an explicit user template with a template_id and not a fake/dummy
+    if (!prov) continue;
+    const isValidUserMockup =
+      prov.asset_type === "mockup" &&
+      prov.source === "user_template" &&
+      Boolean(prov.template_id);
+    if (!isValidUserMockup) continue;
+
+    if (
+      currentMasterId &&
+      a.derived_from_id &&
+      a.derived_from_id !== currentMasterId &&
+      prov.source_asset_id &&
+      prov.source_asset_id !== currentMasterId
+    ) {
+      continue;
+    }
+    const p = normalizeProductKey(prov.product_type || extractProductFromKey(a.storage_key));
     if (!map[p]) map[p] = [];
     map[p].push(a);
   }
@@ -200,28 +225,30 @@ const mockupsByProduct = computed<Record<string, Asset[]>>(() => {
       if (aCov !== bCov) return aCov - bCov;
       const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
       const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return aTime - bTime;
+      return bTime - aTime;
     });
   }
   return map;
 });
 
-// Available product tabs (filtered to intended physical products + any actively uploaded mockups)
+// Supported product types for adding new mockups
+const supportedProductTypes = [
+  { key: "tshirt", label: "T-Shirt", icon: "lucide:shirt" },
+  { key: "sweatshirt", label: "Sweatshirt", icon: "lucide:shirt" },
+  { key: "tote_bag", label: "Tote Bag", icon: "lucide:shopping-bag" },
+  { key: "mug", label: "Ceramic Mug", icon: "lucide:coffee" },
+  { key: "tumbler", label: "Tumbler", icon: "lucide:cup-soda" },
+  { key: "poster", label: "Poster", icon: "lucide:frame" },
+  { key: "sticker", label: "Sticker", icon: "lucide:tag" },
+  { key: "phone_case", label: "Phone Case", icon: "lucide:smartphone" },
+  { key: "candle", label: "Scented Candle", icon: "lucide:flame" },
+];
+
+// Available product tabs: STRICTLY derived from active mockups with count > 0 (NOT intended_product_uses)
 const availableProductTabs = computed<string[]>(() => {
-  const intendedRaw = props.workflow?.intended_product_uses ?? [];
-  const intendedKeys = intendedRaw.map(normalizeProductKey).filter(Boolean);
-  const assetKeys = Object.keys(mockupsByProduct.value).filter(
+  return Object.keys(mockupsByProduct.value).filter(
     (k) => (mockupsByProduct.value[k] || []).length > 0
   );
-
-  if (intendedKeys.length > 0) {
-    const set = new Set([...intendedKeys, ...assetKeys]);
-    return Array.from(set);
-  }
-
-  const standardProducts = ["tshirt", "sweatshirt", "mug", "tote_bag", "tumbler", "poster"];
-  const set = new Set([...assetKeys, ...standardProducts]);
-  return Array.from(set);
 });
 
 const selectedMockupTab = ref<string>("tshirt");
@@ -241,8 +268,19 @@ const currentTabMockups = computed<Asset[]>(() => {
 });
 
 const totalMockupsCount = computed<number>(() => {
-  return localMockupAssets.value.length;
+  return Object.values(mockupsByProduct.value).reduce((sum, list) => sum + list.length, 0);
 });
+
+const showProductPickerModal = ref(false);
+
+function openProductPickerModal(): void {
+  showProductPickerModal.value = true;
+}
+
+function selectProductAndOpenMockupModal(product: string): void {
+  showProductPickerModal.value = false;
+  openAddMockupModal(product);
+}
 
 const masterImageUrl = computed<string | null>(() => {
   return props.latestProductionJob?.master_asset?.url || null;
@@ -334,6 +372,7 @@ function handleCustomMockupCreated(result: {
         {
           id: result.asset_id,
           workflow_id: props.workflow.id,
+          derived_from_id: activeMasterAssetId.value,
           storage_key: `production/${props.workflow.id}/mockups/custom_${norm}_${result.asset_id}.jpg`,
           mime_type: "image/jpeg",
           byte_size: 1000,
@@ -347,6 +386,7 @@ function handleCustomMockupCreated(result: {
             asset_type: "mockup",
             source: "user_template",
             product_type: norm,
+            source_asset_id: activeMasterAssetId.value || undefined,
             template_id: result.template_id,
             template_name: result.template_name,
             is_cover: result.is_cover,
@@ -745,8 +785,8 @@ async function handleRecompositeAllMockups(): Promise<void> {
                 <div class="flex flex-wrap items-center justify-between border-b border-zinc-100 pb-3 gap-2">
                   <div class="flex items-center gap-2">
                     <Icon name="lucide:images" class="size-4 text-indigo-600" aria-hidden="true" />
-                    <h4 class="text-sm font-bold text-zinc-900">Product Mockup Gallery</h4>
-                    <span class="text-xs px-2 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    <h4 class="text-sm font-bold text-zinc-900">Product Mockups</h4>
+                    <span v-if="totalMockupsCount > 0" class="text-xs px-2 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
                       {{ totalMockupsCount }} listing {{ totalMockupsCount === 1 ? 'mockup' : 'mockups' }}
                     </span>
                   </div>
@@ -755,231 +795,248 @@ async function handleRecompositeAllMockups(): Promise<void> {
                     variant="default"
                     size="sm"
                     class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                    @click="openAddMockupModal(selectedMockupTab)"
+                    @click="openProductPickerModal()"
                   >
                     <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
-                    <span>Add {{ getMockupLabel(selectedMockupTab) }} Mockup</span>
+                    <span>+ Add Mockup</span>
                   </Button>
                 </div>
 
-                <!-- Recommended Listing Images Helper Banner -->
-                <div class="p-3 rounded-lg bg-indigo-50/60 border border-indigo-100/80 flex items-center gap-2.5 text-xs text-indigo-950">
-                  <Icon name="lucide:sparkles" class="size-4 text-indigo-600 shrink-0" aria-hidden="true" />
-                  <p class="leading-relaxed text-[11px]">
-                    <span class="font-bold">Recommended Listing Strategy:</span> Create 5–8 strong listing images across different product scenes, flatlays, and close-ups to maximize Etsy conversion.
-                  </p>
-                </div>
-
-                <!-- Product Tabs with Live Counts -->
-                <div class="flex flex-wrap gap-1.5 pt-1">
-                  <button
-                    v-for="p in availableProductTabs"
-                    :key="p"
-                    type="button"
-                    class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
-                    :class="
-                      selectedMockupTab === p
-                        ? 'bg-zinc-900 text-white shadow-xs'
-                        : 'text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200'
-                    "
-                    @click="selectedMockupTab = p"
-                  >
-                    <Icon :name="getProductIcon(p)" class="size-3.5 shrink-0" aria-hidden="true" />
-                    <span>{{ getMockupLabel(p) }}</span>
-                    <span
-                      class="text-[10px] px-1.5 py-0.2 rounded-full font-bold transition-colors"
-                      :class="
-                        selectedMockupTab === p
-                          ? 'bg-zinc-700 text-zinc-100'
-                          : (mockupsByProduct[p] || []).length > 0
-                            ? 'bg-indigo-100 text-indigo-700 font-extrabold'
-                            : 'bg-zinc-200 text-zinc-500'
-                      "
-                    >
-                      {{ (mockupsByProduct[p] || []).length }}
-                    </span>
-                  </button>
-                </div>
-
-                <!-- Action Error Alert -->
-                <Alert v-if="mockupActionError" variant="destructive" class="py-2">
-                  <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
-                  <AlertDescription class="text-xs">{{ mockupActionError }}</AlertDescription>
-                </Alert>
-
-                <!-- Mockup Grid for Selected Product -->
-                <div v-if="currentTabMockups.length > 0" class="space-y-4">
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <!-- Individual Mockup Card -->
-                    <div
-                      v-for="(mockup, mIdx) in currentTabMockups"
-                      :key="mockup.id + '_' + (mockup.checksum_sha256 || '') + '_' + renderNonce"
-                      class="border rounded-xl overflow-hidden bg-white shadow-2xs flex flex-col transition-all duration-200 hover:shadow-md"
-                      :class="mockup.provenance?.is_cover ? 'border-amber-400 ring-1 ring-amber-300' : 'border-zinc-200'"
-                    >
-                      <!-- Thumbnail Area -->
-                      <div class="aspect-square bg-zinc-50 overflow-hidden relative group flex items-center justify-center p-2 border-b border-zinc-100">
-                        <img
-                          :key="mockup.id + '_' + (mockup.checksum_sha256 || '') + '_' + (mockup.url || '') + '_' + renderNonce"
-                          :src="mockup.url || ''"
-                          :alt="mockup.provenance?.template_name || selectedMockupTab"
-                          class="object-contain w-full h-full rounded-lg transition-transform duration-200 group-hover:scale-105"
-                        >
-
-                        <!-- Cover Badge -->
-                        <div
-                          v-if="mockup.provenance?.is_cover"
-                          class="absolute top-2.5 left-2.5 bg-amber-500 text-white font-black text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"
-                        >
-                          <Icon name="lucide:star" class="size-3 fill-white" aria-hidden="true" />
-                          <span>Cover Image</span>
-                        </div>
-
-                        <!-- Listing Order Badge -->
-                        <div class="absolute top-2.5 right-2.5 bg-zinc-900/80 backdrop-blur-xs text-white font-mono text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs">
-                          #{{ mockup.provenance?.listing_order ?? (mIdx + 1) }}
-                        </div>
-
-                        <!-- Quick Fullscreen Preview Overlay Button -->
-                        <button
-                          type="button"
-                          class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-bold cursor-pointer"
-                          @click="previewingAsset = mockup"
-                        >
-                          <Icon name="lucide:zoom-in" class="size-5" aria-hidden="true" />
-                          <span>Click to Zoom</span>
-                        </button>
-                      </div>
-
-                      <!-- Card Content & Actions -->
-                      <div class="p-3.5 space-y-3 flex-1 flex flex-col justify-between">
-                        <div>
-                          <h5 class="text-xs font-bold text-zinc-900 truncate" :title="mockup.provenance?.template_name || getMockupLabel(selectedMockupTab)">
-                            {{ mockup.provenance?.template_name || `${getMockupLabel(selectedMockupTab)} Mockup ${mIdx + 1}` }}
-                          </h5>
-                          <p class="text-[10px] text-zinc-400 mt-0.5 font-mono">
-                            {{ mockup.width ?? 1200 }}×{{ mockup.height ?? 1200 }} px • JPEG
-                          </p>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="space-y-2 pt-1 border-t border-zinc-100">
-                          <!-- Cover Selector -->
-                          <button
-                            v-if="!mockup.provenance?.is_cover"
-                            type="button"
-                            class="w-full text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 py-1 px-2 rounded-md flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                            :disabled="isActionLoading"
-                            @click="handleSetCover(mockup)"
-                          >
-                            <Icon name="lucide:star" class="size-3 text-amber-600" aria-hidden="true" />
-                            <span>Set as Listing Cover</span>
-                          </button>
-
-                          <!-- Row of Actions -->
-                          <div class="flex items-center justify-between gap-1.5">
-                            <div class="flex items-center gap-1">
-                              <!-- Move Left / Right -->
-                              <button
-                                type="button"
-                                class="h-7 w-7 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                                :disabled="mIdx === 0 || isActionLoading"
-                                title="Move Left / Earlier in Listing Order"
-                                @click="handleMoveMockup(mockup, 'left')"
-                              >
-                                <Icon name="lucide:arrow-left" class="size-3" aria-hidden="true" />
-                              </button>
-
-                              <button
-                                type="button"
-                                class="h-7 w-7 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                                :disabled="mIdx === currentTabMockups.length - 1 || isActionLoading"
-                                title="Move Right / Later in Listing Order"
-                                @click="handleMoveMockup(mockup, 'right')"
-                              >
-                                <Icon name="lucide:arrow-right" class="size-3" aria-hidden="true" />
-                              </button>
-
-                              <!-- Adjust / Edit Placement -->
-                              <button
-                                type="button"
-                                class="h-7 px-2.5 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-900 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                                title="Adjust Placement, Crop & Blend Mode"
-                                @click="openAdjustMockupModal(mockup)"
-                              >
-                                <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
-                                <span>Adjust</span>
-                              </button>
-                            </div>
-
-                            <div class="flex items-center gap-1">
-                              <!-- Download -->
-                              <a
-                                :href="mockup.url || ''"
-                                target="_blank"
-                                :download="`${mockup.provenance?.template_name || selectedMockupTab}_mockup.jpg`"
-                                class="h-7 w-7 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
-                                title="Download High-Res Mockup"
-                              >
-                                <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
-                              </a>
-
-                              <!-- Delete -->
-                              <button
-                                type="button"
-                                class="h-7 w-7 rounded bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-colors cursor-pointer"
-                                title="Delete this Mockup"
-                                :disabled="isActionLoading"
-                                @click="handleDeleteMockup(mockup)"
-                              >
-                                <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Add Another Mockup Card in Grid -->
-                    <button
-                      type="button"
-                      class="border-2 border-dashed border-zinc-200 hover:border-indigo-400 hover:bg-indigo-50/40 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer min-h-[220px]"
-                      @click="openAddMockupModal(selectedMockupTab)"
-                    >
-                      <div class="h-10 w-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
-                        <Icon name="lucide:plus" class="size-5" aria-hidden="true" />
-                      </div>
-                      <div>
-                        <span class="text-xs font-bold text-zinc-900 block">Add Another {{ getMockupLabel(selectedMockupTab) }}</span>
-                        <span class="text-[10px] text-zinc-500 block mt-0.5">Upload new scene, flatlay, or model photo</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Empty State when no custom mockup created for this tab yet -->
+                <!-- Updating state when regenerating mockups for this product -->
                 <div
-                  v-else
-                  class="rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50/60 p-8 text-center space-y-3"
+                  v-if="isProductionLoading"
+                  class="rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/30 p-8 text-center space-y-3"
                 >
-                  <div class="h-12 w-12 mx-auto rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
-                    <Icon :name="getProductIcon(selectedMockupTab)" class="size-6 text-indigo-600" aria-hidden="true" />
+                  <div class="h-12 w-12 mx-auto rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-xs">
+                    <Icon name="lucide:loader-circle" class="size-6 animate-spin text-indigo-600" aria-hidden="true" />
                   </div>
                   <div>
-                    <h5 class="text-xs font-bold text-zinc-800">No mockups for {{ getMockupLabel(selectedMockupTab) }} yet</h5>
-                    <p class="text-[11px] text-zinc-500 max-w-sm mx-auto mt-0.5">
-                      Upload your own high-resolution {{ getMockupLabel(selectedMockupTab) }} photos to visually position and blend your master artwork.
+                    <h5 class="text-xs font-bold text-indigo-950">Updating mockups...</h5>
+                    <p class="text-[11px] text-indigo-700/80 max-w-sm mx-auto mt-0.5">
+                      Re-rendering mockup templates with your newly selected master artwork PNG.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Zero Mockups Generic Empty State -->
+                <div
+                  v-else-if="totalMockupsCount === 0"
+                  class="rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50/60 p-10 text-center space-y-4"
+                >
+                  <div class="h-12 w-12 mx-auto rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
+                    <Icon name="lucide:image-plus" class="size-6 text-indigo-600" aria-hidden="true" />
+                  </div>
+                  <div class="space-y-1">
+                    <h4 class="text-sm font-bold text-zinc-900">No mockups selected yet</h4>
+                    <p class="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
+                      Add your own product photos and position your master artwork for Etsy listing previews.
                     </p>
                   </div>
                   <Button
                     variant="default"
                     size="sm"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs gap-1.5 shadow-2xs cursor-pointer inline-flex items-center"
-                    @click="openAddMockupModal(selectedMockupTab)"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
+                    @click="openProductPickerModal()"
                   >
-                    <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
-                    <span>Upload & Position {{ getMockupLabel(selectedMockupTab) }} Mockup</span>
+                    <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
+                    <span>+ Add Mockup</span>
                   </Button>
+                </div>
+
+                <!-- Active Product Mockups View -->
+                <div v-else class="space-y-4">
+                  <!-- Recommended Listing Images Helper Banner -->
+                  <div class="p-3 rounded-lg bg-indigo-50/60 border border-indigo-100/80 flex items-center gap-2.5 text-xs text-indigo-950">
+                    <Icon name="lucide:sparkles" class="size-4 text-indigo-600 shrink-0" aria-hidden="true" />
+                    <p class="leading-relaxed text-[11px]">
+                      <span class="font-bold">Recommended Listing Strategy:</span> Create 5–8 strong listing images across different product scenes, flatlays, and close-ups to maximize Etsy conversion.
+                    </p>
+                  </div>
+
+                  <!-- Product Tabs with Live Counts (Only products with count > 0) -->
+                  <div class="flex flex-wrap gap-1.5 pt-1">
+                    <button
+                      v-for="p in availableProductTabs"
+                      :key="p"
+                      type="button"
+                      class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                      :class="
+                        selectedMockupTab === p
+                          ? 'bg-zinc-900 text-white shadow-xs'
+                          : 'text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200'
+                      "
+                      @click="selectedMockupTab = p"
+                    >
+                      <Icon :name="getProductIcon(p)" class="size-3.5 shrink-0" aria-hidden="true" />
+                      <span>{{ getMockupLabel(p) }}</span>
+                      <span
+                        class="text-[10px] px-1.5 py-0.2 rounded-full font-bold transition-colors"
+                        :class="
+                          selectedMockupTab === p
+                            ? 'bg-zinc-700 text-zinc-100'
+                            : 'bg-indigo-100 text-indigo-700 font-extrabold'
+                        "
+                      >
+                        {{ (mockupsByProduct[p] || []).length }}
+                      </span>
+                    </button>
+                  </div>
+
+                  <!-- Action Error Alert -->
+                  <Alert v-if="mockupActionError" variant="destructive" class="py-2">
+                    <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
+                    <AlertDescription class="text-xs">{{ mockupActionError }}</AlertDescription>
+                  </Alert>
+
+                  <!-- Mockup Grid for Selected Product Tab -->
+                  <div v-if="currentTabMockups.length > 0" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <!-- Individual Mockup Card -->
+                      <div
+                        v-for="(mockup, mIdx) in currentTabMockups"
+                        :key="mockup.id + '_' + (mockup.checksum_sha256 || '') + '_' + renderNonce"
+                        class="border rounded-xl overflow-hidden bg-white shadow-2xs flex flex-col transition-all duration-200 hover:shadow-md"
+                        :class="mockup.provenance?.is_cover ? 'border-amber-400 ring-1 ring-amber-300' : 'border-zinc-200'"
+                      >
+                        <!-- Thumbnail Area -->
+                        <div class="aspect-square bg-zinc-50 overflow-hidden relative group flex items-center justify-center p-2 border-b border-zinc-100">
+                          <img
+                            :key="mockup.id + '_' + (mockup.checksum_sha256 || '') + '_' + (mockup.url || '') + '_' + renderNonce"
+                            :src="mockup.url || ''"
+                            :alt="mockup.provenance?.template_name || selectedMockupTab"
+                            class="object-contain w-full h-full rounded-lg transition-transform duration-200 group-hover:scale-105"
+                          >
+
+                          <!-- Cover Badge -->
+                          <div
+                            v-if="mockup.provenance?.is_cover"
+                            class="absolute top-2.5 left-2.5 bg-amber-500 text-white font-black text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"
+                          >
+                            <Icon name="lucide:star" class="size-3 fill-white" aria-hidden="true" />
+                            <span>Cover Image</span>
+                          </div>
+
+                          <!-- Listing Order Badge -->
+                          <div class="absolute top-2.5 right-2.5 bg-zinc-900/80 backdrop-blur-xs text-white font-mono text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                            #{{ mockup.provenance?.listing_order ?? (mIdx + 1) }}
+                          </div>
+
+                          <!-- Quick Fullscreen Preview Overlay Button -->
+                          <button
+                            type="button"
+                            class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-bold cursor-pointer"
+                            @click="previewingAsset = mockup"
+                          >
+                            <Icon name="lucide:zoom-in" class="size-5" aria-hidden="true" />
+                            <span>Click to Zoom</span>
+                          </button>
+                        </div>
+
+                        <!-- Card Content & Actions -->
+                        <div class="p-3.5 space-y-3 flex-1 flex flex-col justify-between">
+                          <div>
+                            <h5 class="text-xs font-bold text-zinc-900 truncate" :title="mockup.provenance?.template_name || getMockupLabel(selectedMockupTab)">
+                              {{ mockup.provenance?.template_name || `${getMockupLabel(selectedMockupTab)} Mockup ${mIdx + 1}` }}
+                            </h5>
+                            <p class="text-[10px] text-zinc-400 mt-0.5 font-mono">
+                              {{ mockup.width ?? 1200 }}×{{ mockup.height ?? 1200 }} px • JPEG
+                            </p>
+                          </div>
+
+                          <!-- Action Buttons -->
+                          <div class="space-y-2 pt-1 border-t border-zinc-100">
+                            <!-- Cover Selector -->
+                            <button
+                              v-if="!mockup.provenance?.is_cover"
+                              type="button"
+                              class="w-full text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 py-1 px-2 rounded-md flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                              :disabled="isActionLoading"
+                              @click="handleSetCover(mockup)"
+                            >
+                              <Icon name="lucide:star" class="size-3 text-amber-600" aria-hidden="true" />
+                              <span>Set as Listing Cover</span>
+                            </button>
+
+                            <!-- Row of Actions -->
+                            <div class="flex items-center justify-between gap-1.5">
+                              <div class="flex items-center gap-1">
+                                <!-- Move Left / Right -->
+                                <button
+                                  type="button"
+                                  class="h-7 w-7 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                  :disabled="mIdx === 0 || isActionLoading"
+                                  title="Move Left / Earlier in Listing Order"
+                                  @click="handleMoveMockup(mockup, 'left')"
+                                >
+                                  <Icon name="lucide:arrow-left" class="size-3" aria-hidden="true" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  class="h-7 w-7 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                  :disabled="mIdx === currentTabMockups.length - 1 || isActionLoading"
+                                  title="Move Right / Later in Listing Order"
+                                  @click="handleMoveMockup(mockup, 'right')"
+                                >
+                                  <Icon name="lucide:arrow-right" class="size-3" aria-hidden="true" />
+                                </button>
+
+                                <!-- Adjust / Edit Placement -->
+                                <button
+                                  type="button"
+                                  class="h-7 px-2.5 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-900 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                  title="Adjust Placement, Crop & Blend Mode"
+                                  @click="openAdjustMockupModal(mockup)"
+                                >
+                                  <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
+                                  <span>Adjust</span>
+                                </button>
+                              </div>
+
+                              <div class="flex items-center gap-1">
+                                <!-- Download -->
+                                <a
+                                  :href="mockup.url || ''"
+                                  target="_blank"
+                                  :download="`${mockup.provenance?.template_name || selectedMockupTab}_mockup.jpg`"
+                                  class="h-7 w-7 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                                  title="Download High-Res Mockup"
+                                >
+                                  <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
+                                </a>
+
+                                <!-- Delete -->
+                                <button
+                                  type="button"
+                                  class="h-7 w-7 rounded bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-colors cursor-pointer"
+                                  title="Delete this Mockup"
+                                  :disabled="isActionLoading"
+                                  @click="handleDeleteMockup(mockup)"
+                                >
+                                  <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Add Another Mockup Card in Grid -->
+                      <button
+                        type="button"
+                        class="border-2 border-dashed border-zinc-200 hover:border-indigo-400 hover:bg-indigo-50/40 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer min-h-[220px]"
+                        @click="openAddMockupModal(selectedMockupTab)"
+                      >
+                        <div class="h-10 w-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
+                          <Icon name="lucide:plus" class="size-5" aria-hidden="true" />
+                        </div>
+                        <div>
+                          <span class="text-xs font-bold text-zinc-900 block">Add Another {{ getMockupLabel(selectedMockupTab) }}</span>
+                          <span class="text-[10px] text-zinc-500 block mt-0.5">Upload new scene, flatlay, or model photo</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1096,6 +1153,52 @@ async function handleRecompositeAllMockups(): Promise<void> {
             :alt="previewingAsset.provenance?.template_name || 'Mockup Preview'"
             class="max-h-[70vh] object-contain rounded-xl shadow-lg border border-zinc-200 bg-white"
           >
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Picker Modal for + Add Mockup -->
+    <div
+      v-if="showProductPickerModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs animate-in fade-in duration-200"
+      @click.self="showProductPickerModal = false"
+    >
+      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-md w-full overflow-hidden flex flex-col">
+        <!-- Modal Header -->
+        <div class="px-5 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/70">
+          <div class="flex items-center gap-2.5">
+            <div class="h-8 w-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <Icon name="lucide:layers" class="size-4" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-zinc-900">Choose Product Type</h3>
+              <p class="text-[11px] text-zinc-500">Select which product you want to create a mockup for</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="h-7 w-7 rounded-lg hover:bg-zinc-200/70 text-zinc-400 hover:text-zinc-700 flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Close modal"
+            @click="showProductPickerModal = false"
+          >
+            <Icon name="lucide:x" class="size-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <!-- Product Options Grid -->
+        <div class="p-5 grid grid-cols-3 gap-2.5 max-h-[60vh] overflow-y-auto">
+          <button
+            v-for="p in supportedProductTypes"
+            :key="p.key"
+            type="button"
+            class="p-3 rounded-xl border border-zinc-200 hover:border-indigo-500 hover:bg-indigo-50/50 flex flex-col items-center justify-center text-center gap-1.5 transition-all cursor-pointer group"
+            @click="selectProductAndOpenMockupModal(p.key)"
+          >
+            <div class="h-9 w-9 rounded-lg bg-zinc-100 group-hover:bg-indigo-100 text-zinc-700 group-hover:text-indigo-700 flex items-center justify-center transition-colors">
+              <Icon :name="p.icon" class="size-4.5" aria-hidden="true" />
+            </div>
+            <span class="text-xs font-semibold text-zinc-800 group-hover:text-indigo-950">{{ p.label }}</span>
+          </button>
         </div>
       </div>
     </div>

@@ -249,7 +249,8 @@ const refineChangeNote = ref("");
 const refineAssetId = ref<string | null>(null);
 
 // Polling settings
-let pollInterval: ReturnType<typeof setInterval> | null = null;
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
+let isPollInFlight = false;
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -257,6 +258,20 @@ function getCookie(name: string): string | null {
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop()?.split(";").shift() ?? null;
   return null;
+}
+
+async function loadProductionJob(): Promise<ProductionJob | null> {
+  try {
+    const job = await $fetch<ProductionJob | null>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/production`,
+      { credentials: "include" }
+    );
+    latestProductionJob.value = job;
+    return job;
+  } catch {
+    latestProductionJob.value = null;
+    return null;
+  }
 }
 
 async function loadData(silent = false): Promise<void> {
@@ -307,14 +322,7 @@ async function loadData(silent = false): Promise<void> {
     }
 
     // Fetch production job
-    try {
-      latestProductionJob.value = await $fetch<ProductionJob | null>(
-        `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/production`,
-        { credentials: "include" }
-      );
-    } catch {
-      latestProductionJob.value = null;
-    }
+    await loadProductionJob();
 
     // Initial intelligent tab selection if not explicitly set in URL query
     if (!route.query?.tab && !silent) {
@@ -693,6 +701,44 @@ const displayStageLabel = computed(() => {
 
 const wasProductionInFlight = ref(false);
 
+async function executePoll(): Promise<void> {
+  if (isPollInFlight) return;
+  isPollInFlight = true;
+
+  try {
+    // If a production job is in flight, directly poll the dedicated production endpoint
+    if (
+      wasProductionInFlight.value ||
+      latestProductionJob.value?.status === "QUEUED" ||
+      latestProductionJob.value?.status === "RUNNING"
+    ) {
+      const job = await loadProductionJob();
+      if (job && (job.status === "SUCCEEDED" || job.status === "FAILED")) {
+        wasProductionInFlight.value = false;
+        // Authoritative final hydration of entire campaign data
+        await loadData(true);
+        stopPolling();
+        return;
+      }
+    } else {
+      await loadData(true);
+      if (!isWorkflowRunning.value) {
+        stopPolling();
+        return;
+      }
+    }
+  } catch {
+    // Continue polling on transient network error
+  } finally {
+    isPollInFlight = false;
+  }
+
+  // Schedule next poll without request overlap
+  if (isWorkflowRunning.value || wasProductionInFlight.value) {
+    pollTimer = setTimeout(executePoll, 2000);
+  }
+}
+
 function startPolling(): void {
   stopPolling();
   if (
@@ -701,26 +747,15 @@ function startPolling(): void {
   ) {
     wasProductionInFlight.value = true;
   }
-  pollInterval = setInterval(async () => {
-    await loadData(true);
-    // If a production job was in flight and has now completed, smoothly reload all campaign APIs
-    if (wasProductionInFlight.value && latestProductionJob.value?.status === "SUCCEEDED") {
-      wasProductionInFlight.value = false;
-      stopPolling();
-      await loadData();
-      return;
-    }
-    if (!isWorkflowRunning.value) {
-      stopPolling();
-    }
-  }, 2000);
+  executePoll();
 }
 
 function stopPolling(): void {
-  if (pollInterval) {
-    clearInterval(pollInterval);
-    pollInterval = null;
+  if (pollTimer) {
+    clearTimeout(pollTimer);
+    pollTimer = null;
   }
+  isPollInFlight = false;
 }
 
 onMounted(async () => {
@@ -731,7 +766,7 @@ onMounted(async () => {
   ) {
     wasProductionInFlight.value = true;
   }
-  if (isWorkflowRunning.value) {
+  if (isWorkflowRunning.value || wasProductionInFlight.value) {
     startPolling();
   }
 });
