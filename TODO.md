@@ -12,8 +12,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [x] **Phase 4 — Telegram remote control:** Complete (`docs/progress/phase-4-telegram-remote-control.md`)
 - [x] **Phase 5 — Idea input, research, and Gate 1 approval:** Complete (`docs/progress/phase-5-idea-research.md`)
 - [x] **Phase 6 — Artwork generation and Gate 2 approval:** Complete (`docs/progress/phase-6-artwork-generation-approval.md`)
-- [ ] **Phase 7 — PNG production pipeline:** Next Active Milestone
-- [ ] **Phase 8 — SEO, IP risk review, and download package:** Planned
+- [x] **Phase 7 — PNG production pipeline:** Complete (`docs/progress/phase-7-png-production-pipeline.md`)
+- [ ] **Phase 8 — SEO, IP risk review, and download package:** Next Active Milestone
 - [ ] **Phase 9 — Etsy integration:** Planned
 - [ ] **Phase 10 — Deployment, scheduling, and monitoring:** Planned
 - [ ] **Phase 11 — Optional SaaS expansion:** Future
@@ -74,13 +74,7 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [x] Settings page UI credentials card supporting saving, revealing, and deleting encrypted API keys (`gemini`, `tavily`, `recraft`, `telegram`).
 - [x] Migration `0008_phase_6_telegram` adding `telegram` to the `provider_name` PostgreSQL enum.
 
----
-
-## Upcoming Phases
-
-### Phase 7 — PNG Production Pipeline ⏳ (In Progress)
-
-#### Phase 7 Backend & Workers
+### Phase 7 — PNG Production Pipeline ✅
 
 - [x] **Image Worker Fastify Endpoints (`workers/image-worker`)**:
   - [x] `POST /pipeline/trim-and-pad`: Safe-bounding box trim, transparency margin alignment (8% padding).
@@ -100,25 +94,17 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
   - [x] Exact placement manifests (`left_pct`, `top_pct`, `width_pct`, `height_pct`, `angle_deg`, `blend_mode`).
   - [x] Fast compositing on demand via Nuxt 3 interactive modal.
 - [x] **Worker Production Task (`workers/general-worker`)**:
-  - [x] `run_production_task` handler executes master PNG generation independently.
+  - [x] Extracted orchestrator `worker/production.py` (`execute_production_pipeline`).
   - [x] Uploads final transparent PNG to S3 bucket under `production/{workflow_id}/{job_id}/master.png`.
-  - [ ] Record output `Asset` rows and transition workflow state to `PRODUCTION_COMPLETE` (or `PRODUCTION_FAILED`).
-- [ ] **Telegram Notifications**:
-  - [ ] Send production complete message with compressed mockup preview photos and link to dashboard.
-
-#### Phase 7 Frontend (Nuxt 3)
-
-- [ ] **Workflow Detail Page Updates (`frontend/pages/workflow/[id].vue`)**:
-  - [ ] Support `PRODUCTION_QUEUED`, `PRODUCING`, and `PRODUCTION_COMPLETE` state visualization.
-  - [ ] Interactive Production Progress bar and realtime step tracker.
-- [ ] **PNG Quality Assurance Card**:
-  - [ ] Checklist displaying 300 DPI badge, exact print dimensions, and alpha transparency validation status.
-  - [ ] Direct download buttons for Master High-Res Transparent PNG.
-- [ ] **Product Mockup Preview Carousel**:
-  - [ ] Interactive switcher to view the design on T-shirt, Mug, Tote Bag, and Poster mockups.
-  - [ ] Download individual mockup assets.
-- [ ] **Typography Revision Modal (Optional)**:
-  - [ ] Allow tweaking slogan font style, color, and arc curvature before final lock.
+  - [x] Recomposites all existing user library mockups automatically upon candidate switch.
+  - [x] Atomic UoW persistence and workflow state transition to `ARTWORK_APPROVED`.
+  - [x] Telegram completion notification with master preview link and QA status.
+- [x] **Frontend Architecture & UX (`frontend/`)**:
+  - [x] Strict user-uploaded mockups with zero dummy/fallback mockups.
+  - [x] Dynamic mockup product tabs (strictly categories with count > 0).
+  - [x] Seamless artwork candidate switching & non-overlapping recursive polling without browser reload.
+  - [x] Decomposed subcomponents: `ProductionStatusCard.vue`, `MasterPngCard.vue`, `ProductionQaCard.vue`, `MockupGallery.vue`, `MockupProductTabs.vue`, `MockupCard.vue`, `MockupEmptyState.vue`, `MockupPlacementCanvas.vue`, `MockupPlacementControls.vue`.
+  - [x] Dedicated composables: `useProduction.ts`, `useMockups.ts`, and shared types in `frontend/types/`.
 
 ---
 

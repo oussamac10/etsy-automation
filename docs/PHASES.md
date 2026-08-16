@@ -126,16 +126,20 @@ owner, and proves duplicate requests are billed once in the ledger.
 
 Evidence: All 234 integration tests passing (including new test suite in `tests/integration/test_artwork.py` verifying end-to-end S3 uploads, budget gates, candidate queries, refinement flows, and Gate 2 state transitions).
 
-## Phase 7 — PNG production pipeline
+## Phase 7 — PNG production pipeline ✅ complete 2026-08-16
 
-- [ ] Validation, alpha/background workflow, safe trim, and upscale
-- [ ] Deterministic typography for approved slogans
-- [ ] Mockup templates
-- [ ] PNG QA report and approval preview
-- [ ] Telegram production-complete notification
+- [x] Validation, alpha/background workflow, safe trim (8%), and upscale (4500×5400 px @ 300 DPI)
+- [x] Deterministic typography for approved slogans
+- [x] User-uploaded mockup template library and 2D canvas compositor
+- [x] Structured automated PNG QA report and approval preview
+- [x] Telegram production-complete notification with master preview and QA summary
+- [x] Zero runtime dummy mockups and dynamic product tabs (categories with count > 0)
+- [x] Candidate switching without full-page reloads and non-overlapping recursive polling
 
 Acceptance: fixture-based tests prove dimensions, alpha, margins, spelling,
-hashes, and malicious-input rejection.
+hashes, and malicious-input rejection. Full monorepo test coverage passes (398 tests).
+
+Evidence: `docs/progress/phase-7-png-production-pipeline.md`.
 
 ## Phase 8 — SEO, risk review, and download package
 
