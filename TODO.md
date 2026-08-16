@@ -78,26 +78,30 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 
 ## Upcoming Phases
 
-### Phase 7 — PNG Production Pipeline ⏳ (Next)
+### Phase 7 — PNG Production Pipeline ⏳ (In Progress)
 
 #### Phase 7 Backend & Workers
 
-- [ ] **Image Worker Fastify Endpoints (`workers/image-worker`)**:
-  - [ ] `POST /pipeline/remove-background`: High-precision alpha channel background extraction via Sharp / rembg.
-  - [ ] `POST /pipeline/trim-and-pad`: Safe-bounding box trim, transparency margin alignment (10% padding).
-  - [ ] `POST /pipeline/upscale`: High-fidelity bicubic/lanczos3 upscale to standard POD print dimensions (4500×5400 px, 300 DPI).
-  - [ ] `POST /pipeline/composite-mockup`: Multi-product template compositor (T-shirt, Mug, Tote Bag, Sticker, Canvas).
-- [ ] **Deterministic SVG/PNG Typography Engine**:
-  - [ ] Font registry and SVG curve generator for approved concept slogans.
-  - [ ] Automatic layout positioning (curved, arched, stacked, or centered text styles).
-- [ ] **Automated Quality Assurance (QA) Engine**:
-  - [ ] Validate print dimensions (min 4500px width/height).
-  - [ ] Inspect alpha transparency ratio (verify no dirty white backgrounds or clipped edges).
-  - [ ] Check color profile (sRGB) and 300 DPI EXIF metadata.
-  - [ ] Generate structured JSON QA report (`dimensions_valid`, `has_transparency`, `contrast_score`, `warnings`).
-- [ ] **Worker Production Task (`workers/general-worker`)**:
-  - [ ] `run_production_task` Dramatiq handler to orchestrate image worker calls.
-  - [ ] Upload final transparent PNG and generated mockups to S3 bucket under `production/{workflow_id}/`.
+- [x] **Image Worker Fastify Endpoints (`workers/image-worker`)**:
+  - [x] `POST /pipeline/trim-and-pad`: Safe-bounding box trim, transparency margin alignment (8% padding).
+  - [x] `POST /pipeline/upscale`: High-fidelity bicubic/lanczos3 upscale to standard POD print dimensions (4500×5400 px, 300 DPI).
+  - [x] `POST /pipeline/custom-mockup`: High-fidelity user-uploaded template compositor with realistic multiply texture blending.
+  - [x] `POST /pipeline/process-master`: Unified master PNG generation pipeline.
+- [x] **Deterministic SVG/PNG Typography Engine**:
+  - [x] Font registry and SVG overlay generator for approved concept slogans.
+  - [x] Automatic layout positioning and high-contrast color styling.
+- [x] **Automated Quality Assurance (QA) Engine**:
+  - [x] Validate print dimensions (4500×5400 px).
+  - [x] Inspect alpha transparency ratio (verify transparent background and non-clipped edges).
+  - [x] Check color profile (sRGB) and 300 DPI EXIF metadata.
+  - [x] Generate structured JSON QA report (`dimensions_valid`, `has_transparency`, `safe_margins_valid`, `qa_passed`).
+- [x] **User-Uploaded Mockup Template Store & Compositor**:
+  - [x] Owner-scoped S3 storage under `mockup-templates/{owner_id}/{product_type}/`.
+  - [x] Exact placement manifests (`left_pct`, `top_pct`, `width_pct`, `height_pct`, `angle_deg`, `blend_mode`).
+  - [x] Fast compositing on demand via Nuxt 3 interactive modal.
+- [x] **Worker Production Task (`workers/general-worker`)**:
+  - [x] `run_production_task` handler executes master PNG generation independently.
+  - [x] Uploads final transparent PNG to S3 bucket under `production/{workflow_id}/{job_id}/master.png`.
   - [ ] Record output `Asset` rows and transition workflow state to `PRODUCTION_COMPLETE` (or `PRODUCTION_FAILED`).
 - [ ] **Telegram Notifications**:
   - [ ] Send production complete message with compressed mockup preview photos and link to dashboard.

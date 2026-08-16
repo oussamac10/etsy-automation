@@ -21,16 +21,56 @@ interface MockupTemplateItem {
   is_custom: boolean;
 }
 
+export interface MockupAssetItem {
+  id: string;
+  workflow_id?: string;
+  storage_key?: string;
+  mime_type?: string;
+  url?: string | null;
+  width?: number | null;
+  height?: number | null;
+  template_name?: string | null;
+  provenance?: {
+    phase?: number;
+    asset_type?: string;
+    product_type?: string;
+    template_id?: string;
+    template_name?: string;
+    is_cover?: boolean;
+    listing_order?: number;
+    placement?: {
+      left_pct?: number;
+      top_pct?: number;
+      width_pct?: number;
+      height_pct?: number;
+      angle_deg?: number;
+      blend_mode?: string;
+    };
+  };
+}
+
 const props = defineProps<{
   open: boolean;
   workflowId: string;
   productType: string;
   masterImageUrl?: string | null;
+  editingAsset?: MockupAssetItem | null;
 }>();
 
 const emit = defineEmits<{
   (e: "update:open", val: boolean): void;
-  (e: "mockupCreated", result: { mockup_url: string; product_type: string; template_id?: string }): void;
+  (
+    e: "mockupCreated",
+    result: {
+      mockup_url: string;
+      asset_id?: string;
+      product_type: string;
+      template_id?: string;
+      template_name?: string;
+      is_cover?: boolean;
+      listing_order?: number;
+    }
+  ): void;
 }>();
 
 const config = useRuntimeConfig();
@@ -133,9 +173,52 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-// Reset state when opening or switching product
+function applyDefaultPresetForProduct(product: string): void {
+  const clean = product ? product.toLowerCase().trim() : "";
+  if (clean.includes("mug") || clean.includes("ceramic")) {
+    leftPct.value = 32;
+    topPct.value = 32;
+    widthPct.value = 36;
+    heightPct.value = 38;
+    blendMode.value = "over";
+  } else if (clean.includes("tumbler")) {
+    leftPct.value = 30;
+    topPct.value = 28;
+    widthPct.value = 40;
+    heightPct.value = 48;
+    blendMode.value = "over";
+  } else if (clean.includes("poster") || clean.includes("wall_art")) {
+    leftPct.value = 20;
+    topPct.value = 20;
+    widthPct.value = 60;
+    heightPct.value = 60;
+    blendMode.value = "over";
+  } else if (clean.includes("tote") || clean.includes("bag")) {
+    leftPct.value = 26;
+    topPct.value = 36;
+    widthPct.value = 48;
+    heightPct.value = 46;
+    blendMode.value = "multiply";
+  } else if (clean.includes("sweat") || clean.includes("hoodie") || clean.includes("crewneck")) {
+    leftPct.value = 28;
+    topPct.value = 26;
+    widthPct.value = 44;
+    heightPct.value = 46;
+    blendMode.value = "multiply";
+  } else {
+    // Default T-shirt / apparel
+    leftPct.value = 28;
+    topPct.value = 25;
+    widthPct.value = 44;
+    heightPct.value = 48;
+    blendMode.value = "multiply";
+  }
+  angleDeg.value = 0;
+}
+
+// Reset or load state when opening, switching product, or editing existing mockup
 watch(
-  () => [props.open, props.productType],
+  () => [props.open, props.productType, props.editingAsset],
   ([isOpen]) => {
     if (isOpen) {
       compositeError.value = null;
@@ -144,6 +227,31 @@ watch(
       selectedTemplateId.value = null;
       templateName.value = "";
       canvasViewMode.value = "edit";
+
+      if (props.editingAsset) {
+        templateName.value =
+          props.editingAsset.provenance?.template_name ||
+          props.editingAsset.template_name ||
+          `${getMockupDisplayName(props.productType)} Mockup`;
+
+        const placement = props.editingAsset.provenance?.placement;
+        if (placement) {
+          leftPct.value = Math.round((placement.left_pct ?? 0.25) * (placement.left_pct! <= 1.0 ? 100 : 1));
+          topPct.value = Math.round((placement.top_pct ?? 0.25) * (placement.top_pct! <= 1.0 ? 100 : 1));
+          widthPct.value = Math.round((placement.width_pct ?? 0.50) * (placement.width_pct! <= 1.0 ? 100 : 1));
+          heightPct.value = Math.round((placement.height_pct ?? 0.50) * (placement.height_pct! <= 1.0 ? 100 : 1));
+          angleDeg.value = placement.angle_deg ?? 0;
+          blendMode.value = (placement.blend_mode as "multiply" | "over") || "multiply";
+        }
+
+        if (props.editingAsset.provenance?.template_id) {
+          selectedTemplateId.value = props.editingAsset.provenance.template_id;
+          activeSubTab.value = "library";
+        }
+      } else {
+        applyDefaultPresetForProduct(props.productType);
+      }
+
       fetchTemplates();
     }
   },
@@ -338,8 +446,9 @@ async function handleComposite(): Promise<void> {
       product_type: props.productType,
       template_id: activeSubTab.value === "library" ? selectedTemplateId.value : undefined,
       template_image_base64: templateBase64 || undefined,
-      template_name: templateName.value || `${getMockupDisplayName(props.productType)} Custom Template`,
+      template_name: templateName.value || `${getMockupDisplayName(props.productType)} Mockup`,
       save_as_template: saveToLibrary.value,
+      target_asset_id: props.editingAsset?.id || undefined,
       placement: {
         left_pct: leftPct.value / 100,
         top_pct: topPct.value / 100,
@@ -352,8 +461,12 @@ async function handleComposite(): Promise<void> {
 
     const result = await $fetch<{
       mockup_url: string;
+      asset_id?: string;
       product_type: string;
       template_id?: string;
+      template_name?: string;
+      is_cover?: boolean;
+      listing_order?: number;
     }>(
       `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates/composite`,
       {

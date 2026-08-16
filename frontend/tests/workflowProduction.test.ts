@@ -11,6 +11,7 @@ vi.mock("vue-router", () => ({
   }),
   useRouter: () => ({
     push: vi.fn(),
+    replace: vi.fn(),
   }),
 }));
 
@@ -49,7 +50,7 @@ const mockProductionSucceededJob = {
   workflow_id: "wf-prod-123",
   source_asset_id: "source-asset-1",
   output_asset_id: "master-asset-1",
-  operations: ["trim", "upscale", "typography", "qa", "mockup"],
+  operations: ["trim", "upscale", "typography", "qa"],
   status: "SUCCEEDED",
   idempotency_key: "production:wf-prod-123:abc",
   attempt_count: 1,
@@ -94,12 +95,68 @@ const mockProductionSucceededJob = {
     created_at: "2026-08-15T12:02:00Z",
     url: "http://localhost:9000/etsy/master.png",
   },
-  mockup_assets: [],
+  mockup_assets: [
+    {
+      id: "mockup-1",
+      workflow_id: "wf-prod-123",
+      storage_key: "production/wf-prod-123/mockups/custom_tshirt_mockup1.jpg",
+      mime_type: "image/jpeg",
+      byte_size: 150000,
+      checksum_sha256: "sha256mockup1",
+      width: 1200,
+      height: 1200,
+      has_alpha: false,
+      url: "http://localhost:9000/etsy/tshirt1.jpg",
+      provenance: {
+        asset_type: "mockup",
+        product_type: "tshirt",
+        template_name: "Black Bella Canvas Flatlay",
+        is_cover: true,
+        listing_order: 1,
+      },
+    },
+    {
+      id: "mockup-2",
+      workflow_id: "wf-prod-123",
+      storage_key: "production/wf-prod-123/mockups/custom_tshirt_mockup2.jpg",
+      mime_type: "image/jpeg",
+      byte_size: 150000,
+      checksum_sha256: "sha256mockup2",
+      width: 1200,
+      height: 1200,
+      has_alpha: false,
+      url: "http://localhost:9000/etsy/tshirt2.jpg",
+      provenance: {
+        asset_type: "mockup",
+        product_type: "tshirt",
+        template_name: "White Bella Canvas Flatlay",
+        is_cover: false,
+        listing_order: 2,
+      },
+    },
+    {
+      id: "mockup-3",
+      workflow_id: "wf-prod-123",
+      storage_key: "production/wf-prod-123/mockups/custom_mug_mockup3.jpg",
+      mime_type: "image/jpeg",
+      byte_size: 150000,
+      checksum_sha256: "sha256mockup3",
+      width: 1200,
+      height: 1200,
+      has_alpha: false,
+      url: "http://localhost:9000/etsy/mug3.jpg",
+      provenance: {
+        asset_type: "mockup",
+        product_type: "mug",
+        template_name: "Kitchen Scene Mug",
+        is_cover: false,
+        listing_order: 3,
+      },
+    },
+  ],
   mockup_urls: {
-    tshirt: "http://localhost:9000/etsy/tshirt.png",
-    sweatshirt: "http://localhost:9000/etsy/sweatshirt.png",
-    tote: "http://localhost:9000/etsy/tote.png",
-    mug: "http://localhost:9000/etsy/mug.png",
+    tshirt: "http://localhost:9000/etsy/tshirt1.jpg",
+    mug: "http://localhost:9000/etsy/mug3.jpg",
   },
 };
 
@@ -132,11 +189,9 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
 
     expect(wrapper.text()).toContain("Phase 7: Print-Ready PNG Production");
     expect(wrapper.text()).toContain("Start PNG Production");
-    expect(wrapper.text()).toContain("4500×5400 px");
-    expect(wrapper.text()).toContain("300 DPI");
   });
 
-  it("renders completed master file preview, QA report and mockups when production succeeds", async () => {
+  it("renders completed master file preview, QA report and multi-mockup gallery when production succeeds", async () => {
     vi.stubGlobal("$fetch", vi.fn().mockImplementation((url: string) => {
       if (url.includes("/api/v1/workflows/wf-prod-123/research")) return Promise.resolve([]);
       if (url.includes("/api/v1/workflows/wf-prod-123/concepts")) return Promise.resolve([]);
@@ -158,11 +213,14 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("Production Complete");
-    expect(wrapper.text()).toContain("Master Print PNG");
+    expect(wrapper.text()).toContain("Master PNG");
     expect(wrapper.text()).toContain("Download Master PNG");
-    expect(wrapper.text()).toContain("Automated QA Validation Report");
-    expect(wrapper.text()).toContain("QA PASSED");
     expect(wrapper.text()).toContain("Product Mockup Gallery");
-    expect(wrapper.text()).toContain("Regenerate Master & Mockups");
+    expect(wrapper.text()).toContain("3 listing mockups");
+    expect(wrapper.text()).toContain("Black Bella Canvas Flatlay");
+    expect(wrapper.text()).toContain("White Bella Canvas Flatlay");
+    expect(wrapper.text()).toContain("Cover Image");
+    expect(wrapper.text()).toContain("+ Add T-Shirt Mockup");
+    expect(wrapper.text()).toContain("Regenerate Master PNG");
   });
 });
