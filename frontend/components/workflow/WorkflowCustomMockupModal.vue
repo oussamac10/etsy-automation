@@ -524,15 +524,15 @@ async function handleComposite(): Promise<void> {
       </div>
 
       <!-- Main Body: 2-Column Split Layout -->
-      <div class="p-5 overflow-y-auto max-h-[calc(92vh-125px)]">
+      <div class="p-5 overflow-y-auto lg:overflow-y-hidden max-h-[calc(92vh-115px)]">
         <!-- Error Alert -->
-        <div v-if="compositeError" class="p-2.5 mb-4 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 font-medium">
+        <div v-if="compositeError" class="p-2.5 mb-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 font-medium">
           {{ compositeError }}
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           <!-- LEFT COLUMN (7 cols): Interactive Visual Canvas -->
-          <div class="lg:col-span-7 space-y-3">
+          <div class="lg:col-span-7 space-y-2.5">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-1.5">
                 <Icon
@@ -572,7 +572,7 @@ async function handleComposite(): Promise<void> {
             <!-- Canvas Viewport -->
             <div
               ref="interactiveCanvasRef"
-              class="relative aspect-square max-h-[340px] w-full mx-auto bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
+              class="relative aspect-square max-h-[305px] w-full mx-auto bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
             >
               <!-- Template Background -->
               <img
@@ -781,25 +781,26 @@ async function handleComposite(): Promise<void> {
               </div>
             </div>
 
-            <!-- Library Mode (Clean compact grid) -->
+            <!-- Library Mode (Clean compact grid with NO internal scroll) -->
             <div v-else class="space-y-1.5">
-              <div v-if="templates.length === 0" class="text-center py-4 text-zinc-400 text-xs bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
+              <div v-if="templates.length === 0" class="text-center py-3 text-zinc-400 text-xs bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
                 No saved templates for {{ getMockupDisplayName(productType) }}. Use Upload tab to add one.
               </div>
 
-              <div v-else class="grid grid-cols-3 gap-1.5 max-h-28 overflow-y-auto p-0.5">
-                <div
+              <div v-else class="grid grid-cols-3 gap-2">
+                <button
                   v-for="tpl in templates"
                   :key="tpl.id"
-                  class="border rounded-lg p-1 cursor-pointer transition-all relative group"
-                  :class="selectedTemplateId === tpl.id ? 'border-indigo-600 ring-1.5 ring-indigo-500/30 bg-indigo-50/40' : 'border-zinc-200 hover:border-zinc-300 bg-white'"
+                  type="button"
+                  class="border rounded-xl p-1.5 text-left transition-all cursor-pointer relative group"
+                  :class="selectedTemplateId === tpl.id ? 'border-indigo-600 ring-2 ring-indigo-500/30 bg-indigo-50/60 shadow-2xs' : 'border-zinc-200 hover:border-zinc-300 bg-white'"
                   @click="selectLibraryTemplate(tpl)"
                 >
-                  <div class="aspect-square bg-zinc-50 rounded overflow-hidden border border-zinc-100 flex items-center justify-center mb-0.5">
+                  <div class="aspect-square bg-zinc-100 rounded-lg overflow-hidden border border-zinc-100 mb-1 flex items-center justify-center">
                     <img :src="tpl.url" :alt="tpl.name" class="object-cover w-full h-full" />
                   </div>
-                  <p class="text-[9px] font-semibold text-zinc-800 truncate leading-tight" :title="tpl.name">{{ tpl.name }}</p>
-                </div>
+                  <p class="text-[10px] font-bold text-zinc-800 truncate text-center" :title="tpl.name">{{ tpl.name }}</p>
+                </button>
               </div>
             </div>
 
