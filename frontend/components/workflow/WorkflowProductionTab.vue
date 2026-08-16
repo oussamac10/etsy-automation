@@ -161,6 +161,7 @@ function extractProductFromKey(key: string): string {
 
 // Local reactive mockups list for instant UI updates
 const localMockupAssets = ref<Asset[]>([]);
+const renderNonce = ref<number>(Date.now());
 const isActionLoading = ref(false);
 const mockupActionError = ref<string | null>(null);
 
@@ -175,6 +176,7 @@ watch(
   (newAssets) => {
     if (newAssets && Array.isArray(newAssets)) {
       localMockupAssets.value = [...newAssets];
+      renderNonce.value = Date.now();
     }
   },
   { immediate: true, deep: true }
@@ -312,11 +314,12 @@ function handleCustomMockupCreated(result: {
   if (result.asset_id) {
     const existingIdx = localMockupAssets.value.findIndex((a) => a.id === result.asset_id);
     if (existingIdx >= 0) {
-      localMockupAssets.value[existingIdx] = {
-        ...localMockupAssets.value[existingIdx],
+      const updated = [...localMockupAssets.value];
+      updated[existingIdx] = {
+        ...updated[existingIdx],
         url: result.mockup_url,
         provenance: {
-          ...localMockupAssets.value[existingIdx].provenance,
+          ...updated[existingIdx].provenance,
           template_id: result.template_id,
           template_name: result.template_name,
           product_type: norm,
@@ -324,32 +327,37 @@ function handleCustomMockupCreated(result: {
           listing_order: result.listing_order,
         },
       };
+      localMockupAssets.value = updated;
     } else {
-      localMockupAssets.value.push({
-        id: result.asset_id,
-        workflow_id: props.workflow.id,
-        storage_key: `production/${props.workflow.id}/mockups/custom_${norm}_${result.asset_id}.jpg`,
-        mime_type: "image/jpeg",
-        byte_size: 1000,
-        checksum_sha256: "",
-        width: 1200,
-        height: 1200,
-        has_alpha: false,
-        url: result.mockup_url,
-        provenance: {
-          phase: 7,
-          asset_type: "mockup",
-          source: "user_template",
-          product_type: norm,
-          template_id: result.template_id,
-          template_name: result.template_name,
-          is_cover: result.is_cover,
-          listing_order: result.listing_order,
+      localMockupAssets.value = [
+        ...localMockupAssets.value,
+        {
+          id: result.asset_id,
+          workflow_id: props.workflow.id,
+          storage_key: `production/${props.workflow.id}/mockups/custom_${norm}_${result.asset_id}.jpg`,
+          mime_type: "image/jpeg",
+          byte_size: 1000,
+          checksum_sha256: "",
+          width: 1200,
+          height: 1200,
+          has_alpha: false,
+          url: result.mockup_url,
+          provenance: {
+            phase: 7,
+            asset_type: "mockup",
+            source: "user_template",
+            product_type: norm,
+            template_id: result.template_id,
+            template_name: result.template_name,
+            is_cover: result.is_cover,
+            listing_order: result.listing_order,
+          },
         },
-      });
+      ];
     }
   }
 
+  renderNonce.value = Date.now();
   emit("mockupUpdated");
 }
 
@@ -630,7 +638,7 @@ async function handleRecompositeAllMockups(): Promise<void> {
                 <div class="aspect-4500/5400 max-h-[340px] mx-auto rounded-lg overflow-hidden border border-zinc-200 flex items-center justify-center bg-[linear-gradient(45deg,#f4f4f5_25%,transparent_25%),linear-gradient(-45deg,#f4f4f5_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f4f4f5_75%),linear-gradient(-45deg,transparent_75%,#f4f4f5_75%)] bg-[size:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px] relative shadow-inner">
                   <img
                     v-if="masterImageUrl"
-                    :key="masterImageUrl + '_' + (latestProductionJob?.output_asset_id || '')"
+                    :key="masterImageUrl + '_' + (latestProductionJob?.output_asset_id || '') + '_' + renderNonce"
                     :src="masterImageUrl"
                     alt="Master Production PNG"
                     class="object-contain w-full h-full max-h-[320px] transition-transform hover:scale-105 duration-200"
@@ -805,14 +813,14 @@ async function handleRecompositeAllMockups(): Promise<void> {
                     <!-- Individual Mockup Card -->
                     <div
                       v-for="(mockup, mIdx) in currentTabMockups"
-                      :key="mockup.id + '_' + (mockup.checksum_sha256 || '')"
+                      :key="mockup.id + '_' + (mockup.checksum_sha256 || '') + '_' + renderNonce"
                       class="border rounded-xl overflow-hidden bg-white shadow-2xs flex flex-col transition-all duration-200 hover:shadow-md"
                       :class="mockup.provenance?.is_cover ? 'border-amber-400 ring-1 ring-amber-300' : 'border-zinc-200'"
                     >
                       <!-- Thumbnail Area -->
                       <div class="aspect-square bg-zinc-50 overflow-hidden relative group flex items-center justify-center p-2 border-b border-zinc-100">
                         <img
-                          :key="mockup.id + '_' + (mockup.checksum_sha256 || '') + '_' + (mockup.url || '')"
+                          :key="mockup.id + '_' + (mockup.checksum_sha256 || '') + '_' + (mockup.url || '') + '_' + renderNonce"
                           :src="mockup.url || ''"
                           :alt="mockup.provenance?.template_name || selectedMockupTab"
                           class="object-contain w-full h-full rounded-lg transition-transform duration-200 group-hover:scale-105"
