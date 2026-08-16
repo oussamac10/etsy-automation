@@ -52,9 +52,9 @@ function handleDelete() {
 
 <template>
   <div class="space-y-4">
-    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-border pb-6">
-      <div class="space-y-1.5">
-        <div class="flex items-center gap-2 text-xs text-muted-foreground">
+    <header class="flex flex-col sm:flex-row sm:items-start md:items-center justify-between gap-4 sm:gap-6 border-b border-border pb-4 sm:pb-6">
+      <div class="space-y-1.5 min-w-0 flex-1">
+        <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           <NuxtLink to="/" class="flex items-center gap-1 font-semibold text-primary-hover hover:text-[#B33E0B] transition-colors">
             <Icon name="lucide:arrow-left" class="size-3.5" aria-hidden="true" />
             <span>Campaigns</span>
@@ -64,14 +64,14 @@ function handleDelete() {
             {{ workflow.idea_mode }}
           </Badge>
         </div>
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground break-words leading-tight">
           {{ workflow.name }}
         </h1>
-        <p class="text-xs text-muted-foreground font-mono">ID: {{ workflow.id }}</p>
+        <p class="text-[11px] sm:text-xs text-muted-foreground font-mono truncate max-w-full">ID: {{ workflow.id }}</p>
       </div>
 
       <!-- Actions Toolbar -->
-      <div class="flex items-center gap-2 flex-wrap">
+      <div class="flex items-center gap-2 flex-wrap shrink-0">
         <Badge
           :variant="
             workflow.state.endsWith('_APPROVED') || workflow.state === 'ETSY_DRAFT_CREATED' || (workflow.state === 'PRODUCTION' && latestProductionJob?.status === 'SUCCEEDED')

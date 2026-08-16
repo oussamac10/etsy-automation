@@ -56,11 +56,11 @@ const isProductionActive = computed(() => {
 </script>
 
 <template>
-  <nav class="border-b border-border bg-white/80 backdrop-blur-md sticky top-0 z-10 rounded-xl shadow-2xs p-1.5 flex items-center gap-1.5 overflow-x-auto">
+  <nav class="border-b border-border bg-white/95 backdrop-blur-md sticky top-13 sm:top-14 z-20 rounded-xl shadow-2xs p-1 sm:p-1.5 flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-none">
     <!-- Tab 1: Overview -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :class="
         activeTab === 'overview'
           ? 'bg-slate-900 text-white shadow-xs'
@@ -75,7 +75,7 @@ const isProductionActive = computed(() => {
     <!-- Tab 2: Concepts & Research -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap relative cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 relative cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :class="
         activeTab === 'concepts'
           ? 'bg-slate-900 text-white shadow-xs'
@@ -99,7 +99,7 @@ const isProductionActive = computed(() => {
     <!-- Tab 3: Artwork Studio -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :class="
         activeTab === 'artwork'
           ? 'bg-slate-900 text-white shadow-xs'
@@ -123,7 +123,7 @@ const isProductionActive = computed(() => {
     <!-- Tab 4: Production & Mockups -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :class="
         activeTab === 'production'
           ? 'bg-slate-900 text-white shadow-xs'
