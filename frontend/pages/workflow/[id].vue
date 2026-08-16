@@ -703,13 +703,11 @@ function startPolling(): void {
   }
   pollInterval = setInterval(async () => {
     await loadData(true);
-    // If a production job was in flight and has now completed, auto-refresh page for a 100% fresh render
+    // If a production job was in flight and has now completed, smoothly reload all campaign APIs
     if (wasProductionInFlight.value && latestProductionJob.value?.status === "SUCCEEDED") {
       wasProductionInFlight.value = false;
       stopPolling();
-      if (typeof window !== "undefined") {
-        window.location.reload();
-      }
+      await loadData();
       return;
     }
     if (!isWorkflowRunning.value) {

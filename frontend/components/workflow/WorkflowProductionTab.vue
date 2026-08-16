@@ -172,12 +172,12 @@ const previewingAsset = ref<Asset | null>(null);
 
 // Sync with latestProductionJob
 watch(
-  () => props.latestProductionJob?.mockup_assets,
-  (newAssets) => {
-    if (newAssets && Array.isArray(newAssets)) {
-      localMockupAssets.value = [...newAssets];
-      renderNonce.value = Date.now();
+  () => props.latestProductionJob,
+  (newJob) => {
+    if (newJob?.mockup_assets && Array.isArray(newJob.mockup_assets)) {
+      localMockupAssets.value = [...newJob.mockup_assets];
     }
+    renderNonce.value = Date.now();
   },
   { immediate: true, deep: true }
 );
