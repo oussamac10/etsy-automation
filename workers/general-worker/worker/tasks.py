@@ -1236,7 +1236,19 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
         qa_passed = qa_report.get("qa_passed", False)
         mockups_map: dict[str, str] = pipeline_data.get("mockups", {})
 
-        # 4. Upload Master PNG to S3
+        # 4. Clean up any previous mockup files from DB and S3
+        async with UnitOfWork(session_factory) as uow:
+            existing_assets = await uow.assets.list_for_workflow(workflow_id)
+            for a in existing_assets:
+                if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key:
+                    try:
+                        await storage.delete(a.storage_key)
+                    except Exception:
+                        pass
+                    await uow.assets.delete(a)
+            await uow.commit()
+
+        # 4b. Upload Master PNG to S3
         master_storage_key = f"production/{workflow_id}/{job_id}/master.png"
         stored_master = await storage.put(master_storage_key, master_bytes, "image/png")
 
@@ -1307,23 +1319,43 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
             )
             await uow.commit()
 
-        # 5b. Automatically recomposite all existing workflow mockups with the new master PNG
-        try:
+        # 5b. Save newly generated standard mockups from the image-worker pipeline
+        if mockups_map:
             async with UnitOfWork(session_factory) as uow:
-                workflow = await uow.workflows.get(workflow_id)
-                if workflow:
-                    await recomposite_workflow_mockups(
-                        uow=uow,
-                        storage=storage,
-                        workflow_id=workflow_id,
-                        master_bytes=master_bytes,
-                        master_asset_id=master_asset_id,
-                        owner_id=workflow.owner_id,
-                        image_worker_url=settings.image_worker_url,
-                    )
-                    await uow.commit()
-        except Exception as recomp_exc:
-            logger.warning("failed_to_recomposite_existing_mockups", error=str(recomp_exc))
+                for prod_name, mockup_b64 in mockups_map.items():
+                    try:
+                        mockup_bytes = base64.b64decode(mockup_b64)
+                        mockup_id = uuid.uuid4()
+                        mockup_storage_key = f"production/{workflow_id}/mockups/{prod_name}_{mockup_id}.jpg"
+                        stored_mockup = await storage.put(mockup_storage_key, mockup_bytes, "image/jpeg")
+
+                        mockup_asset = Asset(
+                            id=mockup_id,
+                            workflow_id=workflow_id,
+                            artwork_job_id=None,
+                            derived_from_id=master_asset_id,
+                            storage_key=stored_mockup.storage_key,
+                            mime_type="image/jpeg",
+                            byte_size=stored_mockup.byte_size,
+                            checksum_sha256=stored_mockup.sha256,
+                            width=1200,
+                            height=1200,
+                            has_alpha=False,
+                            has_transparent_pixels=False,
+                            provenance={
+                                "phase": 7,
+                                "asset_type": "mockup",
+                                "pipeline": "mockup",
+                                "product_type": prod_name,
+                                "is_cover": (prod_name == "tshirt"),
+                                "listing_order": 1 if prod_name == "tshirt" else 2,
+                                "source_asset_id": str(master_asset_id),
+                            },
+                        )
+                        await uow.assets.add(mockup_asset)
+                    except Exception as m_err:
+                        logger.warning("failed_to_store_standard_mockup", product=prod_name, error=str(m_err))
+                await uow.commit()
 
         # 6. Telegram Completion Notification
         try:

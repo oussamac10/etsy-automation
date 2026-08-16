@@ -369,6 +369,7 @@ async function triggerProduction(forceNew = false, candidateAssetId?: string): P
 
 async function switchCandidateAndProduce(assetId: string): Promise<void> {
   selectedCandidateId.value = assetId;
+  latestProductionJob.value = null;
   await triggerProduction(true, assetId);
   setActiveTab("production");
 }

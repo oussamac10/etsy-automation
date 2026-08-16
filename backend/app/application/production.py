@@ -119,6 +119,12 @@ async def start_production_job(
                 )
             return latest_job
 
+    if force_new:
+        existing_assets = await uow.assets.list_for_workflow(workflow_id)
+        for a in existing_assets:
+            if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key:
+                await uow.assets.delete(a)
+
     idempotency_key = f"prod-{workflow_id}-{source_asset.id}-{uuid.uuid4().hex[:8]}"
     job = ProductionJob(
         workflow_id=workflow_id,
