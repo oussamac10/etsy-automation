@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -113,6 +114,7 @@ class UploadTemplateRequest(BaseModel):
 class CompositeCustomMockupRequest(BaseModel):
     workflow_id: uuid.UUID
     product_type: str = "tshirt"
+    master_asset_id: uuid.UUID | None = None
     template_id: str | None = None
     template_image_base64: str | None = None
     template_name: str | None = None
@@ -335,18 +337,29 @@ async def composite_custom_mockup_endpoint(
 
     # 2. Find true production master PNG (exclude all mockup assets)
     master_asset: Asset | None = None
-    jobs = await uow.production_jobs.list_for_workflow(payload.workflow_id)
-    if jobs:
-        latest_job = jobs[-1]
-        if latest_job.output_asset_id:
-            master_asset = await uow.assets.get(latest_job.output_asset_id)
+    if payload.master_asset_id:
+        candidate_asset = await uow.assets.get(payload.master_asset_id)
+        if candidate_asset and candidate_asset.workflow_id == payload.workflow_id:
+            master_asset = candidate_asset
+
+    if not master_asset:
+        jobs = await uow.production_jobs.list_for_workflow(payload.workflow_id)
+        if jobs:
+            # jobs is ordered by created_at DESC (newest first)
+            for job in jobs:
+                if job.output_asset_id:
+                    candidate = await uow.assets.get(job.output_asset_id)
+                    if candidate:
+                        master_asset = candidate
+                        break
 
     if not master_asset:
         assets = await uow.assets.list_for_workflow(payload.workflow_id)
+        sorted_assets = sorted(assets, key=lambda a: a.created_at or datetime.min, reverse=True)
         # Find master PNG with profile etsy-png-standard or storage_key ending in master.png
         master_asset = next(
             (
-                a for a in assets
+                a for a in sorted_assets
                 if (a.storage_key.endswith("/master.png") or (a.provenance and a.provenance.get("profile") == "etsy-png-standard"))
                 and "/mockups/" not in a.storage_key
                 and "mockup" not in a.storage_key
@@ -356,10 +369,11 @@ async def composite_custom_mockup_endpoint(
         )
 
     if not master_asset:
-        # Fallback to artwork candidate asset (strictly not a mockup)
+        # Fallback to newest artwork candidate asset (strictly not a mockup)
         assets = await uow.assets.list_for_workflow(payload.workflow_id)
+        sorted_assets = sorted(assets, key=lambda a: a.created_at or datetime.min, reverse=True)
         artwork_assets = [
-            a for a in assets
+            a for a in sorted_assets
             if a.artwork_job_id is not None
             and "/mockups/" not in a.storage_key
             and (not a.provenance or a.provenance.get("asset_type") != "mockup")

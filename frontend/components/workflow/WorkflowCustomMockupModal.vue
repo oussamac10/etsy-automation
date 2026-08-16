@@ -54,6 +54,7 @@ const props = defineProps<{
   workflowId: string;
   productType: string;
   masterImageUrl?: string | null;
+  masterAssetId?: string | null;
   editingAsset?: MockupAssetItem | null;
 }>();
 
@@ -638,6 +639,7 @@ async function handleComposite(): Promise<void> {
     const payload = {
       workflow_id: props.workflowId,
       product_type: props.productType,
+      master_asset_id: props.masterAssetId || undefined,
       template_id: activeSubTab.value === "library" ? selectedTemplateId.value : undefined,
       template_image_base64: templateBase64 || undefined,
       template_name: templateName.value || `${getMockupDisplayName(props.productType)} Mockup`,

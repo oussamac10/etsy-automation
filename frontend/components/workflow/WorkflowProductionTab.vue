@@ -1026,6 +1026,7 @@ async function handleRecompositeAllMockups(): Promise<void> {
       :workflow-id="workflow.id"
       :product-type="selectedMockupTab"
       :master-image-url="masterImageUrl"
+      :master-asset-id="latestProductionJob?.output_asset_id || latestProductionJob?.master_asset?.id"
       :editing-asset="editingMockupAsset"
       @mockup-created="handleCustomMockupCreated"
     />
