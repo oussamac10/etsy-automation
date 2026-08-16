@@ -419,8 +419,11 @@ async def composite_custom_mockup_endpoint(
     mockup_storage_key = f"production/{payload.workflow_id}/mockups/custom_{canonical_prod}_{mockup_id}.jpg"
     await storage.put(mockup_storage_key, composited_bytes, content_type="image/jpeg")
     mockup_url = await storage.signed_url(mockup_storage_key, expires_in_seconds=86400 * 7)
-
     mock_sha256 = hashlib.sha256(composited_bytes).hexdigest()
+    if mock_sha256:
+        sep = "&" if "?" in mockup_url else "?"
+        mockup_url = f"{mockup_url}{sep}v={mock_sha256[:10]}"
+
     provenance_data: dict[str, Any] = {
         "phase": 7,
         "asset_type": "mockup",

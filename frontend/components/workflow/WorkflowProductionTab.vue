@@ -507,10 +507,17 @@ async function handleRecompositeAllMockups(): Promise<void> {
     emit("mockupUpdated");
   } catch (err: unknown) {
     const errorObj = err as { data?: { detail?: string }; message?: string };
-    mockupActionError.value = errorObj.data?.detail || errorObj.message || "Failed to sync mockups with master PNG.";
   } finally {
     isRecompositingAll.value = false;
   }
+}
+
+function getMockupDisplayUrl(url: string | null | undefined, checksum?: string | null): string {
+  if (!url) return "";
+  if (url.includes("v=")) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  const v = checksum ? checksum.slice(0, 10) : Date.now();
+  return `${url}${sep}v=${v}`;
 }
 </script>
 
@@ -804,7 +811,7 @@ async function handleRecompositeAllMockups(): Promise<void> {
                       <!-- Thumbnail Area -->
                       <div class="aspect-square bg-zinc-50 overflow-hidden relative group flex items-center justify-center p-2 border-b border-zinc-100">
                         <img
-                          :src="mockup.url || ''"
+                          :src="getMockupDisplayUrl(mockup.url, mockup.checksum_sha256)"
                           :alt="mockup.provenance?.template_name || selectedMockupTab"
                           class="object-contain w-full h-full rounded-lg transition-transform duration-200 group-hover:scale-105"
                         >
@@ -1073,7 +1080,7 @@ async function handleRecompositeAllMockups(): Promise<void> {
         <div class="p-6 bg-zinc-100 flex items-center justify-center overflow-auto max-h-[75vh]">
           <img
             v-if="previewingAsset.url"
-            :src="previewingAsset.url"
+            :src="getMockupDisplayUrl(previewingAsset.url, previewingAsset.checksum_sha256)"
             :alt="previewingAsset.provenance?.template_name || 'Mockup Preview'"
             class="max-h-[70vh] object-contain rounded-xl shadow-lg border border-zinc-200 bg-white"
           >
