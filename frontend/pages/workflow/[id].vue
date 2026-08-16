@@ -691,10 +691,27 @@ const displayStageLabel = computed(() => {
   return stageLabel(workflow.value.state);
 });
 
+const wasProductionInFlight = ref(false);
+
 function startPolling(): void {
   stopPolling();
+  if (
+    latestProductionJob.value &&
+    (latestProductionJob.value.status === "QUEUED" || latestProductionJob.value.status === "RUNNING")
+  ) {
+    wasProductionInFlight.value = true;
+  }
   pollInterval = setInterval(async () => {
     await loadData(true);
+    // If a production job was in flight and has now completed, auto-refresh page for a 100% fresh render
+    if (wasProductionInFlight.value && latestProductionJob.value?.status === "SUCCEEDED") {
+      wasProductionInFlight.value = false;
+      stopPolling();
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+      return;
+    }
     if (!isWorkflowRunning.value) {
       stopPolling();
     }
@@ -710,6 +727,12 @@ function stopPolling(): void {
 
 onMounted(async () => {
   await loadData();
+  if (
+    latestProductionJob.value &&
+    (latestProductionJob.value.status === "QUEUED" || latestProductionJob.value.status === "RUNNING")
+  ) {
+    wasProductionInFlight.value = true;
+  }
   if (isWorkflowRunning.value) {
     startPolling();
   }
