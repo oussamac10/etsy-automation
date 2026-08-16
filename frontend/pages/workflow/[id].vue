@@ -205,7 +205,8 @@ const selectedCandidateId = ref<string | null>(null);
 
 const chosenCandidateId = computed(() => {
   if (latestProductionJob.value?.source_asset_id) return latestProductionJob.value.source_asset_id;
-  const firstAsset = artworkJobs.value[0]?.assets?.[0];
+  const jobWithAssets = artworkJobs.value.find((j) => j.assets && j.assets.length > 0);
+  const firstAsset = jobWithAssets?.assets?.[0];
   return firstAsset ? firstAsset.id : null;
 });
 
@@ -691,14 +692,24 @@ async function handleWorkflowControl(action: string, options?: Record<string, un
 const isWorkflowRunning = computed(() => {
   if (!workflow.value) return false;
   // 1. Check if production job is in flight
-  if (latestProductionJob.value && (latestProductionJob.value.status === "QUEUED" || latestProductionJob.value.status === "RUNNING")) {
+  if (
+    latestProductionJob.value &&
+    ["QUEUED", "RUNNING", "queued", "running"].includes(latestProductionJob.value.status)
+  ) {
     return true;
   }
   // 2. Check if any artwork generation or refinement job is in flight
-  if (artworkJobs.value.some((j) => j.status === "QUEUED" || j.status === "GENERATING" || j.status === "REFINING")) {
+  if (
+    artworkJobs.value.some((j) =>
+      ["QUEUED", "RUNNING", "GENERATING", "REFINING", "queued", "running", "generating", "refining"].includes(j.status)
+    )
+  ) {
     return true;
   }
-  if (workflow.value.state === "PRODUCTION" && latestProductionJob.value?.status === "SUCCEEDED") {
+  if (
+    workflow.value.state === "PRODUCTION" &&
+    latestProductionJob.value?.status?.toUpperCase() === "SUCCEEDED"
+  ) {
     return false;
   }
   return isRunning(workflow.value.state);
@@ -788,13 +799,13 @@ onBeforeUnmount(stopPolling);
 </script>
 
 <template>
-  <div class="min-h-screen bg-zinc-50/80 pb-16">
+  <div class="min-h-screen bg-background pb-16">
     <NavBar />
 
     <main id="main" class="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10 space-y-8">
       <!-- Loading State -->
-      <div v-if="isPageLoading" class="flex flex-col items-center justify-center py-28 text-zinc-400 gap-3">
-        <Icon name="lucide:loader-circle" class="size-8 animate-spin text-indigo-600" aria-hidden="true" />
+      <div v-if="isPageLoading" class="flex flex-col items-center justify-center py-28 text-muted-foreground gap-3">
+        <Icon name="lucide:loader-circle" class="size-8 animate-spin text-primary" aria-hidden="true" />
         <p class="text-sm font-medium">Fetching campaign details...</p>
       </div>
 

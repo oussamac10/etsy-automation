@@ -16,16 +16,18 @@ import ProductionQaCard from "~/components/workflow/production/ProductionQaCard.
 import MockupGallery from "~/components/workflow/production/MockupGallery.vue";
 import WorkflowCustomMockupModal, { type MockupAssetItem } from "~/components/workflow/WorkflowCustomMockupModal.vue";
 import DeleteConfirmModal from "~/components/ui/DeleteConfirmModal.vue";
-import { getProductLabel } from "~/utils/mockupProducts";
+import { getProductLabel, normalizeProductKey } from "~/utils/mockupProducts";
 
 interface DesignPrompt {
   id: string;
   exact_slogan: string | null;
+  intended_product_uses?: string[];
 }
 
 interface Concept {
   id: string;
   title: string;
+  intended_product_uses?: string[];
   prompts: DesignPrompt[];
 }
 
@@ -64,6 +66,13 @@ const activeMasterAssetId = computed(
   () => props.latestProductionJob?.output_asset_id || props.latestProductionJob?.master_asset?.id || null
 );
 
+const intendedProductList = computed<string[]>(() => {
+  const fromWorkflow = props.workflow?.intended_product_uses || [];
+  const fromConcept = props.approvedConcept?.prompts?.[0]?.intended_product_uses || [];
+  const combined = [...fromWorkflow, ...fromConcept];
+  return Array.from(new Set(combined.map(normalizeProductKey).filter(Boolean)));
+});
+
 const {
   localMockupAssets,
   selectedMockupTab,
@@ -72,7 +81,10 @@ const {
   currentTabMockups,
   syncMockupAssets,
   deleteMockup,
-} = useMockups(() => activeMasterAssetId.value);
+} = useMockups(
+  () => activeMasterAssetId.value,
+  () => intendedProductList.value,
+);
 
 const renderNonce = ref<number>(Date.now());
 const isActionLoading = ref(false);
@@ -294,14 +306,14 @@ async function handleMoveMockup(asset: MockupAsset, direction: "up" | "down"): P
 <template>
   <div class="space-y-6">
     <!-- Phase 7: PNG Production Pipeline Card -->
-    <Card class="shadow-2xs border-zinc-200">
-      <CardHeader class="pb-3 border-b border-zinc-100 bg-zinc-50/50">
+    <Card class="shadow-2xs border-border">
+      <CardHeader class="pb-3 border-b border-border bg-secondary/30">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <Icon name="lucide:file-image" class="size-5 text-indigo-600" aria-hidden="true" />
+            <Icon name="lucide:file-image" class="size-5 text-primary" aria-hidden="true" />
             <div>
               <CardTitle class="text-base font-bold">Phase 7: Print-Ready PNG Production & Realistic Mockups</CardTitle>
-              <CardDescription class="text-xs text-zinc-500">
+              <CardDescription class="text-xs text-muted-foreground">
                 Deterministic 4500×5400 px @ 300 DPI master PNG with transparency, safe trim, slogan typography, QA & multi-mockup gallery
               </CardDescription>
             </div>

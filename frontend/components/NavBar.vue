@@ -18,34 +18,34 @@ async function handleLogout() {
 
 <template>
   <header
-    class="sticky top-0 z-40 w-full border-b border-zinc-200/80 bg-white/85 backdrop-blur-md transition-all shadow-2xs"
+    class="sticky top-0 z-40 w-full border-b border-border bg-white/90 backdrop-blur-md transition-all shadow-2xs"
     role="banner"
   >
     <div class="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-3">
       <div class="flex items-center gap-8">
         <NuxtLink
           to="/"
-          class="flex items-center gap-2.5 text-base font-bold tracking-tight text-zinc-900 hover:text-indigo-600 transition-colors group"
+          class="flex items-center gap-2.5 text-base font-bold tracking-tight text-foreground hover:text-primary transition-colors group"
         >
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-2xs group-hover:bg-indigo-700 transition-colors">
-            <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white shadow-2xs group-hover:bg-primary-hover transition-colors">
+            <Icon name="lucide:store" class="size-4" aria-hidden="true" />
           </div>
-          <span>Etsy Automation</span>
+          <span>Marketplace Studio</span>
         </NuxtLink>
 
         <nav class="flex items-center gap-1" role="navigation" aria-label="Main Navigation">
           <NuxtLink
             to="/"
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-            active-class="bg-indigo-50 text-indigo-700 font-semibold"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            active-class="bg-blue-50 text-primary font-bold border border-blue-200"
           >
             <Icon name="lucide:layout-dashboard" class="size-3.5" aria-hidden="true" />
             <span>Dashboard</span>
           </NuxtLink>
           <NuxtLink
             to="/library"
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-            active-class="bg-indigo-50 text-indigo-700 font-semibold"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            active-class="bg-blue-50 text-primary font-bold border border-blue-200"
             data-testid="nav-library-link"
           >
             <Icon name="lucide:images" class="size-3.5" aria-hidden="true" />
@@ -53,8 +53,8 @@ async function handleLogout() {
           </NuxtLink>
           <NuxtLink
             to="/settings"
-            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-            active-class="bg-indigo-50 text-indigo-700 font-semibold"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            active-class="bg-blue-50 text-primary font-bold border border-blue-200"
             data-testid="nav-settings-link"
           >
             <Icon name="lucide:settings" class="size-3.5" aria-hidden="true" />
@@ -64,8 +64,8 @@ async function handleLogout() {
       </div>
 
       <div v-if="auth.user" class="flex items-center gap-3">
-        <div class="flex items-center gap-2 rounded-full border border-zinc-200/80 bg-zinc-50/80 px-3 py-1 text-xs text-zinc-600 shadow-2xs">
-          <Icon name="lucide:user" class="size-3.5 text-zinc-400" aria-hidden="true" />
+        <div class="flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1 text-xs text-secondary-foreground shadow-2xs">
+          <Icon name="lucide:user" class="size-3.5 text-muted-foreground" aria-hidden="true" />
           <span class="hidden sm:inline font-medium" data-testid="user-email">
             {{ auth.user.email }}
           </span>
@@ -74,7 +74,7 @@ async function handleLogout() {
           variant="outline"
           size="sm"
           data-testid="logout-btn"
-          class="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-rose-600 transition-colors cursor-pointer"
+          class="h-8 gap-1.5 px-2.5 text-xs font-medium text-secondary-foreground hover:bg-secondary hover:text-destructive transition-colors cursor-pointer"
           @click="handleLogout"
         >
           <Icon name="lucide:log-out" class="size-3.5" aria-hidden="true" />

@@ -28,11 +28,12 @@ export interface MockupAssetItem {
     phase?: number;
     asset_type?: string;
     product_type?: string;
-    template_id?: string;
-    template_name?: string;
+    template_id?: string | null;
+    template_name?: string | null;
     is_cover?: boolean;
     listing_order?: number;
     placement?: MockupPlacement;
+    [key: string]: any;
   };
 }
 
@@ -325,25 +326,25 @@ async function handleGenerateMockup(): Promise<void> {
 
 <template>
   <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-    <div class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-zinc-200 flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+    <div class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-border flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
       <!-- Modal Header -->
-      <div class="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+      <div class="px-6 py-4 border-b border-border flex items-center justify-between bg-secondary/30">
         <div class="flex items-center gap-3">
-          <div class="size-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200/60 flex items-center justify-center shadow-2xs">
+          <div class="size-9 rounded-xl bg-secondary text-primary border border-border flex items-center justify-center shadow-2xs">
             <Icon :name="getProductIconName(productType)" class="size-4.5" aria-hidden="true" />
           </div>
           <div>
-            <h3 class="text-sm font-bold text-zinc-900 leading-tight">
+            <h3 class="text-sm font-bold text-foreground leading-tight">
               {{ editingAsset ? `Edit ${getProductLabel(productType)} Mockup` : `Add ${getProductLabel(productType)} Mockup` }}
             </h3>
-            <p class="text-xs text-zinc-500">
+            <p class="text-xs text-muted-foreground">
               Position and blend your master transparent PNG onto realistic product photography
             </p>
           </div>
         </div>
         <button
           type="button"
-          class="h-8 w-8 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 flex items-center justify-center transition-colors cursor-pointer"
+          class="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors cursor-pointer"
           @click="emit('close')"
         >
           <Icon name="lucide:x" class="size-4" aria-hidden="true" />
@@ -351,17 +352,17 @@ async function handleGenerateMockup(): Promise<void> {
       </div>
 
       <!-- Mode Selector Tabs (Library vs Upload New) -->
-      <div class="px-6 pt-3 pb-2 border-b border-zinc-100 flex items-center justify-between bg-white">
+      <div class="px-6 pt-3 pb-2 border-b border-border flex items-center justify-between bg-white">
         <div class="flex items-center gap-2">
           <button
             type="button"
             class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            :class="activeSubTab === 'library' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/70'"
+            :class="activeSubTab === 'library' ? 'bg-primary text-white shadow-2xs' : 'bg-secondary text-secondary-foreground hover:bg-slate-200'"
             @click="activeSubTab = 'library'"
           >
             <Icon name="lucide:folder" class="size-3.5" aria-hidden="true" />
             <span>From Library</span>
-            <span class="text-[10px] px-1.5 py-0.2 rounded-full" :class="activeSubTab === 'library' ? 'bg-indigo-800 text-white' : 'bg-zinc-200 text-zinc-700'">
+            <span class="text-[10px] px-1.5 py-0.2 rounded-full" :class="activeSubTab === 'library' ? 'bg-blue-700 text-white' : 'bg-white text-secondary-foreground border border-border'">
               {{ templates.length }}
             </span>
           </button>
@@ -369,7 +370,7 @@ async function handleGenerateMockup(): Promise<void> {
           <button
             type="button"
             class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            :class="activeSubTab === 'upload' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/70'"
+            :class="activeSubTab === 'upload' ? 'bg-primary text-white shadow-2xs' : 'bg-secondary text-secondary-foreground hover:bg-slate-200'"
             @click="activeSubTab = 'upload'"
           >
             <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
@@ -378,11 +379,11 @@ async function handleGenerateMockup(): Promise<void> {
         </div>
 
         <!-- View Mode Segment (Edit vs Preview) -->
-        <div v-if="activeTemplateImageUrl" class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg text-xs">
+        <div v-if="activeTemplateImageUrl" class="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border text-xs">
           <button
             type="button"
             class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer"
-            :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-2xs font-bold' : 'text-zinc-500 hover:text-zinc-900'"
+            :class="canvasViewMode === 'edit' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
             @click="canvasViewMode = 'edit'"
           >
             Edit Box
@@ -390,10 +391,10 @@ async function handleGenerateMockup(): Promise<void> {
           <button
             type="button"
             class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer"
-            :class="canvasViewMode === 'preview' ? 'bg-white text-zinc-900 shadow-2xs font-bold' : 'text-zinc-500 hover:text-zinc-900'"
+            :class="canvasViewMode === 'preview' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
             @click="canvasViewMode = 'preview'"
           >
-            Preview Clean
+            Clean Preview
           </button>
         </div>
       </div>
@@ -422,7 +423,7 @@ async function handleGenerateMockup(): Promise<void> {
         <!-- Normal Studio Workspace (when not cropping) -->
         <template v-else>
           <!-- Template Selector Section (Max 3 + Show More) -->
-          <div v-if="activeSubTab === 'library'" class="pb-2 border-b border-zinc-100">
+          <div v-if="activeSubTab === 'library'" class="pb-2 border-b border-border">
             <MockupTemplatePicker
               :templates="templates"
               :selected-template-id="selectedTemplateId"
@@ -451,11 +452,11 @@ async function handleGenerateMockup(): Promise<void> {
             <!-- Left Column: Interactive Placement Canvas -->
             <div class="md:col-span-6 space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-zinc-800 flex items-center gap-1.5">
-                  <Icon name="lucide:monitor" class="size-3.5 text-indigo-600" aria-hidden="true" />
+                <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Icon name="lucide:monitor" class="size-3.5 text-primary" aria-hidden="true" />
                   <span>Placement Canvas Viewport</span>
                 </span>
-                <span class="text-[10px] text-zinc-400 font-mono">1:1 Aspect Frame</span>
+                <span class="text-[10px] text-muted-foreground font-mono">1:1 Aspect Frame</span>
               </div>
 
               <MockupPlacementCanvas
@@ -475,7 +476,7 @@ async function handleGenerateMockup(): Promise<void> {
                 @update:angle-deg="(v) => angleDeg = v"
               />
 
-              <p class="text-[11px] text-zinc-400 text-center">
+              <p class="text-[11px] text-muted-foreground text-center">
                 💡 Drag the bounding box to move · Drag bottom-right corner to resize
               </p>
             </div>
@@ -513,7 +514,7 @@ async function handleGenerateMockup(): Promise<void> {
       </div>
 
       <!-- Modal Footer (Hidden while in inline cropper view) -->
-      <div v-if="!isCroppingMode" class="px-6 py-3 border-t border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+      <div v-if="!isCroppingMode" class="px-6 py-3 border-t border-border flex items-center justify-between bg-secondary/30">
         <Button
           variant="outline"
           size="sm"
@@ -527,7 +528,7 @@ async function handleGenerateMockup(): Promise<void> {
         <Button
           variant="default"
           size="sm"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-2 shadow-xs cursor-pointer inline-flex items-center"
+          class="font-bold gap-2 shadow-xs cursor-pointer inline-flex items-center"
           :disabled="isCompositing || !activeTemplateImageUrl"
           @click="handleGenerateMockup"
         >

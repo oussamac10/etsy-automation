@@ -38,7 +38,7 @@ function handleDrop(event: DragEvent): void {
     <div
       v-if="!hasFile"
       class="border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3"
-      :class="isDragging ? 'border-indigo-500 bg-indigo-50/50 scale-[0.99]' : 'border-zinc-300 hover:border-indigo-400 bg-zinc-50/50 hover:bg-indigo-50/20'"
+      :class="isDragging ? 'border-primary bg-secondary/80 scale-[0.99]' : 'border-border hover:border-primary/60 bg-secondary/30 hover:bg-secondary/60'"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
       @drop.prevent="handleDrop"
@@ -51,30 +51,30 @@ function handleDrop(event: DragEvent): void {
         class="hidden"
         @change="handleFileChange"
       >
-      <div class="h-12 w-12 rounded-full bg-indigo-100/80 text-indigo-600 flex items-center justify-center shadow-xs">
+      <div class="h-12 w-12 rounded-full bg-secondary border border-border text-primary flex items-center justify-center shadow-xs">
         <Icon name="lucide:upload-cloud" class="size-6" aria-hidden="true" />
       </div>
       <div class="space-y-1">
-        <p class="text-sm font-bold text-zinc-800">
+        <p class="text-sm font-bold text-foreground">
           Click to upload or drag & drop {{ productLabel }} photo
         </p>
-        <p class="text-xs text-zinc-500">
+        <p class="text-xs text-muted-foreground">
           Supports JPEG, PNG, WEBP (up to 40 MB). High resolution recommended.
         </p>
       </div>
     </div>
 
     <!-- Uploaded File Header -->
-    <div v-else class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200">
+    <div v-else class="flex items-center justify-between p-3 rounded-xl bg-secondary/40 border border-border">
       <div class="flex items-center gap-2 truncate">
-        <Icon name="lucide:image" class="size-4 text-indigo-600 shrink-0" aria-hidden="true" />
-        <span class="text-xs font-bold text-zinc-900 truncate">{{ fileName || 'Uploaded Photo' }}</span>
+        <Icon name="lucide:image" class="size-4 text-primary shrink-0" aria-hidden="true" />
+        <span class="text-xs font-bold text-foreground truncate">{{ fileName || 'Uploaded Photo' }}</span>
       </div>
       <div class="flex items-center gap-2">
         <Button
           variant="outline"
           size="sm"
-          class="text-xs h-7 px-2 cursor-pointer inline-flex items-center gap-1 text-indigo-700 bg-indigo-50/60 border-indigo-200 hover:bg-indigo-100/80"
+          class="text-xs h-7 px-2 cursor-pointer inline-flex items-center gap-1 text-primary bg-blue-50 border border-blue-200 hover:bg-blue-100"
           @click="emit('openCrop')"
         >
           <Icon name="lucide:crop" class="size-3" aria-hidden="true" />

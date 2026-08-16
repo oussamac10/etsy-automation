@@ -15,13 +15,13 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const classes = computed(() =>
-  cn("text-xs font-semibold uppercase tracking-wider text-zinc-600 select-none", props.class)
+  cn("text-xs font-semibold uppercase tracking-wider text-secondary-foreground select-none", props.class)
 );
 </script>
 
 <template>
   <label :for="props.for" :class="classes">
     <slot />
-    <span v-if="required" class="text-rose-500 ml-0.5">*</span>
+    <span v-if="required" class="text-destructive ml-0.5">*</span>
   </label>
 </template>

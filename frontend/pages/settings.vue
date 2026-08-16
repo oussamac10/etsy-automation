@@ -239,18 +239,18 @@ onBeforeUnmount(stopCountdown);
 </script>
 
 <template>
-  <div class="min-h-screen bg-zinc-50/80 pb-16">
+  <div class="min-h-screen bg-background pb-16">
     <NavBar />
 
     <main id="main" class="mx-auto max-w-5xl px-4 sm:px-6 py-10 space-y-8">
       <!-- Page Header -->
-      <header class="flex flex-col gap-1 border-b border-zinc-200/80 pb-6">
-        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
+      <header class="flex flex-col gap-1 border-b border-border pb-6">
+        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
           <Icon name="lucide:shield-check" class="size-4" aria-hidden="true" />
           <span>Security & Integrations</span>
         </div>
-        <h1 class="text-3xl font-bold tracking-tight text-zinc-900">Owner Settings</h1>
-        <p class="text-sm text-zinc-500 max-w-2xl">
+        <h1 class="text-3xl font-bold tracking-tight text-foreground">Owner Settings</h1>
+        <p class="text-sm text-muted-foreground max-w-2xl">
           Manage API connection credentials, encryption keys, and active Telegram remote control pairings.
         </p>
       </header>
@@ -260,7 +260,7 @@ onBeforeUnmount(stopCountdown);
         <CardHeader class="pb-4">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary border border-border">
                 <Icon name="lucide:bot" class="size-5" aria-hidden="true" />
               </div>
               <div>
@@ -274,7 +274,7 @@ onBeforeUnmount(stopCountdown);
               <Icon name="lucide:circle-check" class="size-3" aria-hidden="true" />
               <span>Paired</span>
             </Badge>
-            <Badge v-else variant="secondary" class="gap-1 px-3 py-1 text-zinc-600 inline-flex items-center">
+            <Badge v-else variant="secondary" class="gap-1 px-3 py-1 inline-flex items-center">
               <Icon name="lucide:clock-3" class="size-3" aria-hidden="true" />
               <span>Unpaired</span>
             </Badge>
@@ -282,8 +282,8 @@ onBeforeUnmount(stopCountdown);
         </CardHeader>
 
         <CardContent class="pt-2">
-          <div v-if="isTelegramLoading" class="text-zinc-500 text-sm animate-pulse py-4 flex items-center gap-2" data-testid="telegram-loading">
-            <Icon name="lucide:loader-circle" class="size-4 animate-spin text-indigo-600" aria-hidden="true" />
+          <div v-if="isTelegramLoading" class="text-muted-foreground text-sm animate-pulse py-4 flex items-center gap-2" data-testid="telegram-loading">
+            <Icon name="lucide:loader-circle" class="size-4 animate-spin text-primary" aria-hidden="true" />
             <span>Updating Telegram settings...</span>
           </div>
 
@@ -310,7 +310,7 @@ onBeforeUnmount(stopCountdown);
                   <Icon name="lucide:circle-check" class="size-5" aria-hidden="true" />
                 </div>
                 <div>
-                  <div class="flex items-center gap-2 text-emerald-900 font-semibold text-sm">
+                  <div class="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
                     Connected to Telegram
                   </div>
                   <p v-if="telegramStatus.telegram_username" class="text-xs text-emerald-700 font-medium" data-testid="telegram-username">
@@ -322,7 +322,7 @@ onBeforeUnmount(stopCountdown);
                 variant="outline"
                 size="sm"
                 data-testid="disconnect-btn"
-                class="gap-1.5 border-emerald-200 bg-white text-emerald-800 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                class="gap-1.5 border-emerald-200 bg-white text-emerald-700 hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                 @click="disconnectTelegram"
               >
                 <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -332,14 +332,14 @@ onBeforeUnmount(stopCountdown);
 
             <!-- Case 2: Unpaired -->
             <div v-else class="space-y-4" data-testid="telegram-unpaired-container">
-              <div class="rounded-xl bg-zinc-50 border border-zinc-200/80 p-4 text-xs text-zinc-600 space-y-2">
-                <div class="flex items-center gap-1.5 font-semibold text-zinc-800 text-sm">
-                  <Icon name="lucide:help-circle" class="size-4 text-indigo-600" aria-hidden="true" />
+              <div class="rounded-xl bg-secondary/40 border border-border p-4 text-xs text-secondary-foreground space-y-2">
+                <div class="flex items-center gap-1.5 font-semibold text-foreground text-sm">
+                  <Icon name="lucide:help-circle" class="size-4 text-primary" aria-hidden="true" />
                   <span>Setup Instructions:</span>
                 </div>
-                <ol class="list-decimal pl-5 space-y-1 text-zinc-600 leading-relaxed">
-                  <li>Open Telegram and search for the bot (e.g. <code class="bg-white px-1.5 py-0.5 rounded border border-zinc-200 text-indigo-700 font-mono font-semibold">@EtsyAutomationBot</code>).</li>
-                  <li>Click <b>Start</b> or send <code class="bg-white px-1.5 py-0.5 rounded border border-zinc-200 font-mono">/start</code>.</li>
+                <ol class="list-decimal pl-5 space-y-1 text-secondary-foreground leading-relaxed">
+                  <li>Open Telegram and search for the bot (e.g. <code class="bg-white px-1.5 py-0.5 rounded border border-border text-primary font-mono font-semibold">@MarketplaceStudioBot</code>).</li>
+                  <li>Click <b>Start</b> or send <code class="bg-white px-1.5 py-0.5 rounded border border-border font-mono">/start</code>.</li>
                   <li>Generate a pairing code below and send it to the bot within 10 minutes.</li>
                 </ol>
               </div>
@@ -347,18 +347,18 @@ onBeforeUnmount(stopCountdown);
               <!-- Active Code display -->
               <div
                 v-if="activePairingCode"
-                class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-indigo-200 bg-indigo-50/40 rounded-xl"
+                class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-xl"
               >
-                <span class="text-xs text-indigo-600 uppercase tracking-widest font-bold mb-1">Active Pairing Code</span>
+                <span class="text-xs text-primary uppercase tracking-widest font-bold mb-1">Active Pairing Code</span>
                 <div
-                  class="text-4xl font-mono font-extrabold tracking-widest text-zinc-900 select-all my-2 px-4 py-1.5 bg-white rounded-lg border border-indigo-200 shadow-2xs"
+                  class="text-4xl font-mono font-extrabold tracking-widest text-foreground select-all my-2 px-4 py-1.5 bg-white rounded-lg border border-border shadow-2xs"
                   data-testid="pairing-code"
                 >
                   {{ activePairingCode.slice(0, 3) }} {{ activePairingCode.slice(3) }}
                 </div>
-                <div class="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 mt-1" data-testid="pairing-code-countdown">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mt-1" data-testid="pairing-code-countdown">
                   <Icon name="lucide:clock-3" class="size-3.5 text-amber-600" aria-hidden="true" />
-                  <span class="text-amber-700 font-mono">{{ countdownText }}</span>
+                  <span class="text-amber-600 font-mono">{{ countdownText }}</span>
                 </div>
               </div>
 
@@ -383,7 +383,7 @@ onBeforeUnmount(stopCountdown);
       <Card class="shadow-2xs">
         <CardHeader class="pb-4">
           <div class="flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary border border-border">
               <Icon name="lucide:key-round" class="size-5" aria-hidden="true" />
             </div>
             <div>
@@ -396,8 +396,8 @@ onBeforeUnmount(stopCountdown);
         </CardHeader>
 
         <CardContent class="pt-2">
-          <div v-if="isCredentialsLoading" class="text-zinc-500 text-sm animate-pulse py-4 flex items-center gap-2">
-            <Icon name="lucide:loader-circle" class="size-4 animate-spin text-indigo-600" aria-hidden="true" />
+          <div v-if="isCredentialsLoading" class="text-muted-foreground text-sm animate-pulse py-4 flex items-center gap-2">
+            <Icon name="lucide:loader-circle" class="size-4 animate-spin text-primary" aria-hidden="true" />
             <span>Loading credentials status...</span>
           </div>
 
@@ -406,7 +406,7 @@ onBeforeUnmount(stopCountdown);
             <AlertDescription>{{ credentialsError }}</AlertDescription>
           </Alert>
 
-          <div v-else class="divide-y divide-zinc-100">
+          <div v-else class="divide-y divide-border">
             <div
               v-for="cred in credentialsList"
               :key="cred.provider"
@@ -416,7 +416,7 @@ onBeforeUnmount(stopCountdown);
                 <!-- Provider info -->
                 <div class="space-y-1">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm font-bold capitalize text-zinc-900">{{ cred.provider }}</span>
+                    <span class="text-sm font-bold capitalize text-foreground">{{ cred.provider }}</span>
                     <Badge v-if="cred.configured" variant="success" class="text-[11px] px-2 py-0">
                       Configured ({{ cred.masked_value }})
                     </Badge>
@@ -424,7 +424,7 @@ onBeforeUnmount(stopCountdown);
                       Not Configured
                     </Badge>
                   </div>
-                  <p v-if="cred.updated_at" class="text-xs text-zinc-400">
+                  <p v-if="cred.updated_at" class="text-xs text-muted-foreground">
                     Last updated: {{ new Date(cred.updated_at).toLocaleString() }}
                   </p>
                 </div>
@@ -453,7 +453,7 @@ onBeforeUnmount(stopCountdown);
                     <Button
                       variant="outline"
                       size="sm"
-                      class="h-8 gap-1.5 text-xs text-zinc-600 border-zinc-200 bg-white hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                      class="h-8 gap-1.5 text-xs text-secondary-foreground border-border bg-white hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                       @click="removeCredential(cred.provider)"
                     >
                       <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />

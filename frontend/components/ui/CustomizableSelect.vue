@@ -213,24 +213,24 @@ onBeforeUnmount(() => {
     <div
       v-if="isMulti"
       :id="id"
-      class="min-h-9 w-full rounded-md border border-zinc-200 bg-white px-2 py-1.5 shadow-2xs transition-colors focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 flex flex-wrap items-center gap-1.5 cursor-pointer"
+      class="min-h-9 w-full rounded-lg border border-border bg-white px-2 py-1.5 shadow-2xs transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 flex flex-wrap items-center gap-1.5 cursor-pointer"
       @click="isOpen = true"
     >
       <span
         v-for="item in (Array.isArray(modelValue) ? modelValue : [])"
         :key="item"
-        class="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-800 shadow-3xs hover:bg-zinc-200/80 transition-colors"
+        class="inline-flex items-center gap-1.5 rounded-md bg-secondary border border-border px-2 py-0.5 text-[11px] font-medium text-foreground shadow-3xs hover:bg-slate-200 transition-colors"
       >
         <Icon
           v-if="isIconifyName(getOptionInfo(item).icon)"
           :name="getOptionInfo(item).icon!"
-          class="size-3 text-zinc-500 shrink-0"
+          class="size-3 text-muted-foreground shrink-0"
           aria-hidden="true"
         />
         <span>{{ getOptionInfo(item).label }}</span>
         <button
           type="button"
-          class="ml-0.5 rounded text-zinc-400 hover:text-zinc-700 focus:outline-hidden cursor-pointer"
+          class="ml-0.5 rounded text-muted-foreground hover:text-foreground focus:outline-hidden cursor-pointer"
           aria-label="Remove item"
           @click.stop="removeMultiItem(item)"
         >
@@ -242,27 +242,27 @@ onBeforeUnmount(() => {
         v-model="searchQuery"
         type="text"
         :placeholder="(!modelValue || modelValue.length === 0) ? placeholder : ''"
-        class="flex-1 min-w-[60px] bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden h-6"
+        class="flex-1 min-w-[60px] bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden h-6"
         @focus="isOpen = true"
         @keydown.enter.prevent="addCustomItem"
         @keydown.esc="isOpen = false"
       >
 
-      <Icon name="lucide:chevron-down" class="size-3.5 text-zinc-400 transition-transform ml-auto shrink-0" :class="{ 'rotate-180': isOpen }" aria-hidden="true" />
+      <Icon name="lucide:chevron-down" class="size-3.5 text-muted-foreground transition-transform ml-auto shrink-0" :class="{ 'rotate-180': isOpen }" aria-hidden="true" />
     </div>
 
     <!-- Trigger for Single Select -->
     <div
       v-else
       :id="id"
-      class="h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs shadow-2xs transition-colors focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 flex items-center justify-between gap-2 cursor-pointer"
+      class="h-9 w-full rounded-lg border border-border bg-white px-2.5 py-1 text-xs shadow-2xs transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 flex items-center justify-between gap-2 cursor-pointer"
       @click="isOpen = true"
     >
-      <div v-if="!isOpen && modelValue" class="flex items-center gap-1.5 truncate text-zinc-900 font-medium">
+      <div v-if="!isOpen && modelValue" class="flex items-center gap-1.5 truncate text-foreground font-medium">
         <Icon
           v-if="isIconifyName(getOptionInfo(String(modelValue)).icon)"
           :name="getOptionInfo(String(modelValue)).icon!"
-          class="size-3.5 text-zinc-500 shrink-0"
+          class="size-3.5 text-muted-foreground shrink-0"
           aria-hidden="true"
         />
         <span class="truncate">{{ getOptionInfo(String(modelValue)).label }}</span>
@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
         v-model="searchQuery"
         type="text"
         :placeholder="modelValue ? getOptionInfo(String(modelValue)).label : placeholder"
-        class="w-full bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden h-6"
+        class="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden h-6"
         @focus="isOpen = true"
         @keydown.enter.prevent="addCustomItem"
         @keydown.esc="isOpen = false"
@@ -283,13 +283,13 @@ onBeforeUnmount(() => {
         <button
           v-if="modelValue && !isOpen"
           type="button"
-          class="rounded p-0.5 text-zinc-400 hover:text-zinc-700 focus:outline-hidden cursor-pointer"
+          class="rounded p-0.5 text-muted-foreground hover:text-foreground focus:outline-hidden cursor-pointer"
           aria-label="Clear selection"
           @click.stop="clearSingle"
         >
           <Icon name="lucide:x" class="size-3" aria-hidden="true" />
         </button>
-        <Icon name="lucide:chevron-down" class="size-3.5 text-zinc-400 transition-transform" :class="{ 'rotate-180': isOpen }" aria-hidden="true" />
+        <Icon name="lucide:chevron-down" class="size-3.5 text-muted-foreground transition-transform" :class="{ 'rotate-180': isOpen }" aria-hidden="true" />
       </div>
     </div>
 
@@ -304,48 +304,48 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="isOpen"
-        class="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-zinc-200 bg-white p-1.5 shadow-lg space-y-0.5 text-zinc-800"
+        class="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-white p-1.5 shadow-lg space-y-0.5 text-foreground"
       >
-        <div class="flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+        <div class="flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           <span>Suggestions</span>
-          <span v-if="storageKey" class="text-[9px] lowercase font-normal text-zinc-400">auto-saved</span>
+          <span v-if="storageKey" class="text-[9px] lowercase font-normal text-muted-foreground">auto-saved</span>
         </div>
 
         <button
           v-for="opt in filteredOptions"
           :key="opt.value"
           type="button"
-          class="group flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors hover:bg-zinc-100 cursor-pointer"
-          :class="{ 'bg-indigo-50/80 font-medium text-indigo-900': isSelected(opt.value) }"
+          class="group flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors hover:bg-secondary cursor-pointer"
+          :class="{ 'bg-secondary font-semibold text-foreground': isSelected(opt.value) }"
           @click="selectOption(opt.value)"
         >
           <div class="flex items-center gap-2 truncate">
             <Icon
               v-if="isIconifyName(opt.icon)"
               :name="opt.icon!"
-              class="size-3.5 text-zinc-500 shrink-0"
+              class="size-3.5 text-muted-foreground shrink-0"
               aria-hidden="true"
             />
             <span class="truncate">{{ opt.label }}</span>
-            <span v-if="opt.isCustom" class="text-[9px] px-1 py-0.2 rounded bg-indigo-100 text-indigo-700 font-mono">custom</span>
+            <span v-if="opt.isCustom" class="text-[9px] px-1 py-0.2 rounded bg-secondary text-primary border border-border font-mono">custom</span>
           </div>
 
           <div class="flex items-center gap-1 shrink-0">
             <button
               v-if="allowCustom && opt.isCustom && storageKey"
               type="button"
-              class="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-rose-600 transition-opacity cursor-pointer"
+              class="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-destructive transition-opacity cursor-pointer"
               aria-label="Remove custom option"
               title="Remove custom option"
               @click="deleteCustomOption(opt.value, $event)"
             >
               <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
             </button>
-            <Icon v-if="isSelected(opt.value)" name="lucide:check" class="size-3.5 text-indigo-600 font-bold" aria-hidden="true" />
+            <Icon v-if="isSelected(opt.value)" name="lucide:check" class="size-3.5 text-primary font-bold" aria-hidden="true" />
           </div>
         </button>
 
-        <div v-if="filteredOptions.length === 0 && !isCustomQueryNew" class="px-3 py-3 text-xs text-zinc-400 text-center">
+        <div v-if="filteredOptions.length === 0 && !isCustomQueryNew" class="px-3 py-3 text-xs text-muted-foreground text-center">
           No matching options found
         </div>
 
@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
         <button
           v-if="allowCustom && isCustomQueryNew"
           type="button"
-          class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 font-semibold border-t border-zinc-100 mt-1 cursor-pointer"
+          class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-primary hover:bg-secondary font-semibold border-t border-border mt-1 cursor-pointer"
           @click="addCustomItem"
         >
           <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />

@@ -17,28 +17,28 @@ const presentation = computed(() => {
         label: "Healthy",
         icon: "lucide:circle-check",
         classes: "text-emerald-700 bg-emerald-50 border-emerald-200 shadow-2xs",
-        dotColor: "bg-emerald-500",
+        dotColor: "bg-emerald-600",
       };
     case "degraded":
       return {
         label: "Degraded",
         icon: "lucide:triangle-alert",
         classes: "text-amber-700 bg-amber-50 border-amber-200 shadow-2xs",
-        dotColor: "bg-amber-500",
+        dotColor: "bg-amber-600",
       };
     case "down":
       return {
         label: "Unavailable",
         icon: "lucide:circle-x",
-        classes: "text-rose-700 bg-rose-50 border-rose-200 shadow-2xs",
-        dotColor: "bg-rose-500",
+        classes: "text-red-700 bg-red-50 border-red-200 shadow-2xs",
+        dotColor: "bg-red-600",
       };
     default:
       return {
         label: "Unknown",
         icon: "lucide:help-circle",
-        classes: "text-zinc-700 bg-zinc-50 border-zinc-200 shadow-2xs",
-        dotColor: "bg-zinc-400",
+        classes: "text-secondary-foreground bg-secondary border-border shadow-2xs",
+        dotColor: "bg-muted-foreground",
       };
   }
 });

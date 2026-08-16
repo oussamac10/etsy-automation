@@ -34,14 +34,14 @@ const remainingCount = computed(() => Math.max(0, props.templates.length - 3));
     <!-- Template Thumbnails Strip -->
     <div v-if="templates.length > 0" class="space-y-1.5">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-bold text-zinc-700 flex items-center gap-1.5">
-          <Icon name="lucide:layout-grid" class="size-3.5 text-indigo-600" aria-hidden="true" />
+        <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
+          <Icon name="lucide:layout-grid" class="size-3.5 text-primary" aria-hidden="true" />
           <span>{{ productLabel }} Blank Templates ({{ templates.length }})</span>
         </span>
         <button
           v-if="templates.length > 3"
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-700 font-semibold inline-flex items-center gap-1 cursor-pointer"
+          class="text-xs text-primary hover:text-primary-hover font-semibold inline-flex items-center gap-1 cursor-pointer"
           @click="showAll = !showAll"
         >
           <span>{{ showAll ? 'Collapse' : `+ ${remainingCount} More` }}</span>
@@ -58,13 +58,13 @@ const remainingCount = computed(() => Math.max(0, props.templates.length - 3));
           class="group relative flex items-center gap-2.5 p-1.5 pr-3 rounded-xl border-2 transition-all cursor-pointer text-left bg-white shadow-2xs hover:shadow-xs"
           :class="
             selectedTemplateId === tpl.id
-              ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/40'
-              : 'border-zinc-200 hover:border-zinc-300'
+              ? 'border-primary ring-2 ring-primary/20 bg-blue-50/40'
+              : 'border-border hover:border-primary/40'
           "
           @click="emit('select', tpl)"
         >
           <!-- Compact Thumbnail -->
-          <div class="size-11 rounded-lg bg-zinc-100 overflow-hidden relative shrink-0 border border-zinc-200/60 shadow-2xs">
+          <div class="size-11 rounded-lg bg-secondary/50 overflow-hidden relative shrink-0 border border-border shadow-2xs">
             <img
               :src="tpl.url || tpl.preview_url"
               :alt="tpl.name"
@@ -72,9 +72,9 @@ const remainingCount = computed(() => Math.max(0, props.templates.length - 3));
             >
             <div
               v-if="selectedTemplateId === tpl.id"
-              class="absolute inset-0 bg-indigo-600/40 backdrop-blur-[0.5px] flex items-center justify-center"
+              class="absolute inset-0 bg-primary/40 backdrop-blur-[0.5px] flex items-center justify-center"
             >
-              <div class="size-4 rounded-full bg-white text-indigo-700 flex items-center justify-center shadow-xs">
+              <div class="size-4 rounded-full bg-white text-primary flex items-center justify-center shadow-xs">
                 <Icon name="lucide:check" class="size-2.5 stroke-[3]" />
               </div>
             </div>
@@ -82,10 +82,10 @@ const remainingCount = computed(() => Math.max(0, props.templates.length - 3));
 
           <!-- Template Name & Details -->
           <div class="max-w-[130px] sm:max-w-[160px] truncate">
-            <span class="text-xs font-bold text-zinc-900 truncate block leading-tight">
+            <span class="text-xs font-bold text-foreground truncate block leading-tight">
               {{ tpl.name }}
             </span>
-            <span class="text-[10px] text-zinc-400 font-medium capitalize">
+            <span class="text-[10px] text-muted-foreground font-medium capitalize">
               {{ tpl.placement?.blend_mode || 'multiply' }} blend
             </span>
           </div>
@@ -95,23 +95,23 @@ const remainingCount = computed(() => Math.max(0, props.templates.length - 3));
         <button
           v-if="!showAll && remainingCount > 0"
           type="button"
-          class="h-[52px] px-3.5 rounded-xl border-2 border-dashed border-zinc-300 hover:border-indigo-400 hover:bg-indigo-50/50 text-zinc-600 hover:text-indigo-600 flex items-center gap-1.5 transition-all cursor-pointer text-xs font-bold"
+          class="h-[52px] px-3.5 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-slate-100 text-secondary-foreground hover:text-primary flex items-center gap-1.5 transition-all cursor-pointer text-xs font-bold"
           @click="showAll = true"
         >
-          <Icon name="lucide:plus" class="size-3.5 text-indigo-600" aria-hidden="true" />
+          <Icon name="lucide:plus" class="size-3.5 text-primary" aria-hidden="true" />
           <span>{{ remainingCount }} More</span>
         </button>
       </div>
     </div>
 
     <!-- Empty Template Library State -->
-    <div v-else-if="!isFetchingTemplates" class="py-4 px-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 text-center space-y-1.5">
-      <div class="size-7 rounded-full bg-zinc-100 flex items-center justify-center mx-auto text-zinc-400">
+    <div v-else-if="!isFetchingTemplates" class="py-4 px-4 rounded-xl border border-dashed border-border bg-slate-50 text-center space-y-1.5">
+      <div class="size-7 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-muted-foreground">
         <Icon name="lucide:folder-open" class="size-3.5" aria-hidden="true" />
       </div>
       <div class="space-y-0.5">
-        <h5 class="text-xs font-bold text-zinc-800">No saved templates for {{ productLabel }}</h5>
-        <p class="text-[10px] text-zinc-500">Upload a blank photo to customize print placement.</p>
+        <h5 class="text-xs font-bold text-foreground">No saved templates for {{ productLabel }}</h5>
+        <p class="text-[10px] text-muted-foreground">Upload a blank photo to customize print placement.</p>
       </div>
       <Button
         variant="outline"

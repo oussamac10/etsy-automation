@@ -40,7 +40,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: "Etsy PNG Automation",
+      title: "Marketplace Studio",
       htmlAttrs: { lang: "en" },
       meta: [
         { charset: "utf-8" },
@@ -48,7 +48,7 @@ export default defineNuxtConfig({
         {
           name: "description",
           content:
-            "Prepare original PNG products for Etsy: research, artwork, production and draft listings with human approval at every gate.",
+            "Autonomous research-to-draft digital product studio with human approval at every gate.",
         },
       ],
     },

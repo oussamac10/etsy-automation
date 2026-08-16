@@ -339,7 +339,7 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
     expect(oldTshirtImg).toBeUndefined();
   });
 
-  it("renders only active user-selected mockup tabs and excludes zero-count unselected intended products", async () => {
+  it("renders intended physical product tabs with zero count without adding dummy mockups", async () => {
     const jobWithTshirtOnly = {
       ...mockProductionSucceededJob,
       mockup_assets: [mockProductionSucceededJob.mockup_assets[0]], // only 1 T-shirt mockup
@@ -374,20 +374,23 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
     expect(wrapper.text()).toContain("T-Shirt");
     expect(wrapper.text()).toContain("1 listing mockup");
 
-    // Zero-count intended products must NOT have tabs
-    expect(wrapper.text()).not.toContain("Ceramic Mug0");
-    expect(wrapper.text()).not.toContain("Tumbler0");
-    expect(wrapper.text()).not.toContain("Poster0");
-    expect(wrapper.text()).not.toContain("Sweatshirt0");
-    expect(wrapper.text()).not.toContain("No mockups for Poster yet");
-    expect(wrapper.text()).not.toContain("No mockups for Tumbler yet");
+    // Intended physical products appear as empty tabs ready for template upload
+    expect(wrapper.text()).toContain("Ceramic Mug");
+    expect(wrapper.text()).toContain("Tote Bag");
+    expect(wrapper.text()).toContain("Sweatshirt");
+    expect(wrapper.text()).toContain("New Category");
   });
 
-  it("renders single generic empty state without product tabs when zero mockups are selected", async () => {
+  it("renders intended product tabs with empty state when zero mockups exist across all products", async () => {
     const jobWithZeroMockups = {
       ...mockProductionSucceededJob,
       mockup_assets: [],
       mockup_urls: {},
+    };
+
+    const workflowWithoutIntended = {
+      ...mockApprovedWorkflow,
+      intended_product_uses: [],
     };
 
     vi.stubGlobal("$fetch", vi.fn().mockImplementation((url: string) => {
@@ -395,7 +398,7 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
       if (url.includes("/api/v1/workflows/wf-prod-123/concepts")) return Promise.resolve([]);
       if (url.includes("/api/v1/workflows/wf-prod-123/artwork-jobs")) return Promise.resolve([]);
       if (url.includes("/api/v1/workflows/wf-prod-123/production")) return Promise.resolve(jobWithZeroMockups);
-      if (url.includes("/api/v1/workflows/wf-prod-123")) return Promise.resolve(mockApprovedWorkflow);
+      if (url.includes("/api/v1/workflows/wf-prod-123")) return Promise.resolve(workflowWithoutIntended);
       return Promise.resolve(null);
     }));
 
@@ -410,14 +413,10 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
 
     await flushPromises();
 
-    // Assert generic empty state
+    // Assert generic empty state when zero tabs and zero mockups
     expect(wrapper.text()).toContain("No mockups selected yet");
     expect(wrapper.text()).toContain("Add your own product photos and position your master artwork");
     expect(wrapper.text()).toContain("Add Mockup");
-
-    // No product tabs should be rendered
-    expect(wrapper.text()).not.toContain("T-Shirt0");
-    expect(wrapper.text()).not.toContain("Ceramic Mug0");
   });
 
   it("adds new product tab immediately upon creating mockup and removes tab when deleting last mockup", async () => {

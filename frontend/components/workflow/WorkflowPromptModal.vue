@@ -129,7 +129,7 @@ function handleSubmit() {
           variant="default"
           size="sm"
           :loading="isSubmitting"
-          class="font-bold bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
+          class="font-bold cursor-pointer"
         >
           <span>Save & Update Prompt</span>
         </Button>

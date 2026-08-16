@@ -12,15 +12,15 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="py-12 px-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 text-center space-y-4">
-    <div class="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center mx-auto text-zinc-500 shadow-2xs">
-      <Icon name="lucide:images" class="size-6 text-zinc-400" aria-hidden="true" />
+  <div class="py-12 px-4 rounded-xl border border-dashed border-border bg-secondary/30 text-center space-y-4">
+    <div class="h-12 w-12 rounded-full bg-secondary border border-border flex items-center justify-center mx-auto text-muted-foreground shadow-2xs">
+      <Icon name="lucide:images" class="size-6 text-muted-foreground" aria-hidden="true" />
     </div>
     <div class="space-y-1 max-w-sm mx-auto">
-      <h4 class="text-sm font-bold text-zinc-800">
+      <h4 class="text-sm font-bold text-foreground">
         {{ productLabel ? `No mockups for ${productLabel} yet` : "No mockups selected yet" }}
       </h4>
-      <p class="text-xs text-zinc-500 leading-relaxed">
+      <p class="text-xs text-muted-foreground leading-relaxed">
         {{
           productLabel
             ? `Upload your own high-resolution ${productLabel} photos or choose a saved template from your library.`
@@ -31,7 +31,7 @@ const emit = defineEmits<{
     <Button
       variant="default"
       size="sm"
-      class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-2 shadow-xs cursor-pointer inline-flex items-center"
+      class="font-bold gap-2 shadow-xs cursor-pointer inline-flex items-center"
       :disabled="isActionLoading"
       @click="emit('addMockup')"
     >

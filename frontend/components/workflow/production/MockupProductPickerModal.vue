@@ -47,16 +47,16 @@ const customCategories = computed(() => {
 
 <template>
   <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-zinc-200 animate-in fade-in zoom-in-95 duration-150">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-150">
       <!-- Modal Header -->
-      <div class="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+      <div class="px-6 py-4 border-b border-border flex items-center justify-between bg-secondary/30">
         <div>
-          <h3 class="text-sm font-bold text-zinc-900">Select Product Type</h3>
-          <p class="text-xs text-zinc-500">Choose a product category from your library to add mockups for</p>
+          <h3 class="text-sm font-bold text-foreground">Select Product Type</h3>
+          <p class="text-xs text-muted-foreground">Choose a product category from your library to add mockups for</p>
         </div>
         <button
           type="button"
-          class="h-8 w-8 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 flex items-center justify-center transition-colors cursor-pointer"
+          class="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors cursor-pointer"
           @click="emit('close')"
         >
           <Icon name="lucide:x" class="size-4" aria-hidden="true" />
@@ -67,7 +67,7 @@ const customCategories = computed(() => {
       <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
         <!-- Active Custom Categories (from Library) -->
         <div v-if="customCategories.length > 0" class="space-y-2">
-          <label class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">
+          <label class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
             Custom Categories (From Library)
           </label>
           <div class="grid grid-cols-3 gap-2.5">
@@ -75,13 +75,13 @@ const customCategories = computed(() => {
               v-for="customKey in customCategories"
               :key="customKey"
               type="button"
-              class="p-3 rounded-xl border border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50 hover:border-indigo-500 flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
+              class="p-3 rounded-xl border border-[#FFDCC7] bg-secondary/50 hover:bg-secondary hover:border-primary/50 flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
               @click="emit('select', customKey)"
             >
-              <div class="h-9 w-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 transition-colors">
+              <div class="h-9 w-9 rounded-lg bg-white border border-[#FFDCC7] flex items-center justify-center text-primary transition-colors">
                 <Icon :name="getProductIconName(customKey)" class="size-4.5" aria-hidden="true" />
               </div>
-              <span class="text-xs font-bold text-indigo-950 truncate max-w-full">
+              <span class="text-xs font-bold text-foreground truncate max-w-full">
                 {{ getProductLabel(customKey) }}
               </span>
             </button>
@@ -90,7 +90,7 @@ const customCategories = computed(() => {
 
         <!-- Standard Products Grid -->
         <div class="space-y-2">
-          <label v-if="customCategories.length > 0" class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">
+          <label v-if="customCategories.length > 0" class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
             Standard Products
           </label>
           <div class="grid grid-cols-3 gap-2.5">
@@ -98,13 +98,13 @@ const customCategories = computed(() => {
               v-for="p in SUPPORTED_PRODUCT_TYPES"
               :key="p.key"
               type="button"
-              class="p-3 rounded-xl border border-zinc-200 hover:border-indigo-500 hover:bg-indigo-50/40 flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
+              class="p-3 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/40 flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
               @click="emit('select', p.key)"
             >
-              <div class="h-9 w-9 rounded-lg bg-zinc-100 group-hover:bg-indigo-100 flex items-center justify-center text-zinc-600 group-hover:text-indigo-600 transition-colors">
+              <div class="h-9 w-9 rounded-lg bg-secondary/60 group-hover:bg-secondary flex items-center justify-center text-secondary-foreground group-hover:text-primary transition-colors">
                 <Icon :name="p.icon" class="size-4.5" aria-hidden="true" />
               </div>
-              <span class="text-xs font-semibold text-zinc-800 group-hover:text-indigo-950 truncate max-w-full">
+              <span class="text-xs font-semibold text-foreground truncate max-w-full">
                 {{ p.label }}
               </span>
             </button>
@@ -112,11 +112,11 @@ const customCategories = computed(() => {
         </div>
 
         <!-- Library Link Footer -->
-        <div class="pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
+        <div class="pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
           <span>Manage or add custom categories:</span>
           <NuxtLink
             to="/library"
-            class="text-indigo-600 hover:text-indigo-700 font-semibold inline-flex items-center gap-1 hover:underline cursor-pointer"
+            class="text-primary-hover hover:text-[#B33E0B] font-semibold inline-flex items-center gap-1 hover:underline cursor-pointer"
             @click="emit('close')"
           >
             <span>Mockup Library</span>

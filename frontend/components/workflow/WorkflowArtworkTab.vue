@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import Card from "~/components/ui/Card.vue";
 import CardHeader from "~/components/ui/CardHeader.vue";
 import CardTitle from "~/components/ui/CardTitle.vue";
@@ -108,6 +108,74 @@ watch(artProvider, (newVal) => {
   }
 });
 
+const isJobInFlight = computed(() => {
+  if (props.isArtworkLoading) return true;
+  if (["ART_QUEUED", "ART_GENERATION"].includes(props.workflow.state)) return true;
+  const latestJob = props.artworkJobs[0];
+  if (!latestJob) return false;
+  const status = latestJob.status?.toLowerCase();
+  return ["queued", "running", "processing", "generating", "refining"].includes(status);
+});
+
+const isJobFailed = computed(() => {
+  if (props.workflow.state === "ART_GENERATION_FAILED") return true;
+  const latestJob = props.artworkJobs[0];
+  return latestJob?.status?.toLowerCase() === "failed";
+});
+
+const currentAssets = computed(() => {
+  const assets: Asset[] = [];
+  const seen = new Set<string>();
+  for (const job of props.artworkJobs) {
+    if (job.assets) {
+      for (const a of job.assets) {
+        if (!seen.has(a.id)) {
+          seen.add(a.id);
+          assets.push(a);
+        }
+      }
+    }
+  }
+  return assets;
+});
+
+function getAssetJob(assetId: string): ArtworkJob | undefined {
+  return props.artworkJobs.find((j) => j.assets?.some((a) => a.id === assetId));
+}
+
+function isAssetRefined(assetId?: string | null): boolean {
+  if (!assetId) return false;
+  const asset = currentAssets.value.find((a) => a.id === assetId);
+  const prov = asset?.provenance as any;
+  if (prov?.operation === "refinement" || Boolean(asset?.derived_from_id)) return true;
+  const job = getAssetJob(assetId) as any;
+  if (!job) return false;
+  return (
+    job.provider === "gemini" ||
+    Boolean(job.provider_model?.includes("v3")) ||
+    Boolean(job.provider_model?.includes("recraftv3")) ||
+    Boolean(job.prompt?.generation_metadata?.reference_asset_id)
+  );
+}
+
+const isLatestJobRefinement = computed(() => {
+  const latestJob = props.artworkJobs[0] as any;
+  if (!latestJob) return false;
+  return (
+    Boolean(latestJob.provider_model?.includes("v3")) ||
+    latestJob.provider === "gemini" ||
+    Boolean(latestJob.prompt?.generation_metadata?.reference_asset_id)
+  );
+});
+
+const latestFailureMessage = computed(() => {
+  return (
+    props.artworkJobs[0]?.failure_message ||
+    props.artworkError ||
+    "An unexpected error occurred during artwork generation."
+  );
+});
+
 const selectedCandidateId = ref<string | null>(props.chosenCandidateId);
 
 watch(
@@ -126,26 +194,78 @@ function selectCandidate(assetId: string): void {
 }
 
 function getSelectedAsset(): Asset | undefined {
-  return props.artworkJobs[0]?.assets?.find((a) => a.id === selectedCandidateId.value);
+  return currentAssets.value.find((a) => a.id === selectedCandidateId.value);
 }
 
 function getSelectedAssetIndex(): number {
-  const assets = props.artworkJobs[0]?.assets || [];
-  return assets.findIndex((a) => a.id === selectedCandidateId.value);
+  return currentAssets.value.findIndex((a) => a.id === selectedCandidateId.value);
 }
+
+// Preview Modal State
+const previewingAsset = ref<Asset | null>(null);
+const previewBg = ref<"checkerboard" | "white" | "dark">("checkerboard");
+
+function openPreview(asset: Asset): void {
+  previewingAsset.value = asset;
+  selectedCandidateId.value = asset.id;
+}
+
+function getPreviewAssetIndex(): number {
+  if (!previewingAsset.value) return 0;
+  return currentAssets.value.findIndex((a) => a.id === previewingAsset.value?.id);
+}
+
+function navigatePreview(dir: -1 | 1): void {
+  if (!currentAssets.value.length) return;
+  const currentIdx = getPreviewAssetIndex();
+  const nextIdx = currentIdx + dir;
+  if (nextIdx >= 0 && nextIdx < currentAssets.value.length) {
+    previewingAsset.value = currentAssets.value[nextIdx];
+    selectedCandidateId.value = currentAssets.value[nextIdx].id;
+  }
+}
+
+function handleKeyDown(e: KeyboardEvent): void {
+  if (!previewingAsset.value) return;
+  if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    navigatePreview(-1);
+  } else if (e.key === "ArrowRight") {
+    e.preventDefault();
+    navigatePreview(1);
+  } else if (e.key === "Escape") {
+    previewingAsset.value = null;
+  }
+}
+
+watch(previewingAsset, (val) => {
+  if (typeof window === "undefined") return;
+  if (val) {
+    window.addEventListener("keydown", handleKeyDown);
+  } else {
+    window.removeEventListener("keydown", handleKeyDown);
+  }
+});
+
+import { onUnmounted } from "vue";
+onUnmounted(() => {
+  if (typeof window !== "undefined") {
+    window.removeEventListener("keydown", handleKeyDown);
+  }
+});
 </script>
 
 <template>
   <div class="space-y-6">
     <!-- Phase 6 Card -->
     <Card class="shadow-2xs">
-      <CardHeader class="pb-4 border-b border-zinc-100 bg-zinc-50/50">
+      <CardHeader class="pb-4 border-b border-border bg-secondary/30">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <Icon name="lucide:image" class="size-5 text-indigo-600" aria-hidden="true" />
+            <Icon name="lucide:image" class="size-5 text-primary" aria-hidden="true" />
             <div>
               <CardTitle class="text-lg font-bold">Phase 6: Artwork Generation & Approval (Gate 2)</CardTitle>
-              <CardDescription class="text-xs text-zinc-500">
+              <CardDescription class="text-xs text-muted-foreground">
                 Select provider/model and approve the generated candidate design before producing print files.
               </CardDescription>
             </div>
@@ -159,32 +279,32 @@ function getSelectedAssetIndex(): number {
 
       <CardContent class="space-y-6 p-6">
         <!-- Selected Concept Info -->
-        <div v-if="approvedConcept" class="rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-4 text-sm space-y-3">
+        <div v-if="approvedConcept" class="rounded-xl border border-border bg-secondary/30 p-4 text-sm space-y-3">
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Locked Concept</span>
-            <h4 class="text-base font-bold text-zinc-900">{{ approvedConcept.title }}</h4>
-            <p class="text-xs text-zinc-600 mt-0.5">{{ approvedConcept.description }}</p>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-primary">Locked Concept</span>
+            <h4 class="text-base font-bold text-foreground">{{ approvedConcept.title }}</h4>
+            <p class="text-xs text-secondary-foreground mt-0.5">{{ approvedConcept.description }}</p>
           </div>
 
-          <div class="rounded-lg border border-zinc-200 bg-white p-3 space-y-1 text-xs font-mono">
+          <div class="rounded-lg border border-border bg-white p-3 space-y-1 text-xs font-mono">
             <p>
-              <span class="font-bold text-zinc-400">Positive:</span>
-              {{ approvedConcept.prompts[approvedConcept.prompts.length - 1]?.positive_prompt }}
+              <span class="font-bold text-muted-foreground">Base Prompt:</span>
+              {{ approvedConcept.prompts[0]?.positive_prompt }}
             </p>
             <p>
-              <span class="font-bold text-zinc-400">Negative:</span>
-              {{ approvedConcept.prompts[approvedConcept.prompts.length - 1]?.negative_prompt }}
+              <span class="font-bold text-muted-foreground">Negative:</span>
+              {{ approvedConcept.prompts[0]?.negative_prompt }}
             </p>
-            <p v-if="approvedConcept.prompts[approvedConcept.prompts.length - 1]?.exact_slogan">
-              <span class="font-bold text-zinc-400">Slogan:</span>
-              "{{ approvedConcept.prompts[approvedConcept.prompts.length - 1]?.exact_slogan }}"
+            <p v-if="approvedConcept.prompts[0]?.exact_slogan">
+              <span class="font-bold text-muted-foreground">Slogan:</span>
+              "{{ approvedConcept.prompts[0]?.exact_slogan }}"
             </p>
           </div>
         </div>
 
-        <!-- Inner state 1: Gate 1 approved + ready to generate artwork -->
-        <div v-if="workflow.state === 'IDEA_APPROVED' && (!artworkJobs.length || !artworkJobs.some((j) => j.assets && j.assets.length > 0))" class="space-y-4">
-          <div class="rounded-xl bg-indigo-50/60 border border-indigo-200 p-4 text-xs text-zinc-700 font-medium">
+        <!-- Inner state 1: Gate 1 approved + ready to generate artwork (first time) -->
+        <div v-if="workflow.state === 'IDEA_APPROVED' && !currentAssets.length && !isJobInFlight && !isJobFailed" class="space-y-4">
+          <div class="rounded-xl bg-secondary/40 border border-border p-4 text-xs text-foreground font-medium">
             Your concept is approved. Generate artwork to continue.
           </div>
 
@@ -195,7 +315,7 @@ function getSelectedAssetIndex(): number {
               <select
                 id="image-provider"
                 v-model="artProvider"
-                class="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
+                class="flex h-9 w-full rounded-md border border-border bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <option value="recraft">Recraft V4.1 (Vector & Illustration)</option>
                 <option value="gemini">Google Gemini (Photo & Creative)</option>
@@ -208,7 +328,7 @@ function getSelectedAssetIndex(): number {
                 v-model="artModel"
                 readonly
                 disabled
-                class="flex h-9 w-full rounded-md border border-zinc-200 bg-zinc-100 px-3 py-1 text-sm text-zinc-500 shadow-2xs"
+                class="flex h-9 w-full rounded-md border border-border bg-secondary/60 px-3 py-1 text-sm text-muted-foreground shadow-2xs"
               >
             </div>
           </div>
@@ -216,7 +336,7 @@ function getSelectedAssetIndex(): number {
           <Button
             variant="default"
             size="lg"
-            class="w-full text-base font-bold bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-xs"
+            class="w-full text-base font-bold cursor-pointer shadow-xs"
             :disabled="isArtworkLoading"
             @click="emit('generate', artProvider, artModel)"
           >
@@ -226,23 +346,44 @@ function getSelectedAssetIndex(): number {
           </Button>
         </div>
 
-        <!-- Inner state 2: Generating artwork progress -->
-        <div v-else-if="isArtworkLoading || (artworkJobs.length > 0 && artworkJobs[0]?.status === 'processing')" class="py-12 text-center space-y-4">
-          <Icon name="lucide:loader-circle" class="size-8 animate-spin mx-auto text-indigo-600" aria-hidden="true" />
+        <!-- Inner state 2: Generating / Refining artwork progress -->
+        <div v-else-if="isJobInFlight" class="py-12 text-center space-y-4">
+          <Icon name="lucide:loader-circle" class="size-8 animate-spin mx-auto text-primary" aria-hidden="true" />
           <div>
-            <h4 class="text-base font-bold text-zinc-900">Generating Artwork Candidates...</h4>
-            <p class="text-xs text-zinc-500 mt-1">Recraft V4.1 is generating multi-candidate transparent designs.</p>
+            <h4 class="text-base font-bold text-foreground">
+              {{ artworkJobs[0]?.provider === 'gemini' ? 'Refining Artwork Candidate...' : 'Generating Artwork Candidates...' }}
+            </h4>
+            <p class="text-xs text-muted-foreground mt-1">
+              {{ artworkJobs[0]?.provider === 'gemini' ? 'Google Gemini is processing your image-to-image design refinement.' : 'Recraft V4.1 is generating multi-candidate transparent designs.' }}
+            </p>
           </div>
         </div>
 
-        <!-- Inner state 3: Artwork Generated, Review & Candidates -->
-        <div v-else-if="artworkJobs.length > 0 && artworkJobs[0]?.assets && artworkJobs[0].assets.length > 0" class="space-y-4">
+        <!-- Inner state 3: Artwork Generation Failed -->
+        <Card v-else-if="isJobFailed" class="p-8 text-center bg-red-50/60 border-red-200">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-destructive mb-3">
+            <Icon name="lucide:circle-alert" class="size-6" aria-hidden="true" />
+          </div>
+          <h2 class="text-lg font-bold text-destructive mb-1">Artwork Generation Failed</h2>
+          <p class="text-xs text-red-700 max-w-md mx-auto mb-4">
+            Reason: {{ latestFailureMessage }}
+          </p>
+          <div class="flex items-center justify-center gap-3">
+            <Button variant="destructive" size="default" class="font-semibold cursor-pointer" @click="emit('regenerate')">
+              <Icon name="lucide:rotate-ccw" class="size-4 mr-1.5" aria-hidden="true" />
+              <span>Retry Artwork Generation</span>
+            </Button>
+          </div>
+        </Card>
+
+        <!-- Inner state 4: Artwork Generated, Review & Candidates -->
+        <div v-else-if="currentAssets.length > 0" class="space-y-4">
           <div class="flex items-center justify-between">
             <div>
-              <h4 class="text-sm font-bold text-zinc-900">
+              <h4 class="text-sm font-bold text-foreground">
                 {{ workflow.state === 'ART_REVIEW' ? 'Review & Select Candidate Design' : 'Artwork Candidates' }}
               </h4>
-              <p class="text-xs text-zinc-500">
+              <p class="text-xs text-muted-foreground">
                 {{ workflow.state === 'ART_REVIEW' ? 'Approve one design to proceed to print production.' : 'Click a candidate to select it and switch the master print design.' }}
               </p>
             </div>
@@ -250,7 +391,7 @@ function getSelectedAssetIndex(): number {
               v-if="workflow.state === 'ART_REVIEW'"
               variant="ghost"
               size="sm"
-              class="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+              class="text-xs text-destructive hover:text-red-700 hover:bg-red-50 cursor-pointer"
               @click="emit('rejectAll', artworkJobs[0]?.id, workflow.version)"
             >
               Reject All Options
@@ -265,15 +406,15 @@ function getSelectedAssetIndex(): number {
           <!-- Candidates Grid (Compact 4-Column Responsive Layout) -->
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
             <Card
-              v-for="(asset, idx) in artworkJobs[0]?.assets"
+              v-for="(asset, idx) in currentAssets"
               :key="asset.id"
-              class="overflow-hidden border transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+              class="overflow-hidden border transition-all cursor-pointer shadow-2xs hover:shadow-xs group/card"
               :class="[
                 asset.id === chosenCandidateId
                   ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/10'
                   : asset.id === selectedCandidateId
-                    ? 'border-indigo-600 ring-2 ring-indigo-500/30 bg-indigo-50/20'
-                    : 'border-zinc-200 hover:border-zinc-300 bg-white'
+                    ? 'border-primary ring-2 ring-primary/30 bg-secondary/30'
+                    : 'border-border hover:border-primary/40 bg-card'
               ]"
               @click="selectCandidate(asset.id)"
             >
@@ -282,12 +423,27 @@ function getSelectedAssetIndex(): number {
                   v-if="asset.url"
                   :src="asset.url"
                   alt="Candidate Preview"
-                  class="object-contain w-full h-full max-h-[150px] transition-transform hover:scale-105"
+                  class="object-contain w-full h-full max-h-[150px] transition-transform duration-200 group-hover/card:scale-105"
+                  @click.stop="openPreview(asset)"
                 >
-                <div v-else class="text-zinc-400 text-xs">Preview Loading...</div>
-                <Badge variant="default" class="absolute top-1.5 left-1.5 text-[9px] px-1.5 py-0 font-mono">
+                <div v-else class="text-muted-foreground text-xs">Preview Loading...</div>
+
+                <Badge
+                  v-if="isAssetRefined(asset.id)"
+                  variant="outline"
+                  class="absolute top-1.5 left-1.5 text-[9px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200 font-semibold gap-1 inline-flex items-center shadow-xs"
+                >
+                  <Icon name="lucide:sparkles" class="size-2.5 text-purple-600" />
+                  <span>Refined</span>
+                </Badge>
+                <Badge
+                  v-else
+                  variant="default"
+                  class="absolute top-1.5 left-1.5 text-[9px] px-1.5 py-0 font-mono"
+                >
                   #{{ idx + 1 }}
                 </Badge>
+
                 <Badge
                   v-if="asset.id === chosenCandidateId"
                   variant="success"
@@ -299,16 +455,34 @@ function getSelectedAssetIndex(): number {
                 <Badge
                   v-else-if="asset.id === selectedCandidateId"
                   variant="outline"
-                  class="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0 font-bold bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                  class="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0 font-bold bg-primary text-white border-primary shadow-xs"
                 >
                   Selected
                 </Badge>
+
+                <!-- Zoom Inspect Button Overlay on Hover -->
+                <button
+                  type="button"
+                  title="Inspect design in full resolution"
+                  class="absolute bottom-1.5 right-1.5 h-7 w-7 rounded-lg bg-white/95 hover:bg-white text-secondary-foreground hover:text-primary shadow-xs flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer opacity-0 group-hover/card:opacity-100 z-10"
+                  @click.stop="openPreview(asset)"
+                >
+                  <Icon name="lucide:maximize-2" class="size-3.5" aria-hidden="true" />
+                </button>
               </div>
 
-              <div class="p-2.5 border-t border-zinc-100 bg-zinc-50/50 space-y-2">
-                <div class="flex items-center justify-between text-[10px] text-zinc-500">
+              <div class="p-2.5 border-t border-border bg-secondary/30 space-y-2">
+                <div class="flex items-center justify-between text-[10px] text-muted-foreground">
                   <span class="font-mono">{{ asset.width }}×{{ asset.height }} · {{ (asset.byte_size / 1024).toFixed(0) }} KB</span>
-                  <span class="uppercase text-[9px] font-bold text-zinc-600">{{ asset.mime_type.split('/')[1] }}</span>
+                  <button
+                    type="button"
+                    class="text-[10px] font-bold text-primary hover:text-primary-hover flex items-center gap-0.5 cursor-pointer"
+                    title="Inspect candidate"
+                    @click.stop="openPreview(asset)"
+                  >
+                    <span>Inspect</span>
+                    <Icon name="lucide:zoom-in" class="size-2.5" />
+                  </button>
                 </div>
 
                 <!-- Gate 2 Review Actions (During ART_REVIEW) -->
@@ -335,7 +509,7 @@ function getSelectedAssetIndex(): number {
                 <div v-else-if="workflow.state === 'ARTWORK_APPROVED' || workflow.state === 'PRODUCTION' || latestProductionJob !== null">
                   <div
                     v-if="asset.id === chosenCandidateId"
-                    class="flex items-center justify-center gap-1 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/60 rounded border border-emerald-200"
+                    class="flex items-center justify-center gap-1 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded border border-emerald-200"
                   >
                     <Icon name="lucide:circle-check" class="size-3" aria-hidden="true" />
                     <span>Active in Master</span>
@@ -344,7 +518,7 @@ function getSelectedAssetIndex(): number {
                     v-else-if="asset.id === selectedCandidateId"
                     variant="default"
                     size="sm"
-                    class="w-full text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1 h-7 px-1 cursor-pointer inline-flex items-center shadow-2xs animate-in fade-in"
+                    class="w-full text-[11px] font-bold gap-1 h-7 px-1 cursor-pointer inline-flex items-center shadow-2xs animate-in fade-in"
                     :disabled="isProductionLoading"
                     @click.stop="emit('switchCandidate', asset.id)"
                   >
@@ -354,7 +528,7 @@ function getSelectedAssetIndex(): number {
                   </Button>
                   <div
                     v-else
-                    class="text-center py-1 text-[10px] text-zinc-400 font-medium"
+                    class="text-center py-1 text-[10px] text-muted-foreground font-medium"
                   >
                     Click to select
                   </div>
@@ -366,37 +540,52 @@ function getSelectedAssetIndex(): number {
           <!-- Switch & Produce Action Bar (Appears when a different candidate is selected) -->
           <div
             v-if="(workflow.state === 'ARTWORK_APPROVED' || workflow.state === 'PRODUCTION' || latestProductionJob !== null) && selectedCandidateId && selectedCandidateId !== chosenCandidateId"
-            class="p-3.5 rounded-xl bg-indigo-50/80 border border-indigo-200 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-150"
+            class="p-3.5 rounded-xl bg-secondary/50 border border-border flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-150"
           >
             <div class="flex items-center gap-3">
-              <div class="h-10 w-10 rounded-lg overflow-hidden border border-indigo-200 bg-white shrink-0 p-1 flex items-center justify-center">
+              <div
+                class="h-10 w-10 rounded-lg overflow-hidden border border-border bg-white shrink-0 p-1 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+                title="Inspect in full size"
+                @click="getSelectedAsset() && openPreview(getSelectedAsset()!)"
+              >
                 <img :src="getSelectedAsset()?.url || ''" alt="Candidate" class="w-full h-full object-contain" />
               </div>
               <div>
-                <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+                <h4 class="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <span>Selected Candidate #{{ getSelectedAssetIndex() + 1 }}</span>
-                  <Badge variant="outline" class="text-[9px] px-1.5 py-0 bg-indigo-100 text-indigo-800 border-indigo-200 font-semibold">New Choice</Badge>
+                  <Badge variant="outline" class="text-[9px] px-1.5 py-0 bg-blue-50 text-primary border-blue-200 font-semibold">New Choice</Badge>
                 </h4>
-                <p class="text-[11px] text-zinc-600">Switch master print PNG to this artwork and automatically update all your mockups</p>
+                <p class="text-[11px] text-secondary-foreground">Switch master print PNG to this artwork and automatically update all your mockups</p>
               </div>
             </div>
 
-            <Button
-              variant="default"
-              size="sm"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-8 px-4 gap-1.5 shadow-2xs shrink-0 cursor-pointer"
-              :disabled="isProductionLoading"
-              @click="emit('switchCandidate', selectedCandidateId)"
-            >
-              <Icon v-if="isProductionLoading" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
-              <Icon v-else name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
-              <span>{{ isProductionLoading ? 'Producing...' : 'Switch & Produce' }}</span>
-            </Button>
+            <div class="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                class="text-xs h-8 px-3 gap-1 cursor-pointer"
+                @click="getSelectedAsset() && openPreview(getSelectedAsset()!)"
+              >
+                <Icon name="lucide:maximize-2" class="size-3 text-primary" />
+                <span>Inspect</span>
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                class="font-bold text-xs h-8 px-4 gap-1.5 shadow-2xs shrink-0 cursor-pointer"
+                :disabled="isProductionLoading"
+                @click="emit('switchCandidate', selectedCandidateId)"
+              >
+                <Icon v-if="isProductionLoading" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+                <Icon v-else name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
+                <span>{{ isProductionLoading ? 'Producing...' : 'Switch & Produce' }}</span>
+              </Button>
+            </div>
           </div>
 
           <!-- Regeneration Option -->
-          <div v-if="workflow.state === 'ART_REVIEW'" class="rounded-xl border border-dashed border-zinc-200 p-4 text-center">
-            <p class="text-xs text-zinc-500 mb-2">Not satisfied with any of these candidate options?</p>
+          <div v-if="workflow.state === 'ART_REVIEW'" class="rounded-xl border border-dashed border-border p-4 text-center">
+            <p class="text-xs text-muted-foreground mb-2">Not satisfied with any of these candidate options?</p>
             <Button variant="outline" size="sm" class="text-xs gap-1.5 cursor-pointer inline-flex items-center" @click="emit('regenerate')">
               <Icon name="lucide:refresh-cw" class="size-3.5" aria-hidden="true" />
               <span>Regenerate All Options</span>
@@ -405,5 +594,203 @@ function getSelectedAssetIndex(): number {
         </div>
       </CardContent>
     </Card>
+
+    <!-- Candidate Design Full-Size Inspection Modal -->
+    <div
+      v-if="previewingAsset"
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150"
+      @click.self="previewingAsset = null"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-2xl border border-border max-w-4xl w-full max-h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        @click.stop
+      >
+        <!-- Modal Header -->
+        <div class="px-5 py-3.5 border-b border-border bg-secondary/30 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-2.5 truncate">
+            <div class="size-7 rounded-lg bg-blue-50 text-primary border border-blue-200 flex items-center justify-center shrink-0">
+              <Icon name="lucide:image" class="size-4" aria-hidden="true" />
+            </div>
+            <div class="truncate">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-sm font-bold text-foreground">
+                  Candidate Design #{{ getPreviewAssetIndex() + 1 }} of {{ currentAssets.length }}
+                </h3>
+                <Badge
+                  v-if="isAssetRefined(previewingAsset.id)"
+                  variant="outline"
+                  class="text-[9px] px-1.5 py-0 font-bold bg-purple-50 text-purple-700 border-purple-200 gap-1 inline-flex items-center"
+                >
+                  <Icon name="lucide:sparkles" class="size-2.5 text-purple-600" />
+                  <span>Refined</span>
+                </Badge>
+                <Badge
+                  v-if="previewingAsset.id === chosenCandidateId"
+                  variant="success"
+                  class="text-[9px] px-1.5 py-0 font-bold gap-0.5 inline-flex items-center"
+                >
+                  <Icon name="lucide:circle-check" class="size-2.5" />
+                  <span>Active Master</span>
+                </Badge>
+                <Badge
+                  v-else-if="previewingAsset.id === selectedCandidateId"
+                  variant="outline"
+                  class="text-[9px] px-1.5 py-0 font-bold bg-blue-50 text-primary border-blue-200"
+                >
+                  Selected Option
+                </Badge>
+              </div>
+              <p class="text-[11px] text-muted-foreground font-mono truncate">
+                {{ previewingAsset.width || '1024' }}×{{ previewingAsset.height || '1024' }} px · {{ ((previewingAsset.byte_size || 0) / 1024).toFixed(0) }} KB · {{ (previewingAsset.mime_type || 'image/png').toUpperCase() }} · Transparent Alpha
+              </p>
+            </div>
+          </div>
+
+          <!-- Background Surface Switcher Pills -->
+          <div class="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border text-[11px] shrink-0">
+            <button
+              type="button"
+              title="Checkerboard Alpha Transparency"
+              class="px-2 py-1 rounded-md font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
+              :class="previewBg === 'checkerboard' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+              @click="previewBg = 'checkerboard'"
+            >
+              <Icon name="lucide:grid-2x2" class="size-3 text-primary" />
+              <span class="hidden sm:inline">Checkerboard</span>
+            </button>
+            <button
+              type="button"
+              title="White Surface"
+              class="px-2 py-1 rounded-md font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
+              :class="previewBg === 'white' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+              @click="previewBg = 'white'"
+            >
+              <div class="size-2.5 rounded-full bg-white border border-slate-300 shadow-2xs" />
+              <span class="hidden sm:inline">White</span>
+            </button>
+            <button
+              type="button"
+              title="Dark Garment Surface"
+              class="px-2 py-1 rounded-md font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
+              :class="previewBg === 'dark' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+              @click="previewBg = 'dark'"
+            >
+              <div class="size-2.5 rounded-full bg-slate-900 shadow-2xs" />
+              <span class="hidden sm:inline">Dark</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            class="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            @click="previewingAsset = null"
+          >
+            <Icon name="lucide:x" class="size-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <!-- Modal Viewport Canvas with Left / Right Arrows -->
+        <div
+          class="relative flex-1 p-4 sm:p-6 flex items-center justify-center min-h-[320px] max-h-[65vh] overflow-hidden select-none transition-colors duration-150"
+          :class="{
+            'bg-[linear-gradient(45deg,#F1F5F9_25%,transparent_25%),linear-gradient(-45deg,#F1F5F9_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#F1F5F9_75%),linear-gradient(-45deg,transparent_75%,#F1F5F9_75%)] bg-[size:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]': previewBg === 'checkerboard',
+            'bg-white': previewBg === 'white',
+            'bg-slate-950': previewBg === 'dark',
+          }"
+        >
+          <!-- Left Arrow (Previous Candidate) -->
+          <button
+            v-if="currentAssets.length > 1"
+            type="button"
+            class="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-white/90 hover:bg-white text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
+            :disabled="getPreviewAssetIndex() <= 0"
+            title="Previous Candidate (Left Arrow)"
+            @click.stop="navigatePreview(-1)"
+          >
+            <Icon name="lucide:chevron-left" class="size-5" />
+          </button>
+
+          <!-- Candidate Image -->
+          <img
+            v-if="previewingAsset.url"
+            :src="previewingAsset.url"
+            :alt="`Candidate ${getPreviewAssetIndex() + 1}`"
+            class="max-w-full max-h-[58vh] object-contain rounded-lg shadow-sm transition-all duration-200"
+          />
+
+          <!-- Right Arrow (Next Candidate) -->
+          <button
+            v-if="currentAssets.length > 1"
+            type="button"
+            class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-white/90 hover:bg-white text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
+            :disabled="getPreviewAssetIndex() >= currentAssets.length - 1"
+            title="Next Candidate (Right Arrow)"
+            @click.stop="navigatePreview(1)"
+          >
+            <Icon name="lucide:chevron-right" class="size-5" />
+          </button>
+        </div>
+
+        <!-- Modal Footer Controls -->
+        <div class="px-5 py-3 border-t border-border bg-secondary/30 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <a
+              v-if="previewingAsset.url"
+              :href="previewingAsset.url"
+              target="_blank"
+              :download="`candidate_design_${getPreviewAssetIndex() + 1}.png`"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-border text-secondary-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer shadow-2xs"
+            >
+              <Icon name="lucide:download" class="size-3.5 text-primary" aria-hidden="true" />
+              <span>Download PNG</span>
+            </a>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Review Stage Actions -->
+            <template v-if="workflow.state === 'ART_REVIEW'">
+              <Button
+                variant="outline"
+                size="sm"
+                class="text-xs font-medium cursor-pointer"
+                @click="emit('refine', previewingAsset.id); previewingAsset = null"
+              >
+                <Icon name="lucide:sliders" class="size-3.5 mr-1 text-primary" />
+                <span>Refine Option</span>
+              </Button>
+              <Button
+                variant="success"
+                size="sm"
+                class="text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+                @click="emit('approve', previewingAsset.id); previewingAsset = null"
+              >
+                <Icon name="lucide:circle-check" class="size-3.5" />
+                <span>Approve This Design (Gate 2)</span>
+              </Button>
+            </template>
+
+            <!-- Approved / Production Stage Switch Action -->
+            <template v-else-if="workflow.state === 'ARTWORK_APPROVED' || workflow.state === 'PRODUCTION' || latestProductionJob !== null">
+              <Button
+                v-if="previewingAsset.id !== chosenCandidateId"
+                variant="default"
+                size="sm"
+                class="text-xs font-bold gap-1.5 cursor-pointer shadow-xs"
+                :disabled="isProductionLoading"
+                @click="emit('switchCandidate', previewingAsset.id); previewingAsset = null"
+              >
+                <Icon v-if="isProductionLoading" name="lucide:loader-circle" class="size-3.5 animate-spin" />
+                <Icon v-else name="lucide:sparkles" class="size-3.5" />
+                <span>Switch Master to This Design</span>
+              </Button>
+              <Badge v-else variant="success" class="text-xs px-3 py-1 font-bold">
+                <Icon name="lucide:circle-check" class="size-3.5 mr-1" />
+                <span>Active Master Artwork</span>
+              </Badge>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

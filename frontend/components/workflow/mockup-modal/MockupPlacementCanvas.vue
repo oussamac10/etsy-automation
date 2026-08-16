@@ -167,7 +167,7 @@ const blendStyle = computed(() => {
         class="absolute cursor-move transition-[box-shadow]"
         :class="
           viewMode === 'edit'
-            ? 'border-2 border-dashed border-indigo-500 bg-indigo-500/10 shadow-lg'
+            ? 'border-2 border-dashed border-primary bg-primary/10 shadow-lg'
             : 'border-0 bg-transparent'
         "
         :style="artworkBoxStyle"
@@ -184,7 +184,7 @@ const blendStyle = computed(() => {
         <!-- Resize Handle in Bottom Right -->
         <div
           v-if="viewMode === 'edit'"
-          class="absolute -bottom-2 -right-2 h-5 w-5 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize shadow-md flex items-center justify-center hover:scale-125 transition-transform"
+          class="absolute -bottom-2 -right-2 h-5 w-5 bg-primary border-2 border-white rounded-full cursor-nwse-resize shadow-md flex items-center justify-center hover:scale-125 transition-transform"
           @mousedown="startResize"
         >
           <div class="h-1.5 w-1.5 bg-white rounded-full" />
@@ -195,8 +195,8 @@ const blendStyle = computed(() => {
           v-if="viewMode === 'edit'"
           class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-40"
         >
-          <div class="w-2 h-0.5 bg-indigo-600 absolute" />
-          <div class="h-2 w-0.5 bg-indigo-600 absolute" />
+          <div class="w-2 h-0.5 bg-primary absolute" />
+          <div class="h-2 w-0.5 bg-primary absolute" />
         </div>
       </div>
     </div>

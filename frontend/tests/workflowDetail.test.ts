@@ -344,4 +344,62 @@ describe("Workflow Detail Page - Gate 1 and Phase 6 controls", () => {
       })
     );
   });
+
+  it("opens candidate design full-size inspection modal and toggles background", async () => {
+    mockWorkflow.state = "ART_REVIEW";
+    mockConcept.status = "APPROVED";
+    mockArtworkJob.assets = [
+      {
+        id: "asset-123",
+        workflow_id: "wf-123",
+        width: 1024,
+        height: 1024,
+        byte_size: 102400,
+        mime_type: "image/png",
+        url: "http://localhost:9000/assets/fox.png",
+        derived_from_id: null,
+      },
+    ];
+
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const wrapper = mount(workflowPage, {
+      global: {
+        components: {
+          NavBar: NavBarMock,
+          NuxtLink: NuxtLinkMock,
+        },
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Initially modal is closed
+    expect(wrapper.text()).not.toContain("Candidate Design #1 of 1");
+
+    // Click inspect button
+    const inspectBtn = wrapper.findAll("button").find(b => b.text().includes("Inspect"));
+    expect(inspectBtn).toBeDefined();
+    await inspectBtn?.trigger("click");
+
+    // Modal should now be open
+    expect(wrapper.text()).toContain("Candidate Design #1 of 1");
+    expect(wrapper.text()).toContain("Transparent Alpha");
+    expect(wrapper.text()).toContain("Checkerboard");
+    expect(wrapper.text()).toContain("White");
+    expect(wrapper.text()).toContain("Dark");
+    expect(wrapper.text()).toContain("Download PNG");
+
+    // Switch background to dark
+    const darkBtn = wrapper.findAll("button").find(b => b.text().includes("Dark"));
+    expect(darkBtn).toBeDefined();
+    await darkBtn?.trigger("click");
+
+    // Close preview modal by clicking the X button
+    const closeBtn = wrapper.findAll("button").find(b => b.attributes("class")?.includes("hover:bg-secondary") && !b.text());
+    expect(closeBtn).toBeDefined();
+    await closeBtn?.trigger("click");
+
+    expect(wrapper.text()).not.toContain("Candidate Design #1 of 1");
+  });
 });

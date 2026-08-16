@@ -377,22 +377,22 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-zinc-50/80 pb-16">
+  <div class="min-h-screen bg-background pb-16">
     <NavBar />
 
     <main id="main" class="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10 space-y-8">
       <!-- Dashboard Hero Header -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-zinc-200/80 pb-8">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-border pb-8">
         <div class="space-y-1.5">
-          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
             <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
             <span>Digital Product Automation</span>
           </div>
-          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
-            Etsy PNG Automation
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+            Marketplace Studio
           </h1>
-          <p class="text-sm text-zinc-500 max-w-2xl">
-            Autonomous research-to-draft engine for high-resolution digital PNG art. Human approval gates at every milestone.
+          <p class="text-sm text-muted-foreground max-w-2xl">
+            Autonomous research-to-draft engine for high-resolution digital products. Human approval gates at every milestone.
           </p>
         </div>
 
@@ -401,7 +401,7 @@ onUnmounted(() => {
             v-if="!showCreateForm"
             variant="default"
             size="lg"
-            class="shadow-md shadow-indigo-600/20 gap-2 font-semibold cursor-pointer inline-flex items-center"
+            class="shadow-md shadow-primary/20 gap-2 font-semibold cursor-pointer inline-flex items-center"
             @click="showCreateForm = true"
           >
             <Icon name="lucide:plus" class="size-4" aria-hidden="true" />
@@ -423,16 +423,16 @@ onUnmounted(() => {
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Total Campaigns</span>
-            <Icon name="lucide:layers" class="size-4 text-zinc-400" aria-hidden="true" />
+            <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Campaigns</span>
+            <Icon name="lucide:layers" class="size-4 text-muted-foreground" aria-hidden="true" />
           </div>
-          <p class="text-2xl font-bold text-zinc-900 mt-2">{{ totalCount }}</p>
-          <span class="text-[11px] text-zinc-400">All registered workflows</span>
+          <p class="text-2xl font-bold text-foreground mt-2">{{ totalCount }}</p>
+          <span class="text-[11px] text-muted-foreground">All registered workflows</span>
         </Card>
 
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-amber-700 uppercase tracking-wide">In Progress</span>
+            <span class="text-xs font-semibold text-amber-600 uppercase tracking-wide">In Progress</span>
             <Icon
               name="lucide:loader-circle"
               class="size-4"
@@ -440,34 +440,34 @@ onUnmounted(() => {
               aria-hidden="true"
             />
           </div>
-          <p class="text-2xl font-bold text-amber-900 mt-2">{{ runningCount }}</p>
-          <span class="text-[11px] text-amber-700/80">Active background tasks</span>
+          <p class="text-2xl font-bold text-amber-600 mt-2">{{ runningCount }}</p>
+          <span class="text-[11px] text-amber-600/80">Active background tasks</span>
         </Card>
 
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Needs Gate Review</span>
-            <Icon name="lucide:clock-3" class="size-4 text-indigo-600" aria-hidden="true" />
+            <span class="text-xs font-semibold text-primary uppercase tracking-wide">Needs Gate Review</span>
+            <Icon name="lucide:clock-3" class="size-4 text-primary" aria-hidden="true" />
           </div>
-          <p class="text-2xl font-bold text-indigo-900 mt-2">{{ attentionCount }}</p>
-          <span class="text-[11px] text-indigo-700/80">Awaiting human sign-off</span>
+          <p class="text-2xl font-bold text-primary mt-2">{{ attentionCount }}</p>
+          <span class="text-[11px] text-primary/80">Awaiting human sign-off</span>
         </Card>
 
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Approved / Complete</span>
+            <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Approved / Complete</span>
             <Icon name="lucide:circle-check" class="size-4 text-emerald-600" aria-hidden="true" />
           </div>
-          <p class="text-2xl font-bold text-emerald-900 mt-2">{{ completedCount }}</p>
-          <span class="text-[11px] text-emerald-700/80">Ready for listing</span>
+          <p class="text-2xl font-bold text-emerald-600 mt-2">{{ completedCount }}</p>
+          <span class="text-[11px] text-emerald-600/80">Ready for listing</span>
         </Card>
       </div>
 
       <!-- Campaign Creation Card -->
-      <Card v-if="showCreateForm" class="shadow-lg border-indigo-200 bg-gradient-to-b from-white to-indigo-50/20">
+      <Card v-if="showCreateForm" class="shadow-lg border-border bg-gradient-to-b from-white to-slate-50/50">
         <CardHeader class="pb-4">
           <div class="flex items-center gap-2.5">
-            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+            <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-primary border border-border">
               <Icon name="lucide:sparkles" class="size-5" aria-hidden="true" />
             </div>
             <div>
@@ -493,23 +493,23 @@ onUnmounted(() => {
                   :class="[
                     'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
                     ideaMode === 'market-led'
-                      ? 'border-indigo-600 bg-indigo-50/50 shadow-2xs'
-                      : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50',
+                      ? 'border-primary bg-blue-50/40 shadow-2xs'
+                      : 'border-border bg-white hover:border-primary/40 hover:bg-slate-50',
                   ]"
                   @click="ideaMode = 'market-led'"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                      <Icon name="lucide:search" class="size-4 text-indigo-600" aria-hidden="true" />
-                      <span class="font-bold text-sm text-zinc-900">Discover Ideas</span>
+                      <Icon name="lucide:search" class="size-4 text-primary" aria-hidden="true" />
+                      <span class="font-bold text-sm text-foreground">Discover Ideas</span>
                     </div>
                     <Badge v-if="ideaMode === 'market-led'" variant="default" class="h-5 px-1.5 text-[10px]">
                       Selected
                     </Badge>
                   </div>
-                  <p class="text-xs font-semibold text-indigo-700 mb-1">Market-Led Discovery</p>
-                  <p class="text-xs text-zinc-500 leading-relaxed">
-                    AI searches seasonal Etsy trends and generates 3 validated design concepts automatically.
+                  <p class="text-xs font-semibold text-primary mb-1">Market-Led Discovery</p>
+                  <p class="text-xs text-muted-foreground leading-relaxed">
+                    AI analyzes seasonal marketplace trends and generates 3 validated design concepts automatically.
                   </p>
                 </div>
 
@@ -518,22 +518,22 @@ onUnmounted(() => {
                   :class="[
                     'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
                     ideaMode === 'user-idea'
-                      ? 'border-indigo-600 bg-indigo-50/50 shadow-2xs'
-                      : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50',
+                      ? 'border-primary bg-blue-50/40 shadow-2xs'
+                      : 'border-border bg-white hover:border-primary/40 hover:bg-slate-50',
                   ]"
                   @click="ideaMode = 'user-idea'"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                      <Icon name="lucide:lightbulb" class="size-4 text-indigo-600" aria-hidden="true" />
-                      <span class="font-bold text-sm text-zinc-900">Use My Idea</span>
+                      <Icon name="lucide:lightbulb" class="size-4 text-primary" aria-hidden="true" />
+                      <span class="font-bold text-sm text-foreground">Use My Idea</span>
                     </div>
                     <Badge v-if="ideaMode === 'user-idea'" variant="default" class="h-5 px-1.5 text-[10px]">
                       Selected
                     </Badge>
                   </div>
-                  <p class="text-xs font-semibold text-indigo-700 mb-1">Idea Optimization</p>
-                  <p class="text-xs text-zinc-500 leading-relaxed">
+                  <p class="text-xs font-semibold text-primary mb-1">Idea Optimization</p>
+                  <p class="text-xs text-muted-foreground leading-relaxed">
                     Provide your own theme or slogan. The engine refines keywords, prompts, and target appeal.
                   </p>
                 </div>
@@ -543,22 +543,22 @@ onUnmounted(() => {
                   :class="[
                     'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
                     ideaMode === 'hybrid'
-                      ? 'border-indigo-600 bg-indigo-50/50 shadow-2xs'
-                      : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50',
+                      ? 'border-primary bg-blue-50/40 shadow-2xs'
+                      : 'border-border bg-white hover:border-primary/40 hover:bg-slate-50',
                   ]"
                   @click="ideaMode = 'hybrid'"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                      <Icon name="lucide:git-merge" class="size-4 text-indigo-600" aria-hidden="true" />
-                      <span class="font-bold text-sm text-zinc-900">Hybrid Approach</span>
+                      <Icon name="lucide:git-merge" class="size-4 text-primary" aria-hidden="true" />
+                      <span class="font-bold text-sm text-foreground">Hybrid Approach</span>
                     </div>
                     <Badge v-if="ideaMode === 'hybrid'" variant="default" class="h-5 px-1.5 text-[10px]">
                       Selected
                     </Badge>
                   </div>
-                  <p class="text-xs font-semibold text-indigo-700 mb-1">Direction + Signals</p>
-                  <p class="text-xs text-zinc-500 leading-relaxed">
+                  <p class="text-xs font-semibold text-primary mb-1">Direction + Signals</p>
+                  <p class="text-xs text-muted-foreground leading-relaxed">
                     Combine your creative direction with real-time market data to create derived variations.
                   </p>
                 </div>
@@ -577,7 +577,7 @@ onUnmounted(() => {
                   :required="ideaMode !== 'market-led'"
                   :placeholder="ideaMode === 'market-led' ? 'e.g. US Trend Discovery - Aug 2026' : 'e.g. Autumn Mugs 2026'"
                 />
-                <span v-if="ideaMode === 'market-led'" class="text-[11px] text-zinc-400">
+                <span v-if="ideaMode === 'market-led'" class="text-[11px] text-muted-foreground">
                   Optional — auto-generates if left blank
                 </span>
               </div>
@@ -587,7 +587,7 @@ onUnmounted(() => {
                 <select
                   id="target-country"
                   v-model="targetCountry"
-                  class="flex h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  class="flex h-9 w-full rounded-md border border-border bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <option value="US">United States (US)</option>
                   <option value="CA">Canada (CA)</option>
@@ -633,7 +633,7 @@ onUnmounted(() => {
                   <Label for="product-uses">Intended Physical Products</Label>
                   <NuxtLink
                     to="/library"
-                    class="p-0.5 rounded text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 transition-colors"
+                    class="p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
                     title="Manage Mockup Library"
                   >
                     <Icon name="lucide:folder-cog" class="size-3.5" aria-hidden="true" />
@@ -651,8 +651,8 @@ onUnmounted(() => {
             </div>
 
             <!-- Step 3: Wording / Brief inputs (for user-idea/hybrid modes) -->
-            <div v-if="ideaMode !== 'market-led'" class="border-t border-zinc-200/80 pt-6 space-y-4">
-              <h3 class="text-base font-bold text-zinc-900">
+            <div v-if="ideaMode !== 'market-led'" class="border-t border-border pt-6 space-y-4">
+              <h3 class="text-base font-bold text-foreground">
                 {{ ideaMode === 'hybrid' ? 'Your Theme / Direction Details' : 'Your Design Idea Details' }}
               </h3>
 
@@ -730,9 +730,9 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="flex items-center justify-between border-t border-zinc-100 pt-4">
-              <div class="flex items-center gap-2 text-xs text-zinc-500">
-                <Clock class="h-4 w-4 text-indigo-600" />
+            <div class="flex items-center justify-between border-t border-border pt-4">
+              <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock class="h-4 w-4 text-primary" />
                 <span>Runs in background · Pauses at Gate 1 for review</span>
               </div>
 
@@ -741,7 +741,7 @@ onUnmounted(() => {
                 variant="default"
                 size="lg"
                 :loading="isCreating"
-                class="shadow-md shadow-indigo-600/20 font-bold cursor-pointer inline-flex items-center"
+                class="shadow-md shadow-primary/20 font-bold cursor-pointer inline-flex items-center"
               >
                 <span>
                   {{
@@ -774,7 +774,7 @@ onUnmounted(() => {
                   placeholder="Search campaigns..."
                   class="pl-8 text-xs h-8"
                 />
-                <Icon name="lucide:search" class="absolute left-2.5 top-2.5 size-3.5 text-zinc-400 pointer-events-none" aria-hidden="true" />
+                <Icon name="lucide:search" class="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground pointer-events-none" aria-hidden="true" />
               </div>
             </div>
           </div>
@@ -786,8 +786,8 @@ onUnmounted(() => {
             <AlertDescription>{{ controlError }}</AlertDescription>
           </Alert>
 
-          <div v-if="isListLoading" class="flex flex-col items-center justify-center py-16 text-zinc-400 gap-2">
-            <Icon name="lucide:loader-circle" class="size-6 animate-spin text-indigo-600" aria-hidden="true" />
+          <div v-if="isListLoading" class="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+            <Icon name="lucide:loader-circle" class="size-6 animate-spin text-primary" aria-hidden="true" />
             <p class="text-sm font-medium">Loading campaigns...</p>
           </div>
 
@@ -798,13 +798,13 @@ onUnmounted(() => {
 
           <!-- Empty State -->
           <div v-else-if="filteredWorkflows.length === 0" class="text-center py-16 px-4">
-            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-4 border border-indigo-100 shadow-2xs">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary text-primary mb-4 border border-border shadow-2xs">
               <Icon name="lucide:sparkles" class="size-7" aria-hidden="true" />
             </div>
-            <h3 class="text-base font-bold text-zinc-900 mb-1">
+            <h3 class="text-base font-bold text-foreground mb-1">
               {{ searchQuery ? 'No matching campaigns' : 'No active campaigns' }}
             </h3>
-            <p class="text-zinc-500 text-xs mb-6 max-w-sm mx-auto">
+            <p class="text-muted-foreground text-xs mb-6 max-w-sm mx-auto">
               {{ searchQuery ? 'Try adjusting your search query or clear filters.' : 'Get started by creating your first product design workflow with automated research.' }}
             </p>
             <Button
@@ -820,36 +820,36 @@ onUnmounted(() => {
           </div>
 
           <!-- Workflows Table -->
-          <div v-else class="overflow-x-auto rounded-xl border border-zinc-200/80">
+          <div v-else class="overflow-x-auto rounded-xl border border-border">
             <table class="min-w-full text-left text-sm">
-              <thead class="border-b border-zinc-200 bg-zinc-50/80 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <thead class="border-b border-border bg-secondary/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th scope="col" class="px-6 py-3">Campaign</th>
                   <th scope="col" class="px-6 py-3">Stage & Progress</th>
                   <th scope="col" class="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-zinc-100 bg-white align-middle text-zinc-600">
+              <tbody class="divide-y divide-border bg-white align-middle text-secondary-foreground">
                 <tr
                   v-for="wf in filteredWorkflows"
                   :key="wf.id"
-                  class="transition-colors hover:bg-zinc-50/80 group"
+                  class="transition-colors hover:bg-secondary/30 group"
                 >
                   <td class="px-6 py-4">
                     <NuxtLink
                       :to="`/workflow/${wf.id}`"
-                      class="font-bold text-zinc-900 group-hover:text-indigo-600 transition-colors focus:outline-none focus:underline"
+                      class="font-bold text-foreground group-hover:text-primary transition-colors focus:outline-none focus:underline"
                     >
                       {{ wf.name }}
                     </NuxtLink>
-                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
+                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                       <Badge variant="secondary" class="text-[10px] px-2 py-0">
                         {{ wf.idea_mode }}
                       </Badge>
-                      <span aria-hidden="true" class="text-zinc-300">·</span>
-                      <span class="font-medium text-zinc-600">{{ wf.target_country }}/{{ wf.output_language }}</span>
-                      <span aria-hidden="true" class="text-zinc-300">·</span>
-                      <time :datetime="wf.created_at" class="text-zinc-400">
+                      <span aria-hidden="true" class="text-border">·</span>
+                      <span class="font-medium text-secondary-foreground">{{ wf.target_country }}/{{ wf.output_language }}</span>
+                      <span aria-hidden="true" class="text-border">·</span>
+                      <time :datetime="wf.created_at" class="text-muted-foreground">
                         {{ new Date(wf.created_at).toLocaleDateString() }}
                       </time>
                     </p>
@@ -862,14 +862,14 @@ onUnmounted(() => {
                           class="h-2 w-2 shrink-0 rounded-full"
                           :class="{
                             'bg-amber-500 motion-safe:animate-pulse': isRunning(wf.state),
-                            'bg-indigo-500': needsOwner(wf.state),
-                            'bg-zinc-400': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
-                            'bg-rose-500': wf.state.endsWith('_FAILED'),
+                            'bg-primary': needsOwner(wf.state),
+                            'bg-muted-foreground': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
+                            'bg-destructive': wf.state.endsWith('_FAILED'),
                             'bg-emerald-500': !isRunning(wf.state) && !needsOwner(wf.state) && !wf.state.endsWith('_FAILED') && wf.state !== 'DRAFT' && wf.state !== 'CANCELLED'
                           }"
                           aria-hidden="true"
                         />
-                        <span class="font-semibold text-xs text-zinc-800">
+                        <span class="font-semibold text-xs text-foreground">
                           {{ stageLabel(wf.state) }}
                         </span>
                       </div>
@@ -878,10 +878,10 @@ onUnmounted(() => {
                         <Progress
                           :value="stageProgress(wf.state)[0]"
                           :max="stageProgress(wf.state)[1]"
-                          class="h-1.5 w-24 bg-zinc-100"
-                          indicator-class="bg-indigo-600"
+                          class="h-1.5 w-24 bg-secondary"
+                          indicator-class="bg-primary"
                         />
-                        <span class="text-[11px] font-medium text-zinc-400 tabular-nums">
+                        <span class="text-[11px] font-medium text-muted-foreground tabular-nums">
                           Step {{ stageProgress(wf.state)[0] }}/{{ stageProgress(wf.state)[1] }}
                         </span>
                       </div>

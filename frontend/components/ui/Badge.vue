@@ -4,19 +4,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "~/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2",
+  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-indigo-600 text-white shadow-2xs",
-        secondary: "border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200/80",
-        destructive: "border-rose-200 bg-rose-50 text-rose-700",
-        outline: "border-zinc-200 text-zinc-700",
+        default: "border-transparent bg-primary text-white shadow-2xs",
+        secondary: "border-border bg-secondary text-secondary-foreground",
+        destructive: "border-red-200 bg-red-50 text-red-700",
+        outline: "border-border text-secondary-foreground bg-white",
         success: "border-emerald-200 bg-emerald-50 text-emerald-700",
         warning: "border-amber-200 bg-amber-50 text-amber-700",
-        info: "border-indigo-200 bg-indigo-50 text-indigo-700",
-        etsy: "border-orange-200 bg-orange-50 text-orange-700",
-        purple: "border-purple-200 bg-purple-50 text-purple-700",
+        info: "border-blue-200 bg-blue-50 text-blue-700",
+        accent: "border-violet-200 bg-violet-50 text-violet-700",
+        purple: "border-violet-200 bg-violet-50 text-violet-700",
+        etsy: "border-orange-200 bg-orange-50 text-[#F1641E] font-bold",
       },
     },
     defaultVariants: {

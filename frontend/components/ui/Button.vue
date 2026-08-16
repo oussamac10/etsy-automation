@@ -4,17 +4,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "~/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer",
+  "inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer",
   {
     variants: {
       variant: {
-        default: "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 active:bg-indigo-800",
-        destructive: "bg-rose-600 text-white shadow-sm hover:bg-rose-700 active:bg-rose-800",
-        outline: "border border-zinc-200 bg-white text-zinc-900 shadow-2xs hover:bg-zinc-50 hover:border-zinc-300",
-        secondary: "bg-zinc-100 text-zinc-900 shadow-2xs hover:bg-zinc-200/80",
-        ghost: "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900",
-        link: "text-indigo-600 underline-offset-4 hover:underline",
-        success: "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:bg-emerald-800",
+        default: "bg-primary text-white shadow-xs hover:bg-primary-hover active:bg-[#B33E0B]",
+        destructive: "bg-destructive text-white shadow-xs hover:bg-[#991F18] active:bg-[#801A14]",
+        outline: "border border-border bg-white text-secondary-foreground shadow-2xs hover:bg-secondary hover:text-foreground hover:border-[#FFDCC7]",
+        secondary: "bg-secondary text-secondary-foreground shadow-2xs hover:bg-[#FFDCC7]/60 hover:text-foreground",
+        ghost: "text-secondary-foreground hover:bg-secondary hover:text-foreground",
+        link: "text-primary-hover underline-offset-4 hover:underline hover:text-[#B33E0B]",
+        success: "bg-success text-white shadow-xs hover:bg-[#276729] active:bg-[#1E5220]",
       },
       size: {
         default: "h-9 px-4 py-2",

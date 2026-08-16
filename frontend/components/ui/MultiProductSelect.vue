@@ -118,20 +118,20 @@ onBeforeUnmount(() => {
   <div ref="containerRef" class="relative w-full text-xs">
     <!-- Trigger Button / Box -->
     <div
-      class="min-h-9 w-full rounded-md border border-zinc-200 bg-white px-2 py-1.5 shadow-2xs transition-colors focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 flex flex-wrap items-center gap-1.5 cursor-pointer"
+      class="min-h-9 w-full rounded-lg border border-border bg-white px-2 py-1.5 shadow-2xs transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 flex flex-wrap items-center gap-1.5 cursor-pointer"
       @click="isOpen = true"
     >
       <!-- Selected tags -->
       <span
         v-for="item in modelValue"
         :key="item"
-        class="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 border border-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-800 shadow-3xs hover:bg-zinc-200/80 transition-colors"
+        class="inline-flex items-center gap-1.5 rounded-md bg-secondary border border-border px-2 py-0.5 text-[11px] font-medium text-foreground shadow-3xs hover:bg-slate-200 transition-colors"
       >
-        <Icon :name="getProductInfo(item).icon" class="size-3 text-zinc-500 shrink-0" aria-hidden="true" />
+        <Icon :name="getProductInfo(item).icon" class="size-3 text-muted-foreground shrink-0" aria-hidden="true" />
         <span>{{ getProductInfo(item).label }}</span>
         <button
           type="button"
-          class="ml-0.5 rounded text-zinc-400 hover:text-zinc-700 focus:outline-hidden cursor-pointer"
+          class="ml-0.5 rounded text-muted-foreground hover:text-foreground focus:outline-hidden cursor-pointer"
           aria-label="Remove item"
           @click.stop="removeProduct(item)"
         >
@@ -144,13 +144,13 @@ onBeforeUnmount(() => {
         v-model="searchQuery"
         type="text"
         :placeholder="modelValue.length === 0 ? placeholder : 'Add more...'"
-        class="flex-1 min-w-[120px] bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden h-6"
+        class="flex-1 min-w-[120px] bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden h-6"
         @focus="isOpen = true"
         @keydown.enter.prevent="addCustomItem"
         @keydown.esc="isOpen = false"
       >
 
-      <Icon name="lucide:chevron-down" class="size-3.5 text-zinc-400 transition-transform ml-auto shrink-0" :class="{ 'rotate-180': isOpen }" aria-hidden="true" />
+      <Icon name="lucide:chevron-down" class="size-3.5 text-muted-foreground transition-transform ml-auto shrink-0" :class="{ 'rotate-180': isOpen }" aria-hidden="true" />
     </div>
 
     <!-- Dropdown Menu -->
@@ -164,9 +164,9 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="isOpen"
-        class="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-zinc-200 bg-white p-1.5 shadow-lg space-y-0.5 text-zinc-800"
+        class="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-white p-1.5 shadow-lg space-y-0.5 text-foreground"
       >
-        <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+        <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           Catalog Products
         </div>
 
@@ -174,23 +174,23 @@ onBeforeUnmount(() => {
           v-for="opt in filteredOptions"
           :key="opt.value"
           type="button"
-          class="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors hover:bg-zinc-100 cursor-pointer"
-          :class="{ 'bg-indigo-50/80 font-medium text-indigo-900': isSelected(opt.value) }"
+          class="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors hover:bg-secondary cursor-pointer"
+          :class="{ 'bg-secondary font-semibold text-foreground': isSelected(opt.value) }"
           @click="toggleProduct(opt.value)"
         >
           <div class="flex items-center gap-2">
-            <Icon :name="opt.icon" class="size-3.5 text-zinc-500 shrink-0" aria-hidden="true" />
+            <Icon :name="opt.icon" class="size-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
             <span>{{ opt.label }}</span>
-            <span class="text-[10px] text-zinc-400 font-mono">({{ opt.value }})</span>
+            <span class="text-[10px] text-muted-foreground font-mono">({{ opt.value }})</span>
           </div>
-          <Icon v-if="isSelected(opt.value)" name="lucide:check" class="size-3.5 text-indigo-600 font-bold" aria-hidden="true" />
+          <Icon v-if="isSelected(opt.value)" name="lucide:check" class="size-3.5 text-primary font-bold" aria-hidden="true" />
         </button>
 
         <!-- Custom Item Option -->
         <button
           v-if="isCustomQueryNew"
           type="button"
-          class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 font-semibold border-t border-zinc-100 mt-1 cursor-pointer"
+          class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-primary hover:bg-secondary font-semibold border-t border-border mt-1 cursor-pointer"
           @click="addCustomItem"
         >
           <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />

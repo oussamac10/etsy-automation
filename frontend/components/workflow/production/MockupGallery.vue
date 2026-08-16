@@ -49,12 +49,12 @@ function handleSelectProductFromPicker(productKey: string): void {
     <!-- Gallery Section Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h4 class="text-sm font-bold text-zinc-900 flex items-center gap-2">
-          <Icon name="lucide:images" class="size-4 text-indigo-600" aria-hidden="true" />
+        <h4 class="text-sm font-bold text-foreground flex items-center gap-2">
+          <Icon name="lucide:images" class="size-4 text-primary" aria-hidden="true" />
           <span>Product Mockups</span>
-          <span v-if="totalMockupsCount > 0" class="text-xs text-zinc-400 font-normal">({{ totalMockupsCount }} listing {{ totalMockupsCount === 1 ? 'mockup' : 'mockups' }})</span>
+          <span v-if="totalMockupsCount > 0" class="text-xs text-muted-foreground font-normal">({{ totalMockupsCount }} listing {{ totalMockupsCount === 1 ? 'mockup' : 'mockups' }})</span>
         </h4>
-        <p class="text-xs text-zinc-500">
+        <p class="text-xs text-muted-foreground">
           Upload blank mockup templates or photos to preview your master artwork on realistic products.
         </p>
       </div>
@@ -63,7 +63,7 @@ function handleSelectProductFromPicker(productKey: string): void {
         v-if="availableTabs.length === 0"
         variant="default"
         size="sm"
-        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
+        class="font-bold gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
         :disabled="isActionLoading"
         @click="showProductPickerModal = true"
       >
@@ -94,10 +94,10 @@ function handleSelectProductFromPicker(productKey: string): void {
       <!-- Tab Sub-Header -->
       <div class="flex items-center justify-between pt-1">
         <div class="flex items-center gap-2">
-          <span class="text-xs font-bold text-zinc-700">
+          <span class="text-xs font-bold text-foreground">
             {{ getProductLabel(selectedTab) }}
           </span>
-          <span class="text-xs text-zinc-400">
+          <span class="text-xs text-muted-foreground">
             ({{ currentTabMockups.length }} listing {{ currentTabMockups.length === 1 ? 'mockup' : 'mockups' }})
           </span>
         </div>

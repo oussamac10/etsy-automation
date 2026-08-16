@@ -56,15 +56,15 @@ const isProductionActive = computed(() => {
 </script>
 
 <template>
-  <nav class="border-b border-zinc-200 bg-white/70 backdrop-blur-md sticky top-0 z-10 rounded-xl shadow-2xs p-1.5 flex items-center gap-1.5 overflow-x-auto">
+  <nav class="border-b border-border bg-white/80 backdrop-blur-md sticky top-0 z-10 rounded-xl shadow-2xs p-1.5 flex items-center gap-1.5 overflow-x-auto">
     <!-- Tab 1: Overview -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :class="
         activeTab === 'overview'
-          ? 'bg-zinc-900 text-white shadow-xs'
-          : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+          ? 'bg-slate-900 text-white shadow-xs'
+          : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
       "
       @click="emit('update:activeTab', 'overview')"
     >
@@ -75,22 +75,22 @@ const isProductionActive = computed(() => {
     <!-- Tab 2: Concepts & Research -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap relative cursor-pointer"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap relative cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :class="
         activeTab === 'concepts'
-          ? 'bg-zinc-900 text-white shadow-xs'
-          : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+          ? 'bg-slate-900 text-white shadow-xs'
+          : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
       "
       @click="emit('update:activeTab', 'concepts')"
     >
-      <Icon v-if="isResearchActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-amber-500" aria-hidden="true" />
-      <Icon v-else-if="isGate1Done" name="lucide:circle-check" class="size-3.5 text-emerald-500" aria-hidden="true" />
-      <Icon v-else name="lucide:sparkles" class="size-4 text-indigo-500" aria-hidden="true" />
+      <Icon v-if="isResearchActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
+      <Icon v-else-if="isGate1Done" name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
+      <Icon v-else name="lucide:sparkles" class="size-4 text-muted-foreground" aria-hidden="true" />
       <span>1. Concepts & Research</span>
       <span
         v-if="conceptsCount > 0"
         class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
-        :class="activeTab === 'concepts' ? 'bg-zinc-700 text-zinc-200' : 'bg-zinc-200 text-zinc-700'"
+        :class="activeTab === 'concepts' ? 'bg-slate-700 text-white' : 'bg-secondary text-secondary-foreground'"
       >
         {{ conceptsCount }}
       </span>
@@ -99,22 +99,22 @@ const isProductionActive = computed(() => {
     <!-- Tab 3: Artwork Studio -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :class="
         activeTab === 'artwork'
-          ? 'bg-zinc-900 text-white shadow-xs'
-          : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+          ? 'bg-slate-900 text-white shadow-xs'
+          : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
       "
       @click="emit('update:activeTab', 'artwork')"
     >
-      <Icon v-if="isArtActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-amber-500" aria-hidden="true" />
-      <Icon v-else-if="isGate2Done" name="lucide:circle-check" class="size-3.5 text-emerald-500" aria-hidden="true" />
-      <Icon v-else name="lucide:image" class="size-4 text-indigo-500" aria-hidden="true" />
+      <Icon v-if="isArtActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
+      <Icon v-else-if="isGate2Done" name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
+      <Icon v-else name="lucide:image" class="size-4 text-muted-foreground" aria-hidden="true" />
       <span>2. Artwork Studio</span>
       <span
         v-if="candidatesCount > 0"
         class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
-        :class="activeTab === 'artwork' ? 'bg-zinc-700 text-zinc-200' : 'bg-zinc-200 text-zinc-700'"
+        :class="activeTab === 'artwork' ? 'bg-slate-700 text-white' : 'bg-secondary text-secondary-foreground'"
       >
         {{ candidatesCount }}
       </span>
@@ -123,17 +123,17 @@ const isProductionActive = computed(() => {
     <!-- Tab 4: Production & Mockups -->
     <button
       type="button"
-      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer"
+      class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :class="
         activeTab === 'production'
-          ? 'bg-zinc-900 text-white shadow-xs'
-          : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+          ? 'bg-slate-900 text-white shadow-xs'
+          : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
       "
       @click="emit('update:activeTab', 'production')"
     >
-      <Icon v-if="isProductionActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-amber-500" aria-hidden="true" />
-      <Icon v-else-if="isProductionDone" name="lucide:circle-check" class="size-3.5 text-emerald-500" aria-hidden="true" />
-      <Icon v-else name="lucide:file-image" class="size-4 text-indigo-500" aria-hidden="true" />
+      <Icon v-if="isProductionActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
+      <Icon v-else-if="isProductionDone" name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
+      <Icon v-else name="lucide:file-image" class="size-4 text-muted-foreground" aria-hidden="true" />
       <span>3. Production & Mockups</span>
       <Badge
         v-if="isProductionDone"

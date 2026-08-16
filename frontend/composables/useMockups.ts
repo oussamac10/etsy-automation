@@ -3,7 +3,10 @@ import type { MockupAsset, MockupTemplateItem } from "~/types/mockup";
 import { normalizeProductKey, extractProductFromKey } from "~/utils/mockupProducts";
 import { getApiErrorMessage, getCsrfHeaders } from "~/utils/api";
 
-export function useMockups(activeMasterAssetId?: () => string | null | undefined) {
+export function useMockups(
+  activeMasterAssetId?: () => string | null | undefined,
+  intendedProducts?: () => string[] | undefined,
+) {
   const config = useRuntimeConfig();
   const apiBase = config.public.apiBase ? config.public.apiBase.replace(/\/$/, "") : "";
 
@@ -63,15 +66,29 @@ export function useMockups(activeMasterAssetId?: () => string | null | undefined
   });
 
   const availableProductTabs = computed<string[]>(() => {
-    return Object.keys(mockupsByProduct.value).filter(
+    const intended = (intendedProducts ? intendedProducts() || [] : [])
+      .map((p) => normalizeProductKey(p))
+      .filter(Boolean);
+    const activeWithMockups = Object.keys(mockupsByProduct.value).filter(
       (k) => (mockupsByProduct.value[k] || []).length > 0
     );
+    const combined = Array.from(new Set([...intended, ...activeWithMockups]));
+    return combined;
   });
 
   watch(
-    availableProductTabs,
-    (tabs) => {
-      if (tabs.length > 0 && !tabs.includes(selectedMockupTab.value)) {
+    [availableProductTabs, mockupsByProduct],
+    ([tabs, map]) => {
+      if (tabs.length === 0) return;
+      const currentCount = (map[selectedMockupTab.value] || []).length;
+      if (currentCount === 0) {
+        const firstWithMockup = tabs.find((t) => (map[t] || []).length > 0);
+        if (firstWithMockup) {
+          selectedMockupTab.value = firstWithMockup;
+          return;
+        }
+      }
+      if (!tabs.includes(selectedMockupTab.value)) {
         selectedMockupTab.value = tabs[0];
       }
     },

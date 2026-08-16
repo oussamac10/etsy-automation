@@ -37,29 +37,29 @@ const emit = defineEmits<{
     class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
     @click.self="emit('close')"
   >
-    <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+    <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
       <!-- Header -->
-      <div class="flex items-center gap-3 text-rose-600">
-        <div class="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
-          <Icon name="lucide:trash-2" class="size-5 text-rose-600" aria-hidden="true" />
+      <div class="flex items-center gap-3 text-destructive">
+        <div class="h-10 w-10 rounded-xl bg-[#FFEBEE] border border-[#FFCDD2] flex items-center justify-center shrink-0">
+          <Icon name="lucide:trash-2" class="size-5 text-destructive" aria-hidden="true" />
         </div>
         <div>
-          <h3 class="text-sm font-bold text-zinc-900 leading-tight">{{ title }}</h3>
-          <p class="text-xs text-zinc-500">{{ description }}</p>
+          <h3 class="text-sm font-bold text-foreground leading-tight">{{ title }}</h3>
+          <p class="text-xs text-muted-foreground">{{ description }}</p>
         </div>
       </div>
 
       <!-- Preview Item Card -->
-      <div v-if="itemName || imageUrl" class="p-3 rounded-xl bg-zinc-50 border border-zinc-200/80 flex items-center gap-3">
+      <div v-if="itemName || imageUrl" class="p-3 rounded-xl bg-secondary/60 border border-border flex items-center gap-3">
         <img
           v-if="imageUrl"
           :src="imageUrl"
           alt="Thumbnail"
-          class="h-12 w-12 object-cover rounded-lg border border-zinc-200 shrink-0 bg-white"
+          class="h-12 w-12 object-cover rounded-lg border border-border shrink-0 bg-white"
         >
         <div class="truncate">
-          <p class="text-xs font-bold text-zinc-900 truncate">{{ itemName || 'Item' }}</p>
-          <p v-if="itemCategory" class="text-[10px] text-zinc-500">{{ itemCategory }}</p>
+          <p class="text-xs font-bold text-foreground truncate">{{ itemName || 'Item' }}</p>
+          <p v-if="itemCategory" class="text-[10px] text-muted-foreground">{{ itemCategory }}</p>
         </div>
       </div>
 

@@ -28,10 +28,10 @@ const percentage = computed(() => {
     :aria-valuenow="value"
     :aria-valuemin="0"
     :aria-valuemax="max"
-    :class="cn('relative h-2 w-full overflow-hidden rounded-full bg-zinc-100', props.class)"
+    :class="cn('relative h-2 w-full overflow-hidden rounded-full bg-secondary', props.class)"
   >
     <div
-      :class="cn('h-full w-full flex-1 bg-indigo-600 transition-all duration-300 ease-in-out', props.indicatorClass)"
+      :class="cn('h-full w-full flex-1 bg-primary transition-all duration-300 ease-in-out', props.indicatorClass)"
       :style="{ transform: `translateX(-${100 - percentage}%)` }"
     />
   </div>

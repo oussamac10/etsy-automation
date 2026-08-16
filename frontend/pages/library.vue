@@ -681,21 +681,21 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-zinc-50/80 pb-16">
+  <div class="min-h-screen bg-background pb-16">
     <NavBar />
 
     <main id="main" class="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10 space-y-8">
       <!-- Studio Header -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-zinc-200/80 pb-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-border pb-6">
         <div class="space-y-1.5">
-          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
             <Icon name="lucide:images" class="size-4" aria-hidden="true" />
             <span>Mockup Template Studio</span>
           </div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900">
+          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
             Mockup Template Library
           </h1>
-          <p class="text-sm text-zinc-500 max-w-2xl">
+          <p class="text-sm text-muted-foreground max-w-2xl">
             Visually place and center artwork print areas on your blank mockup templates. Unwanted photos can be deleted here to permanently free storage.
           </p>
         </div>
@@ -704,17 +704,17 @@ onMounted(() => {
           <Button
             variant="outline"
             size="sm"
-            class="text-xs font-semibold gap-1.5 cursor-pointer text-zinc-700 hover:text-zinc-900 shadow-2xs"
+            class="text-xs font-semibold gap-1.5 cursor-pointer text-secondary-foreground hover:text-foreground shadow-2xs"
             @click="showAddCustomTypeModal = true"
           >
-            <Icon name="lucide:plus-circle" class="size-3.5 text-indigo-600" aria-hidden="true" />
+            <Icon name="lucide:plus-circle" class="size-3.5 text-primary" aria-hidden="true" />
             <span>Add Custom Product Type</span>
           </Button>
 
           <Button
             variant="default"
             size="sm"
-            class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
+            class="text-xs font-semibold gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
             @click="openUploadModal()"
           >
             <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
@@ -729,17 +729,17 @@ onMounted(() => {
         <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
           <!-- Search Input -->
           <div class="relative w-full sm:w-72">
-            <Icon name="lucide:search" class="size-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+            <Icon name="lucide:search" class="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
             <Input
               v-model="searchQuery"
               placeholder="Search templates..."
-              class="pl-9 h-9 text-xs bg-white shadow-2xs border-zinc-200 w-full"
+              class="pl-9 h-9 text-xs bg-white shadow-2xs border-border w-full"
             />
           </div>
 
           <!-- Total Count Badge -->
-          <div class="flex items-center gap-2 text-xs text-zinc-500">
-            <span class="font-bold text-zinc-900">{{ templates.length }}</span> saved {{ templates.length === 1 ? 'template' : 'templates' }} in MinIO storage
+          <div class="flex items-center gap-2 text-xs text-muted-foreground">
+            <span class="font-bold text-foreground">{{ templates.length }}</span> saved {{ templates.length === 1 ? 'template' : 'templates' }} in MinIO storage
           </div>
         </div>
 
@@ -750,8 +750,8 @@ onMounted(() => {
             class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
             :class="
               selectedCategory === 'all'
-                ? 'bg-zinc-900 text-white shadow-xs'
-                : 'text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-slate-200'
             "
             @click="selectedCategory = 'all'"
           >
@@ -759,7 +759,7 @@ onMounted(() => {
             <span>All Templates</span>
             <span
               class="text-[10px] px-1.5 py-0.2 rounded-full font-bold"
-              :class="selectedCategory === 'all' ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-200 text-zinc-600'"
+              :class="selectedCategory === 'all' ? 'bg-slate-700 text-white' : 'bg-white text-secondary-foreground border border-border'"
             >
               {{ templateCounts['all'] || 0 }}
             </span>
@@ -772,8 +772,8 @@ onMounted(() => {
             class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
             :class="
               selectedCategory === cat.value
-                ? 'bg-zinc-900 text-white shadow-xs'
-                : 'text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-slate-200'
             "
             @click="selectedCategory = cat.value"
           >
@@ -783,10 +783,10 @@ onMounted(() => {
               class="text-[10px] px-1.5 py-0.2 rounded-full font-bold"
               :class="
                 selectedCategory === cat.value
-                  ? 'bg-zinc-700 text-zinc-100'
+                  ? 'bg-slate-700 text-white'
                   : (templateCounts[cat.value] || 0) > 0
-                    ? 'bg-indigo-100 text-indigo-700 font-extrabold'
-                    : 'bg-zinc-200 text-zinc-500'
+                    ? 'bg-blue-50 text-primary font-extrabold border border-blue-200'
+                    : 'bg-white text-muted-foreground border border-border'
               "
             >
               {{ templateCounts[cat.value] || 0 }}
@@ -798,20 +798,20 @@ onMounted(() => {
       <!-- Selected Category Banner / Actions -->
       <div
         v-if="selectedCategory !== 'all'"
-        class="flex items-center justify-between bg-white rounded-xl p-3.5 border border-zinc-200 shadow-2xs"
+        class="flex items-center justify-between bg-white rounded-xl p-3.5 border border-border shadow-2xs"
       >
         <div class="flex items-center gap-2.5">
-          <div class="size-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shadow-2xs">
+          <div class="size-8 rounded-lg bg-secondary text-primary flex items-center justify-center border border-border shadow-2xs">
             <Icon :name="getProductIconName(selectedCategory)" class="size-4" aria-hidden="true" />
           </div>
           <div>
-            <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+            <h4 class="text-xs font-bold text-foreground flex items-center gap-1.5">
               <span>{{ getProductLabel(selectedCategory) }}</span>
-              <Badge v-if="allCategoryOptions.find(c => c.value === selectedCategory)?.isCustom" variant="outline" class="text-[9px] bg-indigo-50 text-indigo-700 border-indigo-200">
+              <Badge v-if="allCategoryOptions.find(c => c.value === selectedCategory)?.isCustom" variant="outline" class="text-[9px] bg-secondary text-primary border-border">
                 Custom Category
               </Badge>
             </h4>
-            <p class="text-[11px] text-zinc-500">
+            <p class="text-[11px] text-muted-foreground">
               {{ templateCounts[selectedCategory] || 0 }} {{ (templateCounts[selectedCategory] || 0) === 1 ? 'mockup template' : 'mockup templates' }} in this category
             </p>
           </div>
@@ -821,7 +821,7 @@ onMounted(() => {
           <Button
             variant="outline"
             size="sm"
-            class="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-semibold shadow-2xs"
+            class="text-xs text-destructive hover:text-destructive hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-semibold shadow-2xs"
             @click="promptDeleteCategory(selectedCategory)"
           >
             <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -838,31 +838,31 @@ onMounted(() => {
 
       <!-- Loading State -->
       <div v-if="isLoading" class="py-20 text-center space-y-3">
-        <Icon name="lucide:loader-circle" class="size-8 animate-spin mx-auto text-indigo-600" aria-hidden="true" />
-        <p class="text-xs text-zinc-500">Loading mockup templates from storage...</p>
+        <Icon name="lucide:loader-circle" class="size-8 animate-spin mx-auto text-primary" aria-hidden="true" />
+        <p class="text-xs text-muted-foreground">Loading mockup templates from storage...</p>
       </div>
 
       <!-- Empty State -->
       <div
         v-else-if="filteredTemplates.length === 0"
-        class="rounded-2xl border-2 border-dashed border-zinc-200 bg-white p-12 text-center space-y-4"
+        class="rounded-2xl border-2 border-dashed border-border bg-white p-12 text-center space-y-4"
       >
-        <div class="h-12 w-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto">
+        <div class="h-12 w-12 rounded-2xl bg-secondary border border-border text-primary flex items-center justify-center mx-auto">
           <Icon name="lucide:image-plus" class="size-6" aria-hidden="true" />
         </div>
         <div class="space-y-1 max-w-sm mx-auto">
-          <h3 class="text-base font-bold text-zinc-900">
+          <h3 class="text-base font-bold text-foreground">
             No templates found in {{ selectedCategory === 'all' ? 'library' : getProductLabel(selectedCategory) }}
           </h3>
-          <p class="text-xs text-zinc-500 leading-relaxed">
-            Upload your blank product photos (e.g. flatlays, models, styled scenes) to set their print placement and use them automatically in Etsy workflows.
+          <p class="text-xs text-muted-foreground leading-relaxed">
+            Upload your blank product photos (e.g. flatlays, models, styled scenes) to set their print placement and use them automatically in design workflows.
           </p>
         </div>
         <div class="flex items-center justify-center gap-2.5">
           <Button
             variant="default"
             size="sm"
-            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
+            class="font-bold text-xs gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
             @click="openUploadModal()"
           >
             <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
@@ -872,7 +872,7 @@ onMounted(() => {
             v-if="selectedCategory !== 'all'"
             variant="outline"
             size="sm"
-            class="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-medium"
+            class="text-xs text-destructive hover:text-destructive hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-medium"
             @click="promptDeleteCategory(selectedCategory)"
           >
             <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -886,10 +886,10 @@ onMounted(() => {
         <Card
           v-for="tpl in filteredTemplates"
           :key="tpl.id"
-          class="overflow-hidden bg-white border border-zinc-200 shadow-2xs hover:shadow-md transition-all flex flex-col group"
+          class="overflow-hidden bg-white border border-border shadow-2xs hover:shadow-md transition-all flex flex-col group"
         >
           <!-- Thumbnail Area with Hover Placement Overlay -->
-          <div class="aspect-square bg-zinc-50 overflow-hidden relative flex items-center justify-center p-2.5 border-b border-zinc-100">
+          <div class="aspect-square bg-secondary/30 overflow-hidden relative flex items-center justify-center p-2.5 border-b border-border">
             <img
               :src="tpl.url"
               :alt="tpl.name"
@@ -899,15 +899,15 @@ onMounted(() => {
             <!-- Product Type Badge -->
             <Badge
               variant="outline"
-              class="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-xs text-[10px] font-bold shadow-2xs gap-1 inline-flex items-center border-zinc-200"
+              class="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-xs text-[10px] font-bold shadow-2xs gap-1 inline-flex items-center border-border text-foreground"
             >
-              <Icon :name="getProductIconName(tpl.product_type)" class="size-3 text-indigo-600" aria-hidden="true" />
+              <Icon :name="getProductIconName(tpl.product_type)" class="size-3 text-primary" aria-hidden="true" />
               <span>{{ getProductLabel(tpl.product_type) }}</span>
             </Badge>
 
             <!-- Bounding Box Indicator Overlay on Hover -->
             <div
-              class="absolute border-2 border-dashed border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] pointer-events-none rounded-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              class="absolute border-2 border-dashed border-primary bg-primary/20 backdrop-blur-[0.5px] pointer-events-none rounded-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
               :style="{
                 left: `${(tpl.placement?.left_pct ?? 0.25) * 100}%`,
                 top: `${(tpl.placement?.top_pct ?? 0.25) * 100}%`,
@@ -916,8 +916,8 @@ onMounted(() => {
                 transform: `rotate(${tpl.placement?.angle_deg ?? 0}deg)`,
               }"
             >
-              <div class="h-6 w-6 rounded-md bg-white/90 backdrop-blur-xs text-indigo-600 flex items-center justify-center shadow-xs">
-                <Icon name="lucide:sparkles" class="size-3.5 text-indigo-600" aria-hidden="true" />
+              <div class="h-6 w-6 rounded-md bg-white/90 backdrop-blur-xs text-primary flex items-center justify-center shadow-xs">
+                <Icon name="lucide:sparkles" class="size-3.5 text-primary" aria-hidden="true" />
               </div>
             </div>
           </div>
@@ -925,10 +925,10 @@ onMounted(() => {
           <!-- Card Body -->
           <div class="p-3.5 space-y-3 flex-1 flex flex-col justify-between">
             <div class="space-y-1">
-              <h4 class="text-xs font-bold text-zinc-900 truncate" :title="tpl.name">
+              <h4 class="text-xs font-bold text-foreground truncate" :title="tpl.name">
                 {{ tpl.name }}
               </h4>
-              <div class="flex items-center gap-2 text-[10px] text-zinc-500 font-mono">
+              <div class="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
                 <span>Box: {{ Math.round((tpl.placement?.width_pct ?? 0.5) * 100) }}% × {{ Math.round((tpl.placement?.height_pct ?? 0.5) * 100) }}%</span>
                 <span>•</span>
                 <span class="capitalize">{{ tpl.placement?.blend_mode || 'multiply' }}</span>
@@ -936,21 +936,21 @@ onMounted(() => {
             </div>
 
             <!-- Action Buttons Row -->
-            <div class="pt-2 border-t border-zinc-100 flex items-center justify-between gap-1.5">
+            <div class="pt-2 border-t border-border flex items-center justify-between gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
-                class="text-[11px] h-7 px-2 font-semibold text-zinc-700 hover:text-zinc-900 gap-1 cursor-pointer flex-1 justify-center"
+                class="text-[11px] h-7 px-2 font-semibold text-secondary-foreground hover:text-foreground gap-1 cursor-pointer flex-1 justify-center"
                 @click="openEditModal(tpl)"
               >
-                <Icon name="lucide:sliders" class="size-3 text-indigo-600" aria-hidden="true" />
+                <Icon name="lucide:sliders" class="size-3 text-primary" aria-hidden="true" />
                 <span>Adjust Placement</span>
               </Button>
 
               <Button
                 variant="outline"
                 size="sm"
-                class="text-[11px] h-7 px-2 font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 gap-1 cursor-pointer"
+                class="text-[11px] h-7 px-2 font-semibold text-destructive hover:text-destructive hover:bg-red-50 border-red-200 gap-1 cursor-pointer"
                 title="Delete template and permanently purge photo from MinIO"
                 @click="templateToDelete = tpl"
               >
@@ -966,25 +966,25 @@ onMounted(() => {
     <!-- Modal: Delete Confirmation -->
     <div
       v-if="templateToDelete"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="templateToDelete = null"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-md w-full p-6 space-y-4">
-        <div class="flex items-center gap-3 text-rose-600">
-          <div class="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
+      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
+        <div class="flex items-center gap-3 text-destructive">
+          <div class="h-10 w-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
             <Icon name="lucide:trash-2" class="size-5" aria-hidden="true" />
           </div>
           <div>
-            <h3 class="text-sm font-bold text-zinc-900">Delete Mockup Template?</h3>
-            <p class="text-xs text-zinc-500">Permanently delete this photo from MinIO storage.</p>
+            <h3 class="text-sm font-bold text-foreground">Delete Mockup Template?</h3>
+            <p class="text-xs text-muted-foreground">Permanently delete this photo from MinIO storage.</p>
           </div>
         </div>
 
-        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200/80 flex items-center gap-3">
-          <img :src="templateToDelete.url" alt="Thumbnail" class="h-12 w-12 object-cover rounded-lg border border-zinc-200 shrink-0" />
+        <div class="p-3 rounded-xl bg-secondary/40 border border-border flex items-center gap-3">
+          <img :src="templateToDelete.url" alt="Thumbnail" class="h-12 w-12 object-cover rounded-lg border border-border shrink-0" />
           <div class="truncate">
-            <p class="text-xs font-bold text-zinc-900 truncate">{{ templateToDelete.name }}</p>
-            <p class="text-[10px] text-zinc-500">{{ getProductLabel(templateToDelete.product_type) }}</p>
+            <p class="text-xs font-bold text-foreground truncate">{{ templateToDelete.name }}</p>
+            <p class="text-[10px] text-muted-foreground">{{ getProductLabel(templateToDelete.product_type) }}</p>
           </div>
         </div>
 
@@ -1015,20 +1015,20 @@ onMounted(() => {
     <!-- Modal: Interactive Placement Adjustment Studio (Edit Template) -->
     <div
       v-if="templateToEdit"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="templateToEdit = null"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-4xl w-full p-6 space-y-4 max-h-[92vh] flex flex-col">
+      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-4xl w-full p-6 space-y-4 max-h-[92vh] flex flex-col">
         <!-- Header -->
-        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div class="flex items-center justify-between border-b border-border pb-3">
           <div class="flex items-center gap-2">
-            <Icon name="lucide:move" class="size-4 text-indigo-600" aria-hidden="true" />
+            <Icon name="lucide:move" class="size-4 text-primary" aria-hidden="true" />
             <div>
-              <h3 class="text-sm font-bold text-zinc-900">Configure PNG Placement & Print Area</h3>
-              <p class="text-[11px] text-zinc-500">Drag or resize the print box to set where master PNGs will be centered on this mockup</p>
+              <h3 class="text-sm font-bold text-foreground">Configure PNG Placement & Print Area</h3>
+              <p class="text-[11px] text-muted-foreground">Drag or resize the print box to set where master PNGs will be centered on this mockup</p>
             </div>
           </div>
-          <button type="button" class="text-zinc-400 hover:text-zinc-600 cursor-pointer" @click="templateToEdit = null">
+          <button type="button" class="text-muted-foreground hover:text-foreground cursor-pointer" @click="templateToEdit = null">
             <Icon name="lucide:x" class="size-4" aria-hidden="true" />
           </button>
         </div>
@@ -1038,8 +1038,8 @@ onMounted(() => {
           <!-- Left Column (7 cols): Interactive Visual Canvas -->
           <div class="lg:col-span-7 space-y-2.5">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
-                <Icon name="lucide:layout" class="size-3.5 text-indigo-600" aria-hidden="true" />
+              <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Icon name="lucide:layout" class="size-3.5 text-primary" aria-hidden="true" />
                 <span>Interactive Placement Canvas</span>
               </span>
 
@@ -1047,7 +1047,7 @@ onMounted(() => {
               <div class="flex items-center gap-1">
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors cursor-pointer border border-indigo-200 flex items-center gap-1"
+                  class="px-2 py-0.5 text-[10px] font-bold bg-blue-50 hover:bg-blue-100 text-primary rounded transition-colors cursor-pointer border border-blue-200 flex items-center gap-1"
                   @click="centerEditPlacement"
                 >
                   <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
@@ -1055,14 +1055,14 @@ onMounted(() => {
                 </button>
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded transition-colors cursor-pointer"
+                  class="px-2 py-0.5 text-[10px] font-medium bg-secondary hover:bg-slate-200 text-secondary-foreground rounded transition-colors cursor-pointer border border-border"
                   @click="applyEditFullCenterPreset"
                 >
                   Full Center
                 </button>
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded transition-colors cursor-pointer"
+                  class="px-2 py-0.5 text-[10px] font-medium bg-secondary hover:bg-slate-200 text-secondary-foreground rounded transition-colors cursor-pointer border border-border"
                   @click="applyEditChestPreset"
                 >
                   Chest Logo
@@ -1071,7 +1071,7 @@ onMounted(() => {
             </div>
 
             <!-- Canvas Viewport Frame -->
-            <div class="relative w-full max-h-[360px] bg-zinc-950/5 rounded-xl border border-zinc-200 overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[240px]">
+            <div class="relative w-full max-h-[360px] bg-slate-100/60 rounded-xl border border-border overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[240px]">
               <!-- Exact Image-Fitting Interactive Canvas -->
               <div
                 ref="interactiveCanvasRef"
@@ -1085,12 +1085,12 @@ onMounted(() => {
                 />
 
                 <!-- Alignment Crosshairs -->
-                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
-                <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
+                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-primary/30 pointer-events-none" />
+                <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-primary/30 pointer-events-none" />
 
                 <!-- Draggable & Resizable Placement Box -->
                 <div
-                  class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
+                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50"
                   :style="{
                     left: `${editPlacement.left_pct * 100}%`,
                     top: `${editPlacement.top_pct * 100}%`,
@@ -1100,20 +1100,20 @@ onMounted(() => {
                   @pointerdown="onArtworkPointerDown"
                 >
                   <!-- Live Coordinates Pill -->
-                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
+                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-slate-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
                     {{ Math.round(editPlacement.left_pct * 100) }}%, {{ Math.round(editPlacement.top_pct * 100) }}% ({{ Math.round(editPlacement.width_pct * 100) }}×{{ Math.round(editPlacement.height_pct * 100) }}%)
                   </div>
 
                   <!-- Centered Print Area Icon -->
                   <div class="w-full h-full pointer-events-none select-none flex items-center justify-center">
-                    <div class="h-6 w-6 rounded-md bg-indigo-600/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
+                    <div class="h-6 w-6 rounded-md bg-primary/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
                       <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
                     </div>
                   </div>
 
                   <!-- Corner Resize Handle -->
                   <div
-                    class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                    class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-primary border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
                     title="Drag to resize print area"
                     @pointerdown="onResizePointerDown"
                   >
@@ -1123,7 +1123,7 @@ onMounted(() => {
               </div>
             </div>
 
-            <p class="text-[11px] text-zinc-500 text-center">
+            <p class="text-[11px] text-muted-foreground text-center">
               💡 Click and drag the box to move · Drag the bottom-right corner circle to resize
             </p>
           </div>
@@ -1139,7 +1139,7 @@ onMounted(() => {
               <Label class="text-xs font-bold">Product Category</Label>
               <select
                 v-model="editProductType"
-                class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
+                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground"
               >
                 <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -1151,7 +1151,7 @@ onMounted(() => {
               <Label class="text-xs font-bold">Texture Blend Mode</Label>
               <select
                 v-model="editPlacement.blend_mode"
-                class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs"
+                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs text-foreground"
               >
                 <option value="multiply">Multiply (Realistic Apparel Wrinkles & Shadows)</option>
                 <option value="over">Over / Opaque (Ceramics, Posters, Stickers, Tumblers)</option>
@@ -1159,40 +1159,40 @@ onMounted(() => {
             </div>
 
             <!-- Precision Sliders -->
-            <div class="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-3">
-              <h5 class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider">Placement Sliders</h5>
+            <div class="p-3 bg-secondary/40 rounded-xl border border-border space-y-3">
+              <h5 class="text-[11px] font-bold text-foreground uppercase tracking-wider">Placement Sliders</h5>
 
               <div class="space-y-2">
                 <div class="space-y-1">
                   <div class="flex justify-between text-[11px]">
-                    <span class="text-zinc-500">Box Width</span>
-                    <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.width_pct * 100) }}%</span>
+                    <span class="text-secondary-foreground">Box Width</span>
+                    <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.width_pct * 100) }}%</span>
                   </div>
-                  <input type="range" v-model.number="editPlacement.width_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+                  <input type="range" v-model.number="editPlacement.width_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer" />
                 </div>
 
                 <div class="space-y-1">
                   <div class="flex justify-between text-[11px]">
-                    <span class="text-zinc-500">Box Height</span>
-                    <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.height_pct * 100) }}%</span>
+                    <span class="text-secondary-foreground">Box Height</span>
+                    <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.height_pct * 100) }}%</span>
                   </div>
-                  <input type="range" v-model.number="editPlacement.height_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+                  <input type="range" v-model.number="editPlacement.height_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer" />
                 </div>
 
                 <div class="space-y-1">
                   <div class="flex justify-between text-[11px]">
-                    <span class="text-zinc-500">Left Position</span>
-                    <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.left_pct * 100) }}%</span>
+                    <span class="text-secondary-foreground">Left Position</span>
+                    <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.left_pct * 100) }}%</span>
                   </div>
-                  <input type="range" v-model.number="editPlacement.left_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+                  <input type="range" v-model.number="editPlacement.left_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer" />
                 </div>
 
                 <div class="space-y-1">
                   <div class="flex justify-between text-[11px]">
-                    <span class="text-zinc-500">Top Position</span>
-                    <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.top_pct * 100) }}%</span>
+                    <span class="text-secondary-foreground">Top Position</span>
+                    <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.top_pct * 100) }}%</span>
                   </div>
-                  <input type="range" v-model.number="editPlacement.top_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+                  <input type="range" v-model.number="editPlacement.top_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer" />
                 </div>
               </div>
             </div>
@@ -1204,14 +1204,14 @@ onMounted(() => {
           <AlertDescription>{{ updateError }}</AlertDescription>
         </Alert>
 
-        <div class="flex justify-end gap-2 pt-3 border-t border-zinc-100">
+        <div class="flex justify-end gap-2 pt-3 border-t border-border">
           <Button variant="outline" size="sm" class="text-xs cursor-pointer" :disabled="isUpdating" @click="templateToEdit = null">
             Cancel
           </Button>
           <Button
             variant="default"
             size="sm"
-            class="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1 cursor-pointer"
+            class="text-xs font-bold gap-1 cursor-pointer"
             :disabled="isUpdating"
             @click="handleSaveEdit"
           >
@@ -1226,17 +1226,17 @@ onMounted(() => {
     <!-- Modal: Upload Mockup Template with Visual Placement Canvas -->
     <div
       v-if="showUploadModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="showUploadModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-4xl w-full p-6 space-y-4 max-h-[92vh] flex flex-col">
+      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-4xl w-full p-6 space-y-4 max-h-[92vh] flex flex-col">
         <!-- Header -->
-        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div class="flex items-center justify-between border-b border-border pb-3">
           <div class="flex items-center gap-2">
-            <Icon name="lucide:upload" class="size-4 text-indigo-600" aria-hidden="true" />
-            <h3 class="text-sm font-bold text-zinc-900">Upload Mockup Template & Set Placement</h3>
+            <Icon name="lucide:upload" class="size-4 text-primary" aria-hidden="true" />
+            <h3 class="text-sm font-bold text-foreground">Upload Mockup Template & Set Placement</h3>
           </div>
-          <button type="button" class="text-zinc-400 hover:text-zinc-600 cursor-pointer" @click="showUploadModal = false">
+          <button type="button" class="text-muted-foreground hover:text-foreground cursor-pointer" @click="showUploadModal = false">
             <Icon name="lucide:x" class="size-4" aria-hidden="true" />
           </button>
         </div>
@@ -1248,7 +1248,7 @@ onMounted(() => {
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              class="block w-full text-xs text-zinc-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer border border-dashed border-zinc-300 rounded-xl p-4 text-center bg-zinc-50"
+              class="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-secondary file:text-primary hover:file:bg-slate-200 cursor-pointer border border-dashed border-border rounded-xl p-4 text-center bg-secondary/30"
               @change="handleFileSelect"
             />
           </div>
@@ -1269,15 +1269,15 @@ onMounted(() => {
           <!-- Left Column (7 cols): Interactive Visual Canvas -->
           <div class="lg:col-span-7 space-y-2.5">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
-                <Icon name="lucide:layout" class="size-3.5 text-indigo-600" aria-hidden="true" />
+              <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Icon name="lucide:layout" class="size-3.5 text-primary" aria-hidden="true" />
                 <span>Designate PNG Print Area</span>
               </span>
 
               <div class="flex items-center gap-1.5">
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors cursor-pointer border border-indigo-200 flex items-center gap-1"
+                  class="px-2 py-0.5 text-[10px] font-bold bg-blue-50 hover:bg-blue-100 text-primary rounded transition-colors cursor-pointer border border-blue-200 flex items-center gap-1"
                   @click="uploadStep = 'crop'"
                 >
                   <Icon name="lucide:crop" class="size-3" aria-hidden="true" />
@@ -1285,7 +1285,7 @@ onMounted(() => {
                 </button>
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded transition-colors cursor-pointer border border-zinc-200 flex items-center gap-1"
+                  class="px-2 py-0.5 text-[10px] font-bold bg-secondary hover:bg-slate-200 text-secondary-foreground rounded transition-colors cursor-pointer border border-border flex items-center gap-1"
                   @click="centerUploadPlacement"
                 >
                   <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
@@ -1295,7 +1295,7 @@ onMounted(() => {
             </div>
 
             <!-- Canvas Viewport Frame -->
-            <div class="relative w-full max-h-[360px] bg-zinc-950/5 rounded-xl border border-zinc-200 overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[240px]">
+            <div class="relative w-full max-h-[360px] bg-slate-100/60 rounded-xl border border-border overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[240px]">
               <!-- Exact Image-Fitting Upload Canvas -->
               <div
                 v-if="uploadImagePreviewUrl"
@@ -1309,12 +1309,12 @@ onMounted(() => {
                 />
 
                 <!-- Alignment Crosshairs -->
-                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
-                <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
+                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-primary/30 pointer-events-none" />
+                <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-primary/30 pointer-events-none" />
 
                 <!-- Draggable & Resizable Placement Box -->
                 <div
-                  class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
+                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50"
                   :style="{
                     left: `${uploadPlacement.left_pct * 100}%`,
                     top: `${uploadPlacement.top_pct * 100}%`,
@@ -1323,19 +1323,19 @@ onMounted(() => {
                   }"
                   @pointerdown="onUploadArtworkPointerDown"
                 >
-                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
+                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-slate-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
                     {{ Math.round(uploadPlacement.left_pct * 100) }}%, {{ Math.round(uploadPlacement.top_pct * 100) }}% ({{ Math.round(uploadPlacement.width_pct * 100) }}×{{ Math.round(uploadPlacement.height_pct * 100) }}%)
                   </div>
 
                   <!-- Centered Print Area Icon -->
                   <div class="w-full h-full pointer-events-none select-none flex items-center justify-center">
-                    <div class="h-6 w-6 rounded-md bg-indigo-600/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
+                    <div class="h-6 w-6 rounded-md bg-primary/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
                       <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
                     </div>
                   </div>
 
                   <div
-                    class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                    class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-primary border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
                     title="Drag to resize print area"
                     @pointerdown="onUploadResizePointerDown"
                   >
@@ -1345,7 +1345,7 @@ onMounted(() => {
               </div>
             </div>
 
-            <p class="text-[11px] text-zinc-500 text-center">
+            <p class="text-[11px] text-muted-foreground text-center">
               💡 Drag to position · Drag corner handle to resize print bounding box
             </p>
           </div>
@@ -1363,7 +1363,7 @@ onMounted(() => {
                 <button
                   v-if="!showCategoryDropdown && selectedCategory !== 'all'"
                   type="button"
-                  class="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                  class="text-[11px] font-semibold text-primary hover:text-primary-hover cursor-pointer"
                   @click="showCategoryDropdown = true"
                 >
                   Change Category
@@ -1373,15 +1373,15 @@ onMounted(() => {
               <!-- Locked Pre-Selected Category Pill -->
               <div
                 v-if="!showCategoryDropdown && selectedCategory !== 'all'"
-                class="flex items-center justify-between p-2 rounded-lg bg-zinc-100/70 border border-zinc-200 text-xs font-semibold text-zinc-800 shadow-2xs"
+                class="flex items-center justify-between p-2 rounded-lg bg-secondary/50 border border-border text-xs font-semibold text-foreground shadow-2xs"
               >
                 <div class="flex items-center gap-2">
-                  <div class="size-6 rounded-md bg-white flex items-center justify-center text-indigo-600 shadow-2xs border border-zinc-200/60">
+                  <div class="size-6 rounded-md bg-white flex items-center justify-center text-primary shadow-2xs border border-border">
                     <Icon :name="getProductIconName(uploadProductType)" class="size-3.5" aria-hidden="true" />
                   </div>
                   <span>{{ getProductLabel(uploadProductType) }}</span>
                 </div>
-                <Badge variant="outline" class="text-[10px] bg-white text-zinc-600 border-zinc-200">
+                <Badge variant="outline" class="text-[10px] bg-white text-secondary-foreground border-border">
                   Current Tab
                 </Badge>
               </div>
@@ -1390,7 +1390,7 @@ onMounted(() => {
               <select
                 v-else
                 v-model="uploadProductType"
-                class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
+                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground"
               >
                 <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -1400,15 +1400,15 @@ onMounted(() => {
             </div>
 
             <div v-if="showCategoryDropdown && uploadProductType === 'custom'" class="space-y-1.5 animate-in fade-in">
-              <Label class="text-xs font-bold text-indigo-700">Custom Category Name</Label>
-              <Input v-model="uploadCustomTypeName" placeholder="e.g. Canvas Print, Pillow, Blanket" class="h-8 text-xs border-indigo-200" />
+              <Label class="text-xs font-bold text-primary">Custom Category Name</Label>
+              <Input v-model="uploadCustomTypeName" placeholder="e.g. Canvas Print, Pillow, Blanket" class="h-8 text-xs border-border" />
             </div>
 
             <div class="space-y-1.5">
               <Label class="text-xs font-bold">Texture Blend Mode</Label>
               <select
                 v-model="uploadPlacement.blend_mode"
-                class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs"
+                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs text-foreground"
               >
                 <option value="multiply">Multiply (Realistic Apparel Wrinkles & Shadows)</option>
                 <option value="over">Over / Opaque (Ceramics, Posters, Stickers, Tumblers)</option>
@@ -1422,14 +1422,14 @@ onMounted(() => {
           <AlertDescription>{{ uploadError }}</AlertDescription>
         </Alert>
 
-        <div class="flex justify-end gap-2 pt-3 border-t border-zinc-100">
+        <div class="flex justify-end gap-2 pt-3 border-t border-border">
           <Button variant="outline" size="sm" class="text-xs cursor-pointer" :disabled="isUploading" @click="showUploadModal = false">
             Cancel
           </Button>
           <Button
             variant="default"
             size="sm"
-            class="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1 cursor-pointer"
+            class="text-xs font-bold gap-1 cursor-pointer"
             :disabled="isUploading || !uploadImageFile"
             @click="handleUploadSubmit"
           >
@@ -1444,16 +1444,16 @@ onMounted(() => {
     <!-- Modal: Add Custom Category -->
     <div
       v-if="showAddCustomTypeModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="showAddCustomTypeModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-sm w-full p-6 space-y-4">
-        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-border pb-3">
           <div class="flex items-center gap-2">
-            <Icon name="lucide:plus-circle" class="size-4 text-indigo-600" aria-hidden="true" />
-            <h3 class="text-sm font-bold text-zinc-900">Add Custom Product Category</h3>
+            <Icon name="lucide:plus-circle" class="size-4 text-primary" aria-hidden="true" />
+            <h3 class="text-sm font-bold text-foreground">Add Custom Product Category</h3>
           </div>
-          <button type="button" class="text-zinc-400 hover:text-zinc-600 cursor-pointer" @click="showAddCustomTypeModal = false">
+          <button type="button" class="text-muted-foreground hover:text-foreground cursor-pointer" @click="showAddCustomTypeModal = false">
             <Icon name="lucide:x" class="size-4" aria-hidden="true" />
           </button>
         </div>
@@ -1461,17 +1461,17 @@ onMounted(() => {
         <div class="space-y-2">
           <Label class="text-xs font-bold">Product Category Name</Label>
           <Input v-model="newCustomTypeName" placeholder="e.g. Canvas Print, Phone Grip, Pillow" class="h-9 text-xs" />
-          <p class="text-[11px] text-zinc-500">This category will appear in your Mockup Library tabs and Intended Physical Products.</p>
+          <p class="text-[11px] text-muted-foreground">This category will appear in your Mockup Library tabs and Intended Physical Products.</p>
         </div>
 
-        <div class="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+        <div class="flex justify-end gap-2 pt-2 border-t border-border">
           <Button variant="outline" size="sm" class="text-xs cursor-pointer" @click="showAddCustomTypeModal = false">
             Cancel
           </Button>
           <Button
             variant="default"
             size="sm"
-            class="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1 cursor-pointer"
+            class="text-xs font-bold gap-1 cursor-pointer"
             :disabled="!newCustomTypeName.trim()"
             @click="handleAddCustomProductType"
           >
@@ -1485,21 +1485,21 @@ onMounted(() => {
     <!-- Modal: Delete Category & all its Mockups -->
     <div
       v-if="showDeleteCategoryModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="showDeleteCategoryModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-md w-full p-6 space-y-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100">
+          <div class="h-10 w-10 rounded-xl bg-red-50 text-destructive flex items-center justify-center shrink-0 border border-red-200">
             <Icon name="lucide:trash-2" class="size-5" aria-hidden="true" />
           </div>
           <div>
-            <h4 class="text-sm font-bold text-zinc-900">
+            <h4 class="text-sm font-bold text-foreground">
               Delete {{ categoryToDelete ? getProductLabel(categoryToDelete) : 'Category' }}?
             </h4>
-            <p class="text-xs text-zinc-500 mt-1 leading-relaxed">
+            <p class="text-xs text-muted-foreground mt-1 leading-relaxed">
               Are you sure you want to delete this product category and all its
-              <strong class="text-zinc-900 font-semibold">{{ categoryToDelete ? (templateCounts[categoryToDelete] || 0) : 0 }} mockup templates</strong>?
+              <strong class="text-foreground font-semibold">{{ categoryToDelete ? (templateCounts[categoryToDelete] || 0) : 0 }} mockup templates</strong>?
               This will permanently delete the mockup photos and placement manifests from storage.
             </p>
           </div>
@@ -1510,7 +1510,7 @@ onMounted(() => {
           <AlertDescription>{{ deleteCategoryError }}</AlertDescription>
         </Alert>
 
-        <div class="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+        <div class="flex justify-end gap-2 pt-2 border-t border-border">
           <Button
             variant="outline"
             size="sm"
@@ -1523,7 +1523,7 @@ onMounted(() => {
           <Button
             variant="destructive"
             size="sm"
-            class="text-xs bg-red-600 hover:bg-red-700 text-white cursor-pointer font-bold inline-flex items-center gap-1.5"
+            class="text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
             :disabled="isDeletingCategory"
             @click="confirmDeleteCategory"
           >

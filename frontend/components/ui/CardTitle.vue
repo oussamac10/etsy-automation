@@ -6,7 +6,7 @@ const props = defineProps<{
   class?: HTMLAttributes["class"];
 }>();
 
-const classes = computed(() => cn("font-semibold leading-none tracking-tight text-zinc-900", props.class));
+const classes = computed(() => cn("font-semibold leading-none tracking-tight text-card-foreground", props.class));
 </script>
 
 <template>

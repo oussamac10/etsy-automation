@@ -361,17 +361,17 @@ async function applyCrop(): Promise<void> {
 <template>
   <div class="space-y-4 select-none">
     <!-- Aspect Ratio Toolbar & Quick Actions -->
-    <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-zinc-50 border border-zinc-200">
+    <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-secondary/60 border border-border">
       <div class="flex items-center gap-1.5 flex-wrap">
-        <span class="text-xs font-bold text-zinc-700 mr-1 flex items-center gap-1">
-          <Icon name="lucide:crop" class="size-3.5 text-indigo-600" aria-hidden="true" />
+        <span class="text-xs font-bold text-foreground mr-1 flex items-center gap-1">
+          <Icon name="lucide:crop" class="size-3.5 text-primary" aria-hidden="true" />
           <span>Crop Frame:</span>
         </span>
 
         <button
           type="button"
           class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
-          :class="selectedAspect === '4:5' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100'"
+          :class="selectedAspect === '4:5' ? 'bg-primary text-white shadow-2xs' : 'bg-white text-secondary-foreground border border-border hover:bg-secondary hover:text-foreground'"
           @click="handleAspectChange('4:5')"
         >
           <span>4:5</span>
@@ -381,7 +381,7 @@ async function applyCrop(): Promise<void> {
         <button
           type="button"
           class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
-          :class="selectedAspect === '1:1' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100'"
+          :class="selectedAspect === '1:1' ? 'bg-primary text-white shadow-2xs' : 'bg-white text-secondary-foreground border border-border hover:bg-secondary hover:text-foreground'"
           @click="handleAspectChange('1:1')"
         >
           <span>1:1</span>
@@ -391,7 +391,7 @@ async function applyCrop(): Promise<void> {
         <button
           type="button"
           class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
-          :class="selectedAspect === '3:2' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100'"
+          :class="selectedAspect === '3:2' ? 'bg-primary text-white shadow-2xs' : 'bg-white text-secondary-foreground border border-border hover:bg-secondary hover:text-foreground'"
           @click="handleAspectChange('3:2')"
         >
           <span>3:2</span>
@@ -400,7 +400,7 @@ async function applyCrop(): Promise<void> {
         <button
           type="button"
           class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
-          :class="selectedAspect === 'freeform' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-100'"
+          :class="selectedAspect === 'freeform' ? 'bg-primary text-white shadow-2xs' : 'bg-white text-secondary-foreground border border-border hover:bg-secondary hover:text-foreground'"
           @click="handleAspectChange('freeform')"
         >
           <Icon name="lucide:scan" class="size-3" aria-hidden="true" />
@@ -412,7 +412,7 @@ async function applyCrop(): Promise<void> {
         <Button
           variant="outline"
           size="sm"
-          class="text-xs h-7 px-2 cursor-pointer inline-flex items-center gap-1 text-zinc-700 bg-white"
+          class="text-xs h-7 px-2 cursor-pointer inline-flex items-center gap-1 text-secondary-foreground bg-white"
           title="Rotate photo 90 degrees"
           @click="rotateClockwise"
         >
@@ -423,7 +423,7 @@ async function applyCrop(): Promise<void> {
         <Button
           variant="outline"
           size="sm"
-          class="text-xs h-7 px-2 cursor-pointer inline-flex items-center gap-1 text-zinc-700 bg-white"
+          class="text-xs h-7 px-2 cursor-pointer inline-flex items-center gap-1 text-secondary-foreground bg-white"
           title="Reset crop frame to full image"
           @click="initCropBox"
         >
@@ -487,19 +487,19 @@ async function applyCrop(): Promise<void> {
 
           <!-- Corner Resize Handles (NW, NE, SW, SE) -->
           <div
-            class="absolute -top-2 -left-2 size-4 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize hover:scale-125 transition-transform"
+            class="absolute -top-2 -left-2 size-4 bg-white border-2 border-primary rounded-xs shadow-md cursor-nwse-resize hover:scale-125 transition-transform"
             @mousedown="(e) => startResizeDrag('nw', e)"
           />
           <div
-            class="absolute -top-2 -right-2 size-4 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize hover:scale-125 transition-transform"
+            class="absolute -top-2 -right-2 size-4 bg-white border-2 border-primary rounded-xs shadow-md cursor-nesw-resize hover:scale-125 transition-transform"
             @mousedown="(e) => startResizeDrag('ne', e)"
           />
           <div
-            class="absolute -bottom-2 -left-2 size-4 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize hover:scale-125 transition-transform"
+            class="absolute -bottom-2 -left-2 size-4 bg-white border-2 border-primary rounded-xs shadow-md cursor-nesw-resize hover:scale-125 transition-transform"
             @mousedown="(e) => startResizeDrag('sw', e)"
           />
           <div
-            class="absolute -bottom-2 -right-2 size-4 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize hover:scale-125 transition-transform"
+            class="absolute -bottom-2 -right-2 size-4 bg-white border-2 border-primary rounded-xs shadow-md cursor-nwse-resize hover:scale-125 transition-transform"
             @mousedown="(e) => startResizeDrag('se', e)"
           />
         </div>
@@ -508,7 +508,7 @@ async function applyCrop(): Promise<void> {
 
     <!-- Bottom Actions Bar inside the view -->
     <div class="flex items-center justify-between pt-1">
-      <p class="text-[11px] text-zinc-500">
+      <p class="text-[11px] text-muted-foreground">
         💡 Drag the frame to center your product · Drag corners to resize
       </p>
 
@@ -526,7 +526,7 @@ async function applyCrop(): Promise<void> {
         <Button
           variant="default"
           size="sm"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
+          class="bg-primary hover:bg-primary-hover text-white font-bold gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
           :disabled="isProcessingCrop"
           @click="applyCrop"
         >

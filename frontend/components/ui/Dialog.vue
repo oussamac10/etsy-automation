@@ -80,7 +80,7 @@ const maxWidthClasses = {
       >
         <div
           :class="[
-            'relative w-full rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto',
+            'relative w-full rounded-2xl bg-white p-6 shadow-2xl border border-border max-h-[90vh] overflow-y-auto',
             maxWidthClasses[maxWidth],
           ]"
           role="dialog"
@@ -88,7 +88,7 @@ const maxWidthClasses = {
         >
           <button
             type="button"
-            class="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+            class="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
             aria-label="Close dialog"
             @click="close"
           >
