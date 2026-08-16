@@ -893,52 +893,55 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Canvas Viewport -->
-            <div
-              ref="interactiveCanvasRef"
-              class="relative aspect-square max-h-[360px] w-full mx-auto bg-zinc-950/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
-            >
-              <!-- Template Background Image -->
-              <img
-                :src="templateToEdit.url"
-                alt="Template"
-                class="w-full h-full object-contain pointer-events-none"
-              />
-
-              <!-- Alignment Crosshairs -->
-              <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
-              <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
-
-              <!-- Draggable & Resizable Placement Box -->
+            <!-- Canvas Viewport Frame -->
+            <div class="relative w-full max-h-[360px] bg-zinc-950/5 rounded-xl border border-zinc-200 overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[240px]">
+              <!-- Exact Image-Fitting Interactive Canvas -->
               <div
-                class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
-                :style="{
-                  left: `${editPlacement.left_pct * 100}%`,
-                  top: `${editPlacement.top_pct * 100}%`,
-                  width: `${editPlacement.width_pct * 100}%`,
-                  height: `${editPlacement.height_pct * 100}%`,
-                }"
-                @pointerdown="onArtworkPointerDown"
+                ref="interactiveCanvasRef"
+                class="relative inline-block select-none touch-none max-h-[340px] max-w-full"
               >
-                <!-- Live Coordinates Pill -->
-                <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
-                  {{ Math.round(editPlacement.left_pct * 100) }}%, {{ Math.round(editPlacement.top_pct * 100) }}% ({{ Math.round(editPlacement.width_pct * 100) }}×{{ Math.round(editPlacement.height_pct * 100) }}%)
-                </div>
+                <!-- Template Background Image -->
+                <img
+                  :src="templateToEdit.url"
+                  alt="Template"
+                  class="max-h-[340px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-xs"
+                />
 
-                <!-- Centered Print Area Icon -->
-                <div class="w-full h-full pointer-events-none select-none flex items-center justify-center">
-                  <div class="h-6 w-6 rounded-md bg-indigo-600/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
-                    <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
-                  </div>
-                </div>
+                <!-- Alignment Crosshairs -->
+                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
+                <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
 
-                <!-- Corner Resize Handle -->
+                <!-- Draggable & Resizable Placement Box -->
                 <div
-                  class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
-                  title="Drag to resize print area"
-                  @pointerdown="onResizePointerDown"
+                  class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
+                  :style="{
+                    left: `${editPlacement.left_pct * 100}%`,
+                    top: `${editPlacement.top_pct * 100}%`,
+                    width: `${editPlacement.width_pct * 100}%`,
+                    height: `${editPlacement.height_pct * 100}%`,
+                  }"
+                  @pointerdown="onArtworkPointerDown"
                 >
-                  <Icon name="lucide:maximize-2" class="size-2 text-white" aria-hidden="true" />
+                  <!-- Live Coordinates Pill -->
+                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
+                    {{ Math.round(editPlacement.left_pct * 100) }}%, {{ Math.round(editPlacement.top_pct * 100) }}% ({{ Math.round(editPlacement.width_pct * 100) }}×{{ Math.round(editPlacement.height_pct * 100) }}%)
+                  </div>
+
+                  <!-- Centered Print Area Icon -->
+                  <div class="w-full h-full pointer-events-none select-none flex items-center justify-center">
+                    <div class="h-6 w-6 rounded-md bg-indigo-600/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
+                      <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
+                    </div>
+                  </div>
+
+                  <!-- Corner Resize Handle -->
+                  <div
+                    class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                    title="Drag to resize print area"
+                    @pointerdown="onResizePointerDown"
+                  >
+                    <Icon name="lucide:maximize-2" class="size-2 text-white" aria-hidden="true" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1094,50 +1097,53 @@ onMounted(() => {
               </button>
             </div>
 
-            <!-- Canvas Viewport -->
-            <div
-              ref="uploadCanvasRef"
-              class="relative aspect-square max-h-[360px] w-full mx-auto bg-zinc-950/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
-            >
-              <img
-                v-if="uploadImagePreviewUrl"
-                :src="uploadImagePreviewUrl"
-                alt="Upload Preview"
-                class="w-full h-full object-contain pointer-events-none"
-              />
-
-              <!-- Alignment Crosshairs -->
-              <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
-              <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
-
-              <!-- Draggable & Resizable Placement Box -->
+            <!-- Canvas Viewport Frame -->
+            <div class="relative w-full max-h-[360px] bg-zinc-950/5 rounded-xl border border-zinc-200 overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[240px]">
+              <!-- Exact Image-Fitting Upload Canvas -->
               <div
-                class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
-                :style="{
-                  left: `${uploadPlacement.left_pct * 100}%`,
-                  top: `${uploadPlacement.top_pct * 100}%`,
-                  width: `${uploadPlacement.width_pct * 100}%`,
-                  height: `${uploadPlacement.height_pct * 100}%`,
-                }"
-                @pointerdown="onUploadArtworkPointerDown"
+                v-if="uploadImagePreviewUrl"
+                ref="uploadCanvasRef"
+                class="relative inline-block select-none touch-none max-h-[340px] max-w-full"
               >
-                <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
-                  {{ Math.round(uploadPlacement.left_pct * 100) }}%, {{ Math.round(uploadPlacement.top_pct * 100) }}% ({{ Math.round(uploadPlacement.width_pct * 100) }}×{{ Math.round(uploadPlacement.height_pct * 100) }}%)
-                </div>
+                <img
+                  :src="uploadImagePreviewUrl"
+                  alt="Upload Preview"
+                  class="max-h-[340px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-xs"
+                />
 
-                <!-- Centered Print Area Icon -->
-                <div class="w-full h-full pointer-events-none select-none flex items-center justify-center">
-                  <div class="h-6 w-6 rounded-md bg-indigo-600/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
-                    <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
-                  </div>
-                </div>
+                <!-- Alignment Crosshairs -->
+                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
+                <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
 
+                <!-- Draggable & Resizable Placement Box -->
                 <div
-                  class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
-                  title="Drag to resize print area"
-                  @pointerdown="onUploadResizePointerDown"
+                  class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
+                  :style="{
+                    left: `${uploadPlacement.left_pct * 100}%`,
+                    top: `${uploadPlacement.top_pct * 100}%`,
+                    width: `${uploadPlacement.width_pct * 100}%`,
+                    height: `${uploadPlacement.height_pct * 100}%`,
+                  }"
+                  @pointerdown="onUploadArtworkPointerDown"
                 >
-                  <Icon name="lucide:maximize-2" class="size-2 text-white" aria-hidden="true" />
+                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
+                    {{ Math.round(uploadPlacement.left_pct * 100) }}%, {{ Math.round(uploadPlacement.top_pct * 100) }}% ({{ Math.round(uploadPlacement.width_pct * 100) }}×{{ Math.round(uploadPlacement.height_pct * 100) }}%)
+                  </div>
+
+                  <!-- Centered Print Area Icon -->
+                  <div class="w-full h-full pointer-events-none select-none flex items-center justify-center">
+                    <div class="h-6 w-6 rounded-md bg-indigo-600/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
+                      <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
+                    </div>
+                  </div>
+
+                  <div
+                    class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                    title="Drag to resize print area"
+                    @pointerdown="onUploadResizePointerDown"
+                  >
+                    <Icon name="lucide:maximize-2" class="size-2 text-white" aria-hidden="true" />
+                  </div>
                 </div>
               </div>
             </div>

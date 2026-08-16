@@ -894,88 +894,92 @@ async function handleComposite(): Promise<void> {
                 </div>
               </div>
 
-              <!-- Canvas Viewport -->
-              <div
-                ref="interactiveCanvasRef"
-                class="relative aspect-square max-h-[305px] w-full mx-auto bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
-              >
-                <!-- Template Background -->
-                <img
-                  v-if="activeTemplateImageUrl"
-                  :src="activeTemplateImageUrl"
-                  alt="Mockup Template"
-                  class="w-full h-full object-contain pointer-events-none"
-                />
-                <div v-else class="text-center p-6 text-zinc-400 space-y-2">
+              <!-- Canvas Viewport Frame -->
+              <div class="relative w-full max-h-[340px] bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[220px]">
+                <div v-if="!activeTemplateImageUrl" class="text-center p-6 text-zinc-400 space-y-2">
                   <Icon name="lucide:image" class="size-10 mx-auto text-zinc-300" aria-hidden="true" />
                   <p class="text-xs font-medium">Upload or select a photo on the right to start</p>
                 </div>
 
-                <!-- Alignment Crosshairs (Edit mode) -->
-                <template v-if="canvasViewMode === 'edit' && activeTemplateImageUrl">
-                  <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
-                  <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
-                </template>
-
-                <!-- EDIT MODE: Draggable & Resizable Box -->
+                <!-- Exact Image-Fitting Interactive Canvas (Zero letterbox distortion) -->
                 <div
-                  v-if="canvasViewMode === 'edit' && activeTemplateImageUrl"
-                  class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
-                  :style="{
-                    left: `${leftPct}%`,
-                    top: `${topPct}%`,
-                    width: `${widthPct}%`,
-                    height: `${heightPct}%`,
-                  }"
-                  @pointerdown="onArtworkPointerDown"
+                  v-else
+                  ref="interactiveCanvasRef"
+                  class="relative inline-block select-none touch-none max-h-[320px] max-w-full"
                 >
-                  <!-- Pill Coordinates -->
-                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
-                    {{ leftPct }}%, {{ topPct }}% ({{ widthPct }}×{{ heightPct }}%)
-                  </div>
-
-                  <!-- Artwork Preview -->
+                  <!-- Template Background Image -->
                   <img
-                    v-if="masterImageUrl"
-                    :src="masterImageUrl"
-                    alt="Artwork"
-                    class="w-full h-full object-contain pointer-events-none select-none drop-shadow-xs"
-                    :class="blendMode === 'multiply' ? 'mix-blend-multiply' : 'mix-blend-normal'"
+                    :src="activeTemplateImageUrl"
+                    alt="Mockup Template"
+                    class="max-h-[320px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-xs"
                   />
-                  <div v-else class="text-center p-1 pointer-events-none">
-                    <span class="text-[9px] font-bold text-indigo-900 block leading-tight">Print Area</span>
-                  </div>
 
-                  <!-- Resize Handle -->
+                  <!-- Alignment Crosshairs (Edit mode) -->
+                  <template v-if="canvasViewMode === 'edit'">
+                    <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
+                    <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
+                  </template>
+
+                  <!-- EDIT MODE: Draggable & Resizable Box -->
                   <div
-                    class="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
-                    title="Drag to resize print area"
-                    @pointerdown="onResizeHandlePointerDown"
-                  >
-                    <Icon name="lucide:maximize-2" class="size-1.5 text-white" aria-hidden="true" />
-                  </div>
-                </div>
-
-                <!-- PREVIEW MODE: Composite Preview -->
-                <div
-                  v-else-if="masterImageUrl && activeTemplateImageUrl"
-                  class="absolute pointer-events-none flex items-center justify-center"
-                  :style="{
-                    left: `${leftPct}%`,
-                    top: `${topPct}%`,
-                    width: `${widthPct}%`,
-                    height: `${heightPct}%`,
-                  }"
-                >
-                  <img
-                    :src="masterImageUrl"
-                    alt="Artwork Preview"
-                    class="w-full h-full object-contain pointer-events-none select-none"
-                    :class="blendMode === 'multiply' ? 'mix-blend-multiply opacity-95' : 'mix-blend-normal opacity-95'"
+                    v-if="canvasViewMode === 'edit'"
+                    class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
                     :style="{
-                      filter: blendMode === 'multiply' ? 'contrast(1.05) brightness(0.98)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))'
+                      left: `${leftPct}%`,
+                      top: `${topPct}%`,
+                      width: `${widthPct}%`,
+                      height: `${heightPct}%`,
                     }"
-                  />
+                    @pointerdown="onArtworkPointerDown"
+                  >
+                    <!-- Pill Coordinates -->
+                    <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
+                      {{ leftPct }}%, {{ topPct }}% ({{ widthPct }}×{{ heightPct }}%)
+                    </div>
+
+                    <!-- Artwork Preview -->
+                    <img
+                      v-if="masterImageUrl"
+                      :src="masterImageUrl"
+                      alt="Artwork"
+                      class="w-full h-full object-contain pointer-events-none select-none drop-shadow-xs"
+                      :class="blendMode === 'multiply' ? 'mix-blend-multiply' : 'mix-blend-normal'"
+                    />
+                    <div v-else class="text-center p-1 pointer-events-none">
+                      <span class="text-[9px] font-bold text-indigo-900 block leading-tight">Print Area</span>
+                    </div>
+
+                    <!-- Resize Handle -->
+                    <div
+                      class="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                      title="Drag to resize print area"
+                      @pointerdown="onResizeHandlePointerDown"
+                    >
+                      <Icon name="lucide:maximize-2" class="size-1.5 text-white" aria-hidden="true" />
+                    </div>
+                  </div>
+
+                  <!-- PREVIEW MODE: Composite Preview -->
+                  <div
+                    v-else-if="masterImageUrl"
+                    class="absolute pointer-events-none flex items-center justify-center"
+                    :style="{
+                      left: `${leftPct}%`,
+                      top: `${topPct}%`,
+                      width: `${widthPct}%`,
+                      height: `${heightPct}%`,
+                    }"
+                  >
+                    <img
+                      :src="masterImageUrl"
+                      alt="Artwork Preview"
+                      class="w-full h-full object-contain pointer-events-none select-none"
+                      :class="blendMode === 'multiply' ? 'mix-blend-multiply opacity-95' : 'mix-blend-normal opacity-95'"
+                      :style="{
+                        filter: blendMode === 'multiply' ? 'contrast(1.05) brightness(0.98)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))'
+                      }"
+                    />
+                  </div>
                 </div>
               </div>
 
