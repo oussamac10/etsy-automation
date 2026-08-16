@@ -344,12 +344,13 @@ function processFile(file: File): void {
 
 // ==================== CROP METHODS ====================
 function startCropping(): void {
-  if (!uploadedPreviewUrl.value) return;
+  const currentImg = activeTemplateImageUrl.value || uploadedPreviewUrl.value;
+  if (!currentImg) return;
   if (!originalUncroppedUrl.value) {
-    originalUncroppedUrl.value = uploadedPreviewUrl.value;
+    originalUncroppedUrl.value = currentImg;
     originalUncroppedFile.value = uploadedFile.value;
   }
-  setCropRatio("1:1");
+  setCropRatio(cropAspectRatio.value || "1:1");
   isCroppingMode.value = true;
 }
 
@@ -441,7 +442,7 @@ function onCropWindowPointerUp(): void {
 }
 
 function applyCrop(): void {
-  const sourceUrl = originalUncroppedUrl.value || uploadedPreviewUrl.value;
+  const sourceUrl = originalUncroppedUrl.value || activeTemplateImageUrl.value || uploadedPreviewUrl.value;
   if (!sourceUrl) {
     isCroppingMode.value = false;
     return;
@@ -468,6 +469,7 @@ function applyCrop(): void {
       const croppedFile = new File([blob], "cropped_mockup.jpg", { type: "image/jpeg" });
       uploadedFile.value = croppedFile;
       uploadedPreviewUrl.value = URL.createObjectURL(croppedFile);
+      activeSubTab.value = "upload";
       isCroppingMode.value = false;
     }, "image/jpeg", 0.95);
   };
@@ -823,26 +825,40 @@ async function handleComposite(): Promise<void> {
                   </span>
                 </div>
 
-                <!-- View Switcher -->
-                <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[11px]">
+                <div class="flex items-center gap-2">
+                  <!-- Crop / Cut Button directly in the Canvas Header -->
                   <button
+                    v-if="activeTemplateImageUrl"
                     type="button"
-                    class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
-                    :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                    @click="canvasViewMode = 'edit'"
+                    class="text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Crop and cut photo borders"
+                    @click="startCropping"
                   >
-                    <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
-                    <span>Edit</span>
+                    <Icon name="lucide:crop" class="size-3 text-indigo-600" aria-hidden="true" />
+                    <span>Crop Photo</span>
                   </button>
-                  <button
-                    type="button"
-                    class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
-                    :class="canvasViewMode === 'preview' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                    @click="canvasViewMode = 'preview'"
-                  >
-                    <Icon name="lucide:eye" class="size-3" aria-hidden="true" />
-                    <span>Realistic</span>
-                  </button>
+
+                  <!-- View Switcher -->
+                  <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[11px]">
+                    <button
+                      type="button"
+                      class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                      :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                      @click="canvasViewMode = 'edit'"
+                    >
+                      <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                      :class="canvasViewMode === 'preview' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                      @click="canvasViewMode = 'preview'"
+                    >
+                      <Icon name="lucide:eye" class="size-3" aria-hidden="true" />
+                      <span>Realistic</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
