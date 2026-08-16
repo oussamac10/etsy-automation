@@ -227,7 +227,6 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
     expect(wrapper.text()).toContain("White Bella Canvas Flatlay");
     expect(wrapper.text()).toContain("Cover Image");
     expect(wrapper.text()).toContain("Add Another T-Shirt");
-    expect(wrapper.text()).toContain("Regenerate Master PNG");
   });
 
   it("immediately updates T-shirt and Mug mockup preview URLs when switching candidate PNG without browser reload", async () => {
@@ -414,7 +413,7 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
     // Assert generic empty state
     expect(wrapper.text()).toContain("No mockups selected yet");
     expect(wrapper.text()).toContain("Add your own product photos and position your master artwork");
-    expect(wrapper.text()).toContain("+ Add Mockup");
+    expect(wrapper.text()).toContain("Add Mockup");
 
     // No product tabs should be rendered
     expect(wrapper.text()).not.toContain("T-Shirt0");
@@ -520,7 +519,6 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
     expect(wrapper.text()).toContain("Tote Bag");
 
     // Delete the only Tote Bag mockup
-    vi.stubGlobal("confirm", () => true);
     await prodTabComp.vm.handleDeleteMockup({
       id: "mockup-tote-1",
       workflow_id: "wf-prod-123",
@@ -534,6 +532,7 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
       url: "http://localhost:9000/etsy/tote1.jpg",
       provenance: { product_type: "tote_bag" },
     });
+    await prodTabComp.vm.confirmDeleteMockup();
     await flushPromises();
 
     // Tote Bag tab completely disappears (no Tote Bag 0)

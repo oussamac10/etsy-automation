@@ -25,18 +25,9 @@ import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
 import CustomizableSelect, { type SelectOption } from "~/components/ui/CustomizableSelect.vue";
 import Progress from "~/components/ui/Progress.vue";
+import { useLibraryProducts } from "~/composables/useLibraryProducts";
 
-const PRODUCT_OPTIONS: SelectOption[] = [
-  { value: "mug", label: "Ceramic Mug", icon: "lucide:coffee" },
-  { value: "tshirt", label: "T-Shirt", icon: "lucide:shirt" },
-  { value: "sweatshirt", label: "Sweatshirt / Hoodie", icon: "lucide:shirt" },
-  { value: "tote_bag", label: "Tote Bag", icon: "lucide:shopping-bag" },
-  { value: "tumbler", label: "Tumbler / Cup", icon: "lucide:cup-soda" },
-  { value: "poster", label: "Poster / Wall Art", icon: "lucide:image" },
-  { value: "sticker", label: "Stickers", icon: "lucide:tags" },
-  { value: "phone_case", label: "Phone Case", icon: "lucide:smartphone" },
-  { value: "candle", label: "Scented Candle", icon: "lucide:flame" },
-];
+const { libraryProductOptions, fetchLibraryProducts } = useLibraryProducts();
 
 const BUYER_OPTIONS: SelectOption[] = [
   { value: "coffee lovers", label: "Coffee Lovers & Baristas", icon: "lucide:coffee" },
@@ -374,7 +365,7 @@ watch(hasActiveWorkflows, (active) => {
 });
 
 onMounted(async () => {
-  await loadWorkflows();
+  await Promise.all([loadWorkflows(), fetchLibraryProducts()]);
   if (hasActiveWorkflows.value) {
     startPolling();
   }
@@ -638,14 +629,23 @@ onUnmounted(() => {
               </div>
 
               <div :class="ideaMode !== 'market-led' ? 'md:col-span-1 lg:col-span-2' : ''" class="space-y-1.5">
-                <Label for="product-uses">Intended Physical Products</Label>
+                <div class="flex items-center justify-between">
+                  <Label for="product-uses">Intended Physical Products</Label>
+                  <NuxtLink
+                    to="/library"
+                    class="p-0.5 rounded text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 transition-colors"
+                    title="Manage Mockup Library"
+                  >
+                    <Icon name="lucide:folder-cog" class="size-3.5" aria-hidden="true" />
+                  </NuxtLink>
+                </div>
                 <CustomizableSelect
                   id="product-uses"
                   v-model="intendedProductUses"
-                  :options="PRODUCT_OPTIONS"
-                  storage-key="etsy_custom_products"
+                  :options="libraryProductOptions"
+                  :allow-custom="false"
                   :is-multi="true"
-                  placeholder="Select products..."
+                  placeholder="Select products from library..."
                 />
               </div>
             </div>

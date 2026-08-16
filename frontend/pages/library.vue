@@ -9,6 +9,7 @@ import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
 import Input from "~/components/ui/Input.vue";
 import Label from "~/components/ui/Label.vue";
+import ImageCropperView from "~/components/ui/ImageCropperView.vue";
 import {
   STANDARD_PRODUCT_TYPES,
   getProductLabel,
@@ -58,12 +59,18 @@ const customProductTypes = ref<ProductTypeOption[]>([]);
 
 // Dynamic list of all categories in tabs
 const allCategoryOptions = computed(() => {
-  const customMap = new Map<string, ProductTypeOption>();
+  const mergedMap = new Map<string, ProductTypeOption>();
+
+  // 1. Standard product types
+  for (const std of STANDARD_PRODUCT_TYPES) {
+    mergedMap.set(std.value, std);
+  }
+
+  // 2. Custom categories from templates
   for (const t of templates.value) {
     const norm = normalizeProductKey(t.product_type);
-    const isStd = STANDARD_PRODUCT_TYPES.some((s) => s.value === norm);
-    if (!isStd && !customMap.has(norm)) {
-      customMap.set(norm, {
+    if (!mergedMap.has(norm)) {
+      mergedMap.set(norm, {
         value: norm,
         label: t.product_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
         icon: "lucide:package",
@@ -71,7 +78,19 @@ const allCategoryOptions = computed(() => {
       });
     }
   }
-  return [...STANDARD_PRODUCT_TYPES, ...Array.from(customMap.values()), ...customProductTypes.value];
+
+  // 3. Newly created custom categories that don't have templates yet
+  for (const c of customProductTypes.value) {
+    const norm = normalizeProductKey(c.value);
+    if (!mergedMap.has(norm)) {
+      mergedMap.set(norm, {
+        ...c,
+        value: norm,
+      });
+    }
+  }
+
+  return Array.from(mergedMap.values());
 });
 
 async function loadTemplates(): Promise<void> {
@@ -151,6 +170,59 @@ async function confirmDeleteTemplate(): Promise<void> {
     deleteError.value = errorObj.data?.detail || errorObj.message || "Failed to delete template.";
   } finally {
     isDeleting.value = false;
+  }
+}
+
+// Modal: Delete Category & all its Mockups
+const showDeleteCategoryModal = ref(false);
+const categoryToDelete = ref<string | null>(null);
+const isDeletingCategory = ref(false);
+const deleteCategoryError = ref<string | null>(null);
+
+function promptDeleteCategory(categoryKey: string): void {
+  categoryToDelete.value = categoryKey;
+  deleteCategoryError.value = null;
+  showDeleteCategoryModal.value = true;
+}
+
+async function confirmDeleteCategory(): Promise<void> {
+  if (!categoryToDelete.value) return;
+  isDeletingCategory.value = true;
+  deleteCategoryError.value = null;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) headers["x-csrf-token"] = csrf;
+
+    const catKey = categoryToDelete.value;
+    await $fetch(
+      `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates/categories/${encodeURIComponent(catKey)}`,
+      {
+        method: "DELETE",
+        headers,
+        credentials: "include",
+      }
+    );
+
+    // Remove templates from local state
+    templates.value = templates.value.filter(
+      (t) => normalizeProductKey(t.product_type) !== normalizeProductKey(catKey)
+    );
+    // Remove from customProductTypes
+    customProductTypes.value = customProductTypes.value.filter(
+      (c) => c.value !== catKey
+    );
+
+    if (selectedCategory.value === catKey) {
+      selectedCategory.value = "all";
+    }
+    showDeleteCategoryModal.value = false;
+    categoryToDelete.value = null;
+  } catch (err: unknown) {
+    const errorObj = err as { data?: { detail?: string }; message?: string };
+    deleteCategoryError.value = errorObj.data?.detail || errorObj.message || "Failed to delete category.";
+  } finally {
+    isDeletingCategory.value = false;
   }
 }
 
@@ -346,12 +418,14 @@ async function handleSaveEdit(): Promise<void> {
 // Upload Modal with Interactive Placement Canvas
 // -------------------------------------------------------------
 const showUploadModal = ref(false);
-const uploadStep = ref<"file" | "placement">("file");
+const showCategoryDropdown = ref(false);
+const uploadStep = ref<"file" | "crop" | "placement">("file");
 const uploadName = ref("");
 const uploadProductType = ref("mug");
 const uploadCustomTypeName = ref("");
 const uploadImageFile = ref<File | null>(null);
 const uploadImagePreviewUrl = ref<string | null>(null);
+const rawUploadFileUrl = ref<string | null>(null);
 const uploadCanvasRef = ref<HTMLDivElement | null>(null);
 const uploadPlacement = ref<PlacementData>({
   left_pct: 0.28,
@@ -364,15 +438,70 @@ const uploadPlacement = ref<PlacementData>({
 const isUploading = ref(false);
 const uploadError = ref<string | null>(null);
 
+function openUploadModal(forcedCategory?: string): void {
+  const targetCategory = forcedCategory || (selectedCategory.value !== "all" ? selectedCategory.value : "mug");
+  uploadProductType.value = targetCategory;
+  uploadCustomTypeName.value = "";
+  showCategoryDropdown.value = selectedCategory.value === "all";
+
+  const norm = normalizeProductKey(targetCategory);
+  if (norm === "tshirt" || norm === "sweatshirt" || norm === "tote_bag") {
+    uploadPlacement.value = {
+      left_pct: 0.28,
+      top_pct: 0.25,
+      width_pct: 0.44,
+      height_pct: 0.48,
+      angle_deg: 0,
+      blend_mode: "multiply",
+    };
+  } else if (norm === "poster") {
+    uploadPlacement.value = {
+      left_pct: 0.20,
+      top_pct: 0.20,
+      width_pct: 0.60,
+      height_pct: 0.60,
+      angle_deg: 0,
+      blend_mode: "over",
+    };
+  } else {
+    uploadPlacement.value = {
+      left_pct: 0.28,
+      top_pct: 0.25,
+      width_pct: 0.44,
+      height_pct: 0.48,
+      angle_deg: 0,
+      blend_mode: "over",
+    };
+  }
+
+  uploadName.value = "";
+  uploadImageFile.value = null;
+  uploadImagePreviewUrl.value = null;
+  rawUploadFileUrl.value = null;
+  uploadStep.value = "file";
+  uploadError.value = null;
+  showUploadModal.value = true;
+}
+
 function handleFileSelect(e: Event): void {
   const input = e.target as HTMLInputElement;
   if (!input.files || input.files.length === 0) return;
   const file = input.files[0];
   uploadImageFile.value = file;
-  uploadImagePreviewUrl.value = URL.createObjectURL(file);
+  rawUploadFileUrl.value = URL.createObjectURL(file);
+  uploadImagePreviewUrl.value = rawUploadFileUrl.value;
   if (!uploadName.value) {
     uploadName.value = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
   }
+  uploadStep.value = "placement";
+}
+
+function handleUploadCropComplete(result: {
+  croppedFile: File;
+  croppedUrl: string;
+}): void {
+  uploadImageFile.value = result.croppedFile;
+  uploadImagePreviewUrl.value = result.croppedUrl;
   uploadStep.value = "placement";
 }
 
@@ -543,6 +672,7 @@ function handleAddCustomProductType(): void {
   selectedCategory.value = key;
   newCustomTypeName.value = "";
   showAddCustomTypeModal.value = false;
+  openUploadModal(key);
 }
 
 onMounted(() => {
@@ -585,7 +715,7 @@ onMounted(() => {
             variant="default"
             size="sm"
             class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
-            @click="showUploadModal = true; uploadStep = 'file'"
+            @click="openUploadModal()"
           >
             <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
             <span>Upload Mockup Template</span>
@@ -665,6 +795,41 @@ onMounted(() => {
         </div>
       </div>
 
+      <!-- Selected Category Banner / Actions -->
+      <div
+        v-if="selectedCategory !== 'all'"
+        class="flex items-center justify-between bg-white rounded-xl p-3.5 border border-zinc-200 shadow-2xs"
+      >
+        <div class="flex items-center gap-2.5">
+          <div class="size-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shadow-2xs">
+            <Icon :name="getProductIconName(selectedCategory)" class="size-4" aria-hidden="true" />
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+              <span>{{ getProductLabel(selectedCategory) }}</span>
+              <Badge v-if="allCategoryOptions.find(c => c.value === selectedCategory)?.isCustom" variant="outline" class="text-[9px] bg-indigo-50 text-indigo-700 border-indigo-200">
+                Custom Category
+              </Badge>
+            </h4>
+            <p class="text-[11px] text-zinc-500">
+              {{ templateCounts[selectedCategory] || 0 }} {{ (templateCounts[selectedCategory] || 0) === 1 ? 'mockup template' : 'mockup templates' }} in this category
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            class="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-semibold shadow-2xs"
+            @click="promptDeleteCategory(selectedCategory)"
+          >
+            <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
+            <span>Delete Category & Mockups</span>
+          </Button>
+        </div>
+      </div>
+
       <!-- Alert / Errors -->
       <Alert v-if="pageError" variant="destructive">
         <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
@@ -693,15 +858,27 @@ onMounted(() => {
             Upload your blank product photos (e.g. flatlays, models, styled scenes) to set their print placement and use them automatically in Etsy workflows.
           </p>
         </div>
-        <Button
-          variant="default"
-          size="sm"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
-          @click="showUploadModal = true; uploadStep = 'file'"
-        >
-          <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
-          <span>Upload First Template</span>
-        </Button>
+        <div class="flex items-center justify-center gap-2.5">
+          <Button
+            variant="default"
+            size="sm"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
+            @click="openUploadModal()"
+          >
+            <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
+            <span>Upload First Template</span>
+          </Button>
+          <Button
+            v-if="selectedCategory !== 'all'"
+            variant="outline"
+            size="sm"
+            class="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-medium"
+            @click="promptDeleteCategory(selectedCategory)"
+          >
+            <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
+            <span>Delete Category</span>
+          </Button>
+        </div>
       </div>
 
       <!-- Templates Grid -->
@@ -1077,7 +1254,17 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Step 2: Visual Placement Studio -->
+        <!-- Step 2: Inline Photo Cropper (No nested modals!) -->
+        <div v-else-if="uploadStep === 'crop'" class="py-2">
+          <ImageCropperView
+            :image-url="rawUploadFileUrl || uploadImagePreviewUrl"
+            :file-name="uploadImageFile?.name"
+            @crop="handleUploadCropComplete"
+            @cancel="uploadStep = 'placement'"
+          />
+        </div>
+
+        <!-- Step 3: Visual Placement Studio -->
         <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-1 p-1 items-start">
           <!-- Left Column (7 cols): Interactive Visual Canvas -->
           <div class="lg:col-span-7 space-y-2.5">
@@ -1087,14 +1274,24 @@ onMounted(() => {
                 <span>Designate PNG Print Area</span>
               </span>
 
-              <button
-                type="button"
-                class="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors cursor-pointer border border-indigo-200 flex items-center gap-1"
-                @click="centerUploadPlacement"
-              >
-                <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
-                <span>Center Box</span>
-              </button>
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  class="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors cursor-pointer border border-indigo-200 flex items-center gap-1"
+                  @click="uploadStep = 'crop'"
+                >
+                  <Icon name="lucide:crop" class="size-3" aria-hidden="true" />
+                  <span>Crop / Cut Photo</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-0.5 text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded transition-colors cursor-pointer border border-zinc-200 flex items-center gap-1"
+                  @click="centerUploadPlacement"
+                >
+                  <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
+                  <span>Center Box</span>
+                </button>
+              </div>
             </div>
 
             <!-- Canvas Viewport Frame -->
@@ -1161,8 +1358,37 @@ onMounted(() => {
             </div>
 
             <div class="space-y-1.5">
-              <Label class="text-xs font-bold">Product Category</Label>
+              <div class="flex items-center justify-between">
+                <Label class="text-xs font-bold">Product Category</Label>
+                <button
+                  v-if="!showCategoryDropdown && selectedCategory !== 'all'"
+                  type="button"
+                  class="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                  @click="showCategoryDropdown = true"
+                >
+                  Change Category
+                </button>
+              </div>
+
+              <!-- Locked Pre-Selected Category Pill -->
+              <div
+                v-if="!showCategoryDropdown && selectedCategory !== 'all'"
+                class="flex items-center justify-between p-2 rounded-lg bg-zinc-100/70 border border-zinc-200 text-xs font-semibold text-zinc-800 shadow-2xs"
+              >
+                <div class="flex items-center gap-2">
+                  <div class="size-6 rounded-md bg-white flex items-center justify-center text-indigo-600 shadow-2xs border border-zinc-200/60">
+                    <Icon :name="getProductIconName(uploadProductType)" class="size-3.5" aria-hidden="true" />
+                  </div>
+                  <span>{{ getProductLabel(uploadProductType) }}</span>
+                </div>
+                <Badge variant="outline" class="text-[10px] bg-white text-zinc-600 border-zinc-200">
+                  Current Tab
+                </Badge>
+              </div>
+
+              <!-- Full Category Selector Dropdown -->
               <select
+                v-else
                 v-model="uploadProductType"
                 class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
               >
@@ -1173,7 +1399,7 @@ onMounted(() => {
               </select>
             </div>
 
-            <div v-if="uploadProductType === 'custom'" class="space-y-1.5 animate-in fade-in">
+            <div v-if="showCategoryDropdown && uploadProductType === 'custom'" class="space-y-1.5 animate-in fade-in">
               <Label class="text-xs font-bold text-indigo-700">Custom Category Name</Label>
               <Input v-model="uploadCustomTypeName" placeholder="e.g. Canvas Print, Pillow, Blanket" class="h-8 text-xs border-indigo-200" />
             </div>
@@ -1251,6 +1477,59 @@ onMounted(() => {
           >
             <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
             <span>Add Category</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Delete Category & all its Mockups -->
+    <div
+      v-if="showDeleteCategoryModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+      @click.self="showDeleteCategoryModal = false"
+    >
+      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-md w-full p-6 space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="h-10 w-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100">
+            <Icon name="lucide:trash-2" class="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-zinc-900">
+              Delete {{ categoryToDelete ? getProductLabel(categoryToDelete) : 'Category' }}?
+            </h4>
+            <p class="text-xs text-zinc-500 mt-1 leading-relaxed">
+              Are you sure you want to delete this product category and all its
+              <strong class="text-zinc-900 font-semibold">{{ categoryToDelete ? (templateCounts[categoryToDelete] || 0) : 0 }} mockup templates</strong>?
+              This will permanently delete the mockup photos and placement manifests from storage.
+            </p>
+          </div>
+        </div>
+
+        <Alert v-if="deleteCategoryError" variant="destructive">
+          <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
+          <AlertDescription>{{ deleteCategoryError }}</AlertDescription>
+        </Alert>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+          <Button
+            variant="outline"
+            size="sm"
+            class="text-xs cursor-pointer"
+            :disabled="isDeletingCategory"
+            @click="showDeleteCategoryModal = false"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            class="text-xs bg-red-600 hover:bg-red-700 text-white cursor-pointer font-bold inline-flex items-center gap-1.5"
+            :disabled="isDeletingCategory"
+            @click="confirmDeleteCategory"
+          >
+            <Icon v-if="isDeletingCategory" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+            <Icon v-else name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
+            <span>{{ isDeletingCategory ? 'Deleting...' : 'Delete Category & Mockups' }}</span>
           </Button>
         </div>
       </div>

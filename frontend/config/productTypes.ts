@@ -35,17 +35,41 @@ export function getProductIconName(val: string): string {
   return "lucide:package";
 }
 
+const STANDARD_ALIASES: Record<string, string> = {
+  "tshirt": "tshirt",
+  "t-shirt": "tshirt",
+  "t_shirt": "tshirt",
+  "tee": "tshirt",
+  "shirt": "tshirt",
+  "sweatshirt": "sweatshirt",
+  "sweat-shirt": "sweatshirt",
+  "sweat_shirt": "sweatshirt",
+  "hoodie": "sweatshirt",
+  "crewneck": "sweatshirt",
+  "tote_bag": "tote_bag",
+  "tote": "tote_bag",
+  "tote-bag": "tote_bag",
+  "canvas_tote": "tote_bag",
+  "mug": "mug",
+  "ceramic_mug": "mug",
+  "coffee_mug": "mug",
+  "cup": "mug",
+  "tumbler": "tumbler",
+  "tumblers": "tumbler",
+  "poster": "poster",
+  "posters": "poster",
+  "wall_art": "poster",
+  "sticker": "sticker",
+  "stickers": "sticker",
+  "phone_case": "phone_case",
+  "phone": "phone_case",
+  "candle": "candle",
+  "candles": "candle",
+  "scented_candle": "candle",
+};
+
 export function normalizeProductKey(raw?: string | null): string {
   if (!raw) return "product";
-  const text = raw.toLowerCase().trim();
-  if (text.includes("tumbler") || text === "tumblers") return "tumbler";
-  if (text.includes("mug") || text.includes("ceramic") || text === "mug" || text === "cup") return "mug";
-  if (text.includes("sweat") || text.includes("hoodie") || text.includes("crewneck") || text === "sweatshirt") return "sweatshirt";
-  if (text.includes("tote") || text.includes("bag") || text === "tote_bag") return "tote_bag";
-  if (text.includes("shirt") || text.includes("tee") || text.includes("apparel") || text === "tshirt") return "tshirt";
-  if (text.includes("poster") || text.includes("wall_art")) return "poster";
-  if (text.includes("sticker") || text.includes("stickers")) return "sticker";
-  if (text.includes("phone")) return "phone_case";
-  if (text.includes("candle") || text.includes("candles")) return "candle";
-  return text.replace(/\s+/g, "_").replace(/-/g, "_");
+  const slug = raw.toLowerCase().trim().replace(/[\s\-\/]+/g, "_").replace(/^_+|_+$/g, "");
+  return STANDARD_ALIASES[slug] || slug;
 }

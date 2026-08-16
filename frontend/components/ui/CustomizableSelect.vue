@@ -16,12 +16,14 @@ const props = withDefaults(
     placeholder?: string;
     isMulti?: boolean;
     id?: string;
+    allowCustom?: boolean;
   }>(),
   {
     storageKey: "",
     placeholder: "Select or type...",
     isMulti: false,
     id: "",
+    allowCustom: true,
   }
 );
 
@@ -39,7 +41,7 @@ function isIconifyName(icon?: string): boolean {
 }
 
 function loadCustomOptions() {
-  if (!props.storageKey || typeof window === "undefined") return;
+  if (!props.allowCustom || !props.storageKey || typeof window === "undefined") return;
   try {
     const raw = localStorage.getItem(props.storageKey);
     if (raw) {
@@ -59,7 +61,7 @@ function loadCustomOptions() {
 }
 
 function saveCustomOptions() {
-  if (!props.storageKey || typeof window === "undefined") return;
+  if (!props.allowCustom || !props.storageKey || typeof window === "undefined") return;
   try {
     localStorage.setItem(props.storageKey, JSON.stringify(customOptions.value));
   } catch (e) {
@@ -69,9 +71,11 @@ function saveCustomOptions() {
 
 const allOptions = computed<SelectOption[]>(() => {
   const combined = [...props.options];
-  for (const custom of customOptions.value) {
-    if (!combined.some((o) => o.value.toLowerCase() === custom.value.toLowerCase())) {
-      combined.push(custom);
+  if (props.allowCustom) {
+    for (const custom of customOptions.value) {
+      if (!combined.some((o) => o.value.toLowerCase() === custom.value.toLowerCase())) {
+        combined.push(custom);
+      }
     }
   }
   return combined;
@@ -86,6 +90,7 @@ const filteredOptions = computed<SelectOption[]>(() => {
 });
 
 const isCustomQueryNew = computed(() => {
+  if (!props.allowCustom) return false;
   const query = searchQuery.value.trim();
   if (!query) return false;
   const matchInAll = allOptions.value.some(
@@ -236,8 +241,8 @@ onBeforeUnmount(() => {
       <input
         v-model="searchQuery"
         type="text"
-        :placeholder="(!modelValue || modelValue.length === 0) ? placeholder : 'Add more...'"
-        class="flex-1 min-w-[100px] bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden h-6"
+        :placeholder="(!modelValue || modelValue.length === 0) ? placeholder : ''"
+        class="flex-1 min-w-[60px] bg-transparent text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden h-6"
         @focus="isOpen = true"
         @keydown.enter.prevent="addCustomItem"
         @keydown.esc="isOpen = false"
@@ -327,7 +332,7 @@ onBeforeUnmount(() => {
 
           <div class="flex items-center gap-1 shrink-0">
             <button
-              v-if="opt.isCustom"
+              v-if="allowCustom && opt.isCustom && storageKey"
               type="button"
               class="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-rose-600 transition-opacity cursor-pointer"
               aria-label="Remove custom option"
@@ -340,9 +345,13 @@ onBeforeUnmount(() => {
           </div>
         </button>
 
+        <div v-if="filteredOptions.length === 0 && !isCustomQueryNew" class="px-3 py-3 text-xs text-zinc-400 text-center">
+          No matching options found
+        </div>
+
         <!-- Custom Add Option -->
         <button
-          v-if="isCustomQueryNew"
+          v-if="allowCustom && isCustomQueryNew"
           type="button"
           class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 font-semibold border-t border-zinc-100 mt-1 cursor-pointer"
           @click="addCustomItem"

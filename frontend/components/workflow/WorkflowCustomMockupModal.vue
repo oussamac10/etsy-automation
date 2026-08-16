@@ -1,24 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from "vue";
+import { ref, computed, watch } from "vue";
 import Button from "~/components/ui/Button.vue";
-import { getProductIcon } from "~/config/icons";
-
-interface MockupTemplateItem {
-  id: string;
-  name: string;
-  product_type: string;
-  url: string;
-  placement: {
-    left_pct: number;
-    top_pct: number;
-    width_pct: number;
-    height_pct: number;
-    angle_deg: number;
-    blend_mode: string;
-  };
-  created_at: string;
-  is_custom: boolean;
-}
+import Alert from "~/components/ui/Alert.vue";
+import AlertTitle from "~/components/ui/AlertTitle.vue";
+import AlertDescription from "~/components/ui/AlertDescription.vue";
+import type { MockupTemplateItem, MockupPlacement } from "~/types/mockup";
+import { getProductLabel, getProductIconName, PRODUCT_PRESETS, normalizeProductKey } from "~/utils/mockupProducts";
+import { getApiErrorMessage, getCsrfHeaders } from "~/utils/api";
+import MockupTemplatePicker from "~/components/workflow/mockup-modal/MockupTemplatePicker.vue";
+import MockupUploadDropzone from "~/components/workflow/mockup-modal/MockupUploadDropzone.vue";
+import MockupPlacementCanvas from "~/components/workflow/mockup-modal/MockupPlacementCanvas.vue";
+import MockupPlacementControls from "~/components/workflow/mockup-modal/MockupPlacementControls.vue";
+import ImageCropperView from "~/components/ui/ImageCropperView.vue";
+import DeleteConfirmModal from "~/components/ui/DeleteConfirmModal.vue";
 
 export interface MockupAssetItem {
   id: string;
@@ -38,14 +32,7 @@ export interface MockupAssetItem {
     template_name?: string;
     is_cover?: boolean;
     listing_order?: number;
-    placement?: {
-      left_pct?: number;
-      top_pct?: number;
-      width_pct?: number;
-      height_pct?: number;
-      angle_deg?: number;
-      blend_mode?: string;
-    };
+    placement?: MockupPlacement;
   };
 }
 
@@ -59,7 +46,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "update:open", val: boolean): void;
+  (e: "close"): void;
   (
     e: "mockupCreated",
     result: {
@@ -75,13 +62,12 @@ const emit = defineEmits<{
 }>();
 
 const config = useRuntimeConfig();
-const apiBase = config.public.apiBase;
+const apiBase = config.public.apiBase ? config.public.apiBase.replace(/\/$/, "") : "";
 
 const activeSubTab = ref<"library" | "upload">("upload");
 const canvasViewMode = ref<"edit" | "preview">("edit");
 const templates = ref<MockupTemplateItem[]>([]);
 const isFetchingTemplates = ref(false);
-
 const selectedTemplateId = ref<string | null>(null);
 
 // Upload state
@@ -89,25 +75,7 @@ const uploadedFile = ref<File | null>(null);
 const uploadedPreviewUrl = ref<string | null>(null);
 const templateName = ref("");
 const saveToLibrary = ref(true);
-
-// ==================== CROP / CUT PHOTO STATE ====================
-const isCroppingMode = ref(false);
-const originalUncroppedUrl = ref<string | null>(null);
-const originalUncroppedFile = ref<File | null>(null);
-const cropAspectRatio = ref<"1:1" | "4:3" | "3:4" | "free">("1:1");
-const cropLeftPct = ref(10);
-const cropTopPct = ref(10);
-const cropWidthPct = ref(80);
-const cropHeightPct = ref(80);
-const isDraggingCrop = ref(false);
-const isResizingCrop = ref(false);
-const cropCanvasContainerRef = ref<HTMLDivElement | null>(null);
-let cropDragStartX = 0;
-let cropDragStartY = 0;
-let cropInitialLeft = 10;
-let cropInitialTop = 10;
-let cropInitialWidth = 80;
-let cropInitialHeight = 80;
+const isCover = ref(false);
 
 // Placement state
 const leftPct = ref(25);
@@ -115,536 +83,198 @@ const topPct = ref(25);
 const widthPct = ref(50);
 const heightPct = ref(50);
 const angleDeg = ref(0);
-const blendMode = ref<"multiply" | "over">("multiply");
-
-// Drag & Interaction refs
-const interactiveCanvasRef = ref<HTMLDivElement | null>(null);
-const isDraggingArtwork = ref(false);
-const isResizingArtwork = ref(false);
-let dragStartX = 0;
-let dragStartY = 0;
-let initialLeft = 25;
-let initialTop = 25;
-let initialWidth = 50;
-let initialHeight = 50;
+const blendMode = ref<"multiply" | "over" | "screen" | "overlay" | "darken" | "lighten">("multiply");
 
 const isCompositing = ref(false);
 const compositeError = ref<string | null>(null);
-
-function getMockupDisplayName(type: string): string {
-  if (!type) return "Product";
-  const clean = type.toLowerCase().trim();
-  switch (clean) {
-    case "mug":
-      return "Ceramic Mug";
-    case "tshirt":
-    case "t_shirt":
-      return "T-Shirt";
-    case "sweatshirt":
-      return "Sweatshirt";
-    case "tote_bag":
-    case "tote":
-      return "Tote Bag";
-    case "tumbler":
-    case "tumblers":
-      return "Tumbler";
-    case "poster":
-    case "posters":
-      return "Poster";
-    case "sticker":
-    case "stickers":
-      return "Stickers";
-    case "phone_case":
-      return "Phone Case";
-    case "candle":
-    case "candles":
-      return "Scented Candle";
-    default:
-      return clean.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-}
 
 const activeTemplateImageUrl = computed<string | null>(() => {
   if (activeSubTab.value === "upload") {
     return uploadedPreviewUrl.value;
   }
-  const found = templates.value.find((t) => t.id === selectedTemplateId.value);
-  return found?.url ?? null;
+  const tpl = templates.value.find((t) => t.id === selectedTemplateId.value);
+  return tpl?.url || tpl?.preview_url || null;
 });
 
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(";").shift() ?? null;
-  return null;
+function resetToDefaultPreset(): void {
+  const norm = normalizeProductKey(props.productType);
+  const preset = PRODUCT_PRESETS[norm] || PRODUCT_PRESETS.tshirt;
+  leftPct.value = Math.round(preset.defaultPlacement.left_pct * 100);
+  topPct.value = Math.round(preset.defaultPlacement.top_pct * 100);
+  widthPct.value = Math.round(preset.defaultPlacement.width_pct * 100);
+  heightPct.value = Math.round(preset.defaultPlacement.height_pct * 100);
+  angleDeg.value = preset.defaultPlacement.angle_deg;
+  blendMode.value = preset.defaultPlacement.blend_mode;
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.includes(",") ? result.split(",")[1] : result;
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+function centerHorizontal(): void {
+  leftPct.value = Math.round(((100 - widthPct.value) / 2) * 10) / 10;
 }
 
-function applyDefaultPresetForProduct(product: string): void {
-  const clean = product ? product.toLowerCase().trim() : "";
-  if (clean.includes("mug") || clean.includes("ceramic")) {
-    leftPct.value = 32;
-    topPct.value = 32;
-    widthPct.value = 36;
-    heightPct.value = 38;
-    blendMode.value = "over";
-  } else if (clean.includes("tumbler")) {
-    leftPct.value = 30;
-    topPct.value = 28;
-    widthPct.value = 40;
-    heightPct.value = 48;
-    blendMode.value = "over";
-  } else if (clean.includes("poster") || clean.includes("wall_art")) {
-    leftPct.value = 20;
-    topPct.value = 20;
-    widthPct.value = 60;
-    heightPct.value = 60;
-    blendMode.value = "over";
-  } else if (clean.includes("tote") || clean.includes("bag")) {
-    leftPct.value = 26;
-    topPct.value = 36;
-    widthPct.value = 48;
-    heightPct.value = 46;
-    blendMode.value = "multiply";
-  } else if (clean.includes("sweat") || clean.includes("hoodie") || clean.includes("crewneck")) {
-    leftPct.value = 28;
-    topPct.value = 26;
-    widthPct.value = 44;
-    heightPct.value = 46;
-    blendMode.value = "multiply";
-  } else {
-    // Default T-shirt / apparel
-    leftPct.value = 28;
-    topPct.value = 25;
-    widthPct.value = 44;
-    heightPct.value = 48;
-    blendMode.value = "multiply";
-  }
-  angleDeg.value = 0;
+function centerBoth(): void {
+  leftPct.value = Math.round(((100 - widthPct.value) / 2) * 10) / 10;
+  topPct.value = Math.round(((100 - heightPct.value) / 2) * 10) / 10;
 }
 
-// Reset or load state when opening, switching product, or editing existing mockup
-watch(
-  () => [props.open, props.productType, props.editingAsset],
-  ([isOpen]) => {
-    if (isOpen) {
-      compositeError.value = null;
-      uploadedFile.value = null;
-      uploadedPreviewUrl.value = null;
-      originalUncroppedUrl.value = null;
-      originalUncroppedFile.value = null;
-      isCroppingMode.value = false;
-      selectedTemplateId.value = null;
-      templateName.value = "";
-      canvasViewMode.value = "edit";
-
-      if (props.editingAsset) {
-        templateName.value =
-          props.editingAsset.provenance?.template_name ||
-          props.editingAsset.template_name ||
-          `${getMockupDisplayName(props.productType)} Mockup`;
-
-        const placement = props.editingAsset.provenance?.placement;
-        if (placement) {
-          leftPct.value = Math.round((placement.left_pct ?? 0.25) * (placement.left_pct! <= 1.0 ? 100 : 1));
-          topPct.value = Math.round((placement.top_pct ?? 0.25) * (placement.top_pct! <= 1.0 ? 100 : 1));
-          widthPct.value = Math.round((placement.width_pct ?? 0.50) * (placement.width_pct! <= 1.0 ? 100 : 1));
-          heightPct.value = Math.round((placement.height_pct ?? 0.50) * (placement.height_pct! <= 1.0 ? 100 : 1));
-          angleDeg.value = placement.angle_deg ?? 0;
-          blendMode.value = (placement.blend_mode as "multiply" | "over") || "multiply";
-        }
-
-        if (props.editingAsset.provenance?.template_id) {
-          selectedTemplateId.value = props.editingAsset.provenance.template_id;
-          activeSubTab.value = "library";
-        }
-      } else {
-        applyDefaultPresetForProduct(props.productType);
-      }
-
-      fetchTemplates();
-    }
-  },
-  { immediate: true }
-);
-
-async function fetchTemplates(): Promise<void> {
+async function loadTemplatesForProduct(): Promise<void> {
   isFetchingTemplates.value = true;
   try {
-    const data = await $fetch<{ items: MockupTemplateItem[] } | MockupTemplateItem[]>(
-      `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates?product_type=${props.productType}`,
-      { credentials: "include" }
+    const norm = normalizeProductKey(props.productType);
+    const res = await $fetch<MockupTemplateItem[]>(
+      `${apiBase}/api/v1/mockup-templates?product_type=${norm}`,
+      {
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      }
     );
-    if (Array.isArray(data)) {
-      templates.value = data;
-    } else {
-      templates.value = data.items || [];
+    // Strict client-side filter by current product type
+    templates.value = (res || []).filter(
+      (t) => normalizeProductKey(t.product_type) === norm
+    );
+    if (templates.value.length > 0 && !selectedTemplateId.value) {
+      handleSelectTemplate(templates.value[0]);
     }
-    if (templates.value.length > 0 && !selectedTemplateId.value && activeSubTab.value === "library") {
-      selectLibraryTemplate(templates.value[0]);
-    }
-  } catch (err) {
-    console.error("Failed to load mockup templates", err);
+  } catch {
+    templates.value = [];
   } finally {
     isFetchingTemplates.value = false;
   }
 }
 
-function selectLibraryTemplate(tpl: MockupTemplateItem): void {
+function handleSelectTemplate(tpl: MockupTemplateItem): void {
   selectedTemplateId.value = tpl.id;
-  leftPct.value = Math.round(tpl.placement.left_pct * (tpl.placement.left_pct <= 1.0 ? 100 : 1));
-  topPct.value = Math.round(tpl.placement.top_pct * (tpl.placement.top_pct <= 1.0 ? 100 : 1));
-  widthPct.value = Math.round(tpl.placement.width_pct * (tpl.placement.width_pct <= 1.0 ? 100 : 1));
-  heightPct.value = Math.round(tpl.placement.height_pct * (tpl.placement.height_pct <= 1.0 ? 100 : 1));
-  angleDeg.value = tpl.placement.angle_deg || 0;
-  blendMode.value = (tpl.placement.blend_mode as "multiply" | "over") || "multiply";
   templateName.value = tpl.name;
+  if (tpl.placement) {
+    leftPct.value = Math.round((tpl.placement.left_pct ?? 0.25) * 100);
+    topPct.value = Math.round((tpl.placement.top_pct ?? 0.25) * 100);
+    widthPct.value = Math.round((tpl.placement.width_pct ?? 0.5) * 100);
+    heightPct.value = Math.round((tpl.placement.height_pct ?? 0.5) * 100);
+    angleDeg.value = tpl.placement.angle_deg ?? 0;
+    blendMode.value = tpl.placement.blend_mode || "multiply";
+  }
 }
 
-async function handleDeleteLibraryTemplate(tpl: MockupTemplateItem): Promise<void> {
+const templateToDelete = ref<MockupTemplateItem | null>(null);
+const isDeletingTemplate = ref(false);
+const deleteTemplateError = ref<string | null>(null);
+
+function handleDeleteTemplate(tplId: string): void {
+  const found = templates.value.find((t) => t.id === tplId);
+  templateToDelete.value = found || {
+    id: tplId,
+    name: "Mockup Template",
+    product_type: props.productType,
+  } as MockupTemplateItem;
+  deleteTemplateError.value = null;
+}
+
+async function confirmDeleteTemplate(): Promise<void> {
+  if (!templateToDelete.value) return;
+  const tplId = templateToDelete.value.id;
+  isDeletingTemplate.value = true;
+  deleteTemplateError.value = null;
   try {
-    const csrf = getCookie("etsy_csrf");
-    const headers: Record<string, string> = {};
-    if (csrf) headers["x-csrf-token"] = csrf;
-
-    await $fetch(
-      `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates/${tpl.id}`,
-      {
-        method: "DELETE",
-        headers,
-        credentials: "include",
-      }
-    );
-
-    templates.value = templates.value.filter((t) => t.id !== tpl.id);
-    if (selectedTemplateId.value === tpl.id) {
-      if (templates.value.length > 0) {
-        selectLibraryTemplate(templates.value[0]);
-      } else {
-        selectedTemplateId.value = null;
-        activeSubTab.value = "upload";
-      }
+    await $fetch(`${apiBase}/api/v1/mockup-templates/${tplId}`, {
+      method: "DELETE",
+      headers: getCsrfHeaders(),
+      credentials: "include",
+    });
+    templates.value = templates.value.filter((t) => t.id !== tplId);
+    if (selectedTemplateId.value === tplId) {
+      selectedTemplateId.value = templates.value[0]?.id || null;
     }
-  } catch (err) {
-    console.error("Failed to delete template", err);
+    templateToDelete.value = null;
+  } catch (err: unknown) {
+    deleteTemplateError.value = getApiErrorMessage(err, "Failed to delete template.");
+  } finally {
+    isDeletingTemplate.value = false;
   }
 }
 
-function handleFileSelect(e: Event): void {
-  const input = e.target as HTMLInputElement;
-  if (input.files && input.files[0]) {
-    processFile(input.files[0]);
-  }
-}
+const isCroppingMode = ref(false);
+const rawUploadImageUrl = ref<string | null>(null);
 
-function handleDrop(e: DragEvent): void {
-  e.preventDefault();
-  if (e.dataTransfer?.files && e.dataTransfer.files[0]) {
-    processFile(e.dataTransfer.files[0]);
-  }
-}
-
-function processFile(file: File): void {
-  if (!file.type.startsWith("image/")) {
-    compositeError.value = "Please upload an image file (PNG, JPG, or WebP).";
-    return;
-  }
+function handleFileSelected(file: File): void {
   uploadedFile.value = file;
-  uploadedPreviewUrl.value = URL.createObjectURL(file);
-  originalUncroppedUrl.value = uploadedPreviewUrl.value;
-  originalUncroppedFile.value = file;
-  compositeError.value = null;
-  if (!templateName.value) {
-    const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-    templateName.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-  }
-}
-
-// ==================== CROP METHODS ====================
-function startCropping(): void {
-  const currentImg = activeTemplateImageUrl.value || uploadedPreviewUrl.value;
-  if (!currentImg) return;
-  if (!originalUncroppedUrl.value) {
-    originalUncroppedUrl.value = currentImg;
-    originalUncroppedFile.value = uploadedFile.value;
-  }
-  setCropRatio(cropAspectRatio.value || "1:1");
-  isCroppingMode.value = true;
-}
-
-function setCropRatio(ratio: "1:1" | "4:3" | "3:4" | "free"): void {
-  cropAspectRatio.value = ratio;
-  if (ratio === "1:1") {
-    cropWidthPct.value = 70;
-    cropHeightPct.value = 70;
-  } else if (ratio === "4:3") {
-    cropWidthPct.value = 80;
-    cropHeightPct.value = 60;
-  } else if (ratio === "3:4") {
-    cropWidthPct.value = 60;
-    cropHeightPct.value = 80;
-  } else {
-    cropWidthPct.value = 75;
-    cropHeightPct.value = 75;
-  }
-  cropLeftPct.value = Math.max(0, Math.round((100 - cropWidthPct.value) / 2));
-  cropTopPct.value = Math.max(0, Math.round((100 - cropHeightPct.value) / 2));
-}
-
-function onCropPointerDown(e: PointerEvent): void {
-  e.stopPropagation();
-  e.preventDefault();
-  isDraggingCrop.value = true;
-  cropDragStartX = e.clientX;
-  cropDragStartY = e.clientY;
-  cropInitialLeft = cropLeftPct.value;
-  cropInitialTop = cropTopPct.value;
-
-  window.addEventListener("pointermove", onCropWindowPointerMove);
-  window.addEventListener("pointerup", onCropWindowPointerUp);
-}
-
-function onCropResizePointerDown(e: PointerEvent): void {
-  e.stopPropagation();
-  e.preventDefault();
-  isResizingCrop.value = true;
-  cropDragStartX = e.clientX;
-  cropDragStartY = e.clientY;
-  cropInitialWidth = cropWidthPct.value;
-  cropInitialHeight = cropHeightPct.value;
-
-  window.addEventListener("pointermove", onCropWindowPointerMove);
-  window.addEventListener("pointerup", onCropWindowPointerUp);
-}
-
-function onCropWindowPointerMove(e: PointerEvent): void {
-  if (!cropCanvasContainerRef.value) return;
-  const rect = cropCanvasContainerRef.value.getBoundingClientRect();
-  const deltaPctX = ((e.clientX - cropDragStartX) / rect.width) * 100;
-  const deltaPctY = ((e.clientY - cropDragStartY) / rect.height) * 100;
-
-  if (isDraggingCrop.value) {
-    let newLeft = Math.round(cropInitialLeft + deltaPctX);
-    let newTop = Math.round(cropInitialTop + deltaPctY);
-    newLeft = Math.max(0, Math.min(100 - cropWidthPct.value, newLeft));
-    newTop = Math.max(0, Math.min(100 - cropHeightPct.value, newTop));
-    cropLeftPct.value = newLeft;
-    cropTopPct.value = newTop;
-  } else if (isResizingCrop.value) {
-    let newWidth = Math.round(cropInitialWidth + deltaPctX);
-    let newHeight = Math.round(cropInitialHeight + deltaPctY);
-
-    if (cropAspectRatio.value === "1:1") {
-      const avg = Math.max(newWidth, newHeight);
-      newWidth = avg;
-      newHeight = avg;
-    } else if (cropAspectRatio.value === "4:3") {
-      newHeight = Math.round(newWidth * (3 / 4));
-    } else if (cropAspectRatio.value === "3:4") {
-      newHeight = Math.round(newWidth * (4 / 3));
-    }
-
-    newWidth = Math.max(15, Math.min(100 - cropLeftPct.value, newWidth));
-    newHeight = Math.max(15, Math.min(100 - cropTopPct.value, newHeight));
-
-    cropWidthPct.value = newWidth;
-    cropHeightPct.value = newHeight;
-  }
-}
-
-function onCropWindowPointerUp(): void {
-  isDraggingCrop.value = false;
-  isResizingCrop.value = false;
-  window.removeEventListener("pointermove", onCropWindowPointerMove);
-  window.removeEventListener("pointerup", onCropWindowPointerUp);
-}
-
-function applyCrop(): void {
-  const sourceUrl = originalUncroppedUrl.value || activeTemplateImageUrl.value || uploadedPreviewUrl.value;
-  if (!sourceUrl) {
-    isCroppingMode.value = false;
-    return;
-  }
-
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = () => {
-    const canvas = document.createElement("canvas");
-    const sx = (cropLeftPct.value / 100) * img.naturalWidth;
-    const sy = (cropTopPct.value / 100) * img.naturalHeight;
-    const sWidth = (cropWidthPct.value / 100) * img.naturalWidth;
-    const sHeight = (cropHeightPct.value / 100) * img.naturalHeight;
-
-    canvas.width = Math.max(10, Math.round(sWidth));
-    canvas.height = Math.max(10, Math.round(sHeight));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const croppedFile = new File([blob], "cropped_mockup.jpg", { type: "image/jpeg" });
-      uploadedFile.value = croppedFile;
-      uploadedPreviewUrl.value = URL.createObjectURL(croppedFile);
-      activeSubTab.value = "upload";
-      isCroppingMode.value = false;
-    }, "image/jpeg", 0.95);
+  templateName.value = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    rawUploadImageUrl.value = e.target?.result as string;
+    uploadedPreviewUrl.value = rawUploadImageUrl.value;
   };
-  img.src = sourceUrl;
+  reader.readAsDataURL(file);
 }
 
-function cancelCrop(): void {
+function handleCropComplete(result: {
+  croppedFile: File;
+  croppedUrl: string;
+}): void {
+  uploadedFile.value = result.croppedFile;
+  uploadedPreviewUrl.value = result.croppedUrl;
   isCroppingMode.value = false;
 }
 
-// Quick alignment presets
-function centerHorizontally(): void {
-  leftPct.value = Math.max(0, Math.round((100 - widthPct.value) / 2));
+function handleRemoveFile(): void {
+  uploadedFile.value = null;
+  uploadedPreviewUrl.value = null;
+  rawUploadImageUrl.value = null;
+  isCroppingMode.value = false;
 }
 
-function centerVertically(): void {
-  topPct.value = Math.max(0, Math.round((100 - heightPct.value) / 2));
-}
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) {
+      compositeError.value = null;
+      if (props.editingAsset) {
+        // Editing existing mockup
+        const prov = props.editingAsset.provenance;
+        selectedTemplateId.value = prov?.template_id || null;
+        templateName.value = prov?.template_name || "";
+        isCover.value = Boolean(prov?.is_cover);
+        if (prov?.placement) {
+          leftPct.value = Math.round((prov.placement.left_pct ?? 0.25) * 100);
+          topPct.value = Math.round((prov.placement.top_pct ?? 0.25) * 100);
+          widthPct.value = Math.round((prov.placement.width_pct ?? 0.5) * 100);
+          heightPct.value = Math.round((prov.placement.height_pct ?? 0.5) * 100);
+          angleDeg.value = prov.placement.angle_deg ?? 0;
+          blendMode.value = prov.placement.blend_mode || "multiply";
+        }
+        activeSubTab.value = "library";
+        loadTemplatesForProduct();
+      } else {
+        // Fresh creation
+        uploadedFile.value = null;
+        uploadedPreviewUrl.value = null;
+        selectedTemplateId.value = null;
+        templateName.value = "";
+        isCover.value = false;
+        resetToDefaultPreset();
+        loadTemplatesForProduct().then(() => {
+          activeSubTab.value = templates.value.length > 0 ? "library" : "upload";
+        });
+      }
+    }
+  },
+  { immediate: true }
+);
 
-function applyChestPreset(): void {
-  widthPct.value = 25;
-  heightPct.value = 25;
-  leftPct.value = 55;
-  topPct.value = 28;
-}
-
-function applyFullCenterPreset(): void {
-  widthPct.value = 46;
-  heightPct.value = 46;
-  centerHorizontally();
-  topPct.value = 24;
-}
-
-// Pointer Event Handlers for Dragging & Resizing Artwork
-function onArtworkPointerDown(e: PointerEvent): void {
-  if (canvasViewMode.value !== "edit") return;
-  e.stopPropagation();
-  e.preventDefault();
-  isDraggingArtwork.value = true;
-  dragStartX = e.clientX;
-  dragStartY = e.clientY;
-  initialLeft = leftPct.value;
-  initialTop = topPct.value;
-
-  window.addEventListener("pointermove", onWindowPointerMove);
-  window.addEventListener("pointerup", onWindowPointerUp);
-}
-
-function onResizeHandlePointerDown(e: PointerEvent): void {
-  if (canvasViewMode.value !== "edit") return;
-  e.stopPropagation();
-  e.preventDefault();
-  isResizingArtwork.value = true;
-  dragStartX = e.clientX;
-  dragStartY = e.clientY;
-  initialWidth = widthPct.value;
-  initialHeight = heightPct.value;
-
-  window.addEventListener("pointermove", onWindowPointerMove);
-  window.addEventListener("pointerup", onWindowPointerUp);
-}
-
-function onWindowPointerMove(e: PointerEvent): void {
-  if (!interactiveCanvasRef.value) return;
-  const rect = interactiveCanvasRef.value.getBoundingClientRect();
-  const deltaX = e.clientX - dragStartX;
-  const deltaY = e.clientY - dragStartY;
-
-  const deltaPctX = (deltaX / rect.width) * 100;
-  const deltaPctY = (deltaY / rect.height) * 100;
-
-  if (isDraggingArtwork.value) {
-    let newLeft = Math.round(initialLeft + deltaPctX);
-    let newTop = Math.round(initialTop + deltaPctY);
-
-    newLeft = Math.max(0, Math.min(100 - widthPct.value, newLeft));
-    newTop = Math.max(0, Math.min(100 - heightPct.value, newTop));
-
-    leftPct.value = newLeft;
-    topPct.value = newTop;
-  } else if (isResizingArtwork.value) {
-    let newWidth = Math.round(initialWidth + deltaPctX);
-    let newHeight = Math.round(initialHeight + deltaPctY);
-
-    newWidth = Math.max(10, Math.min(100 - leftPct.value, newWidth));
-    newHeight = Math.max(10, Math.min(100 - topPct.value, newHeight));
-
-    widthPct.value = newWidth;
-    heightPct.value = newHeight;
+async function handleGenerateMockup(): Promise<void> {
+  if (!activeTemplateImageUrl.value) {
+    compositeError.value = "Please select or upload a mockup photo template.";
+    return;
   }
-}
 
-function onWindowPointerUp(): void {
-  isDraggingArtwork.value = false;
-  isResizingArtwork.value = false;
-  window.removeEventListener("pointermove", onWindowPointerMove);
-  window.removeEventListener("pointerup", onWindowPointerUp);
-}
-
-onUnmounted(() => {
-  if (typeof window !== "undefined") {
-    window.removeEventListener("pointermove", onWindowPointerMove);
-    window.removeEventListener("pointerup", onWindowPointerUp);
-    window.removeEventListener("pointermove", onCropWindowPointerMove);
-    window.removeEventListener("pointerup", onCropWindowPointerUp);
-  }
-});
-
-async function handleComposite(): Promise<void> {
   isCompositing.value = true;
   compositeError.value = null;
 
   try {
-    const csrf = getCookie("etsy_csrf");
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (csrf) headers["x-csrf-token"] = csrf;
+    const headers = getCsrfHeaders();
+    headers["Content-Type"] = "application/json";
 
-    let templateBase64: string | null = null;
-    if (activeSubTab.value === "upload") {
-      if (!uploadedFile.value) {
-        compositeError.value = "Please upload a mockup photo first.";
-        isCompositing.value = false;
-        return;
-      }
-      templateBase64 = await fileToBase64(uploadedFile.value);
-    } else {
-      if (!selectedTemplateId.value) {
-        compositeError.value = "Please select a template from your library.";
-        isCompositing.value = false;
-        return;
-      }
-    }
-
-    const payload = {
+    const payload: Record<string, any> = {
       workflow_id: props.workflowId,
-      product_type: props.productType,
-      master_asset_id: props.masterAssetId || undefined,
-      template_id: activeSubTab.value === "library" ? selectedTemplateId.value : undefined,
-      template_image_base64: templateBase64 || undefined,
-      template_name: templateName.value || `${getMockupDisplayName(props.productType)} Mockup`,
-      save_as_template: saveToLibrary.value,
-      target_asset_id: props.editingAsset?.id || undefined,
+      product_type: normalizeProductKey(props.productType),
       placement: {
         left_pct: leftPct.value / 100,
         top_pct: topPct.value / 100,
@@ -653,31 +283,40 @@ async function handleComposite(): Promise<void> {
         angle_deg: angleDeg.value,
         blend_mode: blendMode.value,
       },
+      is_cover: isCover.value,
+      target_asset_id: props.editingAsset?.id || undefined,
+      master_asset_id: props.masterAssetId || undefined,
     };
 
-    const result = await $fetch<{
+    if (activeSubTab.value === "library" && selectedTemplateId.value) {
+      payload.template_id = selectedTemplateId.value;
+      payload.template_name = templateName.value || undefined;
+    } else if (uploadedPreviewUrl.value) {
+      const b64Data = uploadedPreviewUrl.value.split(",")[1] || uploadedPreviewUrl.value;
+      payload.template_image_base64 = b64Data;
+      payload.template_name = templateName.value || `${getProductLabel(props.productType)} Template`;
+      payload.save_as_template = saveToLibrary.value;
+    }
+
+    const res = await $fetch<{
       mockup_url: string;
-      asset_id?: string;
+      asset_id: string;
       product_type: string;
       template_id?: string;
       template_name?: string;
       is_cover?: boolean;
       listing_order?: number;
-    }>(
-      `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates/composite`,
-      {
-        method: "POST",
-        headers,
-        body: payload,
-        credentials: "include",
-      }
-    );
+    }>(`${apiBase}/api/v1/mockup-templates/composite`, {
+      method: "POST",
+      headers,
+      body: payload,
+      credentials: "include",
+    });
 
-    emit("mockupCreated", result);
-    emit("update:open", false);
+    emit("mockupCreated", res);
+    emit("close");
   } catch (err: unknown) {
-    const errorObj = err as { data?: { detail?: string }; message?: string };
-    compositeError.value = errorObj.data?.detail || errorObj.message || "Failed to composite mockup. Please try again.";
+    compositeError.value = getApiErrorMessage(err, "Failed to create custom mockup.");
   } finally {
     isCompositing.value = false;
   }
@@ -685,557 +324,233 @@ async function handleComposite(): Promise<void> {
 </script>
 
 <template>
-  <div
-    v-if="open"
-    class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs animate-in fade-in duration-200"
-  >
-    <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-4xl w-full overflow-hidden flex flex-col max-h-[92vh]">
-      <!-- Header -->
-      <div class="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/70">
+  <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+    <div class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-zinc-200 flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
         <div class="flex items-center gap-3">
-          <div class="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-            <Icon name="lucide:layers" class="size-5" aria-hidden="true" />
+          <div class="size-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200/60 flex items-center justify-center shadow-2xs">
+            <Icon :name="getProductIconName(productType)" class="size-4.5" aria-hidden="true" />
           </div>
           <div>
-            <div class="flex items-center gap-2">
-              <h3 class="text-sm font-bold text-zinc-900">
-                {{ editingAsset ? 'Adjust Mockup Placement' : 'Custom Mockup Placer' }}
-              </h3>
-              <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-indigo-100 text-indigo-800 inline-flex items-center gap-1">
-                <Icon :name="getProductIcon(productType)" class="size-3 text-indigo-700" aria-hidden="true" />
-                <span>{{ getMockupDisplayName(productType) }}</span>
-              </span>
-            </div>
-            <p class="text-[11px] text-zinc-500">Position, scale, and blend your master design on {{ getMockupDisplayName(productType) }}</p>
+            <h3 class="text-sm font-bold text-zinc-900 leading-tight">
+              {{ editingAsset ? `Edit ${getProductLabel(productType)} Mockup` : `Add ${getProductLabel(productType)} Mockup` }}
+            </h3>
+            <p class="text-xs text-zinc-500">
+              Position and blend your master transparent PNG onto realistic product photography
+            </p>
           </div>
         </div>
         <button
           type="button"
-          class="h-8 w-8 rounded-lg hover:bg-zinc-200/70 text-zinc-400 hover:text-zinc-700 flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Close modal"
-          @click="emit('update:open', false)"
+          class="h-8 w-8 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 flex items-center justify-center transition-colors cursor-pointer"
+          @click="emit('close')"
         >
           <Icon name="lucide:x" class="size-4" aria-hidden="true" />
         </button>
       </div>
 
-      <!-- Main Body: 2-Column Split Layout -->
-      <div class="p-5 overflow-y-auto lg:overflow-y-hidden max-h-[calc(92vh-115px)]">
-        <!-- Error Alert -->
-        <div v-if="compositeError" class="p-2.5 mb-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 font-medium">
-          {{ compositeError }}
+      <!-- Mode Selector Tabs (Library vs Upload New) -->
+      <div class="px-6 pt-3 pb-2 border-b border-zinc-100 flex items-center justify-between bg-white">
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            :class="activeSubTab === 'library' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/70'"
+            @click="activeSubTab = 'library'"
+          >
+            <Icon name="lucide:folder" class="size-3.5" aria-hidden="true" />
+            <span>From Library</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded-full" :class="activeSubTab === 'library' ? 'bg-indigo-800 text-white' : 'bg-zinc-200 text-zinc-700'">
+              {{ templates.length }}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            :class="activeSubTab === 'upload' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/70'"
+            @click="activeSubTab = 'upload'"
+          >
+            <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
+            <span>Upload New Photo</span>
+          </button>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          <!-- LEFT COLUMN (7 cols): Interactive Visual Canvas OR Crop Studio -->
-          <div class="lg:col-span-7 space-y-2.5">
-            <!-- 1. CROPPING / CUTTING STUDIO MODE -->
-            <div v-if="isCroppingMode" class="space-y-2.5">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-1.5">
-                  <Icon name="lucide:crop" class="size-3.5 text-indigo-600" aria-hidden="true" />
-                  <span class="text-xs font-bold text-zinc-900">Crop / Cut Mockup Photo</span>
-                </div>
-
-                <!-- Aspect Ratio Presets -->
-                <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[10px]">
-                  <button
-                    type="button"
-                    class="font-bold px-2 py-0.5 rounded transition-all cursor-pointer"
-                    :class="cropAspectRatio === '1:1' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
-                    @click="setCropRatio('1:1')"
-                  >
-                    1:1 (Etsy)
-                  </button>
-                  <button
-                    type="button"
-                    class="font-bold px-2 py-0.5 rounded transition-all cursor-pointer"
-                    :class="cropAspectRatio === '4:3' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
-                    @click="setCropRatio('4:3')"
-                  >
-                    4:3
-                  </button>
-                  <button
-                    type="button"
-                    class="font-bold px-2 py-0.5 rounded transition-all cursor-pointer"
-                    :class="cropAspectRatio === '3:4' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
-                    @click="setCropRatio('3:4')"
-                  >
-                    3:4
-                  </button>
-                  <button
-                    type="button"
-                    class="font-bold px-2 py-0.5 rounded transition-all cursor-pointer"
-                    :class="cropAspectRatio === 'free' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
-                    @click="setCropRatio('free')"
-                  >
-                    Free
-                  </button>
-                </div>
-              </div>
-
-              <!-- Crop Canvas Viewport -->
-              <div
-                ref="cropCanvasContainerRef"
-                class="relative aspect-square max-h-[305px] w-full mx-auto bg-zinc-950 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
-              >
-                <!-- Full image -->
-                <img
-                  v-if="originalUncroppedUrl || uploadedPreviewUrl"
-                  :src="originalUncroppedUrl || uploadedPreviewUrl || ''"
-                  alt="Crop Source"
-                  class="w-full h-full object-contain pointer-events-none opacity-60"
-                />
-
-                <!-- Draggable & Resizable Crop Box -->
-                <div
-                  class="absolute border-2 border-white shadow-2xl cursor-grab active:cursor-grabbing flex items-center justify-center ring-1 ring-black/40"
-                  :style="{
-                    left: `${cropLeftPct}%`,
-                    top: `${cropTopPct}%`,
-                    width: `${cropWidthPct}%`,
-                    height: `${cropHeightPct}%`,
-                  }"
-                  @pointerdown="onCropPointerDown"
-                >
-                  <!-- Rule-of-thirds grid -->
-                  <div class="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                    <div class="border-r border-b border-white/40" />
-                    <div class="border-r border-b border-white/40" />
-                    <div class="border-b border-white/40" />
-                    <div class="border-r border-b border-white/40" />
-                    <div class="border-r border-b border-white/40" />
-                    <div class="border-b border-white/40" />
-                    <div class="border-r border-white/40" />
-                    <div class="border-r border-white/40" />
-                    <div />
-                  </div>
-
-                  <!-- Coordinates badge -->
-                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.2 bg-black/80 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none">
-                    Cut Area: {{ cropWidthPct }}% × {{ cropHeightPct }}%
-                  </div>
-
-                  <!-- Corner resize handle -->
-                  <div
-                    class="absolute -bottom-2 -right-2 h-4 w-4 bg-white border-2 border-indigo-600 rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
-                    title="Drag to resize crop area"
-                    @pointerdown="onCropResizePointerDown"
-                  >
-                    <Icon name="lucide:maximize-2" class="size-2 text-indigo-600" aria-hidden="true" />
-                  </div>
-                </div>
-              </div>
-
-              <!-- Crop Action Bar -->
-              <div class="flex items-center justify-between pt-1">
-                <span class="text-[11px] text-zinc-500">Drag to move · Drag corner to resize</span>
-                <div class="flex items-center gap-2">
-                  <Button variant="outline" size="sm" class="text-xs h-7 px-2.5 cursor-pointer" @click="cancelCrop">
-                    Cancel
-                  </Button>
-                  <Button variant="default" size="sm" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-7 px-3 gap-1 shadow-2xs cursor-pointer" @click="applyCrop">
-                    <Icon name="lucide:crop" class="size-3" aria-hidden="true" />
-                    <span>Apply Cut & Crop</span>
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. NORMAL INTERACTIVE PLACEMENT CANVAS -->
-            <div v-else class="space-y-2.5">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-1.5">
-                  <Icon
-                    :name="canvasViewMode === 'edit' ? 'lucide:move' : 'lucide:eye'"
-                    class="size-3.5"
-                    :class="canvasViewMode === 'edit' ? 'text-indigo-600' : 'text-emerald-600'"
-                    aria-hidden="true"
-                  />
-                  <span class="text-xs font-bold text-zinc-900">
-                    {{ canvasViewMode === 'edit' ? 'Interactive Placement Canvas' : 'Realistic Mockup Preview' }}
-                  </span>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <!-- Crop / Cut Button directly in the Canvas Header -->
-                  <button
-                    v-if="activeTemplateImageUrl"
-                    type="button"
-                    class="text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
-                    title="Crop and cut photo borders"
-                    @click="startCropping"
-                  >
-                    <Icon name="lucide:crop" class="size-3 text-indigo-600" aria-hidden="true" />
-                    <span>Crop Photo</span>
-                  </button>
-
-                  <!-- View Switcher -->
-                  <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[11px]">
-                    <button
-                      type="button"
-                      class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
-                      :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                      @click="canvasViewMode = 'edit'"
-                    >
-                      <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
-                      :class="canvasViewMode === 'preview' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                      @click="canvasViewMode = 'preview'"
-                    >
-                      <Icon name="lucide:eye" class="size-3" aria-hidden="true" />
-                      <span>Realistic</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Canvas Viewport Frame -->
-              <div class="relative w-full max-h-[340px] bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[220px]">
-                <div v-if="!activeTemplateImageUrl" class="text-center p-6 text-zinc-400 space-y-2">
-                  <Icon name="lucide:image" class="size-10 mx-auto text-zinc-300" aria-hidden="true" />
-                  <p class="text-xs font-medium">Upload or select a photo on the right to start</p>
-                </div>
-
-                <!-- Exact Image-Fitting Interactive Canvas (Zero letterbox distortion) -->
-                <div
-                  v-else
-                  ref="interactiveCanvasRef"
-                  class="relative inline-block select-none touch-none max-h-[320px] max-w-full"
-                >
-                  <!-- Template Background Image -->
-                  <img
-                    :src="activeTemplateImageUrl"
-                    alt="Mockup Template"
-                    class="max-h-[320px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-xs"
-                  />
-
-                  <!-- Alignment Crosshairs (Edit mode) -->
-                  <template v-if="canvasViewMode === 'edit'">
-                    <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
-                    <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
-                  </template>
-
-                  <!-- EDIT MODE: Draggable & Resizable Box -->
-                  <div
-                    v-if="canvasViewMode === 'edit'"
-                    class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
-                    :style="{
-                      left: `${leftPct}%`,
-                      top: `${topPct}%`,
-                      width: `${widthPct}%`,
-                      height: `${heightPct}%`,
-                    }"
-                    @pointerdown="onArtworkPointerDown"
-                  >
-                    <!-- Pill Coordinates -->
-                    <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
-                      {{ leftPct }}%, {{ topPct }}% ({{ widthPct }}×{{ heightPct }}%)
-                    </div>
-
-                    <!-- Artwork Preview -->
-                    <img
-                      v-if="masterImageUrl"
-                      :src="masterImageUrl"
-                      alt="Artwork"
-                      class="w-full h-full object-contain pointer-events-none select-none drop-shadow-xs"
-                      :class="blendMode === 'multiply' ? 'mix-blend-multiply' : 'mix-blend-normal'"
-                    />
-                    <div v-else class="text-center p-1 pointer-events-none">
-                      <span class="text-[9px] font-bold text-indigo-900 block leading-tight">Print Area</span>
-                    </div>
-
-                    <!-- Resize Handle -->
-                    <div
-                      class="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
-                      title="Drag to resize print area"
-                      @pointerdown="onResizeHandlePointerDown"
-                    >
-                      <Icon name="lucide:maximize-2" class="size-1.5 text-white" aria-hidden="true" />
-                    </div>
-                  </div>
-
-                  <!-- PREVIEW MODE: Composite Preview -->
-                  <div
-                    v-else-if="masterImageUrl"
-                    class="absolute pointer-events-none flex items-center justify-center"
-                    :style="{
-                      left: `${leftPct}%`,
-                      top: `${topPct}%`,
-                      width: `${widthPct}%`,
-                      height: `${heightPct}%`,
-                    }"
-                  >
-                    <img
-                      :src="masterImageUrl"
-                      alt="Artwork Preview"
-                      class="w-full h-full object-contain pointer-events-none select-none"
-                      :class="blendMode === 'multiply' ? 'mix-blend-multiply opacity-95' : 'mix-blend-normal opacity-95'"
-                      :style="{
-                        filter: blendMode === 'multiply' ? 'contrast(1.05) brightness(0.98)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))'
-                      }"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <!-- Canvas Helpers / Quick Align -->
-              <div v-if="canvasViewMode === 'edit' && activeTemplateImageUrl" class="flex flex-wrap items-center justify-between gap-1.5 text-[11px] pt-0.5">
-                <div class="flex items-center gap-1">
-                  <span class="text-zinc-400 font-medium">Align:</span>
-                  <button
-                    type="button"
-                    class="px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
-                    @click="centerHorizontally"
-                  >
-                    <Icon name="lucide:align-center" class="size-2.5" aria-hidden="true" />
-                    <span>Center H</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
-                    @click="centerVertically"
-                  >
-                    <Icon name="lucide:align-center" class="size-2.5 rotate-90" aria-hidden="true" />
-                    <span>Center V</span>
-                  </button>
-                </div>
-
-                <div class="flex items-center gap-1">
-                  <span class="text-zinc-400 font-medium">Presets:</span>
-                  <button
-                    type="button"
-                    class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-medium transition-colors cursor-pointer border border-indigo-200"
-                    @click="applyChestPreset"
-                  >
-                    Chest Logo
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-medium transition-colors cursor-pointer border border-indigo-200"
-                    @click="applyFullCenterPreset"
-                  >
-                    Full Center
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- RIGHT COLUMN (5 cols): Photo Source & Precision Sliders -->
-          <div class="lg:col-span-5 space-y-3.5">
-            <!-- 1. Source Tab Selector -->
-            <div class="p-1 bg-zinc-100 rounded-lg flex items-center gap-1">
-              <button
-                type="button"
-                class="flex-1 text-xs font-semibold py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                :class="activeSubTab === 'upload' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                @click="activeSubTab = 'upload'"
-              >
-                <Icon name="lucide:upload" class="size-3" aria-hidden="true" />
-                <span>Upload Photo</span>
-              </button>
-
-              <button
-                type="button"
-                class="flex-1 text-xs font-semibold py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                :class="activeSubTab === 'library' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                @click="activeSubTab = 'library'"
-              >
-                <Icon name="lucide:bookmark-plus" class="size-3" aria-hidden="true" />
-                <span>Library ({{ templates.length }})</span>
-              </button>
-            </div>
-
-            <!-- Upload Mode -->
-            <div v-if="activeSubTab === 'upload'" class="space-y-2.5">
-              <!-- Upload input dropzone -->
-              <div
-                v-if="!uploadedPreviewUrl"
-                class="border border-dashed border-zinc-300 hover:border-indigo-500 rounded-xl p-3.5 text-center cursor-pointer transition-colors bg-zinc-50/50"
-                @dragover.prevent
-                @drop="handleDrop"
-                @click="($refs.fileInput as HTMLInputElement)?.click()"
-              >
-                <input
-                  ref="fileInput"
-                  type="file"
-                  accept="image/png, image/jpeg, image/webp"
-                  class="hidden"
-                  @change="handleFileSelect"
-                >
-                <Icon name="lucide:upload" class="size-5 mx-auto text-indigo-600 mb-1" aria-hidden="true" />
-                <span class="text-xs font-semibold text-zinc-800 block">Click to upload photo</span>
-                <span class="text-[10px] text-zinc-400 block mt-0.5">JPEG, PNG, WebP (up to 35MB)</span>
-              </div>
-
-              <!-- Uploaded thumbnail + name input + Cut/Crop Button -->
-              <div v-else class="space-y-2 p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
-                <div class="flex items-center gap-2">
-                  <div class="h-10 w-10 rounded-lg bg-white border border-zinc-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
-                    <img :src="uploadedPreviewUrl" alt="Uploaded Photo" class="h-full w-full object-cover rounded" />
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <label class="block text-[9px] font-bold text-zinc-500 uppercase tracking-wider mb-0.5">Mockup Display Name</label>
-                    <input
-                      v-model="templateName"
-                      type="text"
-                      class="w-full text-xs px-2 py-1 rounded border border-zinc-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
-                      :placeholder="`e.g. Bella Canvas ${getMockupDisplayName(productType)} Flatlay`"
-                    >
-                  </div>
-                </div>
-
-                <div class="flex items-center justify-between text-[10px] pt-1 border-t border-zinc-100">
-                  <label class="flex items-center gap-1.5 cursor-pointer text-zinc-700">
-                    <input
-                      v-model="saveToLibrary"
-                      type="checkbox"
-                      class="h-3 w-3 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                    >
-                    <span>Save to library</span>
-                  </label>
-
-                  <button
-                    type="button"
-                    class="text-zinc-500 hover:text-zinc-800 font-medium cursor-pointer"
-                    @click="uploadedPreviewUrl = null; uploadedFile = null; originalUncroppedUrl = null; originalUncroppedFile = null"
-                  >
-                    Change Photo
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Library Mode (Clean compact grid with NO internal scroll) -->
-            <div v-else class="space-y-1.5">
-              <div v-if="templates.length === 0" class="text-center py-3 text-zinc-400 text-xs bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
-                No saved templates for {{ getMockupDisplayName(productType) }}. Use Upload tab to add one.
-              </div>
-
-              <div v-else class="grid grid-cols-3 gap-2">
-                <div
-                  v-for="tpl in templates"
-                  :key="tpl.id"
-                  class="border rounded-xl p-1.5 text-left transition-all cursor-pointer relative group"
-                  :class="selectedTemplateId === tpl.id ? 'border-indigo-600 ring-2 ring-indigo-500/30 bg-indigo-50/60 shadow-2xs' : 'border-zinc-200 hover:border-zinc-300 bg-white'"
-                  @click="selectLibraryTemplate(tpl)"
-                >
-                  <button
-                    type="button"
-                    class="absolute top-1 right-1 h-5 w-5 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-xs z-10 cursor-pointer"
-                    title="Delete template from library"
-                    @click.stop="handleDeleteLibraryTemplate(tpl)"
-                  >
-                    <Icon name="lucide:trash-2" class="size-2.5" aria-hidden="true" />
-                  </button>
-                  <div class="aspect-square bg-zinc-100 rounded-lg overflow-hidden border border-zinc-100 mb-1 flex items-center justify-center">
-                    <img :src="tpl.url" :alt="tpl.name" class="object-cover w-full h-full" />
-                  </div>
-                  <p class="text-[10px] font-bold text-zinc-800 truncate text-center" :title="tpl.name">{{ tpl.name }}</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. Blend Mode Selector -->
-            <div class="p-2 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1.5">
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] font-bold text-zinc-700 flex items-center gap-1">
-                  <Icon name="lucide:sparkles" class="size-3 text-indigo-600" aria-hidden="true" />
-                  <span>Blend Mode</span>
-                </span>
-                <span class="text-[9px] text-zinc-400">{{ blendMode === 'multiply' ? 'Natural Shadows' : 'Solid Opaque' }}</span>
-              </div>
-
-              <div class="grid grid-cols-2 gap-1 text-xs">
-                <button
-                  type="button"
-                  class="py-1 px-1.5 rounded-md font-semibold text-[10px] transition-all cursor-pointer border text-center truncate"
-                  :class="blendMode === 'multiply' ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-100'"
-                  @click="blendMode = 'multiply'"
-                >
-                  Multiply (Light)
-                </button>
-                <button
-                  type="button"
-                  class="py-1 px-1.5 rounded-md font-semibold text-[10px] transition-all cursor-pointer border text-center truncate"
-                  :class="blendMode === 'over' ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-100'"
-                  @click="blendMode = 'over'"
-                >
-                  Opaque (Dark)
-                </button>
-              </div>
-            </div>
-
-            <!-- 3. Compact Precision Sliders (2x2 Grid) -->
-            <div v-if="canvasViewMode === 'edit' && !isCroppingMode" class="p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1.5 text-xs">
-              <span class="text-[10px] font-bold text-zinc-700 block uppercase tracking-wider">Position & Dimensions</span>
-
-              <div class="grid grid-cols-2 gap-x-2.5 gap-y-1.5 text-[10px]">
-                <div>
-                  <div class="flex justify-between text-zinc-500 mb-0.5">
-                    <span>X Pos</span>
-                    <span class="font-mono font-bold text-zinc-800">{{ leftPct }}%</span>
-                  </div>
-                  <input v-model.number="leftPct" type="range" min="0" :max="Math.max(0, 100 - widthPct)" class="w-full accent-indigo-600 cursor-pointer h-1 bg-zinc-200 rounded-lg" />
-                </div>
-
-                <div>
-                  <div class="flex justify-between text-zinc-500 mb-0.5">
-                    <span>Y Pos</span>
-                    <span class="font-mono font-bold text-zinc-800">{{ topPct }}%</span>
-                  </div>
-                  <input v-model.number="topPct" type="range" min="0" :max="Math.max(0, 100 - heightPct)" class="w-full accent-indigo-600 cursor-pointer h-1 bg-zinc-200 rounded-lg" />
-                </div>
-
-                <div>
-                  <div class="flex justify-between text-zinc-500 mb-0.5">
-                    <span>Width</span>
-                    <span class="font-mono font-bold text-zinc-800">{{ widthPct }}%</span>
-                  </div>
-                  <input v-model.number="widthPct" type="range" min="10" :max="100 - leftPct" class="w-full accent-indigo-600 cursor-pointer h-1 bg-zinc-200 rounded-lg" />
-                </div>
-
-                <div>
-                  <div class="flex justify-between text-zinc-500 mb-0.5">
-                    <span>Height</span>
-                    <span class="font-mono font-bold text-zinc-800">{{ heightPct }}%</span>
-                  </div>
-                  <input v-model.number="heightPct" type="range" min="10" :max="100 - topPct" class="w-full accent-indigo-600 cursor-pointer h-1 bg-zinc-200 rounded-lg" />
-                </div>
-              </div>
-            </div>
-          </div>
+        <!-- View Mode Segment (Edit vs Preview) -->
+        <div v-if="activeTemplateImageUrl" class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg text-xs">
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer"
+            :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-2xs font-bold' : 'text-zinc-500 hover:text-zinc-900'"
+            @click="canvasViewMode = 'edit'"
+          >
+            Edit Box
+          </button>
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer"
+            :class="canvasViewMode === 'preview' ? 'bg-white text-zinc-900 shadow-2xs font-bold' : 'text-zinc-500 hover:text-zinc-900'"
+            @click="canvasViewMode = 'preview'"
+          >
+            Preview Clean
+          </button>
         </div>
       </div>
 
-      <!-- Footer -->
-      <div class="px-5 py-3 border-t border-zinc-100 bg-zinc-50/70 flex items-center justify-between gap-3">
-        <span class="text-[11px] text-zinc-500 truncate">
-          {{ isCroppingMode ? 'Crop studio active · Click Apply to cut photo' : activeTemplateImageUrl ? 'Ready to composite high-res mockup' : 'Please upload or select a template photo' }}
-        </span>
+      <!-- Modal Body -->
+      <div class="p-6 overflow-y-auto flex-1 space-y-4">
+        <!-- Error Alert -->
+        <Alert v-if="compositeError" variant="destructive" class="py-2.5">
+          <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
+          <div>
+            <AlertTitle class="text-xs font-bold">Error</AlertTitle>
+            <AlertDescription class="text-xs">{{ compositeError }}</AlertDescription>
+          </div>
+        </Alert>
 
-        <div class="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" :disabled="isCompositing" @click="emit('update:open', false)">
-            Cancel
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            class="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer text-xs"
-            :disabled="isCompositing || !activeTemplateImageUrl || isCroppingMode"
-            @click="handleComposite"
-          >
-            <Icon v-if="isCompositing" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
-            <Icon v-else name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
-            <span>{{ isCompositing ? 'Compositing Mockup...' : `Generate ${getMockupDisplayName(productType)} Mockup` }}</span>
-          </Button>
+        <!-- Inline Cropper View when Cropping Mode is Active -->
+        <div v-if="isCroppingMode" class="py-1">
+          <ImageCropperView
+            :image-url="rawUploadImageUrl || uploadedPreviewUrl"
+            :file-name="uploadedFile?.name"
+            @crop="handleCropComplete"
+            @cancel="isCroppingMode = false"
+          />
         </div>
+
+        <!-- Normal Studio Workspace (when not cropping) -->
+        <template v-else>
+          <!-- Template Selector Section (Max 3 + Show More) -->
+          <div v-if="activeSubTab === 'library'" class="pb-2 border-b border-zinc-100">
+            <MockupTemplatePicker
+              :templates="templates"
+              :selected-template-id="selectedTemplateId"
+              :product-label="getProductLabel(productType)"
+              :is-fetching-templates="isFetchingTemplates"
+              @select="handleSelectTemplate"
+              @delete="handleDeleteTemplate"
+              @switch-to-upload="activeSubTab = 'upload'"
+            />
+          </div>
+
+          <!-- If Upload Mode: Show clean Dropzone with Crop option -->
+          <div v-if="activeSubTab === 'upload'" class="py-2">
+            <MockupUploadDropzone
+              :product-label="getProductLabel(productType)"
+              :has-file="Boolean(uploadedPreviewUrl)"
+              :file-name="uploadedFile?.name"
+              @file-selected="handleFileSelected"
+              @remove-file="handleRemoveFile"
+              @open-crop="isCroppingMode = true"
+            />
+          </div>
+
+          <!-- 2-Column Studio Workspace -->
+          <div v-if="activeTemplateImageUrl" class="grid grid-cols-1 md:grid-cols-12 gap-6 pt-1">
+            <!-- Left Column: Interactive Placement Canvas -->
+            <div class="md:col-span-6 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-zinc-800 flex items-center gap-1.5">
+                  <Icon name="lucide:monitor" class="size-3.5 text-indigo-600" aria-hidden="true" />
+                  <span>Placement Canvas Viewport</span>
+                </span>
+                <span class="text-[10px] text-zinc-400 font-mono">1:1 Aspect Frame</span>
+              </div>
+
+              <MockupPlacementCanvas
+                :template-image-url="activeTemplateImageUrl"
+                :master-image-url="masterImageUrl || null"
+                :left-pct="leftPct"
+                :top-pct="topPct"
+                :width-pct="widthPct"
+                :height-pct="heightPct"
+                :angle-deg="angleDeg"
+                :blend-mode="blendMode"
+                :view-mode="canvasViewMode"
+                @update:left-pct="(v) => leftPct = v"
+                @update:top-pct="(v) => topPct = v"
+                @update:width-pct="(v) => widthPct = v"
+                @update:height-pct="(v) => heightPct = v"
+                @update:angle-deg="(v) => angleDeg = v"
+              />
+
+              <p class="text-[11px] text-zinc-400 text-center">
+                💡 Drag the bounding box to move · Drag bottom-right corner to resize
+              </p>
+            </div>
+
+            <!-- Right Column: Fine Placement Controls & Metadata -->
+            <div class="md:col-span-6 space-y-4">
+              <MockupPlacementControls
+                :left-pct="leftPct"
+                :top-pct="topPct"
+                :width-pct="widthPct"
+                :height-pct="heightPct"
+                :angle-deg="angleDeg"
+                :blend-mode="blendMode"
+                :template-name="templateName"
+                :save-to-library="saveToLibrary"
+                :is-cover="isCover"
+                :is-compositing="isCompositing"
+                :is-uploading-new="activeSubTab === 'upload'"
+                @update:left-pct="(v) => leftPct = v"
+                @update:top-pct="(v) => topPct = v"
+                @update:width-pct="(v) => widthPct = v"
+                @update:height-pct="(v) => heightPct = v"
+                @update:angle-deg="(v) => angleDeg = v"
+                @update:blend-mode="(v) => blendMode = v"
+                @update:template-name="(v) => templateName = v"
+                @update:save-to-library="(v) => saveToLibrary = v"
+                @update:is-cover="(v) => isCover = v"
+                @reset-preset="resetToDefaultPreset"
+                @center-horizontal="centerHorizontal"
+                @center-both="centerBoth"
+              />
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Modal Footer (Hidden while in inline cropper view) -->
+      <div v-if="!isCroppingMode" class="px-6 py-3 border-t border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+        <Button
+          variant="outline"
+          size="sm"
+          class="text-xs cursor-pointer"
+          :disabled="isCompositing"
+          @click="emit('close')"
+        >
+          Cancel
+        </Button>
+
+        <Button
+          variant="default"
+          size="sm"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-2 shadow-xs cursor-pointer inline-flex items-center"
+          :disabled="isCompositing || !activeTemplateImageUrl"
+          @click="handleGenerateMockup"
+        >
+          <Icon v-if="isCompositing" name="lucide:loader-2" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:wand-2" class="size-3.5" aria-hidden="true" />
+          <span>{{ isCompositing ? "Generating Mockup..." : editingAsset ? "Save & Recomposite" : "Save Mockup" }}</span>
+        </Button>
       </div>
     </div>
+
+    <!-- Delete Template Confirmation Dialog -->
+    <DeleteConfirmModal
+      :open="Boolean(templateToDelete)"
+      title="Delete Mockup Template?"
+      description="Permanently delete this photo from your template library."
+      :item-name="templateToDelete?.name"
+      :item-category="getProductLabel(templateToDelete?.product_type || productType)"
+      :image-url="templateToDelete?.url || templateToDelete?.preview_url || null"
+      :is-deleting="isDeletingTemplate"
+      :error="deleteTemplateError"
+      confirm-text="Delete Permanently"
+      @close="templateToDelete = null"
+      @confirm="confirmDeleteTemplate"
+    />
   </div>
 </template>

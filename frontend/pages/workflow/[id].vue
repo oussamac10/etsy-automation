@@ -158,26 +158,7 @@ interface QaReport {
   qa_passed: boolean;
 }
 
-interface ProductionJob {
-  id: string;
-  workflow_id: string;
-  source_asset_id: string | null;
-  output_asset_id: string | null;
-  operations: string[];
-  status: string;
-  idempotency_key: string;
-  attempt_count: number;
-  qa_report: QaReport;
-  qa_passed: boolean | null;
-  started_at: string | null;
-  completed_at: string | null;
-  failure_kind: string | null;
-  failure_message: string | null;
-  created_at: string;
-  master_asset: Asset | null;
-  mockup_assets: Asset[];
-  mockup_urls: Record<string, string>;
-}
+import type { ProductionJob } from "~/types/production";
 
 const route = useRoute();
 const router = useRouter();
@@ -260,6 +241,69 @@ function getCookie(name: string): string | null {
   return null;
 }
 
+async function loadWorkflow(): Promise<Workflow | null> {
+  try {
+    const wf = await $fetch<Workflow>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}`,
+      { credentials: "include" }
+    );
+    workflow.value = wf;
+    return wf;
+  } catch {
+    return null;
+  }
+}
+
+async function loadIdea(ideaMode?: string): Promise<void> {
+  if (ideaMode === "market-led") {
+    originalIdea.value = null;
+    return;
+  }
+  try {
+    originalIdea.value = await $fetch<OriginalIdea>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/ideas`,
+      { credentials: "include" }
+    );
+  } catch {
+    originalIdea.value = null;
+  }
+}
+
+async function loadResearch(): Promise<void> {
+  try {
+    const runs = await $fetch<ResearchRun[]>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/research`,
+      { credentials: "include" }
+    );
+    latestRun.value = runs.length > 0 ? runs[runs.length - 1] : null;
+  } catch {
+    latestRun.value = null;
+  }
+}
+
+async function loadConcepts(): Promise<void> {
+  try {
+    const fetchedConcepts = await $fetch<Concept[]>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/concepts`,
+      { credentials: "include" }
+    );
+    concepts.value = fetchedConcepts.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  } catch {
+    concepts.value = [];
+  }
+}
+
+async function loadArtworkJobs(): Promise<void> {
+  try {
+    artworkJobs.value = await $fetch<ArtworkJob[]>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/artwork-jobs`,
+      { credentials: "include" }
+    );
+  } catch {
+    artworkJobs.value = [];
+  }
+}
+
 async function loadProductionJob(): Promise<ProductionJob | null> {
   try {
     const job = await $fetch<ProductionJob | null>(
@@ -279,50 +323,19 @@ async function loadData(silent = false): Promise<void> {
   pageError.value = null;
 
   try {
-    const wf = await $fetch<Workflow>(
-      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}`,
-      { credentials: "include" }
-    );
-    workflow.value = wf;
-
-    // Fetch original idea if hybrid or user-idea
-    if (wf.idea_mode !== "market-led") {
-      try {
-        originalIdea.value = await $fetch<OriginalIdea>(
-          `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/ideas`,
-          { credentials: "include" }
-        );
-      } catch {
-        originalIdea.value = null;
-      }
+    const wf = await loadWorkflow();
+    if (!wf) {
+      pageError.value = "Failed to load workflow details. Please verify your connection.";
+      return;
     }
 
-    // Fetch research runs
-    const runs = await $fetch<ResearchRun[]>(
-      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/research`,
-      { credentials: "include" }
-    );
-    latestRun.value = runs.length > 0 ? runs[runs.length - 1] : null;
-
-    // Fetch concepts
-    const fetchedConcepts = await $fetch<Concept[]>(
-      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/concepts`,
-      { credentials: "include" }
-    );
-    concepts.value = fetchedConcepts.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-
-    // Fetch artwork jobs
-    try {
-      artworkJobs.value = await $fetch<ArtworkJob[]>(
-        `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/artwork-jobs`,
-        { credentials: "include" }
-      );
-    } catch {
-      artworkJobs.value = [];
-    }
-
-    // Fetch production job
-    await loadProductionJob();
+    await Promise.all([
+      loadIdea(wf.idea_mode),
+      loadResearch(),
+      loadConcepts(),
+      loadArtworkJobs(),
+      loadProductionJob(),
+    ]);
 
     // Initial intelligent tab selection if not explicitly set in URL query
     if (!route.query?.tab && !silent) {

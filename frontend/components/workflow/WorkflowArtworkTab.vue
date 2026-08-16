@@ -74,11 +74,7 @@ interface Workflow {
   version: number;
 }
 
-interface ProductionJob {
-  id: string;
-  status: string;
-  source_asset_id: string | null;
-}
+import type { ProductionJob } from "~/types/production";
 
 const props = defineProps<{
   workflow: Workflow;
