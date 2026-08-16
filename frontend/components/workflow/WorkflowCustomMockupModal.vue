@@ -89,6 +89,25 @@ const uploadedPreviewUrl = ref<string | null>(null);
 const templateName = ref("");
 const saveToLibrary = ref(true);
 
+// ==================== CROP / CUT PHOTO STATE ====================
+const isCroppingMode = ref(false);
+const originalUncroppedUrl = ref<string | null>(null);
+const originalUncroppedFile = ref<File | null>(null);
+const cropAspectRatio = ref<"1:1" | "4:3" | "3:4" | "free">("1:1");
+const cropLeftPct = ref(10);
+const cropTopPct = ref(10);
+const cropWidthPct = ref(80);
+const cropHeightPct = ref(80);
+const isDraggingCrop = ref(false);
+const isResizingCrop = ref(false);
+const cropCanvasContainerRef = ref<HTMLDivElement | null>(null);
+let cropDragStartX = 0;
+let cropDragStartY = 0;
+let cropInitialLeft = 10;
+let cropInitialTop = 10;
+let cropInitialWidth = 80;
+let cropInitialHeight = 80;
+
 // Placement state
 const leftPct = ref(25);
 const topPct = ref(25);
@@ -224,6 +243,9 @@ watch(
       compositeError.value = null;
       uploadedFile.value = null;
       uploadedPreviewUrl.value = null;
+      originalUncroppedUrl.value = null;
+      originalUncroppedFile.value = null;
+      isCroppingMode.value = false;
       selectedTemplateId.value = null;
       templateName.value = "";
       canvasViewMode.value = "edit";
@@ -311,11 +333,149 @@ function processFile(file: File): void {
   }
   uploadedFile.value = file;
   uploadedPreviewUrl.value = URL.createObjectURL(file);
+  originalUncroppedUrl.value = uploadedPreviewUrl.value;
+  originalUncroppedFile.value = file;
   compositeError.value = null;
   if (!templateName.value) {
     const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
     templateName.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
   }
+}
+
+// ==================== CROP METHODS ====================
+function startCropping(): void {
+  if (!uploadedPreviewUrl.value) return;
+  if (!originalUncroppedUrl.value) {
+    originalUncroppedUrl.value = uploadedPreviewUrl.value;
+    originalUncroppedFile.value = uploadedFile.value;
+  }
+  setCropRatio("1:1");
+  isCroppingMode.value = true;
+}
+
+function setCropRatio(ratio: "1:1" | "4:3" | "3:4" | "free"): void {
+  cropAspectRatio.value = ratio;
+  if (ratio === "1:1") {
+    cropWidthPct.value = 70;
+    cropHeightPct.value = 70;
+  } else if (ratio === "4:3") {
+    cropWidthPct.value = 80;
+    cropHeightPct.value = 60;
+  } else if (ratio === "3:4") {
+    cropWidthPct.value = 60;
+    cropHeightPct.value = 80;
+  } else {
+    cropWidthPct.value = 75;
+    cropHeightPct.value = 75;
+  }
+  cropLeftPct.value = Math.max(0, Math.round((100 - cropWidthPct.value) / 2));
+  cropTopPct.value = Math.max(0, Math.round((100 - cropHeightPct.value) / 2));
+}
+
+function onCropPointerDown(e: PointerEvent): void {
+  e.stopPropagation();
+  e.preventDefault();
+  isDraggingCrop.value = true;
+  cropDragStartX = e.clientX;
+  cropDragStartY = e.clientY;
+  cropInitialLeft = cropLeftPct.value;
+  cropInitialTop = cropTopPct.value;
+
+  window.addEventListener("pointermove", onCropWindowPointerMove);
+  window.addEventListener("pointerup", onCropWindowPointerUp);
+}
+
+function onCropResizePointerDown(e: PointerEvent): void {
+  e.stopPropagation();
+  e.preventDefault();
+  isResizingCrop.value = true;
+  cropDragStartX = e.clientX;
+  cropDragStartY = e.clientY;
+  cropInitialWidth = cropWidthPct.value;
+  cropInitialHeight = cropHeightPct.value;
+
+  window.addEventListener("pointermove", onCropWindowPointerMove);
+  window.addEventListener("pointerup", onCropWindowPointerUp);
+}
+
+function onCropWindowPointerMove(e: PointerEvent): void {
+  if (!cropCanvasContainerRef.value) return;
+  const rect = cropCanvasContainerRef.value.getBoundingClientRect();
+  const deltaPctX = ((e.clientX - cropDragStartX) / rect.width) * 100;
+  const deltaPctY = ((e.clientY - cropDragStartY) / rect.height) * 100;
+
+  if (isDraggingCrop.value) {
+    let newLeft = Math.round(cropInitialLeft + deltaPctX);
+    let newTop = Math.round(cropInitialTop + deltaPctY);
+    newLeft = Math.max(0, Math.min(100 - cropWidthPct.value, newLeft));
+    newTop = Math.max(0, Math.min(100 - cropHeightPct.value, newTop));
+    cropLeftPct.value = newLeft;
+    cropTopPct.value = newTop;
+  } else if (isResizingCrop.value) {
+    let newWidth = Math.round(cropInitialWidth + deltaPctX);
+    let newHeight = Math.round(cropInitialHeight + deltaPctY);
+
+    if (cropAspectRatio.value === "1:1") {
+      const avg = Math.max(newWidth, newHeight);
+      newWidth = avg;
+      newHeight = avg;
+    } else if (cropAspectRatio.value === "4:3") {
+      newHeight = Math.round(newWidth * (3 / 4));
+    } else if (cropAspectRatio.value === "3:4") {
+      newHeight = Math.round(newWidth * (4 / 3));
+    }
+
+    newWidth = Math.max(15, Math.min(100 - cropLeftPct.value, newWidth));
+    newHeight = Math.max(15, Math.min(100 - cropTopPct.value, newHeight));
+
+    cropWidthPct.value = newWidth;
+    cropHeightPct.value = newHeight;
+  }
+}
+
+function onCropWindowPointerUp(): void {
+  isDraggingCrop.value = false;
+  isResizingCrop.value = false;
+  window.removeEventListener("pointermove", onCropWindowPointerMove);
+  window.removeEventListener("pointerup", onCropWindowPointerUp);
+}
+
+function applyCrop(): void {
+  const sourceUrl = originalUncroppedUrl.value || uploadedPreviewUrl.value;
+  if (!sourceUrl) {
+    isCroppingMode.value = false;
+    return;
+  }
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    const sx = (cropLeftPct.value / 100) * img.naturalWidth;
+    const sy = (cropTopPct.value / 100) * img.naturalHeight;
+    const sWidth = (cropWidthPct.value / 100) * img.naturalWidth;
+    const sHeight = (cropHeightPct.value / 100) * img.naturalHeight;
+
+    canvas.width = Math.max(10, Math.round(sWidth));
+    canvas.height = Math.max(10, Math.round(sHeight));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const croppedFile = new File([blob], "cropped_mockup.jpg", { type: "image/jpeg" });
+      uploadedFile.value = croppedFile;
+      uploadedPreviewUrl.value = URL.createObjectURL(croppedFile);
+      isCroppingMode.value = false;
+    }, "image/jpeg", 0.95);
+  };
+  img.src = sourceUrl;
+}
+
+function cancelCrop(): void {
+  isCroppingMode.value = false;
 }
 
 // Quick alignment presets
@@ -341,7 +501,7 @@ function applyFullCenterPreset(): void {
   topPct.value = 24;
 }
 
-// Pointer Event Handlers for Dragging & Resizing
+// Pointer Event Handlers for Dragging & Resizing Artwork
 function onArtworkPointerDown(e: PointerEvent): void {
   if (canvasViewMode.value !== "edit") return;
   e.stopPropagation();
@@ -411,6 +571,8 @@ onUnmounted(() => {
   if (typeof window !== "undefined") {
     window.removeEventListener("pointermove", onWindowPointerMove);
     window.removeEventListener("pointerup", onWindowPointerUp);
+    window.removeEventListener("pointermove", onCropWindowPointerMove);
+    window.removeEventListener("pointerup", onCropWindowPointerUp);
   }
 });
 
@@ -531,167 +693,283 @@ async function handleComposite(): Promise<void> {
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          <!-- LEFT COLUMN (7 cols): Interactive Visual Canvas -->
+          <!-- LEFT COLUMN (7 cols): Interactive Visual Canvas OR Crop Studio -->
           <div class="lg:col-span-7 space-y-2.5">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1.5">
-                <Icon
-                  :name="canvasViewMode === 'edit' ? 'lucide:move' : 'lucide:eye'"
-                  class="size-3.5"
-                  :class="canvasViewMode === 'edit' ? 'text-indigo-600' : 'text-emerald-600'"
-                  aria-hidden="true"
-                />
-                <span class="text-xs font-bold text-zinc-900">
-                  {{ canvasViewMode === 'edit' ? 'Interactive Placement Canvas' : 'Realistic Mockup Preview' }}
-                </span>
+            <!-- 1. CROPPING / CUTTING STUDIO MODE -->
+            <div v-if="isCroppingMode" class="space-y-2.5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <Icon name="lucide:crop" class="size-3.5 text-indigo-600" aria-hidden="true" />
+                  <span class="text-xs font-bold text-zinc-900">Crop / Cut Mockup Photo</span>
+                </div>
+
+                <!-- Aspect Ratio Presets -->
+                <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[10px]">
+                  <button
+                    type="button"
+                    class="font-bold px-2 py-0.5 rounded transition-all cursor-pointer"
+                    :class="cropAspectRatio === '1:1' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
+                    @click="setCropRatio('1:1')"
+                  >
+                    1:1 (Etsy)
+                  </button>
+                  <button
+                    type="button"
+                    class="font-bold px-2 py-0.5 rounded transition-all cursor-pointer"
+                    :class="cropAspectRatio === '4:3' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
+                    @click="setCropRatio('4:3')"
+                  >
+                    4:3
+                  </button>
+                  <button
+                    type="button"
+                    class="font-bold px-2 py-0.5 rounded transition-all cursor-pointer"
+                    :class="cropAspectRatio === '3:4' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
+                    @click="setCropRatio('3:4')"
+                  >
+                    3:4
+                  </button>
+                  <button
+                    type="button"
+                    class="font-bold px-2 py-0.5 rounded transition-all cursor-pointer"
+                    :class="cropAspectRatio === 'free' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-zinc-600 hover:text-zinc-900'"
+                    @click="setCropRatio('free')"
+                  >
+                    Free
+                  </button>
+                </div>
               </div>
 
-              <!-- View Switcher -->
-              <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[11px]">
-                <button
-                  type="button"
-                  class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
-                  :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                  @click="canvasViewMode = 'edit'"
-                >
-                  <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
-                  <span>Edit</span>
-                </button>
-                <button
-                  type="button"
-                  class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
-                  :class="canvasViewMode === 'preview' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                  @click="canvasViewMode = 'preview'"
-                >
-                  <Icon name="lucide:eye" class="size-3" aria-hidden="true" />
-                  <span>Realistic</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Canvas Viewport -->
-            <div
-              ref="interactiveCanvasRef"
-              class="relative aspect-square max-h-[305px] w-full mx-auto bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
-            >
-              <!-- Template Background -->
-              <img
-                v-if="activeTemplateImageUrl"
-                :src="activeTemplateImageUrl"
-                alt="Mockup Template"
-                class="w-full h-full object-contain pointer-events-none"
-              />
-              <div v-else class="text-center p-6 text-zinc-400 space-y-2">
-                <Icon name="lucide:image" class="size-10 mx-auto text-zinc-300" aria-hidden="true" />
-                <p class="text-xs font-medium">Upload or select a photo on the right to start</p>
-              </div>
-
-              <!-- Alignment Crosshairs (Edit mode) -->
-              <template v-if="canvasViewMode === 'edit' && activeTemplateImageUrl">
-                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
-                <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
-              </template>
-
-              <!-- EDIT MODE: Draggable & Resizable Box -->
+              <!-- Crop Canvas Viewport -->
               <div
-                v-if="canvasViewMode === 'edit' && activeTemplateImageUrl"
-                class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
-                :style="{
-                  left: `${leftPct}%`,
-                  top: `${topPct}%`,
-                  width: `${widthPct}%`,
-                  height: `${heightPct}%`,
-                }"
-                @pointerdown="onArtworkPointerDown"
+                ref="cropCanvasContainerRef"
+                class="relative aspect-square max-h-[305px] w-full mx-auto bg-zinc-950 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
               >
-                <!-- Pill Coordinates -->
-                <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
-                  {{ leftPct }}%, {{ topPct }}% ({{ widthPct }}×{{ heightPct }}%)
-                </div>
-
-                <!-- Artwork Preview -->
+                <!-- Full image -->
                 <img
-                  v-if="masterImageUrl"
-                  :src="masterImageUrl"
-                  alt="Artwork"
-                  class="w-full h-full object-contain pointer-events-none select-none drop-shadow-xs"
-                  :class="blendMode === 'multiply' ? 'mix-blend-multiply' : 'mix-blend-normal'"
+                  v-if="originalUncroppedUrl || uploadedPreviewUrl"
+                  :src="originalUncroppedUrl || uploadedPreviewUrl || ''"
+                  alt="Crop Source"
+                  class="w-full h-full object-contain pointer-events-none opacity-60"
                 />
-                <div v-else class="text-center p-1 pointer-events-none">
-                  <span class="text-[9px] font-bold text-indigo-900 block leading-tight">Print Area</span>
-                </div>
 
-                <!-- Resize Handle -->
+                <!-- Draggable & Resizable Crop Box -->
                 <div
-                  class="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
-                  title="Drag to resize print area"
-                  @pointerdown="onResizeHandlePointerDown"
+                  class="absolute border-2 border-white shadow-2xl cursor-grab active:cursor-grabbing flex items-center justify-center ring-1 ring-black/40"
+                  :style="{
+                    left: `${cropLeftPct}%`,
+                    top: `${cropTopPct}%`,
+                    width: `${cropWidthPct}%`,
+                    height: `${cropHeightPct}%`,
+                  }"
+                  @pointerdown="onCropPointerDown"
                 >
-                  <Icon name="lucide:maximize-2" class="size-1.5 text-white" aria-hidden="true" />
+                  <!-- Rule-of-thirds grid -->
+                  <div class="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
+                    <div class="border-r border-b border-white/40" />
+                    <div class="border-r border-b border-white/40" />
+                    <div class="border-b border-white/40" />
+                    <div class="border-r border-b border-white/40" />
+                    <div class="border-r border-b border-white/40" />
+                    <div class="border-b border-white/40" />
+                    <div class="border-r border-white/40" />
+                    <div class="border-r border-white/40" />
+                    <div />
+                  </div>
+
+                  <!-- Coordinates badge -->
+                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.2 bg-black/80 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none">
+                    Cut Area: {{ cropWidthPct }}% × {{ cropHeightPct }}%
+                  </div>
+
+                  <!-- Corner resize handle -->
+                  <div
+                    class="absolute -bottom-2 -right-2 h-4 w-4 bg-white border-2 border-indigo-600 rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                    title="Drag to resize crop area"
+                    @pointerdown="onCropResizePointerDown"
+                  >
+                    <Icon name="lucide:maximize-2" class="size-2 text-indigo-600" aria-hidden="true" />
+                  </div>
                 </div>
               </div>
 
-              <!-- PREVIEW MODE: Composite Preview -->
-              <div
-                v-else-if="masterImageUrl && activeTemplateImageUrl"
-                class="absolute pointer-events-none flex items-center justify-center"
-                :style="{
-                  left: `${leftPct}%`,
-                  top: `${topPct}%`,
-                  width: `${widthPct}%`,
-                  height: `${heightPct}%`,
-                }"
-              >
-                <img
-                  :src="masterImageUrl"
-                  alt="Artwork Preview"
-                  class="w-full h-full object-contain pointer-events-none select-none"
-                  :class="blendMode === 'multiply' ? 'mix-blend-multiply opacity-95' : 'mix-blend-normal opacity-95'"
-                  :style="{
-                    filter: blendMode === 'multiply' ? 'contrast(1.05) brightness(0.98)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))'
-                  }"
-                />
+              <!-- Crop Action Bar -->
+              <div class="flex items-center justify-between pt-1">
+                <span class="text-[11px] text-zinc-500">Drag to move · Drag corner to resize</span>
+                <div class="flex items-center gap-2">
+                  <Button variant="outline" size="sm" class="text-xs h-7 px-2.5 cursor-pointer" @click="cancelCrop">
+                    Cancel
+                  </Button>
+                  <Button variant="default" size="sm" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-7 px-3 gap-1 shadow-2xs cursor-pointer" @click="applyCrop">
+                    <Icon name="lucide:crop" class="size-3" aria-hidden="true" />
+                    <span>Apply Cut & Crop</span>
+                  </Button>
+                </div>
               </div>
             </div>
 
-            <!-- Canvas Helpers / Quick Align -->
-            <div v-if="canvasViewMode === 'edit' && activeTemplateImageUrl" class="flex flex-wrap items-center justify-between gap-1.5 text-[11px] pt-0.5">
-              <div class="flex items-center gap-1">
-                <span class="text-zinc-400 font-medium">Align:</span>
-                <button
-                  type="button"
-                  class="px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
-                  @click="centerHorizontally"
-                >
-                  <Icon name="lucide:align-center" class="size-2.5" aria-hidden="true" />
-                  <span>Center H</span>
-                </button>
-                <button
-                  type="button"
-                  class="px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
-                  @click="centerVertically"
-                >
-                  <Icon name="lucide:align-center" class="size-2.5 rotate-90" aria-hidden="true" />
-                  <span>Center V</span>
-                </button>
+            <!-- 2. NORMAL INTERACTIVE PLACEMENT CANVAS -->
+            <div v-else class="space-y-2.5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <Icon
+                    :name="canvasViewMode === 'edit' ? 'lucide:move' : 'lucide:eye'"
+                    class="size-3.5"
+                    :class="canvasViewMode === 'edit' ? 'text-indigo-600' : 'text-emerald-600'"
+                    aria-hidden="true"
+                  />
+                  <span class="text-xs font-bold text-zinc-900">
+                    {{ canvasViewMode === 'edit' ? 'Interactive Placement Canvas' : 'Realistic Mockup Preview' }}
+                  </span>
+                </div>
+
+                <!-- View Switcher -->
+                <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[11px]">
+                  <button
+                    type="button"
+                    class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                    :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                    @click="canvasViewMode = 'edit'"
+                  >
+                    <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                    :class="canvasViewMode === 'preview' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                    @click="canvasViewMode = 'preview'"
+                  >
+                    <Icon name="lucide:eye" class="size-3" aria-hidden="true" />
+                    <span>Realistic</span>
+                  </button>
+                </div>
               </div>
 
-              <div class="flex items-center gap-1">
-                <span class="text-zinc-400 font-medium">Presets:</span>
-                <button
-                  type="button"
-                  class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-medium transition-colors cursor-pointer border border-indigo-200"
-                  @click="applyChestPreset"
+              <!-- Canvas Viewport -->
+              <div
+                ref="interactiveCanvasRef"
+                class="relative aspect-square max-h-[305px] w-full mx-auto bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
+              >
+                <!-- Template Background -->
+                <img
+                  v-if="activeTemplateImageUrl"
+                  :src="activeTemplateImageUrl"
+                  alt="Mockup Template"
+                  class="w-full h-full object-contain pointer-events-none"
+                />
+                <div v-else class="text-center p-6 text-zinc-400 space-y-2">
+                  <Icon name="lucide:image" class="size-10 mx-auto text-zinc-300" aria-hidden="true" />
+                  <p class="text-xs font-medium">Upload or select a photo on the right to start</p>
+                </div>
+
+                <!-- Alignment Crosshairs (Edit mode) -->
+                <template v-if="canvasViewMode === 'edit' && activeTemplateImageUrl">
+                  <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
+                  <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
+                </template>
+
+                <!-- EDIT MODE: Draggable & Resizable Box -->
+                <div
+                  v-if="canvasViewMode === 'edit' && activeTemplateImageUrl"
+                  class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
+                  :style="{
+                    left: `${leftPct}%`,
+                    top: `${topPct}%`,
+                    width: `${widthPct}%`,
+                    height: `${heightPct}%`,
+                  }"
+                  @pointerdown="onArtworkPointerDown"
                 >
-                  Chest Logo
-                </button>
-                <button
-                  type="button"
-                  class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-medium transition-colors cursor-pointer border border-indigo-200"
-                  @click="applyFullCenterPreset"
+                  <!-- Pill Coordinates -->
+                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
+                    {{ leftPct }}%, {{ topPct }}% ({{ widthPct }}×{{ heightPct }}%)
+                  </div>
+
+                  <!-- Artwork Preview -->
+                  <img
+                    v-if="masterImageUrl"
+                    :src="masterImageUrl"
+                    alt="Artwork"
+                    class="w-full h-full object-contain pointer-events-none select-none drop-shadow-xs"
+                    :class="blendMode === 'multiply' ? 'mix-blend-multiply' : 'mix-blend-normal'"
+                  />
+                  <div v-else class="text-center p-1 pointer-events-none">
+                    <span class="text-[9px] font-bold text-indigo-900 block leading-tight">Print Area</span>
+                  </div>
+
+                  <!-- Resize Handle -->
+                  <div
+                    class="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                    title="Drag to resize print area"
+                    @pointerdown="onResizeHandlePointerDown"
+                  >
+                    <Icon name="lucide:maximize-2" class="size-1.5 text-white" aria-hidden="true" />
+                  </div>
+                </div>
+
+                <!-- PREVIEW MODE: Composite Preview -->
+                <div
+                  v-else-if="masterImageUrl && activeTemplateImageUrl"
+                  class="absolute pointer-events-none flex items-center justify-center"
+                  :style="{
+                    left: `${leftPct}%`,
+                    top: `${topPct}%`,
+                    width: `${widthPct}%`,
+                    height: `${heightPct}%`,
+                  }"
                 >
-                  Full Center
-                </button>
+                  <img
+                    :src="masterImageUrl"
+                    alt="Artwork Preview"
+                    class="w-full h-full object-contain pointer-events-none select-none"
+                    :class="blendMode === 'multiply' ? 'mix-blend-multiply opacity-95' : 'mix-blend-normal opacity-95'"
+                    :style="{
+                      filter: blendMode === 'multiply' ? 'contrast(1.05) brightness(0.98)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))'
+                    }"
+                  />
+                </div>
+              </div>
+
+              <!-- Canvas Helpers / Quick Align -->
+              <div v-if="canvasViewMode === 'edit' && activeTemplateImageUrl" class="flex flex-wrap items-center justify-between gap-1.5 text-[11px] pt-0.5">
+                <div class="flex items-center gap-1">
+                  <span class="text-zinc-400 font-medium">Align:</span>
+                  <button
+                    type="button"
+                    class="px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
+                    @click="centerHorizontally"
+                  >
+                    <Icon name="lucide:align-center" class="size-2.5" aria-hidden="true" />
+                    <span>Center H</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
+                    @click="centerVertically"
+                  >
+                    <Icon name="lucide:align-center" class="size-2.5 rotate-90" aria-hidden="true" />
+                    <span>Center V</span>
+                  </button>
+                </div>
+
+                <div class="flex items-center gap-1">
+                  <span class="text-zinc-400 font-medium">Presets:</span>
+                  <button
+                    type="button"
+                    class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-medium transition-colors cursor-pointer border border-indigo-200"
+                    @click="applyChestPreset"
+                  >
+                    Chest Logo
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-medium transition-colors cursor-pointer border border-indigo-200"
+                    @click="applyFullCenterPreset"
+                  >
+                    Full Center
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -743,7 +1021,7 @@ async function handleComposite(): Promise<void> {
                 <span class="text-[10px] text-zinc-400 block mt-0.5">JPEG, PNG, WebP (up to 35MB)</span>
               </div>
 
-              <!-- Uploaded thumbnail + name input -->
+              <!-- Uploaded thumbnail + name input + Cut/Crop Button -->
               <div v-else class="space-y-2 p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
                 <div class="flex items-center gap-2">
                   <div class="h-10 w-10 rounded-lg bg-white border border-zinc-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
@@ -770,13 +1048,26 @@ async function handleComposite(): Promise<void> {
                     <span>Save to library</span>
                   </label>
 
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
-                    @click="uploadedPreviewUrl = null; uploadedFile = null"
-                  >
-                    Change Photo
-                  </button>
+                  <div class="flex items-center gap-2">
+                    <!-- Cut / Crop Photo Button -->
+                    <button
+                      type="button"
+                      class="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer"
+                      title="Crop and cut photo borders"
+                      @click="startCropping"
+                    >
+                      <Icon name="lucide:crop" class="size-3" aria-hidden="true" />
+                      <span>Crop / Cut</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="text-zinc-500 hover:text-zinc-800 font-medium cursor-pointer"
+                      @click="uploadedPreviewUrl = null; uploadedFile = null; originalUncroppedUrl = null; originalUncroppedFile = null"
+                    >
+                      Change
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -835,7 +1126,7 @@ async function handleComposite(): Promise<void> {
             </div>
 
             <!-- 3. Compact Precision Sliders (2x2 Grid) -->
-            <div v-if="canvasViewMode === 'edit'" class="p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1.5 text-xs">
+            <div v-if="canvasViewMode === 'edit' && !isCroppingMode" class="p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1.5 text-xs">
               <span class="text-[10px] font-bold text-zinc-700 block uppercase tracking-wider">Position & Dimensions</span>
 
               <div class="grid grid-cols-2 gap-x-2.5 gap-y-1.5 text-[10px]">
@@ -879,7 +1170,7 @@ async function handleComposite(): Promise<void> {
       <!-- Footer -->
       <div class="px-5 py-3 border-t border-zinc-100 bg-zinc-50/70 flex items-center justify-between gap-3">
         <span class="text-[11px] text-zinc-500 truncate">
-          {{ activeTemplateImageUrl ? 'Ready to composite high-res mockup' : 'Please upload or select a template photo' }}
+          {{ isCroppingMode ? 'Crop studio active · Click Apply to cut photo' : activeTemplateImageUrl ? 'Ready to composite high-res mockup' : 'Please upload or select a template photo' }}
         </span>
 
         <div class="flex items-center gap-2 shrink-0">
@@ -890,7 +1181,7 @@ async function handleComposite(): Promise<void> {
             variant="default"
             size="sm"
             class="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer text-xs"
-            :disabled="isCompositing || !activeTemplateImageUrl"
+            :disabled="isCompositing || !activeTemplateImageUrl || isCroppingMode"
             @click="handleComposite"
           >
             <Icon v-if="isCompositing" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
