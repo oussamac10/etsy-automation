@@ -805,13 +805,14 @@ async function handleRecompositeAllMockups(): Promise<void> {
                     <!-- Individual Mockup Card -->
                     <div
                       v-for="(mockup, mIdx) in currentTabMockups"
-                      :key="mockup.id"
+                      :key="mockup.id + '_' + (mockup.checksum_sha256 || '')"
                       class="border rounded-xl overflow-hidden bg-white shadow-2xs flex flex-col transition-all duration-200 hover:shadow-md"
                       :class="mockup.provenance?.is_cover ? 'border-amber-400 ring-1 ring-amber-300' : 'border-zinc-200'"
                     >
                       <!-- Thumbnail Area -->
                       <div class="aspect-square bg-zinc-50 overflow-hidden relative group flex items-center justify-center p-2 border-b border-zinc-100">
                         <img
+                          :key="mockup.id + '_' + (mockup.checksum_sha256 || '') + '_' + (mockup.url || '')"
                           :src="mockup.url || ''"
                           :alt="mockup.provenance?.template_name || selectedMockupTab"
                           class="object-contain w-full h-full rounded-lg transition-transform duration-200 group-hover:scale-105"
@@ -1082,6 +1083,7 @@ async function handleRecompositeAllMockups(): Promise<void> {
         <div class="p-6 bg-zinc-100 flex items-center justify-center overflow-auto max-h-[75vh]">
           <img
             v-if="previewingAsset.url"
+            :key="previewingAsset.id + '_' + (previewingAsset.checksum_sha256 || '') + '_' + previewingAsset.url"
             :src="previewingAsset.url"
             :alt="previewingAsset.provenance?.template_name || 'Mockup Preview'"
             class="max-h-[70vh] object-contain rounded-xl shadow-lg border border-zinc-200 bg-white"
