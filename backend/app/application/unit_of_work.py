@@ -23,7 +23,6 @@ from app.infrastructure.repositories import (
     SqlConceptRepository,
     SqlCostRepository,
     SqlIdeaRepository,
-    SqlMockupJobRepository,
     SqlOutboxRepository,
     SqlOwnerSettingsRepository,
     SqlProductionJobRepository,
@@ -42,7 +41,6 @@ from app.ports.repositories import (
     ConceptRepository,
     CostRepository,
     IdeaRepository,
-    MockupJobRepository,
     OutboxRepository,
     OwnerSettingsRepository,
     ProductionJobRepository,
@@ -77,7 +75,6 @@ class UnitOfWork:
     artwork_jobs: ArtworkJobRepository
     assets: AssetRepository
     production_jobs: ProductionJobRepository
-    mockup_jobs: MockupJobRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -103,7 +100,6 @@ class UnitOfWork:
         self.artwork_jobs = SqlArtworkJobRepository(session)
         self.assets = SqlAssetRepository(session)
         self.production_jobs = SqlProductionJobRepository(session)
-        self.mockup_jobs = SqlMockupJobRepository(session)
         return self
 
     async def __aexit__(

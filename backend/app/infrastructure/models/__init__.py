@@ -26,7 +26,6 @@ from app.infrastructure.models.concept import DesignPrompt, ProductConcept
 from app.infrastructure.models.cost import ProviderUsage
 from app.infrastructure.models.idea import OriginalIdea, OriginalIdeaRevision
 from app.infrastructure.models.listing import ListingDraft, ProductionJob
-from app.infrastructure.models.mockup import MockupJob
 from app.infrastructure.models.outbox import OutboxMessage
 from app.infrastructure.models.owner_settings import OwnerSettings, ProviderCredential
 from app.infrastructure.models.research import (
@@ -47,7 +46,6 @@ __all__ = [
     "DesignPrompt",
     "KeywordCluster",
     "ListingDraft",
-    "MockupJob",
     "OriginalIdea",
     "OriginalIdeaRevision",
     "OutboxMessage",

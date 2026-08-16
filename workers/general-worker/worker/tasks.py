@@ -45,19 +45,15 @@ from app.infrastructure.models import (
     Asset,
     DesignPrompt,
     KeywordCluster,
-    MockupJob,
     ProductConcept,
     ProductionJob,
     ProviderCredential,
     ResearchEvidence,
 )
 from app.infrastructure.models.audit import WorkflowFailure
-from app.infrastructure.mockup_catalog import get_product_config, get_requested_mockup_products
-from app.infrastructure.providers.fake_mockup_provider import FakeMockupProvider
-from app.infrastructure.providers.printful_mockup_provider import PrintfulMockupProvider
+from app.infrastructure.mockup_catalog import get_requested_mockup_products
 from app.infrastructure.security import CredentialCipher
 from app.ports.errors import ProviderError, ProviderErrorKind
-from app.ports.mockup_provider import MockupProvider
 from app.ports.providers import (
     ImageRequest,
     ResearchProvider,
@@ -1242,57 +1238,12 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
         # 4. Upload Master PNG to S3
         master_storage_key = f"production/{workflow_id}/{job_id}/master.png"
         stored_master = await storage.put(master_storage_key, master_bytes, "image/png")
-        master_signed_url = await storage.signed_url(stored_master.storage_key, 3600)
-        if settings.printful_image_base_url:
-            master_image_url = f"{settings.printful_image_base_url.rstrip('/')}/{settings.s3_bucket}/{stored_master.storage_key.lstrip('/')}"
-        elif settings.s3_public_endpoint_url and any(t in settings.s3_public_endpoint_url for t in ("pinggy", "ngrok", "localtunnel", "trycloudflare")):
-            master_image_url = f"{settings.s3_public_endpoint_url.rstrip('/')}/{settings.s3_bucket}/{stored_master.storage_key.lstrip('/')}"
-        else:
-            master_image_url = master_signed_url
 
-        # 5. Determine requested products and initialize MockupProvider
-        requested_products = get_requested_mockup_products(intended_products)
-
-        cipher = build_credential_cipher(settings)
-        printful_token = None
-        if settings.printful_access_token:
-            printful_token = settings.printful_access_token.get_secret_value()
-        elif cipher:
-            try:
-                async with session_factory() as session:
-                    stmt = (
-                        select(ProviderCredential)
-                        .where(ProviderCredential.provider == ProviderName.PRINTFUL)
-                        .limit(1)
-                    )
-                    result = await session.execute(stmt)
-                    cred = result.scalar_one_or_none()
-                    if cred:
-                        printful_token = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
-            except Exception as token_exc:
-                logger.warning("failed_to_decrypt_printful_token", error=str(token_exc))
-
-        mockup_http = httpx.AsyncClient(timeout=30.0)
-        mockup_provider: MockupProvider
-        if settings.provider_mode == "live" and printful_token:
-            mockup_provider = PrintfulMockupProvider(
-                access_token=printful_token,
-                store_id=settings.printful_store_id,
-                http_client=mockup_http,
-            )
-        else:
-            mockup_provider = FakeMockupProvider()
-
-        mockup_storage_keys: dict[str, str] = {}
-
-        # 6. Save Asset rows, execute Mockup generation, and update ProductionJob
+        # 5. Save Asset row and update ProductionJob
         async with UnitOfWork(session_factory) as uow:
-            seen_checksums: set[str] = set()
-
             existing_master = await uow.assets.get_by_checksum_sha256(workflow_id, stored_master.sha256)
             if existing_master is not None:
                 master_asset_id = existing_master.id
-                seen_checksums.add(stored_master.sha256)
             else:
                 master_asset_id = uuid.uuid4()
                 master_asset = Asset(
@@ -1318,311 +1269,15 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                     },
                 )
                 await uow.assets.add(master_asset)
-                seen_checksums.add(stored_master.sha256)
-
-            # Generate realistic mockups for each requested product type
-            for product_type in requested_products:
-                try:
-                    config = get_product_config(product_type)
-                except ValueError as val_err:
-                    logger.warning("skipping_unknown_mockup_product", product=product_type, error=str(val_err))
-                    continue
-
-                existing_mockup_job = await uow.mockup_jobs.get_by_production_and_product(job_id, product_type)
-                if existing_mockup_job and existing_mockup_job.status == JobStatus.SUCCEEDED and existing_mockup_job.output_asset_id:
-                    mockup_storage_keys[product_type] = f"reused:{existing_mockup_job.output_asset_id}"
-                    continue
-
-                if not existing_mockup_job:
-                    mockup_job = MockupJob(
-                        id=uuid.uuid4(),
-                        workflow_id=workflow_id,
-                        production_job_id=job_id,
-                        master_asset_id=master_asset_id,
-                        provider=ProviderName.PRINTFUL if isinstance(mockup_provider, PrintfulMockupProvider) else ProviderName.FAKE,
-                        product_type=product_type,
-                        provider_product_id=config.product_id,
-                        variant_ids=config.variant_ids,
-                        placement=config.placement,
-                        status=JobStatus.RUNNING,
-                        attempt_count=1,
-                    )
-                    await uow.mockup_jobs.add(mockup_job)
-                else:
-                    mockup_job = await uow.mockup_jobs.update(
-                        existing_mockup_job.id,
-                        status=JobStatus.RUNNING,
-                        attempt_count=existing_mockup_job.attempt_count + 1,
-                    )
-
-                target_image_url = master_image_url
-                if config.mug_placement and config.mug_placement.requires_wrap_canvas:
-                    try:
-                        from app.infrastructure.mockup_catalog import validate_mug_placement_geometry
-                        qa_geo, _ = validate_mug_placement_geometry(
-                            qa_report.get("width", 4500),
-                            qa_report.get("height", 5400),
-                            config.mug_placement,
-                        )
-                        if not qa_geo.passed:
-                            logger.warning("mug_placement_qa_warning", error=qa_geo.error_message)
-
-                        wrap_resp = await mockup_http.post(
-                            f"{image_worker_url}/pipeline/mug-wrap",
-                            json={
-                                "image_base64": master_b64,
-                                "layout_mode": config.mug_placement.layout_mode,
-                                "scale": config.mug_placement.scale,
-                                "safe_margin_px": config.mug_placement.safe_margin_px,
-                            },
-                        )
-                        if wrap_resp.status_code == 200:
-                            wrap_data = wrap_resp.json()
-                            wrap_bytes = base64.b64decode(wrap_data["wrap_image_base64"])
-                            wrap_key = f"production/{workflow_id}/{job_id}/mockups/mug_wrap_prepared.png"
-                            await storage.put(wrap_key, wrap_bytes, "image/png")
-                            if settings.printful_image_base_url:
-                                target_image_url = f"{settings.printful_image_base_url.rstrip('/')}/{settings.s3_bucket}/{wrap_key.lstrip('/')}"
-                            else:
-                                target_image_url = await storage.signed_url(wrap_key, 3600)
-                    except Exception as wrap_err:
-                        logger.warning("failed_to_prepare_mug_wrap_canvas", error=str(wrap_err))
-
-                try:
-                    task_res = await mockup_provider.create_mockup_task(
-                        product_type,
-                        target_image_url,
-                        placement=config.placement,
-                        format="jpg",
-                    )
-                    await uow.mockup_jobs.update(mockup_job.id, external_task_id=task_res.task_id)
-
-                    poll_res = task_res
-                    if poll_res.status == "pending":
-                        for _ in range(15):
-                            await asyncio.sleep(1.5)
-                            poll_res = await mockup_provider.get_mockup_task(task_res.task_id)
-                            if poll_res.status in ("completed", "failed"):
-                                break
-
-                    if poll_res.status == "completed" and poll_res.mockup_urls:
-                        chosen_url = poll_res.mockup_urls[0]
-                        for u in poll_res.mockup_urls:
-                            if "front-view" in u or "front_view" in u:
-                                chosen_url = u
-                                break
-                            elif "front" in u and chosen_url == poll_res.mockup_urls[0]:
-                                chosen_url = u
-
-                        mock_bytes = await mockup_provider.download_mockup(chosen_url)
-                        mock_sha256 = hashlib.sha256(mock_bytes).hexdigest()
-                        m_key = f"production/{workflow_id}/{job_id}/mockups/{product_type}/front.jpg"
-                        stored_mock = await storage.put(m_key, mock_bytes, "image/jpeg")
-                        mockup_storage_keys[product_type] = stored_mock.storage_key
-
-                        # Download and store individual color variants if available
-                        if poll_res.variant_mockup_urls and config.colors:
-                            for c in config.colors:
-                                v_url = poll_res.variant_mockup_urls.get(str(c.variant_id)) or poll_res.variant_mockup_urls.get(c.name)
-                                if v_url and v_url != chosen_url:
-                                    try:
-                                        c_bytes = await mockup_provider.download_mockup(v_url)
-                                        c_key = f"production/{workflow_id}/{job_id}/mockups/{product_type}/{c.name}.jpg"
-                                        stored_c = await storage.put(c_key, c_bytes, "image/jpeg")
-                                        mockup_storage_keys[f"{product_type}:{c.name}"] = stored_c.storage_key
-                                    except Exception as c_err:
-                                        logger.warning("failed_to_download_color_variant", product=product_type, color=c.name, error=str(c_err))
-                                elif v_url == chosen_url or c.name in ("white", "natural"):
-                                    mockup_storage_keys[f"{product_type}:{c.name}"] = stored_mock.storage_key
-
-                        existing_asset = await uow.assets.get_by_checksum_sha256(workflow_id, mock_sha256)
-                        if existing_asset is not None:
-                            mockup_asset_id = existing_asset.id
-                            existing_asset.storage_key = stored_mock.storage_key
-                            existing_asset.provenance = {
-                                "phase": 7,
-                                "asset_type": "mockup",
-                                "provider": "printful" if isinstance(mockup_provider, PrintfulMockupProvider) else "fake",
-                                "product_type": product_type,
-                                "provider_product_id": config.product_id,
-                                "variant_ids": config.variant_ids,
-                                "placement": config.placement,
-                                "source_asset_id": str(master_asset_id),
-                                "production_job_id": str(job_id),
-                                "external_task_id": task_res.task_id,
-                            }
-                            await uow.session.flush()
-                        else:
-                            mockup_asset_id = uuid.uuid4()
-                            mockup_asset = Asset(
-                                id=mockup_asset_id,
-                                workflow_id=workflow_id,
-                                artwork_job_id=None,
-                                derived_from_id=master_asset_id,
-                                storage_key=stored_mock.storage_key,
-                                mime_type="image/jpeg",
-                                byte_size=stored_mock.byte_size,
-                                checksum_sha256=mock_sha256,
-                                width=1200,
-                                height=1200,
-                                has_alpha=False,
-                                has_transparent_pixels=False,
-                                quality_check={},
-                                provenance={
-                                    "phase": 7,
-                                    "asset_type": "mockup",
-                                    "provider": "printful" if isinstance(mockup_provider, PrintfulMockupProvider) else "fake",
-                                    "product_type": product_type,
-                                    "provider_product_id": config.product_id,
-                                    "variant_ids": config.variant_ids,
-                                    "placement": config.placement,
-                                    "source_asset_id": str(master_asset_id),
-                                    "production_job_id": str(job_id),
-                                    "external_task_id": task_res.task_id,
-                                },
-                            )
-                            await uow.assets.add(mockup_asset)
-
-                        await uow.mockup_jobs.update(
-                            mockup_job.id,
-                            status=JobStatus.SUCCEEDED,
-                            output_asset_id=mockup_asset_id,
-                            result_mockup_url=poll_res.mockup_urls[0],
-                            completed_at=datetime.now(UTC),
-                        )
-                    else:
-                        err_msg = poll_res.error_message or "Printful mockup generation failed"
-                        await uow.mockup_jobs.update(
-                            mockup_job.id,
-                            status=JobStatus.FAILED,
-                            failure_kind="PROVIDER_ERROR",
-                            failure_message=err_msg,
-                            completed_at=datetime.now(UTC),
-                        )
-                        logger.warning("mockup_item_failed_using_fallback", product=product_type, error=err_msg)
-
-                        # Fallback to local image-worker mockup so gallery is always populated
-                        fallback_key = product_type if product_type in mockups_map else ("tote" if product_type == "tote_bag" else None)
-                        if fallback_key and fallback_key in mockups_map:
-                            mock_bytes = base64.b64decode(mockups_map[fallback_key])
-                            mock_sha256 = hashlib.sha256(mock_bytes).hexdigest()
-                            m_key = f"production/{workflow_id}/{job_id}/mockups/{product_type}.png"
-                            stored_mock = await storage.put(m_key, mock_bytes, "image/png")
-                            mockup_storage_keys[product_type] = stored_mock.storage_key
-
-                            existing_mock = await uow.assets.get_by_checksum_sha256(workflow_id, mock_sha256)
-                            if existing_mock is not None:
-                                mockup_asset_id = existing_mock.id
-                                existing_mock.storage_key = stored_mock.storage_key
-                                existing_mock.provenance = {
-                                    "phase": 7,
-                                    "asset_type": "mockup",
-                                    "provider": "local_fallback",
-                                    "product_type": product_type,
-                                    "source_asset_id": str(master_asset_id),
-                                    "production_job_id": str(job_id),
-                                    "fallback_reason": err_msg,
-                                }
-                                await uow.session.flush()
-                            else:
-                                mockup_asset_id = uuid.uuid4()
-                                mockup_asset = Asset(
-                                    id=mockup_asset_id,
-                                    workflow_id=workflow_id,
-                                    artwork_job_id=None,
-                                    derived_from_id=master_asset_id,
-                                    storage_key=stored_mock.storage_key,
-                                    mime_type="image/png",
-                                    byte_size=stored_mock.byte_size,
-                                    checksum_sha256=mock_sha256,
-                                    width=1200,
-                                    height=1200,
-                                    has_alpha=False,
-                                    has_transparent_pixels=False,
-                                    quality_check={},
-                                    provenance={
-                                        "phase": 7,
-                                        "asset_type": "mockup",
-                                        "provider": "local_fallback",
-                                        "product_type": product_type,
-                                        "source_asset_id": str(master_asset_id),
-                                        "production_job_id": str(job_id),
-                                        "fallback_reason": err_msg,
-                                    },
-                                )
-                                await uow.assets.add(mockup_asset)
-                            await uow.mockup_jobs.update(mockup_job.id, output_asset_id=mockup_asset_id)
-                except Exception as m_exc:
-                    await uow.mockup_jobs.update(
-                        mockup_job.id,
-                        status=JobStatus.FAILED,
-                        failure_kind="PROVIDER_ERROR",
-                        failure_message=str(m_exc),
-                        completed_at=datetime.now(UTC),
-                    )
-                    logger.warning("mockup_item_exception_using_fallback", product=product_type, error=str(m_exc))
-
-                    # Fallback to local image-worker mockup so gallery is always populated
-                    fallback_key = product_type if product_type in mockups_map else ("tote" if product_type == "tote_bag" else None)
-                    if fallback_key and fallback_key in mockups_map:
-                        mock_bytes = base64.b64decode(mockups_map[fallback_key])
-                        mock_sha256 = hashlib.sha256(mock_bytes).hexdigest()
-                        m_key = f"production/{workflow_id}/{job_id}/mockups/{product_type}.png"
-                        stored_mock = await storage.put(m_key, mock_bytes, "image/png")
-                        mockup_storage_keys[product_type] = stored_mock.storage_key
-
-                        existing_mock = await uow.assets.get_by_checksum_sha256(workflow_id, mock_sha256)
-                        if existing_mock is not None:
-                            mockup_asset_id = existing_mock.id
-                            existing_mock.storage_key = stored_mock.storage_key
-                            existing_mock.provenance = {
-                                "phase": 7,
-                                "asset_type": "mockup",
-                                "provider": "local_fallback",
-                                "product_type": product_type,
-                                "source_asset_id": str(master_asset_id),
-                                "production_job_id": str(job_id),
-                                "fallback_reason": str(m_exc),
-                            }
-                            await uow.session.flush()
-                        else:
-                            mockup_asset_id = uuid.uuid4()
-                            mockup_asset = Asset(
-                                id=mockup_asset_id,
-                                workflow_id=workflow_id,
-                                artwork_job_id=None,
-                                derived_from_id=master_asset_id,
-                                storage_key=stored_mock.storage_key,
-                                mime_type="image/png",
-                                byte_size=stored_mock.byte_size,
-                                checksum_sha256=mock_sha256,
-                                width=1200,
-                                height=1200,
-                                has_alpha=False,
-                                has_transparent_pixels=False,
-                                quality_check={},
-                                provenance={
-                                    "phase": 7,
-                                    "asset_type": "mockup",
-                                    "provider": "local_fallback",
-                                    "product_type": product_type,
-                                    "source_asset_id": str(master_asset_id),
-                                    "production_job_id": str(job_id),
-                                    "fallback_reason": str(m_exc),
-                                },
-                            )
-                            await uow.assets.add(mockup_asset)
-                        await uow.mockup_jobs.update(mockup_job.id, output_asset_id=mockup_asset_id)
-
-                # Spacing between task submissions to avoid API burst limits
-                await asyncio.sleep(6.0)
 
             await uow.production_jobs.update(
                 job_id,
-                status=JobStatus.SUCCEEDED,
+                status=JobStatus.SUCCEEDED if qa_passed else JobStatus.FAILED,
                 output_asset_id=master_asset_id,
                 qa_report=qa_report,
                 qa_passed=qa_passed,
+                failure_kind=None if qa_passed else "QA_FAILED",
+                failure_message=None if qa_passed else "Master PNG failed QA validation checks",
                 completed_at=datetime.now(UTC),
             )
 
@@ -1644,17 +1299,14 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                 actor="system",
                 summary="PNG Production Pipeline completed successfully.",
                 after={
-                    "status": JobStatus.SUCCEEDED.value,
+                    "status": JobStatus.SUCCEEDED.value if qa_passed else JobStatus.FAILED.value,
                     "output_asset_id": str(master_asset_id),
                     "qa_passed": qa_passed,
-                    "mockups_generated": list(mockup_storage_keys.keys()),
                 },
             )
             await uow.commit()
 
-        await mockup_http.aclose()
-
-        # 7. Telegram Completion Notification
+        # 6. Telegram Completion Notification
         try:
             dash_origins = settings.cors_origins
             dash_base = dash_origins[0] if dash_origins else "http://localhost:3000"
@@ -1673,10 +1325,9 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                 f"Workflow: <b>{escape_html(workflow_name)}</b>\n"
                 f"Master Profile: <code>4500×5400 px @ 300 DPI</code>\n"
                 f"QA Report: {qa_icon} <b>{'PASSED' if qa_passed else 'WARNINGS'}</b>\n"
-                f"Slogan Typography: <b>{'Applied' if pipeline_data.get('typography_applied') else 'None'}</b>\n"
-                f"Mockups Generated: <code>{', '.join(mockup_storage_keys.keys())}</code>\n\n"
+                f"Slogan Typography: <b>{'Applied' if pipeline_data.get('typography_applied') else 'None'}</b>\n\n"
                 f"• <a href=\"{master_signed_url}\">Master PNG Preview</a>\n\n"
-                f"Print-ready asset is ready on dashboard."
+                f"Print-ready master asset is ready. You can now create realistic product mockups."
             )
 
             bot_token = None

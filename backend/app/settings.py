@@ -87,9 +87,8 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     telegram_webhook_secret: SecretStr | None = Field(default=None, alias="TELEGRAM_WEBHOOK_SECRET")
     tavily_api_key: SecretStr | None = Field(default=None, alias="TAVILY_API_KEY")
-    printful_access_token: SecretStr | None = Field(default=None, alias="PRINTFUL_ACCESS_TOKEN")
-    printful_store_id: str | None = Field(default=None, alias="PRINTFUL_STORE_ID")
-    printful_image_base_url: str | None = Field(default=None, alias="PRINTFUL_IMAGE_BASE_URL")
+    image_max_input_bytes: int = Field(default=40 * 1024 * 1024, alias="IMAGE_MAX_INPUT_BYTES")
+    image_max_pixels: int = Field(default=60_000_000, alias="IMAGE_MAX_PIXELS")
 
     @field_validator("log_level")
     @classmethod
