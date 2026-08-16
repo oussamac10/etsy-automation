@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from "vue";
 import Button from "~/components/ui/Button.vue";
-import Badge from "~/components/ui/Badge.vue";
 import { getProductIcon } from "~/config/icons";
 
 interface MockupTemplateItem {
@@ -492,24 +491,26 @@ async function handleComposite(): Promise<void> {
 <template>
   <div
     v-if="open"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+    class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/70 backdrop-blur-xs animate-in fade-in duration-200"
   >
-    <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-      <!-- Modal Header -->
-      <div class="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+    <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-4xl w-full overflow-hidden flex flex-col max-h-[92vh]">
+      <!-- Header -->
+      <div class="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/70">
         <div class="flex items-center gap-3">
-          <div class="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+          <div class="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
             <Icon name="lucide:layers" class="size-5" aria-hidden="true" />
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h3 class="text-base font-bold text-zinc-900">Custom Mockup Placer</h3>
+              <h3 class="text-sm font-bold text-zinc-900">
+                {{ editingAsset ? 'Adjust Mockup Placement' : 'Custom Mockup Placer' }}
+              </h3>
               <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-indigo-100 text-indigo-800 inline-flex items-center gap-1">
                 <Icon :name="getProductIcon(productType)" class="size-3 text-indigo-700" aria-hidden="true" />
                 <span>{{ getMockupDisplayName(productType) }}</span>
               </span>
             </div>
-            <p class="text-xs text-zinc-500">Upload, preview, and position your master artwork on {{ getMockupDisplayName(productType) }}</p>
+            <p class="text-[11px] text-zinc-500">Position, scale, and blend your master design on {{ getMockupDisplayName(productType) }}</p>
           </div>
         </div>
         <button
@@ -522,398 +523,373 @@ async function handleComposite(): Promise<void> {
         </button>
       </div>
 
-      <!-- Tab Selectors: Library vs Upload -->
-      <div class="px-6 pt-4 pb-2 border-b border-zinc-100 flex items-center gap-2">
-        <button
-          type="button"
-          class="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
-          :class="activeSubTab === 'upload' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900 bg-zinc-100'"
-          @click="activeSubTab = 'upload'"
-        >
-          <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
-          <span>Upload New {{ getMockupDisplayName(productType) }} Photo</span>
-        </button>
-
-        <button
-          type="button"
-          class="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
-          :class="activeSubTab === 'library' ? 'bg-zinc-900 text-white shadow-xs' : 'text-zinc-600 hover:text-zinc-900 bg-zinc-100'"
-          @click="activeSubTab = 'library'"
-        >
-          <Icon name="lucide:bookmark-plus" class="size-3.5" aria-hidden="true" />
-          <span>Saved {{ getMockupDisplayName(productType) }} Library ({{ templates.length }})</span>
-        </button>
-      </div>
-
-      <!-- Modal Body -->
-      <div class="p-6 space-y-5 max-h-[72vh] overflow-y-auto">
-        <!-- Error alert -->
-        <div v-if="compositeError" class="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 font-medium">
+      <!-- Main Body: 2-Column Split Layout -->
+      <div class="p-5 overflow-y-auto max-h-[calc(92vh-125px)]">
+        <!-- Error Alert -->
+        <div v-if="compositeError" class="p-2.5 mb-4 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 font-medium">
           {{ compositeError }}
         </div>
 
-        <!-- 1. Upload Tab Content -->
-        <div v-if="activeSubTab === 'upload'" class="space-y-4">
-          <!-- Drop Area (if no image uploaded yet) -->
-          <div
-            v-if="!uploadedPreviewUrl"
-            class="border-2 border-dashed border-zinc-200 hover:border-indigo-400 rounded-xl p-8 text-center cursor-pointer transition-colors bg-zinc-50/50"
-            @dragover.prevent
-            @drop="handleDrop"
-            @click="($refs.fileInput as HTMLInputElement)?.click()"
-          >
-            <input
-              ref="fileInput"
-              type="file"
-              accept="image/png, image/jpeg, image/webp"
-              class="hidden"
-              @change="handleFileSelect"
-            >
-
-            <div class="space-y-2 py-4">
-              <div class="h-12 w-12 mx-auto rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
-                <Icon name="lucide:upload" class="size-6" aria-hidden="true" />
-              </div>
-              <div class="text-xs font-semibold text-zinc-700">
-                <span class="text-indigo-600 hover:underline">Click to upload {{ getMockupDisplayName(productType) }} photo</span> or drag and drop
-              </div>
-              <p class="text-[11px] text-zinc-400">High-res JPEG, PNG, or WebP photo (up to 35MB)</p>
-            </div>
-          </div>
-
-          <!-- Template Name & Save checkbox -->
-          <div v-if="uploadedPreviewUrl" class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center bg-zinc-50/50 p-3 rounded-xl border border-zinc-100">
-            <div>
-              <label class="block text-xs font-semibold text-zinc-700 mb-1">Template Name</label>
-              <input
-                v-model="templateName"
-                type="text"
-                class="w-full text-xs px-3 py-1.5 rounded-lg border border-zinc-200 bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                :placeholder="`e.g. Bella Canvas ${getMockupDisplayName(productType)} Flatlay`"
-              >
-            </div>
-
-            <div class="flex items-center justify-between pt-4 sm:pt-0">
-              <div class="flex items-center gap-2">
-                <input
-                  id="saveToLib"
-                  v-model="saveToLibrary"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                >
-                <label for="saveToLib" class="text-xs font-medium text-zinc-700 cursor-pointer">
-                  Save to Library for {{ getMockupDisplayName(productType) }}
-                </label>
-              </div>
-
-              <button
-                type="button"
-                class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium underline cursor-pointer"
-                @click="uploadedPreviewUrl = null; uploadedFile = null"
-              >
-                Change Photo
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. Library Tab Content -->
-        <div v-else class="space-y-3">
-          <div v-if="templates.length === 0" class="text-center py-6 text-zinc-400 text-xs bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
-            No saved custom templates found for {{ getMockupDisplayName(productType) }}. Switch to the Upload tab to add one!
-          </div>
-
-          <div v-else class="grid grid-cols-3 sm:grid-cols-4 gap-2.5 max-h-36 overflow-y-auto p-1">
-            <div
-              v-for="tpl in templates"
-              :key="tpl.id"
-              class="border rounded-xl p-2 cursor-pointer transition-all relative overflow-hidden"
-              :class="selectedTemplateId === tpl.id ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/20' : 'border-zinc-200 hover:border-zinc-300 bg-white'"
-              @click="selectLibraryTemplate(tpl)"
-            >
-              <div class="aspect-square bg-zinc-50 rounded-lg overflow-hidden border border-zinc-100 flex items-center justify-center mb-1">
-                <img :src="tpl.url" :alt="tpl.name" class="object-cover w-full h-full" />
-              </div>
-              <p class="text-[11px] font-semibold text-zinc-900 truncate">{{ tpl.name }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- 3. INTERACTIVE VISUAL CANVAS & PREVIEW SWITCHER -->
-        <div v-if="activeTemplateImageUrl" class="space-y-3 border-t border-zinc-100 pt-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-              <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          <!-- LEFT COLUMN (7 cols): Interactive Visual Canvas -->
+          <div class="lg:col-span-7 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
                 <Icon
                   :name="canvasViewMode === 'edit' ? 'lucide:move' : 'lucide:eye'"
                   class="size-3.5"
                   :class="canvasViewMode === 'edit' ? 'text-indigo-600' : 'text-emerald-600'"
                   aria-hidden="true"
                 />
-                <span>{{ canvasViewMode === 'edit' ? 'Interactive Placement Canvas' : 'Realistic Mockup Preview' }}</span>
-              </h4>
+                <span class="text-xs font-bold text-zinc-900">
+                  {{ canvasViewMode === 'edit' ? 'Interactive Placement Canvas' : 'Realistic Mockup Preview' }}
+                </span>
+              </div>
+
+              <!-- View Switcher -->
+              <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[11px]">
+                <button
+                  type="button"
+                  class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                  :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                  @click="canvasViewMode = 'edit'"
+                >
+                  <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  class="font-semibold px-2 py-0.5 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                  :class="canvasViewMode === 'preview' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                  @click="canvasViewMode = 'preview'"
+                >
+                  <Icon name="lucide:eye" class="size-3" aria-hidden="true" />
+                  <span>Realistic</span>
+                </button>
+              </div>
             </div>
 
-            <!-- View Mode Switcher (Edit vs Realistic Preview) -->
-            <div class="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200">
-              <button
-                type="button"
-                class="text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer"
-                :class="canvasViewMode === 'edit' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                @click="canvasViewMode = 'edit'"
-              >
-                <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
-                <span>Edit & Position</span>
-              </button>
-
-              <button
-                type="button"
-                class="text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer"
-                :class="canvasViewMode === 'preview' ? 'bg-indigo-600 text-white shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
-                @click="canvasViewMode = 'preview'"
-              >
-                <Icon name="lucide:eye" class="size-3" aria-hidden="true" />
-                <span>Full Realistic Preview</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Instruction hint -->
-          <div class="text-[11px] text-zinc-500 flex items-center justify-between">
-            <span v-if="canvasViewMode === 'edit'" class="flex items-center gap-1">
-              <Icon name="lucide:lightbulb" class="size-3.5 text-amber-500" aria-hidden="true" />
-              <span><strong>Click & drag</strong> box to move · <strong>Drag corner handle</strong> to resize</span>
-            </span>
-            <span v-else class="text-emerald-700 font-medium flex items-center gap-1">
-              <Icon name="lucide:sparkles" class="size-3.5 text-emerald-600" aria-hidden="true" />
-              <span>Viewing photorealistic preview with natural fabric folds and shadows</span>
-            </span>
-
-            <span class="font-mono text-[10px] text-zinc-400">
-              X: {{ leftPct }}% · Y: {{ topPct }}% · W: {{ widthPct }}%
-            </span>
-          </div>
-
-          <!-- Visual Canvas Container -->
-          <div
-            ref="interactiveCanvasRef"
-            class="relative aspect-square max-h-[340px] mx-auto bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
-          >
-            <!-- Background Mockup Template Photo -->
-            <img
-              :src="activeTemplateImageUrl"
-              alt="Mockup Template"
-              class="w-full h-full object-contain pointer-events-none"
-            />
-
-            <!-- Alignment Center Lines (only in edit mode) -->
-            <template v-if="canvasViewMode === 'edit'">
-              <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/40 pointer-events-none" />
-              <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/40 pointer-events-none" />
-            </template>
-
-            <!-- EDIT MODE: Draggable and Resizable Bounding Box -->
+            <!-- Canvas Viewport -->
             <div
-              v-if="canvasViewMode === 'edit'"
-              class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-sm transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
-              :style="{
-                left: `${leftPct}%`,
-                top: `${topPct}%`,
-                width: `${widthPct}%`,
-                height: `${heightPct}%`,
-              }"
-              @pointerdown="onArtworkPointerDown"
+              ref="interactiveCanvasRef"
+              class="relative aspect-square max-h-[340px] w-full mx-auto bg-zinc-900/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
             >
-              <!-- Coordinates tooltip pill -->
-              <div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-zinc-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-xs flex items-center gap-1">
-                <Icon name="lucide:move" class="size-2.5 text-indigo-400" aria-hidden="true" />
-                <span>{{ leftPct }}%, {{ topPct }}% ({{ widthPct }}×{{ heightPct }}%)</span>
-              </div>
-
-              <!-- Artwork Preview Thumbnail -->
+              <!-- Template Background -->
               <img
-                v-if="masterImageUrl"
-                :src="masterImageUrl"
-                alt="Artwork"
-                class="w-full h-full object-contain pointer-events-none select-none drop-shadow-md"
-                :class="blendMode === 'multiply' ? 'mix-blend-multiply' : 'mix-blend-normal'"
+                v-if="activeTemplateImageUrl"
+                :src="activeTemplateImageUrl"
+                alt="Mockup Template"
+                class="w-full h-full object-contain pointer-events-none"
               />
-              <div v-else class="text-center p-2 pointer-events-none">
-                <Icon name="lucide:image" class="size-6 text-indigo-700 mx-auto mb-0.5" aria-hidden="true" />
-                <span class="text-[10px] font-bold text-indigo-900 block leading-tight">Master Print Area</span>
+              <div v-else class="text-center p-6 text-zinc-400 space-y-2">
+                <Icon name="lucide:image" class="size-10 mx-auto text-zinc-300" aria-hidden="true" />
+                <p class="text-xs font-medium">Upload or select a photo on the right to start</p>
               </div>
 
-              <!-- Corner Scaling Handle (Bottom-Right) -->
+              <!-- Alignment Crosshairs (Edit mode) -->
+              <template v-if="canvasViewMode === 'edit' && activeTemplateImageUrl">
+                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
+                <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
+              </template>
+
+              <!-- EDIT MODE: Draggable & Resizable Box -->
               <div
-                class="absolute -bottom-2 -right-2 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
-                title="Drag to resize print area"
-                @pointerdown="onResizeHandlePointerDown"
-              >
-                <Icon name="lucide:maximize-2" class="size-2 text-white" aria-hidden="true" />
-              </div>
-            </div>
-
-            <!-- PREVIEW MODE: Clean Natural Composite Rendering -->
-            <div
-              v-else-if="masterImageUrl"
-              class="absolute pointer-events-none flex items-center justify-center"
-              :style="{
-                left: `${leftPct}%`,
-                top: `${topPct}%`,
-                width: `${widthPct}%`,
-                height: `${heightPct}%`,
-              }"
-            >
-              <img
-                :src="masterImageUrl"
-                alt="Artwork Preview"
-                class="w-full h-full object-contain pointer-events-none select-none"
-                :class="blendMode === 'multiply' ? 'mix-blend-multiply opacity-95' : 'mix-blend-normal opacity-95'"
+                v-if="canvasViewMode === 'edit' && activeTemplateImageUrl"
+                class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
                 :style="{
-                  filter: blendMode === 'multiply' ? 'contrast(1.05) brightness(0.98)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))'
+                  left: `${leftPct}%`,
+                  top: `${topPct}%`,
+                  width: `${widthPct}%`,
+                  height: `${heightPct}%`,
                 }"
-              />
+                @pointerdown="onArtworkPointerDown"
+              >
+                <!-- Pill Coordinates -->
+                <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
+                  {{ leftPct }}%, {{ topPct }}% ({{ widthPct }}×{{ heightPct }}%)
+                </div>
+
+                <!-- Artwork Preview -->
+                <img
+                  v-if="masterImageUrl"
+                  :src="masterImageUrl"
+                  alt="Artwork"
+                  class="w-full h-full object-contain pointer-events-none select-none drop-shadow-xs"
+                  :class="blendMode === 'multiply' ? 'mix-blend-multiply' : 'mix-blend-normal'"
+                />
+                <div v-else class="text-center p-1 pointer-events-none">
+                  <span class="text-[9px] font-bold text-indigo-900 block leading-tight">Print Area</span>
+                </div>
+
+                <!-- Resize Handle -->
+                <div
+                  class="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                  title="Drag to resize print area"
+                  @pointerdown="onResizeHandlePointerDown"
+                >
+                  <Icon name="lucide:maximize-2" class="size-1.5 text-white" aria-hidden="true" />
+                </div>
+              </div>
+
+              <!-- PREVIEW MODE: Composite Preview -->
+              <div
+                v-else-if="masterImageUrl && activeTemplateImageUrl"
+                class="absolute pointer-events-none flex items-center justify-center"
+                :style="{
+                  left: `${leftPct}%`,
+                  top: `${topPct}%`,
+                  width: `${widthPct}%`,
+                  height: `${heightPct}%`,
+                }"
+              >
+                <img
+                  :src="masterImageUrl"
+                  alt="Artwork Preview"
+                  class="w-full h-full object-contain pointer-events-none select-none"
+                  :class="blendMode === 'multiply' ? 'mix-blend-multiply opacity-95' : 'mix-blend-normal opacity-95'"
+                  :style="{
+                    filter: blendMode === 'multiply' ? 'contrast(1.05) brightness(0.98)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))'
+                  }"
+                />
+              </div>
+            </div>
+
+            <!-- Canvas Helpers / Quick Align -->
+            <div v-if="canvasViewMode === 'edit' && activeTemplateImageUrl" class="flex flex-wrap items-center justify-between gap-1.5 text-[11px] pt-0.5">
+              <div class="flex items-center gap-1">
+                <span class="text-zinc-400 font-medium">Align:</span>
+                <button
+                  type="button"
+                  class="px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
+                  @click="centerHorizontally"
+                >
+                  <Icon name="lucide:align-center" class="size-2.5" aria-hidden="true" />
+                  <span>Center H</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
+                  @click="centerVertically"
+                >
+                  <Icon name="lucide:align-center" class="size-2.5 rotate-90" aria-hidden="true" />
+                  <span>Center V</span>
+                </button>
+              </div>
+
+              <div class="flex items-center gap-1">
+                <span class="text-zinc-400 font-medium">Presets:</span>
+                <button
+                  type="button"
+                  class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-medium transition-colors cursor-pointer border border-indigo-200"
+                  @click="applyChestPreset"
+                >
+                  Chest Logo
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-medium transition-colors cursor-pointer border border-indigo-200"
+                  @click="applyFullCenterPreset"
+                >
+                  Full Center
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Quick Alignment & Preset Buttons (only in edit mode) -->
-          <div v-if="canvasViewMode === 'edit'" class="flex flex-wrap items-center justify-between gap-2 pt-1">
-            <div class="flex items-center gap-1.5 text-xs">
-              <span class="text-[11px] text-zinc-500 font-semibold">Quick Align:</span>
+          <!-- RIGHT COLUMN (5 cols): Photo Source & Precision Sliders -->
+          <div class="lg:col-span-5 space-y-3.5">
+            <!-- 1. Source Tab Selector -->
+            <div class="p-1 bg-zinc-100 rounded-lg flex items-center gap-1">
               <button
                 type="button"
-                class="text-[11px] px-2 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-md font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                @click="centerHorizontally"
+                class="flex-1 text-xs font-semibold py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                :class="activeSubTab === 'upload' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                @click="activeSubTab = 'upload'"
               >
-                <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
-                <span>Center Horizontally</span>
+                <Icon name="lucide:upload" class="size-3" aria-hidden="true" />
+                <span>Upload Photo</span>
               </button>
+
               <button
                 type="button"
-                class="text-[11px] px-2 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-md font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                @click="centerVertically"
+                class="flex-1 text-xs font-semibold py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                :class="activeSubTab === 'library' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'"
+                @click="activeSubTab = 'library'"
               >
-                <Icon name="lucide:align-center" class="size-3 rotate-90" aria-hidden="true" />
-                <span>Center Vertically</span>
+                <Icon name="lucide:bookmark-plus" class="size-3" aria-hidden="true" />
+                <span>Library ({{ templates.length }})</span>
               </button>
             </div>
 
-            <div class="flex items-center gap-1.5 text-xs">
-              <span class="text-[11px] text-zinc-500 font-semibold">Presets:</span>
-              <button
-                type="button"
-                class="text-[11px] px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md font-medium transition-colors cursor-pointer border border-indigo-200"
-                @click="applyChestPreset"
+            <!-- Upload Mode -->
+            <div v-if="activeSubTab === 'upload'" class="space-y-2.5">
+              <!-- Upload input dropzone -->
+              <div
+                v-if="!uploadedPreviewUrl"
+                class="border border-dashed border-zinc-300 hover:border-indigo-500 rounded-xl p-3.5 text-center cursor-pointer transition-colors bg-zinc-50/50"
+                @dragover.prevent
+                @drop="handleDrop"
+                @click="($refs.fileInput as HTMLInputElement)?.click()"
               >
-                Chest Logo
-              </button>
-              <button
-                type="button"
-                class="text-[11px] px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md font-medium transition-colors cursor-pointer border border-indigo-200"
-                @click="applyFullCenterPreset"
-              >
-                Full Center
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 4. Fine-Tuning Precision Sliders & Texture Blend Mode -->
-        <div class="border-t border-zinc-100 pt-4 space-y-3">
-          <div class="flex items-center justify-between">
-            <h4 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
-              <Icon name="lucide:sliders-horizontal" class="size-3.5 text-indigo-600" aria-hidden="true" />
-              <span>Fabric Texture & Blend Mode</span>
-            </h4>
-            <div class="flex items-center gap-1">
-              <button
-                type="button"
-                class="text-[10px] px-2 py-0.5 rounded font-medium transition-colors cursor-pointer"
-                :class="blendMode === 'multiply' ? 'bg-indigo-100 text-indigo-700 font-bold' : 'bg-zinc-100 text-zinc-600'"
-                @click="blendMode = 'multiply'"
-              >
-                Multiply (Light Garments)
-              </button>
-              <button
-                type="button"
-                class="text-[10px] px-2 py-0.5 rounded font-medium transition-colors cursor-pointer"
-                :class="blendMode === 'over' ? 'bg-indigo-100 text-indigo-700 font-bold' : 'bg-zinc-100 text-zinc-600'"
-                @click="blendMode = 'over'"
-              >
-                Opaque Over (Dark Garments)
-              </button>
-            </div>
-          </div>
-
-          <div v-if="canvasViewMode === 'edit'" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <div>
-              <div class="flex justify-between text-[11px] text-zinc-500 mb-1">
-                <span>Left Position (X)</span>
-                <span class="font-mono font-bold">{{ leftPct }}%</span>
+                <input
+                  ref="fileInput"
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  class="hidden"
+                  @change="handleFileSelect"
+                >
+                <Icon name="lucide:upload" class="size-5 mx-auto text-indigo-600 mb-1" aria-hidden="true" />
+                <span class="text-xs font-semibold text-zinc-800 block">Click to upload photo</span>
+                <span class="text-[10px] text-zinc-400 block mt-0.5">JPEG, PNG, WebP (up to 35MB)</span>
               </div>
-              <input v-model.number="leftPct" type="range" min="0" :max="Math.max(0, 100 - widthPct)" class="w-full accent-indigo-600 cursor-pointer" />
+
+              <!-- Uploaded thumbnail + name input -->
+              <div v-else class="space-y-2 p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
+                <div class="flex items-center gap-2">
+                  <div class="h-10 w-10 rounded-lg bg-white border border-zinc-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                    <img :src="uploadedPreviewUrl" alt="Uploaded Photo" class="h-full w-full object-cover rounded" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <label class="block text-[9px] font-bold text-zinc-500 uppercase tracking-wider mb-0.5">Mockup Display Name</label>
+                    <input
+                      v-model="templateName"
+                      type="text"
+                      class="w-full text-xs px-2 py-1 rounded border border-zinc-200 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                      :placeholder="`e.g. Bella Canvas ${getMockupDisplayName(productType)} Flatlay`"
+                    >
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between text-[10px] pt-1 border-t border-zinc-100">
+                  <label class="flex items-center gap-1.5 cursor-pointer text-zinc-700">
+                    <input
+                      v-model="saveToLibrary"
+                      type="checkbox"
+                      class="h-3 w-3 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    >
+                    <span>Save to library</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    class="text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                    @click="uploadedPreviewUrl = null; uploadedFile = null"
+                  >
+                    Change Photo
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <div class="flex justify-between text-[11px] text-zinc-500 mb-1">
-                <span>Top Position (Y)</span>
-                <span class="font-mono font-bold">{{ topPct }}%</span>
+            <!-- Library Mode (Clean compact grid) -->
+            <div v-else class="space-y-1.5">
+              <div v-if="templates.length === 0" class="text-center py-4 text-zinc-400 text-xs bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
+                No saved templates for {{ getMockupDisplayName(productType) }}. Use Upload tab to add one.
               </div>
-              <input v-model.number="topPct" type="range" min="0" :max="Math.max(0, 100 - heightPct)" class="w-full accent-indigo-600 cursor-pointer" />
+
+              <div v-else class="grid grid-cols-3 gap-1.5 max-h-28 overflow-y-auto p-0.5">
+                <div
+                  v-for="tpl in templates"
+                  :key="tpl.id"
+                  class="border rounded-lg p-1 cursor-pointer transition-all relative group"
+                  :class="selectedTemplateId === tpl.id ? 'border-indigo-600 ring-1.5 ring-indigo-500/30 bg-indigo-50/40' : 'border-zinc-200 hover:border-zinc-300 bg-white'"
+                  @click="selectLibraryTemplate(tpl)"
+                >
+                  <div class="aspect-square bg-zinc-50 rounded overflow-hidden border border-zinc-100 flex items-center justify-center mb-0.5">
+                    <img :src="tpl.url" :alt="tpl.name" class="object-cover w-full h-full" />
+                  </div>
+                  <p class="text-[9px] font-semibold text-zinc-800 truncate leading-tight" :title="tpl.name">{{ tpl.name }}</p>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <div class="flex justify-between text-[11px] text-zinc-500 mb-1">
-                <span>Print Width</span>
-                <span class="font-mono font-bold">{{ widthPct }}%</span>
+            <!-- 2. Blend Mode Selector -->
+            <div class="p-2 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-zinc-700 flex items-center gap-1">
+                  <Icon name="lucide:sparkles" class="size-3 text-indigo-600" aria-hidden="true" />
+                  <span>Blend Mode</span>
+                </span>
+                <span class="text-[9px] text-zinc-400">{{ blendMode === 'multiply' ? 'Natural Shadows' : 'Solid Opaque' }}</span>
               </div>
-              <input v-model.number="widthPct" type="range" min="10" :max="100 - leftPct" class="w-full accent-indigo-600 cursor-pointer" />
+
+              <div class="grid grid-cols-2 gap-1 text-xs">
+                <button
+                  type="button"
+                  class="py-1 px-1.5 rounded-md font-semibold text-[10px] transition-all cursor-pointer border text-center truncate"
+                  :class="blendMode === 'multiply' ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-100'"
+                  @click="blendMode = 'multiply'"
+                >
+                  Multiply (Light)
+                </button>
+                <button
+                  type="button"
+                  class="py-1 px-1.5 rounded-md font-semibold text-[10px] transition-all cursor-pointer border text-center truncate"
+                  :class="blendMode === 'over' ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs' : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-100'"
+                  @click="blendMode = 'over'"
+                >
+                  Opaque (Dark)
+                </button>
+              </div>
             </div>
 
-            <div>
-              <div class="flex justify-between text-[11px] text-zinc-500 mb-1">
-                <span>Print Height</span>
-                <span class="font-mono font-bold">{{ heightPct }}%</span>
+            <!-- 3. Compact Precision Sliders (2x2 Grid) -->
+            <div v-if="canvasViewMode === 'edit'" class="p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 space-y-1.5 text-xs">
+              <span class="text-[10px] font-bold text-zinc-700 block uppercase tracking-wider">Position & Dimensions</span>
+
+              <div class="grid grid-cols-2 gap-x-2.5 gap-y-1.5 text-[10px]">
+                <div>
+                  <div class="flex justify-between text-zinc-500 mb-0.5">
+                    <span>X Pos</span>
+                    <span class="font-mono font-bold text-zinc-800">{{ leftPct }}%</span>
+                  </div>
+                  <input v-model.number="leftPct" type="range" min="0" :max="Math.max(0, 100 - widthPct)" class="w-full accent-indigo-600 cursor-pointer h-1 bg-zinc-200 rounded-lg" />
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-zinc-500 mb-0.5">
+                    <span>Y Pos</span>
+                    <span class="font-mono font-bold text-zinc-800">{{ topPct }}%</span>
+                  </div>
+                  <input v-model.number="topPct" type="range" min="0" :max="Math.max(0, 100 - heightPct)" class="w-full accent-indigo-600 cursor-pointer h-1 bg-zinc-200 rounded-lg" />
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-zinc-500 mb-0.5">
+                    <span>Width</span>
+                    <span class="font-mono font-bold text-zinc-800">{{ widthPct }}%</span>
+                  </div>
+                  <input v-model.number="widthPct" type="range" min="10" :max="100 - leftPct" class="w-full accent-indigo-600 cursor-pointer h-1 bg-zinc-200 rounded-lg" />
+                </div>
+
+                <div>
+                  <div class="flex justify-between text-zinc-500 mb-0.5">
+                    <span>Height</span>
+                    <span class="font-mono font-bold text-zinc-800">{{ heightPct }}%</span>
+                  </div>
+                  <input v-model.number="heightPct" type="range" min="10" :max="100 - topPct" class="w-full accent-indigo-600 cursor-pointer h-1 bg-zinc-200 rounded-lg" />
+                </div>
               </div>
-              <input v-model.number="heightPct" type="range" min="10" :max="100 - topPct" class="w-full accent-indigo-600 cursor-pointer" />
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Modal Footer -->
-      <div class="px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between gap-3">
-        <button
-          v-if="canvasViewMode === 'edit' && activeTemplateImageUrl"
-          type="button"
-          class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
-          @click="canvasViewMode = 'preview'"
-        >
-          <Icon name="lucide:eye" class="size-3.5" aria-hidden="true" />
-          <span>Switch to Full Realistic Preview</span>
-        </button>
+      <!-- Footer -->
+      <div class="px-5 py-3 border-t border-zinc-100 bg-zinc-50/70 flex items-center justify-between gap-3">
+        <span class="text-[11px] text-zinc-500 truncate">
+          {{ activeTemplateImageUrl ? 'Ready to composite high-res mockup' : 'Please upload or select a template photo' }}
+        </span>
 
-        <button
-          v-else-if="canvasViewMode === 'preview'"
-          type="button"
-          class="text-xs font-semibold text-zinc-600 hover:text-zinc-900 flex items-center gap-1 cursor-pointer"
-          @click="canvasViewMode = 'edit'"
-        >
-          <Icon name="lucide:sliders-horizontal" class="size-3.5" aria-hidden="true" />
-          <span>Back to Adjust Position</span>
-        </button>
-
-        <div v-else></div>
-
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <Button variant="outline" size="sm" :disabled="isCompositing" @click="emit('update:open', false)">
             Cancel
           </Button>
           <Button
             variant="default"
             size="sm"
-            class="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer"
-            :disabled="isCompositing || (activeSubTab === 'upload' && !uploadedFile) || (activeSubTab === 'library' && !selectedTemplateId)"
+            class="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer text-xs"
+            :disabled="isCompositing || !activeTemplateImageUrl"
             @click="handleComposite"
           >
             <Icon v-if="isCompositing" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
