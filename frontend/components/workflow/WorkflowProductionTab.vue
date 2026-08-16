@@ -204,13 +204,21 @@ const mockupsByProduct = computed<Record<string, Asset[]>>(() => {
   return map;
 });
 
-// Available product tabs
+// Available product tabs (filtered to intended physical products + any actively uploaded mockups)
 const availableProductTabs = computed<string[]>(() => {
   const intendedRaw = props.workflow?.intended_product_uses ?? [];
-  const intendedKeys = intendedRaw.map(normalizeProductKey);
-  const assetKeys = Object.keys(mockupsByProduct.value);
+  const intendedKeys = intendedRaw.map(normalizeProductKey).filter(Boolean);
+  const assetKeys = Object.keys(mockupsByProduct.value).filter(
+    (k) => (mockupsByProduct.value[k] || []).length > 0
+  );
+
+  if (intendedKeys.length > 0) {
+    const set = new Set([...intendedKeys, ...assetKeys]);
+    return Array.from(set);
+  }
+
   const standardProducts = ["tshirt", "sweatshirt", "mug", "tote_bag", "tumbler", "poster"];
-  const set = new Set([...intendedKeys, ...assetKeys, ...standardProducts]);
+  const set = new Set([...assetKeys, ...standardProducts]);
   return Array.from(set);
 });
 
