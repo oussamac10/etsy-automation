@@ -480,6 +480,38 @@ async function handleMoveMockup(asset: Asset, direction: "left" | "right"): Prom
     isActionLoading.value = false;
   }
 }
+
+const isRecompositingAll = ref(false);
+
+async function handleRecompositeAllMockups(): Promise<void> {
+  if (localMockupAssets.value.length === 0) return;
+  isRecompositingAll.value = true;
+  mockupActionError.value = null;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) headers["x-csrf-token"] = csrf;
+
+    const data = await $fetch<Asset[]>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${props.workflow.id}/mockups/recomposite-all`,
+      {
+        method: "POST",
+        headers,
+        credentials: "include",
+      }
+    );
+
+    if (data && Array.isArray(data)) {
+      localMockupAssets.value = data;
+    }
+    emit("mockupUpdated");
+  } catch (err: unknown) {
+    const errorObj = err as { data?: { detail?: string }; message?: string };
+    mockupActionError.value = errorObj.data?.detail || errorObj.message || "Failed to sync mockups with master PNG.";
+  } finally {
+    isRecompositingAll.value = false;
+  }
+}
 </script>
 
 <template>
@@ -703,15 +735,31 @@ async function handleMoveMockup(asset: Asset, direction: "left" | "right"): Prom
                     </span>
                   </div>
 
-                  <Button
-                    variant="default"
-                    size="sm"
-                    class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                    @click="openAddMockupModal(selectedMockupTab)"
-                  >
-                    <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
-                    <span>Add {{ getMockupLabel(selectedMockupTab) }} Mockup</span>
-                  </Button>
+                  <div class="flex items-center gap-2">
+                    <Button
+                      v-if="localMockupAssets.length > 0"
+                      variant="outline"
+                      size="sm"
+                      class="text-xs h-8 gap-1.5 cursor-pointer text-zinc-700 hover:text-zinc-900"
+                      :disabled="isRecompositingAll || isActionLoading"
+                      title="Sync and re-composite all existing mockups with the latest Master PNG"
+                      @click="handleRecompositeAllMockups"
+                    >
+                      <Icon v-if="isRecompositingAll" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+                      <Icon v-else name="lucide:refresh-cw" class="size-3.5 text-indigo-600" aria-hidden="true" />
+                      <span>{{ isRecompositingAll ? 'Syncing...' : 'Sync with Master PNG' }}</span>
+                    </Button>
+
+                    <Button
+                      variant="default"
+                      size="sm"
+                      class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                      @click="openAddMockupModal(selectedMockupTab)"
+                    >
+                      <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
+                      <span>Add {{ getMockupLabel(selectedMockupTab) }} Mockup</span>
+                    </Button>
+                  </div>
                 </div>
 
                 <!-- Recommended Listing Images Helper Banner -->

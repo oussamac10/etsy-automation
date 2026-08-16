@@ -306,6 +306,7 @@ async def composite_custom_mockup_endpoint(
     resolved_template_id = payload.template_id
     resolved_template_name = payload.template_name or f"{canonical_prod.replace('_', ' ').capitalize()} Mockup"
 
+    resolved_template_storage_key: str | None = None
     if payload.template_image_base64:
         try:
             template_bytes = base64.b64decode(payload.template_image_base64)
@@ -328,11 +329,18 @@ async def composite_custom_mockup_endpoint(
                 placement=resolved_placement,
             )
             resolved_template_id = saved_item.id
+            resolved_template_storage_key = saved_item.storage_key
+        else:
+            tpl_img_id = uuid.uuid4()
+            raw_tpl_key = f"mockup-templates/{user.id}/{canonical_prod}/source_{tpl_img_id}.jpg"
+            await storage.put(raw_tpl_key, template_bytes, content_type="image/jpeg")
+            resolved_template_storage_key = raw_tpl_key
     elif payload.template_id:
         existing_template = await store.get_template(owner_id=user.id, template_id=payload.template_id)
         if not existing_template:
             raise HTTPException(status_code=404, detail="Selected template not found.")
         template_bytes = await storage.get(existing_template.storage_key)
+        resolved_template_storage_key = existing_template.storage_key
         resolved_template_name = payload.template_name or existing_template.name
         if not payload.placement:
             resolved_placement = {
@@ -420,6 +428,7 @@ async def composite_custom_mockup_endpoint(
         "product_type": canonical_prod,
         "template_id": resolved_template_id,
         "template_name": resolved_template_name,
+        "template_storage_key": resolved_template_storage_key,
         "source_asset_id": str(master_asset.id),
         "placement": resolved_placement,
         "is_cover": is_cover,

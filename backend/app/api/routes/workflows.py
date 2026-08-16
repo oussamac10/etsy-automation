@@ -50,6 +50,7 @@ from app.application.unit_of_work import UnitOfWork
 from app.domain import ip_risk
 from app.domain.enums import ConceptStatus, ProviderName
 from app.domain.workflow import RiskLevel, RunStatus, JobStatus
+from app.domain.mockup_compositor import recomposite_workflow_mockups
 from app.infrastructure.models import ArtworkJob, Asset, ProductionJob
 from app.providers.s3 import S3ObjectStorage
 from app.settings import get_settings
@@ -1150,6 +1151,79 @@ async def delete_mockup_endpoint(
 
     await uow.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/{workflow_id}/mockups/recomposite-all",
+    summary="Recomposite all existing workflow mockups with the current master PNG",
+    response_model=list[AssetResponse],
+)
+async def recomposite_all_mockups_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+    settings: SettingsDep,
+) -> list[AssetResponse]:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID")
+
+    # Find active master PNG
+    assets = await uow.assets.list_for_workflow(workflow_id)
+    master_asset = next(
+        (
+            a for a in assets
+            if (a.storage_key.endswith("/master.png") or (a.provenance and a.provenance.get("profile") == "etsy-png-standard"))
+            and "/mockups/" not in a.storage_key
+            and (not a.provenance or a.provenance.get("asset_type") != "mockup")
+        ),
+        None,
+    )
+    if not master_asset:
+        # Check artwork candidate
+        artwork_assets = [
+            a for a in assets
+            if a.artwork_job_id is not None
+            and "/mockups/" not in a.storage_key
+            and (not a.provenance or a.provenance.get("asset_type") != "mockup")
+        ]
+        if artwork_assets:
+            master_asset = artwork_assets[0]
+
+    if not master_asset:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No master PNG or artwork found to composite.")
+
+    master_bytes = await storage.get(master_asset.storage_key)
+
+    await recomposite_workflow_mockups(
+        uow=uow,
+        storage=storage,
+        workflow_id=workflow_id,
+        master_bytes=master_bytes,
+        master_asset_id=master_asset.id,
+        owner_id=user.id,
+        image_worker_url=settings.image_worker_url,
+    )
+    await uow.commit()
+
+    refreshed_assets = await uow.assets.list_for_workflow(workflow_id)
+    mockups = [
+        a for a in refreshed_assets
+        if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key
+    ]
+
+    def _order_key(a: Asset):
+        is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
+        order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
+        return (order, 0 if is_cov else 1, a.created_at or datetime.min)
+
+    sorted_mockups = sorted(mockups, key=_order_key)
+    resps = []
+    for m in sorted_mockups:
+        url = await storage.signed_url(m.storage_key, 86400 * 7)
+        resps.append(to_asset_response(m, url))
+    return resps
 
 
 @router.post(

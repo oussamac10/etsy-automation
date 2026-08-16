@@ -32,6 +32,7 @@ from app.domain.enums import (
     SourceType,
 )
 from app.domain.errors import BudgetExceededError
+from app.domain.mockup_compositor import recomposite_workflow_mockups
 from app.domain.money import Money
 from app.domain.workflow import (
     FailureStatus,
@@ -1305,6 +1306,24 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                 },
             )
             await uow.commit()
+
+        # 5b. Automatically recomposite all existing workflow mockups with the new master PNG
+        try:
+            async with UnitOfWork(session_factory) as uow:
+                workflow = await uow.workflows.get(workflow_id)
+                if workflow:
+                    await recomposite_workflow_mockups(
+                        uow=uow,
+                        storage=storage,
+                        workflow_id=workflow_id,
+                        master_bytes=master_bytes,
+                        master_asset_id=master_asset_id,
+                        owner_id=workflow.owner_id,
+                        image_worker_url=settings.image_worker_url,
+                    )
+                    await uow.commit()
+        except Exception as recomp_exc:
+            logger.warning("failed_to_recomposite_existing_mockups", error=str(recomp_exc))
 
         # 6. Telegram Completion Notification
         try:
