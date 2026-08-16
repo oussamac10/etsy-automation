@@ -13,6 +13,7 @@ see ``docs/authentication-and-secrets.md``.
 from __future__ import annotations
 
 import base64
+from datetime import datetime, timezone
 import uuid
 from typing import Annotated
 
@@ -32,6 +33,7 @@ from app.api.schemas import (
     ProductConceptResponse,
     ProductionJobResponse,
     RefineArtworkRequest,
+    ReorderMockupsRequest,
     ResearchRunResponse,
     StartProductionRequest,
     SubmitIdeaRequest,
@@ -453,7 +455,7 @@ def to_asset_response(asset: Asset, url: str | None = None) -> AssetResponse:
         has_alpha=asset.has_alpha,
         has_transparent_pixels=asset.has_transparent_pixels,
         provenance=asset.provenance,
-        created_at=asset.created_at,
+        created_at=asset.created_at or datetime.now(timezone.utc),
         url=url,
     )
 
@@ -831,63 +833,60 @@ async def to_production_job_response(
             url = await storage.signed_url(master_asset.storage_key, 3600)
             master_asset_resp = to_asset_response(master_asset, url)
 
-    mockup_jobs = await uow.mockup_jobs.list_for_production_job(job.id)
     mockup_resps: list[AssetResponse] = []
     mockup_urls: dict[str, str] = {}
 
-    if mockup_jobs:
-        for mj in mockup_jobs:
-            if mj.output_asset_id is not None:
-                asset = await uow.assets.get(mj.output_asset_id)
-                if asset is not None:
-                    url = await storage.signed_url(asset.storage_key, 3600)
-                    mockup_resps.append(to_asset_response(asset, url))
-                    p_name = str(mj.product_type).lower()
-                    if "sweat" in p_name or "hoodie" in p_name or "jumper" in p_name:
-                        mockup_urls["sweatshirt"] = url
-                    elif "tshirt" in p_name or "t-shirt" in p_name or "tee" in p_name or p_name == "shirt" or "apparel" in p_name or ("shirt" in p_name and "sweat" not in p_name):
-                        mockup_urls["tshirt"] = url
-                    elif "mug" in p_name or "cup" in p_name:
-                        mockup_urls["mug"] = url
-                    elif "tote" in p_name or "bag" in p_name:
-                        mockup_urls["tote"] = url
-                        mockup_urls["tote_bag"] = url
-                    mockup_urls[str(mj.product_type)] = url
-
-    # Always merge all custom and pipeline mockup assets for this workflow
     from app.infrastructure.mockup_catalog import normalize_mockup_product
     all_wf_assets = await uow.assets.list_for_workflow(job.workflow_id)
-    for asset in all_wf_assets:
+    raw_mockups = [
+        asset for asset in all_wf_assets
         if (
-            (asset.provenance and (asset.provenance.get("asset_type") == "mockup" or asset.provenance.get("pipeline") == "mockup"))
+            (asset.provenance and (asset.provenance.get("asset_type") == "mockup" or asset.provenance.get("pipeline") == "mockup" or asset.provenance.get("source") == "user_template"))
             or "/mockups/" in asset.storage_key
             or "mockup" in asset.storage_key
-        ):
-            url = await storage.signed_url(asset.storage_key, 86400 * 7)
-            if not any(r.id == asset.id for r in mockup_resps):
-                mockup_resps.append(to_asset_response(asset, url))
+        )
+    ]
 
-            p_name = None
-            if asset.provenance:
-                p_name = asset.provenance.get("product_type")
-            if not p_name:
-                parts = asset.storage_key.split("/")
-                fname = parts[-1]
-                if "custom_" in fname:
-                    p_name = fname.split("custom_")[1].split("_")[0]
-                else:
-                    p_name = fname.split(".")[0]
+    def _mockup_sort_key(a: Asset):
+        is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
+        order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
+        created = a.created_at or datetime.min
+        return (0 if is_cov else 1, order, created)
 
-            if p_name:
-                canonical_p = normalize_mockup_product(str(p_name)) or str(p_name).lower()
+    sorted_mockups = sorted(raw_mockups, key=_mockup_sort_key)
+
+    for asset in sorted_mockups:
+        url = await storage.signed_url(asset.storage_key, 86400 * 7)
+        if not any(r.id == asset.id for r in mockup_resps):
+            mockup_resps.append(to_asset_response(asset, url))
+
+        p_name = None
+        if asset.provenance:
+            p_name = asset.provenance.get("product_type")
+        if not p_name:
+            parts = asset.storage_key.split("/")
+            fname = parts[-1]
+            if "custom_" in fname:
+                p_name = fname.split("custom_")[1].split("_")[0]
+            else:
+                p_name = fname.split(".")[0]
+
+        if p_name:
+            canonical_p = normalize_mockup_product(str(p_name)) or str(p_name).lower()
+            if canonical_p not in mockup_urls:
                 mockup_urls[canonical_p] = url
+            if str(p_name) not in mockup_urls:
                 mockup_urls[str(p_name)] = url
+            if f"{canonical_p}:custom" not in mockup_urls:
                 mockup_urls[f"{canonical_p}:custom"] = url
+            if f"{str(p_name)}:custom" not in mockup_urls:
                 mockup_urls[f"{str(p_name)}:custom"] = url
-                if canonical_p == "tote_bag":
-                    mockup_urls["tote"] = url
-                elif canonical_p == "tumbler":
+            if canonical_p == "tote_bag" and "tote" not in mockup_urls:
+                mockup_urls["tote"] = url
+            elif canonical_p == "tumbler":
+                if "tumblers" not in mockup_urls:
                     mockup_urls["tumblers"] = url
+                if "tumbler_cup" not in mockup_urls:
                     mockup_urls["tumbler_cup"] = url
 
     return ProductionJobResponse(
@@ -905,7 +904,7 @@ async def to_production_job_response(
         completed_at=job.completed_at,
         failure_kind=job.failure_kind,
         failure_message=job.failure_message,
-        created_at=job.created_at,
+        created_at=job.created_at or datetime.now(timezone.utc),
         master_asset=master_asset_resp,
         mockup_assets=mockup_resps,
         mockup_urls=mockup_urls,
@@ -1026,6 +1025,133 @@ async def get_latest_production(
     return await to_production_job_response(latest_job, storage, uow)
 
 
+@router.patch(
+    "/{workflow_id}/mockups/{asset_id}/cover",
+    response_model=AssetResponse,
+    summary="Set a generated mockup as the primary listing cover image",
+)
+async def set_mockup_cover_endpoint(
+    workflow_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> AssetResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID")
+
+    all_assets = await uow.assets.list_for_workflow(workflow_id)
+    target_asset = next((a for a in all_assets if a.id == asset_id), None)
+    if not target_asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mockup asset not found")
+
+    for a in all_assets:
+        if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key:
+            if a.id == asset_id:
+                a.provenance = dict(a.provenance or {}, is_cover=True)
+            elif a.provenance and a.provenance.get("is_cover"):
+                a.provenance = dict(a.provenance, is_cover=False)
+            await uow.session.flush()
+
+    await uow.commit()
+    url = await storage.signed_url(target_asset.storage_key, 86400 * 7)
+    return to_asset_response(target_asset, url)
+
+
+@router.patch(
+    "/{workflow_id}/mockups/reorder",
+    response_model=list[AssetResponse],
+    summary="Reorder listing mockup assets",
+)
+async def reorder_mockups_endpoint(
+    workflow_id: uuid.UUID,
+    payload: ReorderMockupsRequest,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> list[AssetResponse]:
+    from app.api.schemas import ReorderMockupsRequest
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID")
+
+    all_assets = await uow.assets.list_for_workflow(workflow_id)
+    asset_map = {a.id: a for a in all_assets}
+
+    for idx, aid in enumerate(payload.asset_ids, start=1):
+        if aid in asset_map:
+            asset = asset_map[aid]
+            asset.provenance = dict(asset.provenance or {}, listing_order=idx)
+            await uow.session.flush()
+
+    await uow.commit()
+
+    refreshed_assets = await uow.assets.list_for_workflow(workflow_id)
+    mockups = [
+        a for a in refreshed_assets
+        if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key
+    ]
+    def _order_key(a: Asset):
+        is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
+        order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
+        return (0 if is_cov else 1, order, a.created_at or datetime.min)
+
+    sorted_mockups = sorted(mockups, key=_order_key)
+    resps = []
+    for m in sorted_mockups:
+        url = await storage.signed_url(m.storage_key, 86400 * 7)
+        resps.append(to_asset_response(m, url))
+    return resps
+
+
+@router.delete(
+    "/{workflow_id}/mockups/{asset_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a generated mockup asset safely",
+)
+async def delete_mockup_endpoint(
+    workflow_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> Response:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID")
+
+    all_assets = await uow.assets.list_for_workflow(workflow_id)
+    target_asset = next((a for a in all_assets if a.id == asset_id), None)
+    if not target_asset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mockup asset not found")
+
+    was_cover = bool(target_asset.provenance.get("is_cover", False)) if target_asset.provenance else False
+
+    # Delete storage object in S3
+    try:
+        await storage.delete(target_asset.storage_key)
+    except Exception:
+        pass
+
+    # Delete asset in DB
+    await uow.assets.delete(target_asset)
+    await uow.session.flush()
+
+    # If it was cover, elect first remaining mockup as cover
+    if was_cover:
+        remaining_mockups = [
+            a for a in all_assets
+            if a.id != asset_id and ((a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key)
+        ]
+        if remaining_mockups:
+            remaining_mockups[0].provenance = dict(remaining_mockups[0].provenance or {}, is_cover=True)
+            await uow.session.flush()
+
+    await uow.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post(
     "/{workflow_id}/mockup-templates/composite",
     summary="Composite master PNG onto custom mockup template (JSON or multipart)",
@@ -1059,6 +1185,8 @@ async def workflow_composite_mockup_endpoint(
         template_id = str(form.get("template_id")) if form.get("template_id") else None
         template_name = str(form.get("name")) if form.get("name") else None
         save_as_template = str(form.get("save_to_library", "true")).lower() in ("true", "1")
+        target_asset_id_raw = form.get("target_asset_id")
+        target_asset_id = uuid.UUID(str(target_asset_id_raw)) if target_asset_id_raw else None
 
         file_obj = form.get("file")
         template_image_base64 = None
@@ -1091,6 +1219,7 @@ async def workflow_composite_mockup_endpoint(
             template_name=template_name,
             save_as_template=save_as_template,
             placement=placement,
+            target_asset_id=target_asset_id,
         )
     else:
         body = await request.json()
@@ -1099,6 +1228,7 @@ async def workflow_composite_mockup_endpoint(
 
     return await composite_custom_mockup_endpoint(
         payload=payload,
+        user=user,
         uow=uow,
         storage=storage,
         settings=settings,

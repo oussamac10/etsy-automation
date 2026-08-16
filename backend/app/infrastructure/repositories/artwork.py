@@ -108,3 +108,7 @@ class SqlAssetRepository:
             )
         )
         return result.scalars().first()
+
+    async def delete(self, asset: Asset) -> None:
+        await self._session.delete(asset)
+        await self._session.flush()

@@ -129,3 +129,19 @@ class S3ObjectStorage:
                 operation="signed_url",
                 message=f"Failed to generate presigned S3 URL: {exc!s}",
             ) from exc
+
+    async def delete(self, key: str) -> None:
+        try:
+            client = self._get_client()
+            await asyncio.to_thread(
+                client.delete_object,
+                Bucket=self._bucket_name,
+                Key=key,
+            )
+        except Exception as exc:
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider="s3",
+                operation="delete",
+                message=f"Failed to delete object from S3: {exc!s}",
+            ) from exc

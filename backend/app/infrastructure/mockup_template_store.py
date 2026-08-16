@@ -1,6 +1,6 @@
 """Persistent Mockup Template Store backed by S3 / MinIO object storage.
 
-Allows storing, retrieving, and reusing custom mockup templates per product type
+Allows storing, retrieving, and reusing custom mockup templates per owner and product type
 with exact placement coordinates and texture blend modes.
 """
 
@@ -9,11 +9,11 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import structlog
 
-from app.infrastructure.mockup_catalog import normalize_mockup_product
+from app.infrastructure.mockup_catalog import get_product_preset, normalize_mockup_product
 from app.providers.s3 import S3ObjectStorage
 
 logger = structlog.get_logger(__name__)
@@ -32,6 +32,7 @@ class CustomMockupPlacement:
 @dataclass
 class MockupTemplateItem:
     id: str
+    owner_id: str
     name: str
     product_type: str
     storage_key: str
@@ -42,15 +43,23 @@ class MockupTemplateItem:
 
 
 class MockupTemplateStore:
-    """Store and retrieve persistent custom mockup templates from S3."""
+    """Store and retrieve persistent custom mockup templates from S3 scoped per owner."""
 
     def __init__(self, storage: S3ObjectStorage) -> None:
         self._storage = storage
 
-    async def list_templates(self, product_type: str | None = None) -> list[MockupTemplateItem]:
-        """List all saved mockup templates, optionally filtered by canonical product type."""
+    async def list_templates(
+        self,
+        owner_id: uuid.UUID | str,
+        product_type: str | None = None,
+    ) -> list[MockupTemplateItem]:
+        """List all saved mockup templates for an owner, optionally filtered by canonical product type."""
+        owner_str = str(owner_id)
         canonical_target = normalize_mockup_product(product_type) if product_type else None
-        prefix = f"mockup_templates/{canonical_target}/" if canonical_target else "mockup_templates/"
+        if canonical_target:
+            prefix = f"mockup-templates/{owner_str}/{canonical_target}/"
+        else:
+            prefix = f"mockup-templates/{owner_str}/"
 
         templates: list[MockupTemplateItem] = []
         try:
@@ -70,6 +79,7 @@ class MockupTemplateStore:
                     meta = json.loads(data.decode("utf-8"))
 
                     t_id = meta.get("id")
+                    t_owner = meta.get("owner_id", owner_str)
                     t_name = meta.get("name", "Custom Mockup")
                     t_prod = meta.get("product_type", "tshirt")
                     t_img_key = meta.get("storage_key")
@@ -80,20 +90,22 @@ class MockupTemplateStore:
                         continue
 
                     # Generate presigned URL for thumbnail / display
-                    url = await self._storage.signed_url(t_img_key, expires_in_seconds=86400)
+                    url = await self._storage.signed_url(t_img_key, expires_in_seconds=86400 * 7)
 
+                    preset = get_product_preset(t_prod)
                     placement = CustomMockupPlacement(
-                        left_pct=float(placement_data.get("left_pct", 0.25)),
-                        top_pct=float(placement_data.get("top_pct", 0.25)),
-                        width_pct=float(placement_data.get("width_pct", 0.50)),
-                        height_pct=float(placement_data.get("height_pct", 0.50)),
+                        left_pct=float(placement_data.get("left_pct", preset.default_left_pct)),
+                        top_pct=float(placement_data.get("top_pct", preset.default_top_pct)),
+                        width_pct=float(placement_data.get("width_pct", preset.default_width_pct)),
+                        height_pct=float(placement_data.get("height_pct", preset.default_height_pct)),
                         angle_deg=float(placement_data.get("angle_deg", 0.0)),
-                        blend_mode=str(placement_data.get("blend_mode", "multiply")),
+                        blend_mode=str(placement_data.get("blend_mode", preset.default_blend_mode)),
                     )
 
                     templates.append(
                         MockupTemplateItem(
                             id=t_id,
+                            owner_id=t_owner,
                             name=t_name,
                             product_type=t_prod,
                             storage_key=t_img_key,
@@ -104,7 +116,7 @@ class MockupTemplateStore:
                         )
                     )
                 except Exception as err:
-                    logger.warn("failed_to_parse_mockup_template", key=json_key, error=str(err))
+                    logger.warning("failed_to_parse_mockup_template", key=json_key, error=str(err))
 
         except Exception as exc:
             logger.error("failed_to_list_mockup_templates", error=str(exc))
@@ -115,19 +127,22 @@ class MockupTemplateStore:
 
     async def save_template(
         self,
+        owner_id: uuid.UUID | str,
         name: str,
         product_type: str,
         image_bytes: bytes,
         content_type: str = "image/jpeg",
         placement: CustomMockupPlacement | dict | None = None,
     ) -> MockupTemplateItem:
-        """Save a new custom mockup template image and its manifest to S3."""
+        """Save a new custom mockup template image and its manifest to S3 for an owner."""
+        owner_str = str(owner_id)
         canonical = normalize_mockup_product(product_type) or "tshirt"
         template_id = str(uuid.uuid4())
+        preset = get_product_preset(canonical)
 
-        ext = "png" if "png" in content_type.lower() else "jpg"
-        image_key = f"mockup_templates/{canonical}/{template_id}.{ext}"
-        json_key = f"mockup_templates/{canonical}/{template_id}.json"
+        ext = "png" if "png" in content_type.lower() else ("webp" if "webp" in content_type.lower() else "jpg")
+        image_key = f"mockup-templates/{owner_str}/{canonical}/{template_id}.{ext}"
+        json_key = f"mockup-templates/{owner_str}/{canonical}/{template_id}.json"
 
         # 1. Upload template image
         await self._storage.put(image_key, image_bytes, content_type=content_type)
@@ -135,20 +150,27 @@ class MockupTemplateStore:
         # 2. Build placement object
         if isinstance(placement, dict):
             placement_obj = CustomMockupPlacement(
-                left_pct=float(placement.get("left_pct", 0.25)),
-                top_pct=float(placement.get("top_pct", 0.25)),
-                width_pct=float(placement.get("width_pct", 0.50)),
-                height_pct=float(placement.get("height_pct", 0.50)),
+                left_pct=float(placement.get("left_pct", preset.default_left_pct)),
+                top_pct=float(placement.get("top_pct", preset.default_top_pct)),
+                width_pct=float(placement.get("width_pct", preset.default_width_pct)),
+                height_pct=float(placement.get("height_pct", preset.default_height_pct)),
                 angle_deg=float(placement.get("angle_deg", 0.0)),
-                blend_mode=str(placement.get("blend_mode", "multiply")),
+                blend_mode=str(placement.get("blend_mode", preset.default_blend_mode)),
             )
         elif isinstance(placement, CustomMockupPlacement):
             placement_obj = placement
         else:
-            placement_obj = CustomMockupPlacement()
+            placement_obj = CustomMockupPlacement(
+                left_pct=preset.default_left_pct,
+                top_pct=preset.default_top_pct,
+                width_pct=preset.default_width_pct,
+                height_pct=preset.default_height_pct,
+                blend_mode=preset.default_blend_mode,
+            )
 
         manifest = {
             "id": template_id,
+            "owner_id": owner_str,
             "name": name.strip() or f"Custom {canonical.capitalize()} Mockup",
             "product_type": canonical,
             "storage_key": image_key,
@@ -160,10 +182,11 @@ class MockupTemplateStore:
         manifest_bytes = json.dumps(manifest, indent=2).encode("utf-8")
         await self._storage.put(json_key, manifest_bytes, content_type="application/json")
 
-        url = await self._storage.signed_url(image_key, expires_in_seconds=86400)
+        url = await self._storage.signed_url(image_key, expires_in_seconds=86400 * 7)
 
         return MockupTemplateItem(
             id=template_id,
+            owner_id=owner_str,
             name=manifest["name"],
             product_type=canonical,
             storage_key=image_key,
@@ -173,9 +196,13 @@ class MockupTemplateStore:
             is_custom=True,
         )
 
-    async def get_template(self, template_id: str) -> MockupTemplateItem | None:
-        """Find and return a specific template by ID."""
-        all_templates = await self.list_templates()
+    async def get_template(
+        self,
+        owner_id: uuid.UUID | str,
+        template_id: str,
+    ) -> MockupTemplateItem | None:
+        """Find and return a specific template by ID for an owner."""
+        all_templates = await self.list_templates(owner_id)
         for t in all_templates:
             if t.id == template_id:
                 return t

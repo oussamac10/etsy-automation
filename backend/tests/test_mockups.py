@@ -1,26 +1,42 @@
-"""Unit tests for Phase 7 Printful realistic mockup generator and MockupJob tracking."""
+"""Unit tests for Phase 7 user-uploaded custom mockup templates and multi-mockup pipeline."""
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 import uuid
-from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
-import httpx
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
+from fastapi import HTTPException
 
-from app.domain.enums import ProviderName
-from app.domain.workflow import JobStatus
 from app.infrastructure.mockup_catalog import (
     DEFAULT_SUPPORTED_PRODUCTS,
-    get_product_config,
+    PRODUCT_PRESETS,
+    get_product_preset,
     get_requested_mockup_products,
     normalize_mockup_product,
 )
-from app.infrastructure.models import MockupJob
-from app.infrastructure.providers.fake_mockup_provider import FakeMockupProvider
-from app.infrastructure.providers.printful_mockup_provider import PrintfulMockupProvider
-from app.infrastructure.repositories.mockup import SqlMockupJobRepository
-from app.ports.errors import ProviderError, ProviderErrorKind
+from app.infrastructure.mockup_template_store import (
+    CustomMockupPlacement,
+    MockupTemplateItem,
+    MockupTemplateStore,
+)
+from app.api.routes.mockup_templates import (
+    validate_image_payload,
+    PlacementSchema,
+    UploadTemplateRequest,
+    CompositeCustomMockupRequest,
+    composite_custom_mockup_endpoint,
+)
+from app.api.routes.workflows import (
+    set_mockup_cover_endpoint,
+    reorder_mockups_endpoint,
+    delete_mockup_endpoint,
+    to_production_job_response,
+)
+from app.api.schemas import ReorderMockupsRequest
+from app.infrastructure.models import Asset, ProductionJob, ProductWorkflow
 
 
 class TestMockupCatalog:
@@ -34,234 +50,317 @@ class TestMockupCatalog:
         assert normalize_mockup_product("tote") == "tote_bag"
         assert normalize_mockup_product("tote-bag") == "tote_bag"
         assert normalize_mockup_product("coffee mug") == "mug"
+        assert normalize_mockup_product("tumbler") == "tumbler"
+        assert normalize_mockup_product("poster") == "poster"
         assert normalize_mockup_product("unknown_item") is None
 
-    def test_get_product_config(self) -> None:
-        cfg = get_product_config("tshirt")
-        assert cfg.product_id == 71
-        assert 9575 in cfg.variant_ids
-        assert cfg.placement == "front"
+    def test_get_product_preset(self) -> None:
+        tshirt_preset = get_product_preset("tshirt")
+        assert tshirt_preset.product_type == "tshirt"
+        assert tshirt_preset.default_blend_mode == "multiply"
+        assert 0.0 < tshirt_preset.default_left_pct < 1.0
 
-        cfg_sweat = get_product_config("sweatshirt")
-        assert cfg_sweat.product_id == 145
-        assert 5434 in cfg_sweat.variant_ids
-
-        cfg_tote = get_product_config("tote_bag")
-        assert cfg_tote.product_id == 378
-        assert 10732 in cfg_tote.variant_ids
-
-        cfg_mug = get_product_config("mug")
-        assert cfg_mug.product_id == 19
-        assert 1320 in cfg_mug.variant_ids
-
-        with pytest.raises(ValueError):
-            get_product_config("nonexistent_product")
+        mug_preset = get_product_preset("mug")
+        assert mug_preset.product_type == "mug"
+        assert mug_preset.default_blend_mode == "over"
 
     def test_get_requested_mockup_products_filtering(self) -> None:
-        # None or empty returns all 4 defaults
         assert get_requested_mockup_products(None) == DEFAULT_SUPPORTED_PRODUCTS
         assert get_requested_mockup_products([]) == DEFAULT_SUPPORTED_PRODUCTS
-
-        # Custom subset
         assert get_requested_mockup_products(["tee", "mug"]) == ["tshirt", "mug"]
         assert get_requested_mockup_products(["hoodie"]) == ["sweatshirt"]
-
-        # Only unsupported items falls back to all defaults
-        assert get_requested_mockup_products(["poster", "canvas"]) == DEFAULT_SUPPORTED_PRODUCTS
+        assert get_requested_mockup_products(["unknown_xyz"]) == DEFAULT_SUPPORTED_PRODUCTS
 
 
-class TestMugPlacementGeometry:
-    def test_mug_front_layout_places_design_inside_visible_zone(self) -> None:
-        from app.infrastructure.mockup_catalog import get_product_config, validate_mug_placement_geometry
+class TestImagePayloadValidation:
+    def test_valid_jpeg_and_png(self) -> None:
+        jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00" + b"\x00" * 30
+        validate_image_payload(jpeg_bytes, "image/jpeg")
 
-        cfg = get_product_config("mug")
-        assert cfg.mug_placement is not None
-        assert cfg.mug_placement.layout_mode == "front_focus"
-        assert cfg.mug_placement.requires_wrap_canvas is True
+        png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + b"\x00" * 30
+        validate_image_payload(png_bytes, "image/png")
 
-        # Test with standard 4500x5400 portrait master design fixture
-        qa_res, box = validate_mug_placement_geometry(4500, 5400, cfg.mug_placement)
-        assert qa_res.passed is True
-        assert qa_res.error_message is None
-        assert qa_res.is_inside_visible_zone is True
-        assert qa_res.is_scale_reasonable is True
+    def test_reject_invalid_mime_type(self) -> None:
+        with pytest.raises(HTTPException) as exc_info:
+            validate_image_payload(b"some content", "application/pdf")
+        assert exc_info.value.status_code == 400
+        assert "Unsupported image type" in exc_info.value.detail
 
-        left, top, width, height = box
-        # Validate that horizontal center matches target center (1350)
-        center_x = left + width / 2
-        center_y = top + height / 2
-        assert abs(center_x - 1350) <= 5.0
-        assert abs(center_y - 525) <= 5.0
+    def test_reject_corrupt_or_truncated_image(self) -> None:
+        with pytest.raises(HTTPException) as exc_info:
+            validate_image_payload(b"not an image", "image/jpeg")
+        assert exc_info.value.status_code == 400
 
-        # Validate design does not wrap around side (stays inside 900..1800)
-        assert left >= 900
-        assert left + width <= 1800
-
-        # Safe margins maintained
-        assert top >= 50
-        assert top + height <= 1000
-
-    def test_apparel_and_tote_isolated_from_mug_placement(self) -> None:
-        from app.infrastructure.mockup_catalog import get_product_config
-
-        for p_type in ["tshirt", "sweatshirt", "tote_bag"]:
-            cfg = get_product_config(p_type)
-            assert cfg.mug_placement is None
-            assert cfg.placement == "front"
-
-    def test_mug_geometric_qa_rejects_severe_offset(self) -> None:
-        from app.infrastructure.mockup_catalog import MugPlacementConfig, validate_mug_placement_geometry
-
-        bad_cfg = MugPlacementConfig(horizontal_offset=800)  # Pushed into handle area
-        qa_res, _ = validate_mug_placement_geometry(4500, 5400, bad_cfg)
-        assert qa_res.passed is False
-        assert qa_res.is_inside_visible_zone is False
-        assert qa_res.error_message is not None
+    def test_reject_oversized_payload(self) -> None:
+        jpeg_header = b"\xff\xd8\xff\xe0" + b"\x00" * 200
+        with pytest.raises(HTTPException) as exc_info:
+            validate_image_payload(jpeg_header, "image/jpeg", max_bytes=100)
+        assert exc_info.value.status_code == 400
+        assert "exceeds" in exc_info.value.detail
 
 
-class TestFakeMockupProvider:
+class TestMockupTemplateStore:
     @pytest.mark.asyncio
-    async def test_fake_mockup_lifecycle(self) -> None:
-        provider = FakeMockupProvider(pending_cycles=1)
-        res = await provider.create_mockup_task("tshirt", "https://example.com/master.png")
-        assert res.status == "pending"
-        assert res.task_id.startswith("fake_task_")
+    async def test_save_and_get_template_owner_scoped(self) -> None:
+        storage = MagicMock()
+        storage.put = AsyncMock()
+        storage.signed_url = AsyncMock(return_value="https://storage.test/template.jpg")
+        store = MockupTemplateStore(storage)
 
-        # First poll should still be pending
-        poll1 = await provider.get_mockup_task(res.task_id)
-        assert poll1.status == "pending"
+        owner_1 = uuid.uuid4()
+        image_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF" + b"\x00" * 50
 
-        # Second poll completed
-        poll2 = await provider.get_mockup_task(res.task_id)
-        assert poll2.status == "completed"
-        assert len(poll2.mockup_urls) == 1
-
-        # Download mockup
-        img_bytes = await provider.download_mockup(poll2.mockup_urls[0])
-        assert len(img_bytes) > 0
-
-    @pytest.mark.asyncio
-    async def test_fake_mockup_simulated_failure(self) -> None:
-        provider = FakeMockupProvider(failed_products={"mug"})
-        res = await provider.create_mockup_task("mug", "https://example.com/master.png")
-        poll = await provider.get_mockup_task(res.task_id)
-        assert poll.status == "failed"
-        assert "Simulated provider failure" in str(poll.error_message)
-
-
-class TestPrintfulMockupProvider:
-    @pytest.mark.asyncio
-    async def test_create_task_and_poll_success(self) -> None:
-        mock_transport = httpx.MockTransport(
-            lambda req: httpx.Response(
-                200,
-                json={
-                    "code": 200,
-                    "result": {
-                        "task_key": "pf_task_123",
-                        "status": "completed",
-                        "mockups": [{"mockup_url": "https://printful.test/mockup.jpg"}],
-                    },
-                },
-            )
+        saved = await store.save_template(
+            owner_id=owner_1,
+            name="My Studio Mug",
+            product_type="mug",
+            image_bytes=image_bytes,
+            content_type="image/jpeg",
+            placement=CustomMockupPlacement(left_pct=0.30, top_pct=0.30, width_pct=0.40, height_pct=0.40, blend_mode="over"),
         )
-        async with httpx.AsyncClient(transport=mock_transport) as client:
-            provider = PrintfulMockupProvider(access_token="test_token", http_client=client)
-            res = await provider.create_mockup_task("tshirt", "https://example.com/master.png")
-            assert res.task_id == "pf_task_123"
 
-            poll = await provider.get_mockup_task("pf_task_123")
-            assert poll.status == "completed"
-            assert poll.mockup_urls == ["https://printful.test/mockup.jpg"]
-
-    @pytest.mark.asyncio
-    async def test_auth_error_mapping(self) -> None:
-        mock_transport = httpx.MockTransport(
-            lambda req: httpx.Response(401, json={"code": 401, "result": "Unauthorized"})
-        )
-        async with httpx.AsyncClient(transport=mock_transport) as client:
-            provider = PrintfulMockupProvider(access_token="bad_token", http_client=client)
-            with pytest.raises(ProviderError) as exc_info:
-                await provider.create_mockup_task("tshirt", "https://example.com/master.png")
-            assert exc_info.value.kind == ProviderErrorKind.AUTHENTICATION
+        assert saved.id is not None
+        assert saved.name == "My Studio Mug"
+        assert saved.product_type == "mug"
+        assert saved.placement.blend_mode == "over"
+        assert str(owner_1) in saved.storage_key
+        assert f"mockup-templates/{owner_1}/mug/" in saved.storage_key
+        assert storage.put.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_store_id_header_included(self) -> None:
-        captured_headers = {}
+    async def test_list_templates_owner_isolation(self) -> None:
+        storage = MagicMock()
+        storage._bucket_name = "test-bucket"
+        storage.signed_url = AsyncMock(return_value="https://storage.test/signed.jpg")
 
-        def handler(req: httpx.Request) -> httpx.Response:
-            nonlocal captured_headers
-            captured_headers = dict(req.headers)
-            return httpx.Response(
-                200,
-                json={"code": 200, "result": {"task_key": "pf_task_456", "status": "completed", "mockups": []}},
-            )
+        owner_a = uuid.uuid4()
+        owner_b = uuid.uuid4()
 
-        mock_transport = httpx.MockTransport(handler)
-        async with httpx.AsyncClient(transport=mock_transport) as client:
-            provider = PrintfulMockupProvider(access_token="test_token", store_id="12345", http_client=client)
-            await provider.create_mockup_task("tshirt", "https://example.com/master.png")
-            assert captured_headers.get("x-pf-store-id") == "12345"
+        mock_s3_client = MagicMock()
+        json_key_a = f"mockup-templates/{owner_a}/tshirt/template-123.json"
+        manifest_a = {
+            "id": "template-123",
+            "owner_id": str(owner_a),
+            "name": "Owner A T-Shirt",
+            "product_type": "tshirt",
+            "storage_key": f"mockup-templates/{owner_a}/tshirt/template-123.jpg",
+            "placement": {"left_pct": 0.28, "top_pct": 0.25, "width_pct": 0.44, "height_pct": 0.48, "angle_deg": 0.0, "blend_mode": "multiply"},
+            "created_at": "2026-08-16T10:00:00Z",
+        }
 
-    @pytest.mark.asyncio
-    async def test_store_id_auto_discovery(self) -> None:
-        def handler(req: httpx.Request) -> httpx.Response:
-            if req.url.path == "/stores":
-                return httpx.Response(200, json={"code": 200, "result": [{"id": 98765, "name": "Test Store"}]})
-            if req.headers.get("x-pf-store-id") == "98765":
-                return httpx.Response(
-                    200,
-                    json={"code": 200, "result": {"task_key": "pf_task_789", "status": "completed", "mockups": []}},
-                )
-            return httpx.Response(400, json={"code": 400, "result": "This endpoint requires store_id"})
+        mock_s3_client.list_objects_v2.return_value = {
+            "Contents": [{"Key": json_key_a}],
+        }
+        storage._get_client = MagicMock(return_value=mock_s3_client)
+        storage.get = AsyncMock(return_value=json.dumps(manifest_a).encode("utf-8"))
 
-        mock_transport = httpx.MockTransport(handler)
-        async with httpx.AsyncClient(transport=mock_transport) as client:
-            provider = PrintfulMockupProvider(access_token="test_token", http_client=client)
-            res = await provider.create_mockup_task("tshirt", "https://example.com/master.png")
-            assert res.task_id == "pf_task_789"
+        store = MockupTemplateStore(storage)
+        templates_a = await store.list_templates(owner_id=owner_a)
+
+        assert len(templates_a) == 1
+        assert templates_a[0].id == "template-123"
+        assert templates_a[0].name == "Owner A T-Shirt"
+        assert templates_a[0].owner_id == str(owner_a)
+
+        mock_s3_client.list_objects_v2.return_value = {"Contents": []}
+        templates_b = await store.list_templates(owner_id=owner_b)
+        assert len(templates_b) == 0
 
 
-class TestMockupJobRepository:
-    @pytest.mark.asyncio
-    async def test_mockup_job_repository_crud(self) -> None:
-        session = MagicMock()
-        session.flush = AsyncMock()
-        repo = SqlMockupJobRepository(session)
-
-        job_id = uuid.uuid4()
+class TestMultiMockupEndpoints:
+    @pytest.fixture
+    def mock_env(self):
+        owner_id = uuid.uuid4()
         workflow_id = uuid.uuid4()
-        prod_job_id = uuid.uuid4()
         master_asset_id = uuid.uuid4()
 
-        job = MockupJob(
-            id=job_id,
+        user = MagicMock()
+        user.id = owner_id
+        user.email = "test@example.com"
+
+        workflow = ProductWorkflow(
+            id=workflow_id,
+            owner_id=owner_id,
+            state="PRODUCTION",
+            version=1,
+            idea_mode="hybrid",
+        )
+
+        master_asset = Asset(
+            id=master_asset_id,
             workflow_id=workflow_id,
-            production_job_id=prod_job_id,
-            master_asset_id=master_asset_id,
-            provider=ProviderName.PRINTFUL,
-            product_type="tshirt",
-            provider_product_id=71,
-            variant_ids=[4012],
-            placement="front",
-            status=JobStatus.QUEUED,
-            attempt_count=0,
+            artwork_job_id=None,
+            derived_from_id=None,
+            storage_key=f"production/{workflow_id}/master.png",
+            mime_type="image/png",
+            byte_size=1000,
+            checksum_sha256="sha-master",
+            provenance={"profile": "etsy-png-standard"},
         )
 
-        # Add
-        added = await repo.add(job)
-        assert added.id == job_id
-        session.add.assert_called_once_with(job)
-        session.flush.assert_called_once()
+        storage = MagicMock()
+        storage.get = AsyncMock(return_value=b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
+        storage.put = AsyncMock()
+        storage.delete = AsyncMock()
+        storage.signed_url = AsyncMock(side_effect=lambda key, *args, **kwargs: f"https://s3.test/{key}")
 
-        # Update
-        session.get = AsyncMock(return_value=job)
-        updated = await repo.update(
-            job_id,
-            status=JobStatus.SUCCEEDED,
-            external_task_id="task_abc",
-            result_mockup_url="https://test.url/m.jpg",
-            completed_at=datetime.now(UTC),
-        )
-        assert updated.status == JobStatus.SUCCEEDED
-        assert updated.external_task_id == "task_abc"
+        settings = MagicMock()
+        settings.image_max_input_bytes = 40 * 1024 * 1024
+        settings.image_worker_url = "http://image-worker:8100"
+
+        uow = MagicMock()
+        uow.workflows.get = AsyncMock(return_value=workflow)
+        uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
+        uow.assets.get = AsyncMock(return_value=master_asset)
+
+        assets_db: list[Asset] = [master_asset]
+
+        async def _list_for_wf(wid):
+            return [a for a in assets_db if a.workflow_id == wid]
+
+        async def _add_asset(a):
+            assets_db.append(a)
+            return a
+
+        async def _delete_asset(a):
+            if a in assets_db:
+                assets_db.remove(a)
+
+        uow.assets.list_for_workflow = AsyncMock(side_effect=_list_for_wf)
+        uow.assets.add = AsyncMock(side_effect=_add_asset)
+        uow.assets.delete = AsyncMock(side_effect=_delete_asset)
+        uow.session.flush = AsyncMock()
+        uow.session.commit = AsyncMock()
+        uow.commit = AsyncMock()
+
+        return {
+            "owner_id": owner_id,
+            "workflow_id": workflow_id,
+            "master_asset_id": master_asset_id,
+            "user": user,
+            "workflow": workflow,
+            "master_asset": master_asset,
+            "storage": storage,
+            "settings": settings,
+            "uow": uow,
+            "assets_db": assets_db,
+        }
+
+    @pytest.mark.asyncio
+    async def test_multiple_mockups_same_product_and_cover(self, mock_env) -> None:
+        user = mock_env["user"]
+        uow = mock_env["uow"]
+        storage = mock_env["storage"]
+        settings = mock_env["settings"]
+        wf_id = mock_env["workflow_id"]
+        assets_db = mock_env["assets_db"]
+
+        mock_image_worker_response = {
+            "mockup_base64": base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 40).decode("utf-8"),
+            "width": 1200,
+            "height": 1200,
+        }
+
+        with patch("httpx.AsyncClient.post") as mock_post:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = mock_image_worker_response
+            mock_post.return_value = mock_resp
+
+            # 1. Create first T-Shirt mockup: Black Flatlay
+            req1 = CompositeCustomMockupRequest(
+                workflow_id=wf_id,
+                product_type="tshirt",
+                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode("utf-8"),
+                template_name="Black Bella Canvas Flatlay",
+            )
+            res1 = await composite_custom_mockup_endpoint(req1, user, uow, storage, settings)
+            assert res1.product_type == "tshirt"
+            assert res1.template_name == "Black Bella Canvas Flatlay"
+            assert res1.is_cover is True  # First mockup becomes cover
+            assert res1.listing_order == 1
+
+            # 2. Create second T-Shirt mockup: White Flatlay (MUST NOT OVERWRITE FIRST)
+            req2 = CompositeCustomMockupRequest(
+                workflow_id=wf_id,
+                product_type="tshirt",
+                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode("utf-8"),
+                template_name="White Bella Canvas Flatlay",
+            )
+            res2 = await composite_custom_mockup_endpoint(req2, user, uow, storage, settings)
+            assert res2.asset_id != res1.asset_id
+            assert res2.listing_order == 2
+            assert res2.is_cover is False
+
+            # Verify both T-shirt mockups exist in DB
+            tshirt_mockups = [a for a in assets_db if a.provenance and a.provenance.get("product_type") == "tshirt"]
+            assert len(tshirt_mockups) == 2
+            assert tshirt_mockups[0].id == res1.asset_id
+            assert tshirt_mockups[1].id == res2.asset_id
+            assert tshirt_mockups[0].derived_from_id == mock_env["master_asset_id"]
+            assert tshirt_mockups[1].derived_from_id == mock_env["master_asset_id"]
+
+            # 3. Create third T-Shirt mockup: Female Model
+            req3 = CompositeCustomMockupRequest(
+                workflow_id=wf_id,
+                product_type="tshirt",
+                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode("utf-8"),
+                template_name="Female Model Black",
+            )
+            res3 = await composite_custom_mockup_endpoint(req3, user, uow, storage, settings)
+            assert len([a for a in assets_db if a.provenance and a.provenance.get("product_type") == "tshirt"]) == 3
+
+            # 4. Create Mug mockup (isolated under mug)
+            req_mug = CompositeCustomMockupRequest(
+                workflow_id=wf_id,
+                product_type="mug",
+                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode("utf-8"),
+                template_name="Kitchen Scene Mug",
+            )
+            res_mug = await composite_custom_mockup_endpoint(req_mug, user, uow, storage, settings)
+            mug_mockups = [a for a in assets_db if a.provenance and a.provenance.get("product_type") == "mug"]
+            assert len(mug_mockups) == 1
+            assert mug_mockups[0].id == res_mug.asset_id
+
+            # 5. Test Set as Cover: elect res2 as cover
+            cover_res = await set_mockup_cover_endpoint(wf_id, res2.asset_id, user, uow, storage)
+            assert cover_res.id == res2.asset_id
+            assert cover_res.provenance.get("is_cover") is True
+
+            # Verify res1 is no longer cover
+            a1 = next(a for a in assets_db if a.id == res1.asset_id)
+            assert a1.provenance.get("is_cover") is False
+
+            # 6. Test Reorder Mockups
+            new_order = [res3.asset_id, res1.asset_id, res2.asset_id, res_mug.asset_id]
+            reorder_req = ReorderMockupsRequest(asset_ids=new_order)
+            reordered = await reorder_mockups_endpoint(wf_id, reorder_req, user, uow, storage)
+            assert len(reordered) == 4
+            # Cover is res2 so it will be first in sorted_mockups, but listing_order is set correctly
+            a3 = next(a for a in assets_db if a.id == res3.asset_id)
+            assert a3.provenance.get("listing_order") == 1
+
+            # 7. Test to_production_job_response
+            job = ProductionJob(
+                id=uuid.uuid4(),
+                workflow_id=wf_id,
+                source_asset_id=None,
+                output_asset_id=mock_env["master_asset_id"],
+                operations=["trim", "upscale", "typography"],
+                status="SUCCEEDED",
+                idempotency_key="job-123",
+                attempt_count=1,
+            )
+            prod_resp = await to_production_job_response(job, storage, uow)
+            assert len(prod_resp.mockup_assets) == 4
+            assert "tshirt" in prod_resp.mockup_urls
+            assert "mug" in prod_resp.mockup_urls
+
+            # 8. Test Delete Mockup: delete res3
+            del_resp = await delete_mockup_endpoint(wf_id, res3.asset_id, user, uow, storage)
+            assert del_resp.status_code == 204
+            assert storage.delete.called
+            assert not any(a.id == res3.asset_id for a in assets_db)
+            # Master PNG and other mockups remain intact
+            assert any(a.id == mock_env["master_asset_id"] for a in assets_db)
+            assert len([a for a in assets_db if a.provenance and a.provenance.get("product_type") == "tshirt"]) == 2

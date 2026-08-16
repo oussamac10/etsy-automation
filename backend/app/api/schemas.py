@@ -350,3 +350,9 @@ class ProductionJobResponse(BaseModel):
     mockup_urls: dict[str, str] = {}
 
 
+class ReorderMockupsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    asset_ids: list[uuid.UUID]
+
+
