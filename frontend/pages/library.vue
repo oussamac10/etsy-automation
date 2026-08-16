@@ -1,13 +1,9 @@
 <script setup lang="ts">
 /* global $fetch, useRuntimeConfig */
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, nextTick } from "vue";
 import NavBar from "~/components/NavBar.vue";
 import Button from "~/components/ui/Button.vue";
 import Card from "~/components/ui/Card.vue";
-import CardHeader from "~/components/ui/CardHeader.vue";
-import CardTitle from "~/components/ui/CardTitle.vue";
-import CardDescription from "~/components/ui/CardDescription.vue";
-import CardContent from "~/components/ui/CardContent.vue";
 import Badge from "~/components/ui/Badge.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
@@ -148,7 +144,6 @@ async function confirmDeleteTemplate(): Promise<void> {
       }
     );
 
-    // Remove locally
     templates.value = templates.value.filter((t) => t.id !== templateToDelete.value?.id);
     templateToDelete.value = null;
   } catch (err: unknown) {
@@ -159,7 +154,20 @@ async function confirmDeleteTemplate(): Promise<void> {
   }
 }
 
-// Modal: Edit Template (Name & Placement)
+// -------------------------------------------------------------
+// Interactive Placement Canvas Dragging & Resizing Logic
+// -------------------------------------------------------------
+const interactiveCanvasRef = ref<HTMLDivElement | null>(null);
+const isDraggingArtwork = ref(false);
+const isResizingArtwork = ref(false);
+let dragStartX = 0;
+let dragStartY = 0;
+let initialLeftPct = 0;
+let initialTopPct = 0;
+let initialWidthPct = 0;
+let initialHeightPct = 0;
+
+// Modal: Edit Template (Name & Placement Studio)
 const templateToEdit = ref<MockupTemplate | null>(null);
 const editName = ref("");
 const editProductType = ref("");
@@ -178,8 +186,124 @@ function openEditModal(t: MockupTemplate): void {
   templateToEdit.value = t;
   editName.value = t.name;
   editProductType.value = t.product_type;
-  editPlacement.value = { ...t.placement };
+  editPlacement.value = {
+    left_pct: t.placement.left_pct <= 1.0 ? t.placement.left_pct : t.placement.left_pct / 100,
+    top_pct: t.placement.top_pct <= 1.0 ? t.placement.top_pct : t.placement.top_pct / 100,
+    width_pct: t.placement.width_pct <= 1.0 ? t.placement.width_pct : t.placement.width_pct / 100,
+    height_pct: t.placement.height_pct <= 1.0 ? t.placement.height_pct : t.placement.height_pct / 100,
+    angle_deg: t.placement.angle_deg || 0,
+    blend_mode: t.placement.blend_mode || "multiply",
+  };
   updateError.value = null;
+}
+
+// Preset Placement Actions for Edit Modal
+function centerEditPlacement(): void {
+  const w = editPlacement.value.width_pct;
+  const h = editPlacement.value.height_pct;
+  editPlacement.value.left_pct = Math.max(0, Math.round(((1.0 - w) / 2) * 100) / 100);
+  editPlacement.value.top_pct = Math.max(0, Math.round(((1.0 - h) / 2) * 100) / 100);
+}
+
+function applyEditChestPreset(): void {
+  editPlacement.value.left_pct = 0.50;
+  editPlacement.value.top_pct = 0.26;
+  editPlacement.value.width_pct = 0.22;
+  editPlacement.value.height_pct = 0.24;
+}
+
+function applyEditFullCenterPreset(): void {
+  editPlacement.value.left_pct = 0.28;
+  editPlacement.value.top_pct = 0.25;
+  editPlacement.value.width_pct = 0.44;
+  editPlacement.value.height_pct = 0.48;
+}
+
+function applyEditSquarePreset(): void {
+  editPlacement.value.left_pct = 0.30;
+  editPlacement.value.top_pct = 0.30;
+  editPlacement.value.width_pct = 0.40;
+  editPlacement.value.height_pct = 0.40;
+}
+
+// Pointer events for Canvas Dragging & Resizing (Edit Mode)
+function onArtworkPointerDown(e: PointerEvent): void {
+  if (!interactiveCanvasRef.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  isDraggingArtwork.value = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  initialLeftPct = editPlacement.value.left_pct;
+  initialTopPct = editPlacement.value.top_pct;
+
+  window.addEventListener("pointermove", onArtworkPointerMove);
+  window.addEventListener("pointerup", onArtworkPointerUp);
+}
+
+function onArtworkPointerMove(e: PointerEvent): void {
+  if (!isDraggingArtwork.value || !interactiveCanvasRef.value) return;
+  const rect = interactiveCanvasRef.value.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+
+  const dxPct = (e.clientX - dragStartX) / rect.width;
+  const dyPct = (e.clientY - dragStartY) / rect.height;
+
+  let newLeft = initialLeftPct + dxPct;
+  let newTop = initialTopPct + dyPct;
+
+  const maxL = 1.0 - editPlacement.value.width_pct;
+  const maxT = 1.0 - editPlacement.value.height_pct;
+
+  newLeft = Math.max(0, Math.min(newLeft, maxL));
+  newTop = Math.max(0, Math.min(newTop, maxT));
+
+  editPlacement.value.left_pct = Math.round(newLeft * 100) / 100;
+  editPlacement.value.top_pct = Math.round(newTop * 100) / 100;
+}
+
+function onArtworkPointerUp(): void {
+  isDraggingArtwork.value = false;
+  window.removeEventListener("pointermove", onArtworkPointerMove);
+  window.removeEventListener("pointerup", onArtworkPointerUp);
+}
+
+function onResizePointerDown(e: PointerEvent): void {
+  if (!interactiveCanvasRef.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  isResizingArtwork.value = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  initialWidthPct = editPlacement.value.width_pct;
+  initialHeightPct = editPlacement.value.height_pct;
+
+  window.addEventListener("pointermove", onResizePointerMove);
+  window.addEventListener("pointerup", onResizePointerUp);
+}
+
+function onResizePointerMove(e: PointerEvent): void {
+  if (!isResizingArtwork.value || !interactiveCanvasRef.value) return;
+  const rect = interactiveCanvasRef.value.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+
+  const dxPct = (e.clientX - dragStartX) / rect.width;
+  const dyPct = (e.clientY - dragStartY) / rect.height;
+
+  let newW = initialWidthPct + dxPct;
+  let newH = initialHeightPct + dyPct;
+
+  newW = Math.max(0.1, Math.min(newW, 1.0 - editPlacement.value.left_pct));
+  newH = Math.max(0.1, Math.min(newH, 1.0 - editPlacement.value.top_pct));
+
+  editPlacement.value.width_pct = Math.round(newW * 100) / 100;
+  editPlacement.value.height_pct = Math.round(newH * 100) / 100;
+}
+
+function onResizePointerUp(): void {
+  isResizingArtwork.value = false;
+  window.removeEventListener("pointermove", onResizePointerMove);
+  window.removeEventListener("pointerup", onResizePointerUp);
 }
 
 async function handleSaveEdit(): Promise<void> {
@@ -205,7 +329,6 @@ async function handleSaveEdit(): Promise<void> {
       }
     );
 
-    // Update in local array
     const idx = templates.value.findIndex((t) => t.id === templateToEdit.value?.id);
     if (idx !== -1 && updated) {
       templates.value[idx] = updated;
@@ -219,13 +342,17 @@ async function handleSaveEdit(): Promise<void> {
   }
 }
 
-// Modal: Upload New Template
+// -------------------------------------------------------------
+// Upload Modal with Interactive Placement Canvas
+// -------------------------------------------------------------
 const showUploadModal = ref(false);
+const uploadStep = ref<"file" | "placement">("file");
 const uploadName = ref("");
 const uploadProductType = ref("mug");
 const uploadCustomTypeName = ref("");
 const uploadImageFile = ref<File | null>(null);
 const uploadImagePreviewUrl = ref<string | null>(null);
+const uploadCanvasRef = ref<HTMLDivElement | null>(null);
 const uploadPlacement = ref<PlacementData>({
   left_pct: 0.28,
   top_pct: 0.25,
@@ -246,6 +373,93 @@ function handleFileSelect(e: Event): void {
   if (!uploadName.value) {
     uploadName.value = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
   }
+  uploadStep.value = "placement";
+}
+
+function centerUploadPlacement(): void {
+  const w = uploadPlacement.value.width_pct;
+  const h = uploadPlacement.value.height_pct;
+  uploadPlacement.value.left_pct = Math.max(0, Math.round(((1.0 - w) / 2) * 100) / 100);
+  uploadPlacement.value.top_pct = Math.max(0, Math.round(((1.0 - h) / 2) * 100) / 100);
+}
+
+function onUploadArtworkPointerDown(e: PointerEvent): void {
+  if (!uploadCanvasRef.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  isDraggingArtwork.value = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  initialLeftPct = uploadPlacement.value.left_pct;
+  initialTopPct = uploadPlacement.value.top_pct;
+
+  window.addEventListener("pointermove", onUploadArtworkPointerMove);
+  window.addEventListener("pointerup", onUploadArtworkPointerUp);
+}
+
+function onUploadArtworkPointerMove(e: PointerEvent): void {
+  if (!isDraggingArtwork.value || !uploadCanvasRef.value) return;
+  const rect = uploadCanvasRef.value.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+
+  const dxPct = (e.clientX - dragStartX) / rect.width;
+  const dyPct = (e.clientY - dragStartY) / rect.height;
+
+  let newLeft = initialLeftPct + dxPct;
+  let newTop = initialTopPct + dyPct;
+
+  const maxL = 1.0 - uploadPlacement.value.width_pct;
+  const maxT = 1.0 - uploadPlacement.value.height_pct;
+
+  newLeft = Math.max(0, Math.min(newLeft, maxL));
+  newTop = Math.max(0, Math.min(newTop, maxT));
+
+  uploadPlacement.value.left_pct = Math.round(newLeft * 100) / 100;
+  uploadPlacement.value.top_pct = Math.round(newTop * 100) / 100;
+}
+
+function onUploadArtworkPointerUp(): void {
+  isDraggingArtwork.value = false;
+  window.removeEventListener("pointermove", onUploadArtworkPointerMove);
+  window.removeEventListener("pointerup", onUploadArtworkPointerUp);
+}
+
+function onUploadResizePointerDown(e: PointerEvent): void {
+  if (!uploadCanvasRef.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  isResizingArtwork.value = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  initialWidthPct = uploadPlacement.value.width_pct;
+  initialHeightPct = uploadPlacement.value.height_pct;
+
+  window.addEventListener("pointermove", onUploadResizePointerMove);
+  window.addEventListener("pointerup", onUploadResizePointerUp);
+}
+
+function onUploadResizePointerMove(e: PointerEvent): void {
+  if (!isResizingArtwork.value || !uploadCanvasRef.value) return;
+  const rect = uploadCanvasRef.value.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+
+  const dxPct = (e.clientX - dragStartX) / rect.width;
+  const dyPct = (e.clientY - dragStartY) / rect.height;
+
+  let newW = initialWidthPct + dxPct;
+  let newH = initialHeightPct + dyPct;
+
+  newW = Math.max(0.1, Math.min(newW, 1.0 - uploadPlacement.value.left_pct));
+  newH = Math.max(0.1, Math.min(newH, 1.0 - uploadPlacement.value.top_pct));
+
+  uploadPlacement.value.width_pct = Math.round(newW * 100) / 100;
+  uploadPlacement.value.height_pct = Math.round(newH * 100) / 100;
+}
+
+function onUploadResizePointerUp(): void {
+  isResizingArtwork.value = false;
+  window.removeEventListener("pointermove", onUploadResizePointerMove);
+  window.removeEventListener("pointerup", onUploadResizePointerUp);
 }
 
 async function handleUploadSubmit(): Promise<void> {
@@ -296,8 +510,8 @@ async function handleUploadSubmit(): Promise<void> {
       templates.value.unshift(created);
     }
 
-    // Reset form
     showUploadModal.value = false;
+    uploadStep.value = "file";
     uploadImageFile.value = null;
     uploadImagePreviewUrl.value = null;
     uploadName.value = "";
@@ -352,7 +566,7 @@ onMounted(() => {
             Mockup Template Library
           </h1>
           <p class="text-sm text-zinc-500 max-w-2xl">
-            Manage your persistent blank mockup photos and placement bounding boxes. Unwanted templates can be deleted here to permanently free up storage.
+            Visually place and center artwork print areas on your blank mockup templates. Unwanted photos can be deleted here to permanently free storage.
           </p>
         </div>
 
@@ -371,7 +585,7 @@ onMounted(() => {
             variant="default"
             size="sm"
             class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
-            @click="showUploadModal = true"
+            @click="showUploadModal = true; uploadStep = 'file'"
           >
             <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
             <span>Upload Mockup Template</span>
@@ -476,14 +690,14 @@ onMounted(() => {
             No templates found in {{ selectedCategory === 'all' ? 'library' : getProductLabel(selectedCategory) }}
           </h3>
           <p class="text-xs text-zinc-500 leading-relaxed">
-            Upload your blank product photos (e.g. flatlays, models, styled scenes) to use them automatically in your Etsy listings.
+            Upload your blank product photos (e.g. flatlays, models, styled scenes) to set their print placement and use them automatically in Etsy workflows.
           </p>
         </div>
         <Button
           variant="default"
           size="sm"
           class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 shadow-xs cursor-pointer inline-flex items-center"
-          @click="showUploadModal = true"
+          @click="showUploadModal = true; uploadStep = 'file'"
         >
           <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
           <span>Upload First Template</span>
@@ -497,7 +711,7 @@ onMounted(() => {
           :key="tpl.id"
           class="overflow-hidden bg-white border border-zinc-200 shadow-2xs hover:shadow-md transition-all flex flex-col group"
         >
-          <!-- Thumbnail Area -->
+          <!-- Thumbnail Area with Hover Placement Overlay -->
           <div class="aspect-square bg-zinc-50 overflow-hidden relative flex items-center justify-center p-2.5 border-b border-zinc-100">
             <img
               :src="tpl.url"
@@ -514,9 +728,9 @@ onMounted(() => {
               <span>{{ getProductLabel(tpl.product_type) }}</span>
             </Badge>
 
-            <!-- Placement Box Indicator Overlay on Hover -->
+            <!-- Bounding Box Indicator Overlay on Hover -->
             <div
-              class="absolute border-2 border-dashed border-indigo-500/80 bg-indigo-500/10 pointer-events-none rounded-xs opacity-0 group-hover:opacity-100 transition-opacity"
+              class="absolute border-2 border-dashed border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] pointer-events-none rounded-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
               :style="{
                 left: `${(tpl.placement?.left_pct ?? 0.25) * 100}%`,
                 top: `${(tpl.placement?.top_pct ?? 0.25) * 100}%`,
@@ -524,7 +738,11 @@ onMounted(() => {
                 height: `${(tpl.placement?.height_pct ?? 0.5) * 100}%`,
                 transform: `rotate(${tpl.placement?.angle_deg ?? 0}deg)`,
               }"
-            />
+            >
+              <span class="text-[9px] font-bold text-indigo-950 px-1 bg-white/80 rounded shadow-xs">
+                PNG Placement
+              </span>
+            </div>
           </div>
 
           <!-- Card Body -->
@@ -549,14 +767,14 @@ onMounted(() => {
                 @click="openEditModal(tpl)"
               >
                 <Icon name="lucide:sliders" class="size-3 text-indigo-600" aria-hidden="true" />
-                <span>Adjust</span>
+                <span>Adjust Placement</span>
               </Button>
 
               <Button
                 variant="outline"
                 size="sm"
                 class="text-[11px] h-7 px-2 font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 gap-1 cursor-pointer"
-                title="Delete template and purge file from storage"
+                title="Delete template and permanently purge photo from MinIO"
                 @click="templateToDelete = tpl"
               >
                 <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
@@ -617,84 +835,189 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Modal: Edit Template (Name & Placement) -->
+    <!-- Modal: Interactive Placement Adjustment Studio (Edit Template) -->
     <div
       v-if="templateToEdit"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
       @click.self="templateToEdit = null"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-lg w-full p-6 space-y-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-4xl w-full p-6 space-y-4 max-h-[92vh] flex flex-col">
+        <!-- Header -->
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div class="flex items-center gap-2">
-            <Icon name="lucide:sliders" class="size-4 text-indigo-600" aria-hidden="true" />
-            <h3 class="text-sm font-bold text-zinc-900">Adjust Mockup Template</h3>
+            <Icon name="lucide:move" class="size-4 text-indigo-600" aria-hidden="true" />
+            <div>
+              <h3 class="text-sm font-bold text-zinc-900">Configure PNG Placement & Print Area</h3>
+              <p class="text-[11px] text-zinc-500">Drag or resize the print box to set where master PNGs will be centered on this mockup</p>
+            </div>
           </div>
           <button type="button" class="text-zinc-400 hover:text-zinc-600 cursor-pointer" @click="templateToEdit = null">
             <Icon name="lucide:x" class="size-4" aria-hidden="true" />
           </button>
         </div>
 
-        <div class="space-y-3">
-          <div class="space-y-1.5">
-            <Label class="text-xs font-bold">Template Title</Label>
-            <Input v-model="editName" class="h-8 text-xs" />
-          </div>
+        <!-- 2-Column Split: Interactive Canvas (Left) + Placement Controls (Right) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-1 p-1 items-start">
+          <!-- Left Column (7 cols): Interactive Visual Canvas -->
+          <div class="lg:col-span-7 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+                <Icon name="lucide:layout" class="size-3.5 text-indigo-600" aria-hidden="true" />
+                <span>Interactive Placement Canvas</span>
+              </span>
 
-          <div class="space-y-1.5">
-            <Label class="text-xs font-bold">Product Category</Label>
-            <select
-              v-model="editProductType"
-              class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
+              <!-- Quick Placement Helpers -->
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  class="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors cursor-pointer border border-indigo-200 flex items-center gap-1"
+                  @click="centerEditPlacement"
+                >
+                  <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
+                  <span>Center Box</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-0.5 text-[10px] font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded transition-colors cursor-pointer"
+                  @click="applyEditFullCenterPreset"
+                >
+                  Full Center
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-0.5 text-[10px] font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded transition-colors cursor-pointer"
+                  @click="applyEditChestPreset"
+                >
+                  Chest Logo
+                </button>
+              </div>
+            </div>
+
+            <!-- Canvas Viewport -->
+            <div
+              ref="interactiveCanvasRef"
+              class="relative aspect-square max-h-[360px] w-full mx-auto bg-zinc-950/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
             >
-              <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
+              <!-- Template Background Image -->
+              <img
+                :src="templateToEdit.url"
+                alt="Template"
+                class="w-full h-full object-contain pointer-events-none"
+              />
+
+              <!-- Alignment Crosshairs -->
+              <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
+              <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
+
+              <!-- Draggable & Resizable Placement Box -->
+              <div
+                class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
+                :style="{
+                  left: `${editPlacement.left_pct * 100}%`,
+                  top: `${editPlacement.top_pct * 100}%`,
+                  width: `${editPlacement.width_pct * 100}%`,
+                  height: `${editPlacement.height_pct * 100}%`,
+                }"
+                @pointerdown="onArtworkPointerDown"
+              >
+                <!-- Live Coordinates Pill -->
+                <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
+                  {{ Math.round(editPlacement.left_pct * 100) }}%, {{ Math.round(editPlacement.top_pct * 100) }}% ({{ Math.round(editPlacement.width_pct * 100) }}×{{ Math.round(editPlacement.height_pct * 100) }}%)
+                </div>
+
+                <!-- Sample Centered Artwork Graphic -->
+                <div class="p-2 text-center pointer-events-none select-none flex flex-col items-center justify-center space-y-1">
+                  <div class="h-7 w-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                    <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
+                  </div>
+                  <span class="text-[9px] font-extrabold uppercase tracking-wider text-indigo-950 bg-white/90 px-1.5 py-0.5 rounded shadow-2xs">
+                    PNG Artwork Centered Here
+                  </span>
+                </div>
+
+                <!-- Corner Resize Handle -->
+                <div
+                  class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                  title="Drag to resize print area"
+                  @pointerdown="onResizePointerDown"
+                >
+                  <Icon name="lucide:maximize-2" class="size-2 text-white" aria-hidden="true" />
+                </div>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-zinc-500 text-center">
+              💡 Click and drag the box to move · Drag the bottom-right corner circle to resize
+            </p>
           </div>
 
-          <div class="space-y-1.5">
-            <Label class="text-xs font-bold">Texture Blend Mode</Label>
-            <select
-              v-model="editPlacement.blend_mode"
-              class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs"
-            >
-              <option value="multiply">Multiply (Realistic Apparel Wrinkles & Shadows)</option>
-              <option value="over">Over / Opaque (Ceramics, Posters, Stickers, Tumblers)</option>
-            </select>
-          </div>
-
-          <!-- Placement Sliders -->
-          <div class="grid grid-cols-2 gap-3 pt-2">
-            <div class="space-y-1">
-              <div class="flex justify-between text-[11px]">
-                <span class="text-zinc-500">Box Width</span>
-                <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.width_pct * 100) }}%</span>
-              </div>
-              <input type="range" v-model.number="editPlacement.width_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+          <!-- Right Column (5 cols): Placement Precision Controls & Metadata -->
+          <div class="lg:col-span-5 space-y-4">
+            <div class="space-y-1.5">
+              <Label class="text-xs font-bold">Template Title</Label>
+              <Input v-model="editName" class="h-8 text-xs" />
             </div>
 
-            <div class="space-y-1">
-              <div class="flex justify-between text-[11px]">
-                <span class="text-zinc-500">Box Height</span>
-                <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.height_pct * 100) }}%</span>
-              </div>
-              <input type="range" v-model.number="editPlacement.height_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+            <div class="space-y-1.5">
+              <Label class="text-xs font-bold">Product Category</Label>
+              <select
+                v-model="editProductType"
+                class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
+              >
+                <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
             </div>
 
-            <div class="space-y-1">
-              <div class="flex justify-between text-[11px]">
-                <span class="text-zinc-500">Left Position</span>
-                <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.left_pct * 100) }}%</span>
-              </div>
-              <input type="range" v-model.number="editPlacement.left_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+            <div class="space-y-1.5">
+              <Label class="text-xs font-bold">Texture Blend Mode</Label>
+              <select
+                v-model="editPlacement.blend_mode"
+                class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs"
+              >
+                <option value="multiply">Multiply (Realistic Apparel Wrinkles & Shadows)</option>
+                <option value="over">Over / Opaque (Ceramics, Posters, Stickers, Tumblers)</option>
+              </select>
             </div>
 
-            <div class="space-y-1">
-              <div class="flex justify-between text-[11px]">
-                <span class="text-zinc-500">Top Position</span>
-                <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.top_pct * 100) }}%</span>
+            <!-- Precision Sliders -->
+            <div class="p-3 bg-zinc-50 rounded-xl border border-zinc-200 space-y-3">
+              <h5 class="text-[11px] font-bold text-zinc-700 uppercase tracking-wider">Placement Sliders</h5>
+
+              <div class="space-y-2">
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="text-zinc-500">Box Width</span>
+                    <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.width_pct * 100) }}%</span>
+                  </div>
+                  <input type="range" v-model.number="editPlacement.width_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+                </div>
+
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="text-zinc-500">Box Height</span>
+                    <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.height_pct * 100) }}%</span>
+                  </div>
+                  <input type="range" v-model.number="editPlacement.height_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+                </div>
+
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="text-zinc-500">Left Position</span>
+                    <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.left_pct * 100) }}%</span>
+                  </div>
+                  <input type="range" v-model.number="editPlacement.left_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+                </div>
+
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="text-zinc-500">Top Position</span>
+                    <span class="font-mono font-bold text-zinc-900">{{ Math.round(editPlacement.top_pct * 100) }}%</span>
+                  </div>
+                  <input type="range" v-model.number="editPlacement.top_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
+                </div>
               </div>
-              <input type="range" v-model.number="editPlacement.top_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-indigo-600 cursor-pointer" />
             </div>
           </div>
         </div>
@@ -704,7 +1027,7 @@ onMounted(() => {
           <AlertDescription>{{ updateError }}</AlertDescription>
         </Alert>
 
-        <div class="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+        <div class="flex justify-end gap-2 pt-3 border-t border-zinc-100">
           <Button variant="outline" size="sm" class="text-xs cursor-pointer" :disabled="isUpdating" @click="templateToEdit = null">
             Cancel
           </Button>
@@ -717,67 +1040,153 @@ onMounted(() => {
           >
             <Icon v-if="isUpdating" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
             <Icon v-else name="lucide:check" class="size-3.5" aria-hidden="true" />
-            <span>{{ isUpdating ? 'Saving...' : 'Save Adjustments' }}</span>
+            <span>{{ isUpdating ? 'Saving...' : 'Save & Center Placement' }}</span>
           </Button>
         </div>
       </div>
     </div>
 
-    <!-- Modal: Upload Mockup Template -->
+    <!-- Modal: Upload Mockup Template with Visual Placement Canvas -->
     <div
       v-if="showUploadModal"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200"
       @click.self="showUploadModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-lg w-full p-6 space-y-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-zinc-200 max-w-4xl w-full p-6 space-y-4 max-h-[92vh] flex flex-col">
+        <!-- Header -->
         <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
           <div class="flex items-center gap-2">
             <Icon name="lucide:upload" class="size-4 text-indigo-600" aria-hidden="true" />
-            <h3 class="text-sm font-bold text-zinc-900">Upload Mockup Template</h3>
+            <h3 class="text-sm font-bold text-zinc-900">Upload Mockup Template & Set Placement</h3>
           </div>
           <button type="button" class="text-zinc-400 hover:text-zinc-600 cursor-pointer" @click="showUploadModal = false">
             <Icon name="lucide:x" class="size-4" aria-hidden="true" />
           </button>
         </div>
 
-        <div class="space-y-3">
-          <!-- File Input -->
-          <div class="space-y-1.5">
-            <Label class="text-xs font-bold">Mockup Photo (JPEG, PNG, WebP)</Label>
+        <!-- Step 1: File Selection -->
+        <div v-if="uploadStep === 'file'" class="space-y-4 py-4">
+          <div class="space-y-2">
+            <Label class="text-xs font-bold">Select Blank Mockup Image</Label>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              class="block w-full text-xs text-zinc-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+              class="block w-full text-xs text-zinc-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer border border-dashed border-zinc-300 rounded-xl p-4 text-center bg-zinc-50"
               @change="handleFileSelect"
             />
           </div>
+        </div>
 
-          <!-- Preview Thumbnail -->
-          <div v-if="uploadImagePreviewUrl" class="aspect-video bg-zinc-100 rounded-xl overflow-hidden border border-zinc-200 flex items-center justify-center p-2">
-            <img :src="uploadImagePreviewUrl" alt="Upload preview" class="max-h-40 object-contain rounded-lg shadow-xs" />
-          </div>
+        <!-- Step 2: Visual Placement Studio -->
+        <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-1 p-1 items-start">
+          <!-- Left Column (7 cols): Interactive Visual Canvas -->
+          <div class="lg:col-span-7 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+                <Icon name="lucide:layout" class="size-3.5 text-indigo-600" aria-hidden="true" />
+                <span>Designate PNG Print Area</span>
+              </span>
 
-          <div class="space-y-1.5">
-            <Label class="text-xs font-bold">Template Title</Label>
-            <Input v-model="uploadName" placeholder="e.g. Minimalist Ceramic Mug on Wooden Desk" class="h-8 text-xs" />
-          </div>
+              <button
+                type="button"
+                class="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition-colors cursor-pointer border border-indigo-200 flex items-center gap-1"
+                @click="centerUploadPlacement"
+              >
+                <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
+                <span>Center Box</span>
+              </button>
+            </div>
 
-          <div class="space-y-1.5">
-            <Label class="text-xs font-bold">Product Category</Label>
-            <select
-              v-model="uploadProductType"
-              class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
+            <!-- Canvas Viewport -->
+            <div
+              ref="uploadCanvasRef"
+              class="relative aspect-square max-h-[360px] w-full mx-auto bg-zinc-950/5 rounded-xl border border-zinc-200 overflow-hidden select-none touch-none flex items-center justify-center shadow-inner"
             >
-              <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-              <option value="custom">+ New Custom Product Type...</option>
-            </select>
+              <img
+                v-if="uploadImagePreviewUrl"
+                :src="uploadImagePreviewUrl"
+                alt="Upload Preview"
+                class="w-full h-full object-contain pointer-events-none"
+              />
+
+              <!-- Alignment Crosshairs -->
+              <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-indigo-400/30 pointer-events-none" />
+              <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-indigo-400/30 pointer-events-none" />
+
+              <!-- Draggable & Resizable Placement Box -->
+              <div
+                class="absolute border-2 border-indigo-600 bg-indigo-500/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-indigo-400/50"
+                :style="{
+                  left: `${uploadPlacement.left_pct * 100}%`,
+                  top: `${uploadPlacement.top_pct * 100}%`,
+                  width: `${uploadPlacement.width_pct * 100}%`,
+                  height: `${uploadPlacement.height_pct * 100}%`,
+                }"
+                @pointerdown="onUploadArtworkPointerDown"
+              >
+                <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-zinc-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
+                  {{ Math.round(uploadPlacement.left_pct * 100) }}%, {{ Math.round(uploadPlacement.top_pct * 100) }}% ({{ Math.round(uploadPlacement.width_pct * 100) }}×{{ Math.round(uploadPlacement.height_pct * 100) }}%)
+                </div>
+
+                <div class="p-2 text-center pointer-events-none select-none flex flex-col items-center justify-center space-y-1">
+                  <div class="h-7 w-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                    <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
+                  </div>
+                  <span class="text-[9px] font-extrabold uppercase tracking-wider text-indigo-950 bg-white/90 px-1.5 py-0.5 rounded shadow-2xs">
+                    PNG Artwork Centered Here
+                  </span>
+                </div>
+
+                <div
+                  class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-indigo-600 border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                  title="Drag to resize print area"
+                  @pointerdown="onUploadResizePointerDown"
+                >
+                  <Icon name="lucide:maximize-2" class="size-2 text-white" aria-hidden="true" />
+                </div>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-zinc-500 text-center">
+              💡 Drag to position · Drag corner handle to resize print bounding box
+            </p>
           </div>
 
-          <div v-if="uploadProductType === 'custom'" class="space-y-1.5 animate-in fade-in">
-            <Label class="text-xs font-bold text-indigo-700">New Product Type Name</Label>
-            <Input v-model="uploadCustomTypeName" placeholder="e.g. Canvas Print, Greeting Card, Pillow" class="h-8 text-xs border-indigo-200" />
+          <!-- Right Column (5 cols): Metadata & Category -->
+          <div class="lg:col-span-5 space-y-3.5">
+            <div class="space-y-1.5">
+              <Label class="text-xs font-bold">Template Title</Label>
+              <Input v-model="uploadName" placeholder="e.g. Vintage Mug on Marble Table" class="h-8 text-xs" />
+            </div>
+
+            <div class="space-y-1.5">
+              <Label class="text-xs font-bold">Product Category</Label>
+              <select
+                v-model="uploadProductType"
+                class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500"
+              >
+                <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+                <option value="custom">+ New Custom Product Category...</option>
+              </select>
+            </div>
+
+            <div v-if="uploadProductType === 'custom'" class="space-y-1.5 animate-in fade-in">
+              <Label class="text-xs font-bold text-indigo-700">Custom Category Name</Label>
+              <Input v-model="uploadCustomTypeName" placeholder="e.g. Canvas Print, Pillow, Blanket" class="h-8 text-xs border-indigo-200" />
+            </div>
+
+            <div class="space-y-1.5">
+              <Label class="text-xs font-bold">Texture Blend Mode</Label>
+              <select
+                v-model="uploadPlacement.blend_mode"
+                class="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs shadow-2xs"
+              >
+                <option value="multiply">Multiply (Realistic Apparel Wrinkles & Shadows)</option>
+                <option value="over">Over / Opaque (Ceramics, Posters, Stickers, Tumblers)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -786,7 +1195,7 @@ onMounted(() => {
           <AlertDescription>{{ uploadError }}</AlertDescription>
         </Alert>
 
-        <div class="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+        <div class="flex justify-end gap-2 pt-3 border-t border-zinc-100">
           <Button variant="outline" size="sm" class="text-xs cursor-pointer" :disabled="isUploading" @click="showUploadModal = false">
             Cancel
           </Button>
@@ -798,8 +1207,8 @@ onMounted(() => {
             @click="handleUploadSubmit"
           >
             <Icon v-if="isUploading" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
-            <Icon v-else name="lucide:upload" class="size-3.5" aria-hidden="true" />
-            <span>{{ isUploading ? 'Uploading...' : 'Save to Library' }}</span>
+            <Icon v-else name="lucide:check" class="size-3.5" aria-hidden="true" />
+            <span>{{ isUploading ? 'Uploading...' : 'Save Template & Placement' }}</span>
           </Button>
         </div>
       </div>
