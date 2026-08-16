@@ -837,23 +837,12 @@ async function handleMoveMockup(asset: Asset, direction: "left" | "right"): Prom
                               <!-- Adjust / Edit Placement -->
                               <button
                                 type="button"
-                                class="h-7 px-2 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-900 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                                title="Adjust Placement and Blend Mode"
+                                class="h-7 px-2.5 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-900 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                title="Adjust Placement, Crop & Blend Mode"
                                 @click="openAdjustMockupModal(mockup)"
                               >
                                 <Icon name="lucide:sliders-horizontal" class="size-3" aria-hidden="true" />
                                 <span>Adjust</span>
-                              </button>
-
-                              <!-- Crop / Cut -->
-                              <button
-                                type="button"
-                                class="h-7 px-2 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-900 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                                title="Crop and Cut Mockup Photo"
-                                @click="openAdjustMockupModal(mockup)"
-                              >
-                                <Icon name="lucide:crop" class="size-3 text-indigo-600" aria-hidden="true" />
-                                <span>Crop</span>
                               </button>
                             </div>
 

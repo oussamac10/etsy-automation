@@ -1064,26 +1064,13 @@ async function handleComposite(): Promise<void> {
                     <span>Save to library</span>
                   </label>
 
-                  <div class="flex items-center gap-2">
-                    <!-- Cut / Crop Photo Button -->
-                    <button
-                      type="button"
-                      class="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer"
-                      title="Crop and cut photo borders"
-                      @click="startCropping"
-                    >
-                      <Icon name="lucide:crop" class="size-3" aria-hidden="true" />
-                      <span>Crop / Cut</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      class="text-zinc-500 hover:text-zinc-800 font-medium cursor-pointer"
-                      @click="uploadedPreviewUrl = null; uploadedFile = null; originalUncroppedUrl = null; originalUncroppedFile = null"
-                    >
-                      Change
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    class="text-zinc-500 hover:text-zinc-800 font-medium cursor-pointer"
+                    @click="uploadedPreviewUrl = null; uploadedFile = null; originalUncroppedUrl = null; originalUncroppedFile = null"
+                  >
+                    Change Photo
+                  </button>
                 </div>
               </div>
             </div>
