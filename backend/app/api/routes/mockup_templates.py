@@ -304,6 +304,22 @@ async def update_template(
     )
 
 
+@router.delete("/categories/{product_type}", status_code=status.HTTP_200_OK)
+async def delete_category_templates_endpoint(
+    product_type: str,
+    user: CurrentUser,
+    storage: StorageDep,
+) -> dict[str, Any]:
+    """Permanently delete a product category and all its saved templates for the authenticated owner."""
+    store = MockupTemplateStore(storage)
+    deleted_count = await store.delete_category_templates(owner_id=user.id, product_type=product_type)
+    return {
+        "product_type": product_type,
+        "deleted_count": deleted_count,
+        "status": "deleted",
+    }
+
+
 @router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_template(
     template_id: str,
@@ -327,250 +343,44 @@ async def composite_custom_mockup_endpoint(
     settings: SettingsDep,
 ) -> CompositeMockupResponse:
     """Composite the workflow's master PNG onto a custom template photo."""
-    # 1. Load workflow and verify owner isolation
-    workflow = await uow.workflows.get(payload.workflow_id)
-    if not workflow or workflow.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found.")
+    from app.application.mockups import MockupCompositionError, MockupCompositionService
+    from app.domain.errors import EntityNotFoundError
 
-    canonical_prod = normalize_mockup_product(payload.product_type) or payload.product_type
-    preset = get_product_preset(canonical_prod)
+    service = MockupCompositionService(
+        uow=uow,
+        storage=storage,
+        image_worker_url=settings.image_worker_url,
+        image_max_input_bytes=settings.image_max_input_bytes,
+    )
 
-    # 2. Find true production master PNG (exclude all mockup assets)
-    master_asset: Asset | None = None
-    if payload.master_asset_id:
-        candidate_asset = await uow.assets.get(payload.master_asset_id)
-        if candidate_asset and candidate_asset.workflow_id == payload.workflow_id:
-            master_asset = candidate_asset
-
-    if not master_asset:
-        jobs = await uow.production_jobs.list_for_workflow(payload.workflow_id)
-        if jobs:
-            # jobs is ordered by created_at DESC (newest first)
-            for job in jobs:
-                if job.output_asset_id:
-                    candidate = await uow.assets.get(job.output_asset_id)
-                    if candidate:
-                        master_asset = candidate
-                        break
-
-    if not master_asset:
-        assets = await uow.assets.list_for_workflow(payload.workflow_id)
-        sorted_assets = sorted(assets, key=lambda a: a.created_at or datetime.min, reverse=True)
-        # Find master PNG with profile etsy-png-standard or storage_key ending in master.png
-        master_asset = next(
-            (
-                a for a in sorted_assets
-                if (a.storage_key.endswith("/master.png") or (a.provenance and a.provenance.get("profile") == "etsy-png-standard"))
-                and "/mockups/" not in a.storage_key
-                and "mockup" not in a.storage_key
-                and (not a.provenance or a.provenance.get("asset_type") != "mockup")
-            ),
-            None,
-        )
-
-    if not master_asset:
-        # Fallback to newest artwork candidate asset (strictly not a mockup)
-        assets = await uow.assets.list_for_workflow(payload.workflow_id)
-        sorted_assets = sorted(assets, key=lambda a: a.created_at or datetime.min, reverse=True)
-        artwork_assets = [
-            a for a in sorted_assets
-            if a.artwork_job_id is not None
-            and "/mockups/" not in a.storage_key
-            and (not a.provenance or a.provenance.get("asset_type") != "mockup")
-        ]
-        if artwork_assets:
-            master_asset = artwork_assets[0]
-
-    if not master_asset:
-        raise HTTPException(status_code=400, detail="No production master PNG available for this workflow.")
-
-    # 3. Read master PNG bytes
-    master_bytes = await storage.get(master_asset.storage_key)
-
-    # 4. Resolve template bytes & placement
-    store = MockupTemplateStore(storage)
-    template_bytes: bytes | None = None
-    resolved_placement: dict = payload.placement.model_dump() if payload.placement else {
-        "left_pct": preset.default_left_pct,
-        "top_pct": preset.default_top_pct,
-        "width_pct": preset.default_width_pct,
-        "height_pct": preset.default_height_pct,
-        "angle_deg": 0.0,
-        "blend_mode": preset.default_blend_mode,
-    }
-    resolved_template_id = payload.template_id
-    resolved_template_name = payload.template_name or f"{canonical_prod.replace('_', ' ').capitalize()} Mockup"
-
-    resolved_template_storage_key: str | None = None
-    if payload.template_image_base64:
-        try:
-            template_bytes = base64.b64decode(payload.template_image_base64)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid base64 encoded template image.")
-
-        validate_image_payload(
-            template_bytes,
-            "image/jpeg",
-            max_bytes=settings.image_max_input_bytes,
-        )
-
-        if payload.save_as_template:
-            saved_item = await store.save_template(
-                owner_id=user.id,
-                name=resolved_template_name,
-                product_type=canonical_prod,
-                image_bytes=template_bytes,
-                content_type="image/jpeg",
-                placement=resolved_placement,
-            )
-            resolved_template_id = saved_item.id
-            resolved_template_storage_key = saved_item.storage_key
-        else:
-            tpl_img_id = uuid.uuid4()
-            raw_tpl_key = f"mockup-templates/{user.id}/{canonical_prod}/source_{tpl_img_id}.jpg"
-            await storage.put(raw_tpl_key, template_bytes, content_type="image/jpeg")
-            resolved_template_storage_key = raw_tpl_key
-            resolved_template_id = str(tpl_img_id)
-    elif payload.template_id:
-        existing_template = await store.get_template(owner_id=user.id, template_id=payload.template_id)
-        if not existing_template:
-            raise HTTPException(status_code=404, detail="Selected template not found.")
-        template_bytes = await storage.get(existing_template.storage_key)
-        resolved_template_storage_key = existing_template.storage_key
-        resolved_template_name = payload.template_name or existing_template.name
-        if not payload.placement:
-            resolved_placement = {
-                "left_pct": existing_template.placement.left_pct,
-                "top_pct": existing_template.placement.top_pct,
-                "width_pct": existing_template.placement.width_pct,
-                "height_pct": existing_template.placement.height_pct,
-                "angle_deg": existing_template.placement.angle_deg,
-                "blend_mode": existing_template.placement.blend_mode,
-            }
-    else:
-        raise HTTPException(status_code=400, detail="Either template_image_base64 or template_id must be provided.")
-
-    if not template_bytes:
-        raise HTTPException(status_code=400, detail="Failed to read template image.")
-
-    # 5. Call image-worker /pipeline/custom-mockup
-    image_worker_url = settings.image_worker_url.rstrip("/")
-    worker_payload = {
-        "artwork_base64": base64.b64encode(master_bytes).decode("utf-8"),
-        "template_base64": base64.b64encode(template_bytes).decode("utf-8"),
-        "placement": resolved_placement,
-        "format": "jpeg",
-        "quality": 92,
-    }
-
-    async with httpx.AsyncClient(timeout=45.0) as http_client:
-        resp = await http_client.post(f"{image_worker_url}/pipeline/custom-mockup", json=worker_payload)
-        if resp.status_code != 200:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Image worker failed to composite custom mockup: {resp.text[:200]}",
-            )
-        result_data = resp.json()
-
-    composited_bytes = base64.b64decode(result_data["mockup_base64"])
-    out_w = result_data.get("width", 1200)
-    out_h = result_data.get("height", 1200)
-
-    # 6. Fetch existing workflow mockup assets to determine ordering and cover status
-    all_wf_assets = await uow.assets.list_for_workflow(payload.workflow_id)
-    existing_mockups = [
-        a for a in all_wf_assets
-        if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key
-    ]
-
-    target_asset: Asset | None = None
-    if payload.target_asset_id:
-        target_asset = next((a for a in existing_mockups if a.id == payload.target_asset_id), None)
-
-    # Calculate listing order and cover status
-    if target_asset and target_asset.provenance:
-        order = int(str(target_asset.provenance.get("listing_order", "1") or "1"))
-        is_cover = bool(target_asset.provenance.get("is_cover", False))
-        if payload.is_cover is not None:
-            is_cover = payload.is_cover
-    else:
-        existing_orders = [
-            int(str(m.provenance.get("listing_order", "0") or "0"))
-            for m in existing_mockups
-            if m.provenance
-        ]
-        order = (max(existing_orders) + 1) if existing_orders else 1
-        is_cover = True if len(existing_mockups) == 0 else bool(payload.is_cover)
-
-    # If this asset is set as cover, unset cover on all other mockups
-    if is_cover:
-        for other in existing_mockups:
-            if target_asset and other.id == target_asset.id:
-                continue
-            if other.provenance and other.provenance.get("is_cover"):
-                other.provenance = dict(other.provenance, is_cover=False)
-                await uow.session.flush()
-
-    mockup_id = target_asset.id if target_asset else uuid.uuid4()
-    mockup_storage_key = f"production/{payload.workflow_id}/mockups/custom_{canonical_prod}_{mockup_id}.jpg"
-    await storage.put(mockup_storage_key, composited_bytes, content_type="image/jpeg")
-    mockup_url = await storage.signed_url(mockup_storage_key, expires_in_seconds=86400 * 7)
-    mock_sha256 = hashlib.sha256(composited_bytes).hexdigest()
-
-    provenance_data: dict[str, Any] = {
-        "phase": 7,
-        "asset_type": "mockup",
-        "source": "user_template",
-        "product_type": canonical_prod,
-        "template_id": resolved_template_id,
-        "template_name": resolved_template_name,
-        "template_storage_key": resolved_template_storage_key,
-        "source_asset_id": str(master_asset.id),
-        "placement": resolved_placement,
-        "is_cover": is_cover,
-        "listing_order": order,
-        "created_for_listing": True,
-    }
-
-    if target_asset:
-        target_asset.storage_key = mockup_storage_key
-        target_asset.mime_type = "image/jpeg"
-        target_asset.byte_size = len(composited_bytes)
-        target_asset.checksum_sha256 = mock_sha256
-        target_asset.width = out_w
-        target_asset.height = out_h
-        target_asset.provenance = provenance_data
-        await uow.session.flush()
-    else:
-        custom_asset = Asset(
-            id=mockup_id,
+    try:
+        result = await service.composite_custom_mockup(
+            owner_id=user.id,
             workflow_id=payload.workflow_id,
-            artwork_job_id=None,
-            derived_from_id=master_asset.id,
-            storage_key=mockup_storage_key,
-            mime_type="image/jpeg",
-            byte_size=len(composited_bytes),
-            checksum_sha256=mock_sha256,
-            width=out_w,
-            height=out_h,
-            has_alpha=False,
-            has_transparent_pixels=False,
-            quality_check={},
-            provenance=provenance_data,
+            product_type=payload.product_type,
+            template_id=payload.template_id,
+            template_name=payload.template_name,
+            template_image_base64=payload.template_image_base64,
+            save_as_template=payload.save_as_template,
+            placement=payload.placement.model_dump() if payload.placement else None,
+            is_cover=payload.is_cover,
+            target_asset_id=payload.target_asset_id,
+            master_asset_id=payload.master_asset_id,
         )
-        await uow.assets.add(custom_asset)
-
-    await uow.session.commit()
+    except EntityNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found.")
+    except MockupCompositionError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     return CompositeMockupResponse(
-        mockup_url=mockup_url,
-        asset_id=mockup_id,
-        product_type=canonical_prod,
-        template_id=resolved_template_id,
-        template_name=resolved_template_name,
-        is_cover=is_cover,
-        listing_order=order,
-        width=out_w,
-        height=out_h,
+        mockup_url=result.mockup_url,
+        asset_id=result.asset_id,
+        product_type=result.product_type,
+        template_id=result.template_id,
+        template_name=result.template_name,
+        is_cover=result.is_cover,
+        listing_order=result.listing_order,
+        width=result.width,
+        height=result.height,
         format="jpeg",
     )

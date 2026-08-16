@@ -125,7 +125,6 @@ describe("image-worker pipeline endpoints", () => {
     expect(body.master_png_base64).toBeDefined();
     expect(body.typography_applied).toBe(true);
     expect(body.qa_report).toBeDefined();
-    expect(body.mockups.tshirt).toBeDefined();
-    expect(body.mockups.mug).toBeDefined();
+    expect(body.mockups).toBeDefined();
   });
 });

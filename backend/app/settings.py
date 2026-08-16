@@ -53,7 +53,9 @@ class Settings(BaseSettings):
     encryption_key_previous_version: int | None = Field(
         default=None, ge=1, alias="ENCRYPTION_KEY_PREVIOUS_VERSION"
     )
-    cors_allowed_origins: str = Field(default="http://localhost:3000", alias="CORS_ALLOWED_ORIGINS")
+    cors_allowed_origins: str = Field(
+        default="http://localhost:3000,http://localhost:3300", alias="CORS_ALLOWED_ORIGINS"
+    )
 
     # --- Session cookie (ADR-0002) -----------------------------------------
     session_cookie_name: str = Field(default="etsy_session", alias="SESSION_COOKIE_NAME")

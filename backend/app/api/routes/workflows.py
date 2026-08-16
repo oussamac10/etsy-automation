@@ -837,37 +837,10 @@ async def to_production_job_response(
     mockup_resps: list[AssetResponse] = []
     mockup_urls: dict[str, str] = {}
 
-    from app.infrastructure.mockup_catalog import normalize_mockup_product
+    from app.domain.mockup_products import normalize_product_type
+    from app.domain.production_resolver import filter_active_user_mockups
     all_wf_assets = await uow.assets.list_for_workflow(job.workflow_id)
-    raw_mockups = [
-        asset for asset in all_wf_assets
-        if (
-            asset.provenance
-            and asset.provenance.get("asset_type") == "mockup"
-            and asset.provenance.get("source") == "user_template"
-            and bool(asset.provenance.get("template_id"))
-            and asset.provenance.get("provider") not in ("fake", "default")
-            and not asset.provenance.get("default_mockup")
-        )
-    ]
-
-    # When an active production master PNG is set, strictly filter to mockups derived from it
-    if job.output_asset_id is not None:
-        raw_mockups = [
-            asset for asset in raw_mockups
-            if asset.derived_from_id == job.output_asset_id
-            or (asset.provenance and str(asset.provenance.get("source_asset_id")) == str(job.output_asset_id))
-        ]
-
-    def _mockup_sort_key(a: Asset):
-        is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
-        order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
-        created_dt = a.created_at or datetime(1970, 1, 1, tzinfo=timezone.utc)
-        if created_dt.tzinfo is None:
-            created_dt = created_dt.replace(tzinfo=timezone.utc)
-        return (order, 0 if is_cov else 1, -created_dt.timestamp())
-
-    sorted_mockups = sorted(raw_mockups, key=_mockup_sort_key)
+    sorted_mockups = filter_active_user_mockups(all_wf_assets, master_asset_id=job.output_asset_id)
 
     for asset in sorted_mockups:
         url = await storage.signed_url(asset.storage_key, 86400 * 7)
@@ -886,7 +859,7 @@ async def to_production_job_response(
                 p_name = fname.split(".")[0]
 
         if p_name:
-            canonical_p = normalize_mockup_product(str(p_name)) or str(p_name).lower()
+            canonical_p = normalize_product_type(str(p_name)) or str(p_name).lower()
             if canonical_p not in mockup_urls:
                 mockup_urls[canonical_p] = url
 

@@ -8,7 +8,6 @@ import {
   generateMugWrapCanvas,
   ImageRejected,
   inspectImage,
-  normalizeProductType,
   parseTypographyLayout,
   runQaReport,
   trimAndPad,
@@ -328,34 +327,11 @@ export function buildApp({ config, redis }: AppDependencies): FastifyInstance {
       exactSlogan: request.body.exact_slogan ?? undefined,
     });
 
-    // Step 5: Generate Mockups for all standard product types
-    const rawProducts = request.body.intended_products?.length
-      ? request.body.intended_products
-      : ["tshirt", "sweatshirt", "tote", "mug"];
-
-    const requestedNormalized = rawProducts.map((p) => normalizeProductType(String(p)));
-    const uniqueProductTypes: MockupProductType[] = Array.from(
-      new Set([...requestedNormalized, "tshirt", "sweatshirt", "tote", "mug" as MockupProductType])
-    );
-
-    const mockups: Record<string, string> = {};
-    for (const product of uniqueProductTypes) {
-      try {
-        const mockupResult = await generateMockup(masterBuffer, {
-          productType: product,
-          outputSize: 1200,
-        });
-        mockups[product] = toBase64(mockupResult.buffer);
-      } catch (err) {
-        app.log.warn({ err, product }, "failed_to_generate_product_mockup");
-      }
-    }
-
     return reply.send({
       master_png_base64: toBase64(masterBuffer),
       typography_applied: typographyApplied,
       qa_report: qaReport,
-      mockups,
+      mockups: {},
     });
   });
 

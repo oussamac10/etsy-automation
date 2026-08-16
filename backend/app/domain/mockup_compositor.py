@@ -10,6 +10,7 @@ from typing import Any, cast
 import httpx
 
 from app.application.unit_of_work import UnitOfWork
+from app.domain.production_resolver import is_valid_user_mockup_asset
 from app.infrastructure.mockup_template_store import MockupTemplateStore
 from app.infrastructure.models.artwork import Asset
 from app.ports.providers import ObjectStorage
@@ -29,17 +30,7 @@ async def recomposite_workflow_mockups(
 ) -> list[Asset]:
     """Recomposite all existing mockups for a workflow using a newly produced master PNG."""
     all_assets = await uow.assets.list_for_workflow(workflow_id)
-    mockup_assets = [
-        a for a in all_assets
-        if (
-            a.provenance
-            and a.provenance.get("asset_type") == "mockup"
-            and a.provenance.get("source") == "user_template"
-            and (a.provenance.get("template_id") or a.provenance.get("template_storage_key"))
-            and a.provenance.get("provider") not in ("fake", "default")
-            and not a.provenance.get("default_mockup")
-        )
-    ]
+    mockup_assets = [a for a in all_assets if is_valid_user_mockup_asset(a)]
     if not mockup_assets:
         return []
 

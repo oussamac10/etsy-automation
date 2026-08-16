@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import structlog
 
-from app.infrastructure.mockup_catalog import get_product_preset, normalize_mockup_product
+from app.domain.mockup_products import get_product_preset, normalize_product_type
 from app.providers.s3 import S3ObjectStorage
 
 logger = structlog.get_logger(__name__)
@@ -55,7 +55,7 @@ class MockupTemplateStore:
     ) -> list[MockupTemplateItem]:
         """List all saved mockup templates for an owner, optionally filtered by canonical product type."""
         owner_str = str(owner_id)
-        canonical_target = normalize_mockup_product(product_type) if product_type else None
+        canonical_target = normalize_product_type(product_type) if product_type else None
         if canonical_target:
             prefix = f"mockup-templates/{owner_str}/{canonical_target}/"
         else:
@@ -136,7 +136,7 @@ class MockupTemplateStore:
     ) -> MockupTemplateItem:
         """Save a new custom mockup template image and its manifest to S3 for an owner."""
         owner_str = str(owner_id)
-        canonical = normalize_mockup_product(product_type) or "tshirt"
+        canonical = normalize_product_type(product_type) or (product_type.strip().lower().replace(" ", "_") if product_type else "custom_product")
         template_id = str(uuid.uuid4())
         preset = get_product_preset(canonical)
 
@@ -222,7 +222,7 @@ class MockupTemplateStore:
         if not existing:
             return None
 
-        canonical = normalize_mockup_product(product_type) or existing.product_type
+        canonical = normalize_product_type(product_type) or existing.product_type
         json_key = f"mockup-templates/{owner_str}/{existing.product_type}/{template_id}.json"
 
         # Build updated placement
@@ -294,3 +294,18 @@ class MockupTemplateStore:
             logger.warning("failed_to_delete_template_manifest", key=json_key, error=str(err))
 
         return True
+
+    async def delete_category_templates(
+        self,
+        owner_id: uuid.UUID | str,
+        product_type: str,
+    ) -> int:
+        """Permanently delete all templates in a specific product category for an owner."""
+        canonical = normalize_product_type(product_type) or product_type
+        templates = await self.list_templates(owner_id=owner_id, product_type=canonical)
+        deleted_count = 0
+        for t in templates:
+            success = await self.delete_template(owner_id=owner_id, template_id=t.id)
+            if success:
+                deleted_count += 1
+        return deleted_count

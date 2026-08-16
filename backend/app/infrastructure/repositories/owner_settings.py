@@ -70,7 +70,10 @@ class SqlProviderCredentialRepository:
     async def list_for_user(self, user_id: uuid.UUID) -> Sequence[ProviderCredential]:
         result = await self._session.execute(
             select(ProviderCredential)
-            .where(ProviderCredential.user_id == user_id)
+            .where(
+                ProviderCredential.user_id == user_id,
+                ProviderCredential.provider.in_(list(ProviderName)),
+            )
             .order_by(ProviderCredential.provider)
         )
         return result.scalars().all()
