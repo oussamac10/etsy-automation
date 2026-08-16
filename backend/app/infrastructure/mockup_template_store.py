@@ -207,3 +207,90 @@ class MockupTemplateStore:
             if t.id == template_id:
                 return t
         return None
+
+    async def update_template(
+        self,
+        owner_id: uuid.UUID | str,
+        template_id: str,
+        name: str | None = None,
+        placement: CustomMockupPlacement | dict | None = None,
+        product_type: str | None = None,
+    ) -> MockupTemplateItem | None:
+        """Update metadata, name, or placement coordinates of an existing template."""
+        owner_str = str(owner_id)
+        existing = await self.get_template(owner_id, template_id)
+        if not existing:
+            return None
+
+        canonical = normalize_mockup_product(product_type) or existing.product_type
+        json_key = f"mockup-templates/{owner_str}/{existing.product_type}/{template_id}.json"
+
+        # Build updated placement
+        if placement is not None:
+            if isinstance(placement, dict):
+                placement_obj = CustomMockupPlacement(
+                    left_pct=float(placement.get("left_pct", existing.placement.left_pct)),
+                    top_pct=float(placement.get("top_pct", existing.placement.top_pct)),
+                    width_pct=float(placement.get("width_pct", existing.placement.width_pct)),
+                    height_pct=float(placement.get("height_pct", existing.placement.height_pct)),
+                    angle_deg=float(placement.get("angle_deg", existing.placement.angle_deg)),
+                    blend_mode=str(placement.get("blend_mode", existing.placement.blend_mode)),
+                )
+            else:
+                placement_obj = placement
+        else:
+            placement_obj = existing.placement
+
+        updated_name = name.strip() if name and name.strip() else existing.name
+
+        manifest = {
+            "id": template_id,
+            "owner_id": owner_str,
+            "name": updated_name,
+            "product_type": canonical,
+            "storage_key": existing.storage_key,
+            "placement": asdict(placement_obj),
+            "created_at": existing.created_at,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        manifest_bytes = json.dumps(manifest, indent=2).encode("utf-8")
+        await self._storage.put(json_key, manifest_bytes, content_type="application/json")
+
+        return MockupTemplateItem(
+            id=template_id,
+            owner_id=owner_str,
+            name=updated_name,
+            product_type=canonical,
+            storage_key=existing.storage_key,
+            url=existing.url,
+            placement=placement_obj,
+            created_at=existing.created_at,
+            is_custom=True,
+        )
+
+    async def delete_template(
+        self,
+        owner_id: uuid.UUID | str,
+        template_id: str,
+    ) -> bool:
+        """Permanently delete a mockup template image and manifest from S3/MinIO."""
+        owner_str = str(owner_id)
+        existing = await self.get_template(owner_id, template_id)
+        if not existing:
+            return False
+
+        # 1. Delete image file
+        try:
+            await self._storage.delete(existing.storage_key)
+        except Exception as err:
+            logger.warning("failed_to_delete_template_image", key=existing.storage_key, error=str(err))
+
+        # 2. Delete JSON manifest
+        json_key = f"mockup-templates/{owner_str}/{existing.product_type}/{template_id}.json"
+        try:
+            await self._storage.delete(json_key)
+        except Exception as err:
+            logger.warning("failed_to_delete_template_manifest", key=json_key, error=str(err))
+
+        return True

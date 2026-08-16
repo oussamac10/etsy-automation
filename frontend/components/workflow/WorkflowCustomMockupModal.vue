@@ -308,8 +308,38 @@ function selectLibraryTemplate(tpl: MockupTemplateItem): void {
   topPct.value = Math.round(tpl.placement.top_pct * (tpl.placement.top_pct <= 1.0 ? 100 : 1));
   widthPct.value = Math.round(tpl.placement.width_pct * (tpl.placement.width_pct <= 1.0 ? 100 : 1));
   heightPct.value = Math.round(tpl.placement.height_pct * (tpl.placement.height_pct <= 1.0 ? 100 : 1));
-  angleDeg.value = tpl.placement.angle_deg ?? 0;
+  angleDeg.value = tpl.placement.angle_deg || 0;
   blendMode.value = (tpl.placement.blend_mode as "multiply" | "over") || "multiply";
+  templateName.value = tpl.name;
+}
+
+async function handleDeleteLibraryTemplate(tpl: MockupTemplateItem): Promise<void> {
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) headers["x-csrf-token"] = csrf;
+
+    await $fetch(
+      `${apiBase.replace(/\/$/, "")}/api/v1/mockup-templates/${tpl.id}`,
+      {
+        method: "DELETE",
+        headers,
+        credentials: "include",
+      }
+    );
+
+    templates.value = templates.value.filter((t) => t.id !== tpl.id);
+    if (selectedTemplateId.value === tpl.id) {
+      if (templates.value.length > 0) {
+        selectLibraryTemplate(templates.value[0]);
+      } else {
+        selectedTemplateId.value = null;
+        activeSubTab.value = "upload";
+      }
+    }
+  } catch (err) {
+    console.error("Failed to delete template", err);
+  }
 }
 
 function handleFileSelect(e: Event): void {
@@ -1082,19 +1112,26 @@ async function handleComposite(): Promise<void> {
               </div>
 
               <div v-else class="grid grid-cols-3 gap-2">
-                <button
+                <div
                   v-for="tpl in templates"
                   :key="tpl.id"
-                  type="button"
                   class="border rounded-xl p-1.5 text-left transition-all cursor-pointer relative group"
                   :class="selectedTemplateId === tpl.id ? 'border-indigo-600 ring-2 ring-indigo-500/30 bg-indigo-50/60 shadow-2xs' : 'border-zinc-200 hover:border-zinc-300 bg-white'"
                   @click="selectLibraryTemplate(tpl)"
                 >
+                  <button
+                    type="button"
+                    class="absolute top-1 right-1 h-5 w-5 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-xs z-10 cursor-pointer"
+                    title="Delete template from library"
+                    @click.stop="handleDeleteLibraryTemplate(tpl)"
+                  >
+                    <Icon name="lucide:trash-2" class="size-2.5" aria-hidden="true" />
+                  </button>
                   <div class="aspect-square bg-zinc-100 rounded-lg overflow-hidden border border-zinc-100 mb-1 flex items-center justify-center">
                     <img :src="tpl.url" :alt="tpl.name" class="object-cover w-full h-full" />
                   </div>
                   <p class="text-[10px] font-bold text-zinc-800 truncate text-center" :title="tpl.name">{{ tpl.name }}</p>
-                </button>
+                </div>
               </div>
             </div>
 

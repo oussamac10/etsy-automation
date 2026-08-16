@@ -55,6 +55,11 @@ export const icons = {
   sweatshirt: "lucide:shirt",
   toteBag: "lucide:shopping-bag",
   mug: "lucide:coffee",
+  tumbler: "lucide:cup-soda",
+  poster: "lucide:image",
+  sticker: "lucide:tags",
+  phoneCase: "lucide:smartphone",
+  candle: "lucide:flame",
 
   // Integrations & Settings
   telegram: "lucide:send",
@@ -91,9 +96,14 @@ export type IconKey = keyof typeof icons;
 export function getProductIcon(productType: string): string {
   const norm = productType.toLowerCase().replace(/[- ]/g, "_");
   if (norm.includes("mug") || norm.includes("cup")) return icons.mug;
-  if (norm.includes("sweatshirt") || norm.includes("hoodie")) return icons.sweatshirt;
-  if (norm.includes("tshirt") || norm.includes("t_shirt") || norm.includes("shirt")) return icons.tshirt;
+  if (norm.includes("sweatshirt") || norm.includes("hoodie") || norm.includes("crewneck")) return icons.sweatshirt;
+  if (norm.includes("tshirt") || norm.includes("t_shirt") || norm.includes("shirt") || norm.includes("tee")) return icons.tshirt;
   if (norm.includes("tote") || norm.includes("bag")) return icons.toteBag;
+  if (norm.includes("tumbler")) return icons.tumbler;
+  if (norm.includes("poster") || norm.includes("wall_art")) return icons.poster;
+  if (norm.includes("sticker")) return icons.sticker;
+  if (norm.includes("phone")) return icons.phoneCase;
+  if (norm.includes("candle")) return icons.candle;
   return icons.artwork;
 }
 

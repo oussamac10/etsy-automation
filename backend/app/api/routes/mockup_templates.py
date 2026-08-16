@@ -12,7 +12,7 @@ import uuid
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, field_validator
 
 from app.api.dependencies import CurrentUser, SettingsDep, StorageDep, UowDep
@@ -122,6 +122,17 @@ class CompositeCustomMockupRequest(BaseModel):
     is_cover: bool | None = None
 
 
+class UpdateTemplateRequest(BaseModel):
+    name: str | None = None
+    product_type: str | None = None
+    placement: PlacementSchema | None = None
+
+
+class TemplateStatsResponse(BaseModel):
+    total_templates: int
+    by_product: dict[str, int]
+
+
 class MockupTemplateResponse(BaseModel):
     id: str
     name: str
@@ -174,6 +185,24 @@ async def list_templates(
         )
         for item in items
     ]
+
+
+@router.get("/stats", response_model=TemplateStatsResponse)
+async def get_template_stats(
+    user: CurrentUser,
+    storage: StorageDep,
+) -> TemplateStatsResponse:
+    """Get aggregate template metrics and counts by product type."""
+    store = MockupTemplateStore(storage)
+    items = await store.list_templates(owner_id=user.id)
+    by_prod: dict[str, int] = {}
+    for item in items:
+        p = item.product_type
+        by_prod[p] = by_prod.get(p, 0) + 1
+    return TemplateStatsResponse(
+        total_templates=len(items),
+        by_product=by_prod,
+    )
 
 
 @router.post("/upload", response_model=MockupTemplateResponse, status_code=status.HTTP_201_CREATED)
@@ -233,6 +262,58 @@ async def upload_template(
         created_at=item.created_at,
         is_custom=item.is_custom,
     )
+
+
+@router.patch("/{template_id}", response_model=MockupTemplateResponse)
+async def update_template(
+    template_id: str,
+    payload: UpdateTemplateRequest,
+    user: CurrentUser,
+    storage: StorageDep,
+) -> MockupTemplateResponse:
+    """Update name, product_type, or placement coordinates of a saved mockup template."""
+    store = MockupTemplateStore(storage)
+    placement_dict = payload.placement.model_dump() if payload.placement else None
+    item = await store.update_template(
+        owner_id=user.id,
+        template_id=template_id,
+        name=payload.name,
+        product_type=payload.product_type,
+        placement=placement_dict,
+    )
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found.")
+
+    return MockupTemplateResponse(
+        id=item.id,
+        name=item.name,
+        product_type=item.product_type,
+        url=item.url,
+        placement=PlacementSchema(
+            left_pct=item.placement.left_pct,
+            top_pct=item.placement.top_pct,
+            width_pct=item.placement.width_pct,
+            height_pct=item.placement.height_pct,
+            angle_deg=item.placement.angle_deg,
+            blend_mode=item.placement.blend_mode,
+        ),
+        created_at=item.created_at,
+        is_custom=item.is_custom,
+    )
+
+
+@router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_template(
+    template_id: str,
+    user: CurrentUser,
+    storage: StorageDep,
+) -> Response:
+    """Permanently delete a mockup template and its S3 image from storage."""
+    store = MockupTemplateStore(storage)
+    success = await store.delete_template(owner_id=user.id, template_id=template_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/composite", response_model=CompositeMockupResponse)

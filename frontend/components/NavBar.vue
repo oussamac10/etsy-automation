@@ -43,6 +43,15 @@ async function handleLogout() {
             <span>Dashboard</span>
           </NuxtLink>
           <NuxtLink
+            to="/library"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+            active-class="bg-indigo-50 text-indigo-700 font-semibold"
+            data-testid="nav-library-link"
+          >
+            <Icon name="lucide:images" class="size-3.5" aria-hidden="true" />
+            <span>Mockup Library</span>
+          </NuxtLink>
+          <NuxtLink
             to="/settings"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
             active-class="bg-indigo-50 text-indigo-700 font-semibold"

@@ -76,9 +76,46 @@ PRODUCT_PRESETS: dict[str, MockupProductPreset] = {
         default_height_pct=0.60,
         default_blend_mode="over",
     ),
+    "sticker": MockupProductPreset(
+        product_type="sticker",
+        display_name="Stickers",
+        default_left_pct=0.25,
+        default_top_pct=0.25,
+        default_width_pct=0.50,
+        default_height_pct=0.50,
+        default_blend_mode="over",
+    ),
+    "phone_case": MockupProductPreset(
+        product_type="phone_case",
+        display_name="Phone Case",
+        default_left_pct=0.28,
+        default_top_pct=0.22,
+        default_width_pct=0.44,
+        default_height_pct=0.56,
+        default_blend_mode="over",
+    ),
+    "candle": MockupProductPreset(
+        product_type="candle",
+        display_name="Scented Candle",
+        default_left_pct=0.32,
+        default_top_pct=0.38,
+        default_width_pct=0.36,
+        default_height_pct=0.34,
+        default_blend_mode="over",
+    ),
 }
 
-DEFAULT_SUPPORTED_PRODUCTS: list[str] = ["tshirt", "sweatshirt", "tote_bag", "mug"]
+DEFAULT_SUPPORTED_PRODUCTS: list[str] = [
+    "mug",
+    "tshirt",
+    "sweatshirt",
+    "tote_bag",
+    "tumbler",
+    "poster",
+    "sticker",
+    "phone_case",
+    "candle",
+]
 
 _PRODUCT_ALIASES: dict[str, str] = {
     "tshirt": "tshirt",
