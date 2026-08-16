@@ -51,3 +51,15 @@ export type {
 
 export { runQaReport } from "./qa.js";
 export type { QaOptions, QaReport } from "./qa.js";
+
+export {
+  detectEdgeBackground,
+  ensureTransparentBackground,
+  removeEdgeConnectedBackground,
+} from "./background.js";
+export type {
+  BackgroundDetectionResult,
+  BackgroundRemovalOptions,
+  BackgroundRemovalResult,
+  RgbColor,
+} from "./background.js";

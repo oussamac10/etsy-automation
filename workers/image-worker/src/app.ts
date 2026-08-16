@@ -4,6 +4,8 @@ import {
   compositeCustomMockup,
   compositeTypography,
   DEFAULT_PRINT_PROFILE,
+  detectEdgeBackground,
+  ensureTransparentBackground,
   generateMockup,
   generateMugWrapCanvas,
   ImageRejected,
@@ -12,6 +14,7 @@ import {
   runQaReport,
   trimAndPad,
   upscaleToPrint,
+  type BackgroundRemovalOptions,
   type CustomMockupPlacement,
   type MockupProductType,
   type TypographyLayout,
@@ -288,7 +291,29 @@ export function buildApp({ config, redis }: AppDependencies): FastifyInstance {
     });
   });
 
-  /** 7. Full Orchestrated Master Processing */
+  /** 7. Background Transparency Cleanup */
+  app.post<{
+    Body: {
+      image_base64: string;
+      options?: BackgroundRemovalOptions;
+    };
+  }>("/pipeline/ensure-transparency", async (request, reply) => {
+    if (!request.body?.image_base64) {
+      return reply.status(400).send({ error: "MISSING_IMAGE", message: "image_base64 is required" });
+    }
+    const bytes = decodeBase64(request.body.image_base64);
+    const result = await ensureTransparentBackground(bytes, request.body.options);
+    return reply.send({
+      image_base64: toBase64(result.buffer),
+      width: result.width,
+      height: result.height,
+      modified: result.modified,
+      detection: result.detection,
+      removed_pixel_count: result.removedPixelCount,
+    });
+  });
+
+  /** 8. Full Orchestrated Master Processing */
   app.post<{
     Body: {
       image_base64: string;
@@ -301,7 +326,14 @@ export function buildApp({ config, redis }: AppDependencies): FastifyInstance {
       return reply.status(400).send({ error: "MISSING_IMAGE", message: "image_base64 is required" });
     }
 
-    const initialBytes = decodeBase64(request.body.image_base64);
+    let initialBytes = decodeBase64(request.body.image_base64);
+
+    // Defense in depth: Clean edge-connected near-white background if detected
+    const bgCheck = await detectEdgeBackground(initialBytes);
+    if (bgCheck.detected) {
+      const cleaned = await ensureTransparentBackground(initialBytes);
+      initialBytes = cleaned.buffer;
+    }
 
     // Step 1: Trim & Pad
     const trimmed = await trimAndPad(initialBytes, { marginPercent: DEFAULT_PRINT_PROFILE.defaultMarginPercent });

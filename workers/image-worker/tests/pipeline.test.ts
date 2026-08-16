@@ -127,4 +127,21 @@ describe("image-worker pipeline endpoints", () => {
     expect(body.qa_report).toBeDefined();
     expect(body.mockups).toBeDefined();
   });
+
+  it("POST /pipeline/ensure-transparency removes edge-connected background", async () => {
+    // Create an image with solid near-white background and centered content
+    const base64 = await createTestImage(120, 120);
+    const res = await app.inject({
+      method: "POST",
+      url: "/pipeline/ensure-transparency",
+      payload: {
+        image_base64: base64,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.image_base64).toBeDefined();
+    expect(body.detection).toBeDefined();
+  });
 });
