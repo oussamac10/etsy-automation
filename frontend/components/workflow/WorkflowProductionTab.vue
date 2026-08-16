@@ -693,7 +693,7 @@ async function handleMoveMockup(asset: Asset, direction: "left" | "right"): Prom
                     @click="openAddMockupModal(selectedMockupTab)"
                   >
                     <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
-                    <span>+ Add {{ getMockupLabel(selectedMockupTab) }} Mockup</span>
+                    <span>Add {{ getMockupLabel(selectedMockupTab) }} Mockup</span>
                   </Button>
                 </div>
 
@@ -884,7 +884,7 @@ async function handleMoveMockup(asset: Asset, direction: "left" | "right"): Prom
                         <Icon name="lucide:plus" class="size-5" aria-hidden="true" />
                       </div>
                       <div>
-                        <span class="text-xs font-bold text-zinc-900 block">+ Add Another {{ getMockupLabel(selectedMockupTab) }}</span>
+                        <span class="text-xs font-bold text-zinc-900 block">Add Another {{ getMockupLabel(selectedMockupTab) }}</span>
                         <span class="text-[10px] text-zinc-500 block mt-0.5">Upload new scene, flatlay, or model photo</span>
                       </div>
                     </button>

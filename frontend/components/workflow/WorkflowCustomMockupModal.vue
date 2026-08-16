@@ -29,6 +29,7 @@ export interface MockupAssetItem {
   url?: string | null;
   width?: number | null;
   height?: number | null;
+  template_id?: string | null;
   template_name?: string | null;
   provenance?: {
     phase?: number;

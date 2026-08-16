@@ -220,7 +220,7 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
     expect(wrapper.text()).toContain("Black Bella Canvas Flatlay");
     expect(wrapper.text()).toContain("White Bella Canvas Flatlay");
     expect(wrapper.text()).toContain("Cover Image");
-    expect(wrapper.text()).toContain("+ Add T-Shirt Mockup");
+    expect(wrapper.text()).toContain("Add T-Shirt Mockup");
     expect(wrapper.text()).toContain("Regenerate Master PNG");
   });
 });
