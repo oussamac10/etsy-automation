@@ -668,6 +668,14 @@ async function handleWorkflowControl(action: string, options?: Record<string, un
 
 const isWorkflowRunning = computed(() => {
   if (!workflow.value) return false;
+  // 1. Check if production job is in flight
+  if (latestProductionJob.value && (latestProductionJob.value.status === "QUEUED" || latestProductionJob.value.status === "RUNNING")) {
+    return true;
+  }
+  // 2. Check if any artwork generation or refinement job is in flight
+  if (artworkJobs.value.some((j) => j.status === "QUEUED" || j.status === "GENERATING" || j.status === "REFINING")) {
+    return true;
+  }
   if (workflow.value.state === "PRODUCTION" && latestProductionJob.value?.status === "SUCCEEDED") {
     return false;
   }
@@ -684,10 +692,9 @@ const displayStageLabel = computed(() => {
 
 function startPolling(): void {
   stopPolling();
-  pollInterval = setInterval(() => {
-    if (isWorkflowRunning.value) {
-      loadData(true);
-    } else {
+  pollInterval = setInterval(async () => {
+    await loadData(true);
+    if (!isWorkflowRunning.value) {
       stopPolling();
     }
   }, 2000);

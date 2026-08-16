@@ -630,6 +630,7 @@ async function handleRecompositeAllMockups(): Promise<void> {
                 <div class="aspect-4500/5400 max-h-[340px] mx-auto rounded-lg overflow-hidden border border-zinc-200 flex items-center justify-center bg-[linear-gradient(45deg,#f4f4f5_25%,transparent_25%),linear-gradient(-45deg,#f4f4f5_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f4f4f5_75%),linear-gradient(-45deg,transparent_75%,#f4f4f5_75%)] bg-[size:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px] relative shadow-inner">
                   <img
                     v-if="masterImageUrl"
+                    :key="masterImageUrl + '_' + (latestProductionJob?.output_asset_id || '')"
                     :src="masterImageUrl"
                     alt="Master Production PNG"
                     class="object-contain w-full h-full max-h-[320px] transition-transform hover:scale-105 duration-200"
