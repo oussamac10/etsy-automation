@@ -223,7 +223,6 @@ const productionError = ref<string | null>(null);
 const selectedCandidateId = ref<string | null>(null);
 
 const chosenCandidateId = computed(() => {
-  if (selectedCandidateId.value) return selectedCandidateId.value;
   if (latestProductionJob.value?.source_asset_id) return latestProductionJob.value.source_asset_id;
   const firstAsset = artworkJobs.value[0]?.assets?.[0];
   return firstAsset ? firstAsset.id : null;

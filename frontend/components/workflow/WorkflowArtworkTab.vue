@@ -344,13 +344,18 @@ function getSelectedAssetIndex(): number {
                     <Icon name="lucide:circle-check" class="size-3" aria-hidden="true" />
                     <span>Active in Master</span>
                   </div>
-                  <div
+                  <Button
                     v-else-if="asset.id === selectedCandidateId"
-                    class="flex items-center justify-center gap-1 py-1 text-[11px] font-bold text-indigo-700 bg-indigo-100/60 rounded border border-indigo-200"
+                    variant="default"
+                    size="sm"
+                    class="w-full text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white gap-1 h-7 px-1 cursor-pointer inline-flex items-center shadow-2xs animate-in fade-in"
+                    :disabled="isProductionLoading"
+                    @click.stop="emit('switchCandidate', asset.id)"
                   >
-                    <Icon name="lucide:check" class="size-3" aria-hidden="true" />
-                    <span>Ready to Switch</span>
-                  </div>
+                    <Icon v-if="isProductionLoading" name="lucide:loader-circle" class="size-3 animate-spin" aria-hidden="true" />
+                    <Icon v-else name="lucide:sparkles" class="size-3" aria-hidden="true" />
+                    <span>Switch & Produce</span>
+                  </Button>
                   <div
                     v-else
                     class="text-center py-1 text-[10px] text-zinc-400 font-medium"
