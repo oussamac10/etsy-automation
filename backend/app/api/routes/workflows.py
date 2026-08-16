@@ -442,10 +442,6 @@ async def revise_concept(
 
 
 def to_asset_response(asset: Asset, url: str | None = None) -> AssetResponse:
-    final_url = url
-    if final_url and asset.checksum_sha256:
-        sep = "&" if "?" in final_url else "?"
-        final_url = f"{final_url}{sep}v={asset.checksum_sha256[:10]}"
     return AssetResponse(
         id=asset.id,
         workflow_id=asset.workflow_id,
@@ -461,7 +457,7 @@ def to_asset_response(asset: Asset, url: str | None = None) -> AssetResponse:
         has_transparent_pixels=asset.has_transparent_pixels,
         provenance=asset.provenance,
         created_at=asset.created_at or datetime.now(timezone.utc),
-        url=final_url,
+        url=url,
     )
 
 

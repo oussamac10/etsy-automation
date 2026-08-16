@@ -519,14 +519,6 @@ async function handleRecompositeAllMockups(): Promise<void> {
     isRecompositingAll.value = false;
   }
 }
-
-function getMockupDisplayUrl(url: string | null | undefined, checksum?: string | null): string {
-  if (!url) return "";
-  if (url.includes("v=")) return url;
-  const sep = url.includes("?") ? "&" : "?";
-  const v = checksum ? checksum.slice(0, 10) : Date.now();
-  return `${url}${sep}v=${v}`;
-}
 </script>
 
 <template>
@@ -819,7 +811,7 @@ function getMockupDisplayUrl(url: string | null | undefined, checksum?: string |
                       <!-- Thumbnail Area -->
                       <div class="aspect-square bg-zinc-50 overflow-hidden relative group flex items-center justify-center p-2 border-b border-zinc-100">
                         <img
-                          :src="getMockupDisplayUrl(mockup.url, mockup.checksum_sha256)"
+                          :src="mockup.url || ''"
                           :alt="mockup.provenance?.template_name || selectedMockupTab"
                           class="object-contain w-full h-full rounded-lg transition-transform duration-200 group-hover:scale-105"
                         >
@@ -1088,7 +1080,7 @@ function getMockupDisplayUrl(url: string | null | undefined, checksum?: string |
         <div class="p-6 bg-zinc-100 flex items-center justify-center overflow-auto max-h-[75vh]">
           <img
             v-if="previewingAsset.url"
-            :src="getMockupDisplayUrl(previewingAsset.url, previewingAsset.checksum_sha256)"
+            :src="previewingAsset.url"
             :alt="previewingAsset.provenance?.template_name || 'Mockup Preview'"
             class="max-h-[70vh] object-contain rounded-xl shadow-lg border border-zinc-200 bg-white"
           >
