@@ -70,6 +70,7 @@ class ImageRequest:
     candidate_count: int = 1
     reference_image_bytes: bytes | None = None
     reference_image_mime_type: str | None = None
+    strength: float | None = None
     seed: int | None = None
 
 

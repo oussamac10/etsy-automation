@@ -822,14 +822,25 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             
             workflow = await uow.workflows.get(workflow_id)
             assert workflow is not None
-            if workflow.state != RunStatus.ART_GENERATION:
+            if workflow.state == RunStatus.ART_QUEUED:
                 await uow.workflows.transition(
                     workflow,
                     to_state=RunStatus.ART_GENERATION,
-                    expected_version=workflow_version,
+                    expected_version=workflow.version,
                     reason="Artwork generation started",
                     actor="system",
                 )
+            elif workflow.state != RunStatus.ART_GENERATION:
+                try:
+                    await uow.workflows.transition(
+                        workflow,
+                        to_state=RunStatus.ART_GENERATION,
+                        expected_version=workflow.version,
+                        reason="Artwork generation started",
+                        actor="system",
+                    )
+                except Exception as trans_err:
+                    logger.warning("Could not transition workflow to ART_GENERATION: %s", trans_err)
             await uow.commit()
 
         # 3. Initialize S3 storage
@@ -846,8 +857,17 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
         is_live = settings.provider_mode == "live"
         provider_key = None
         ref_image_bytes = None
-        ref_image_mime = None
-        candidate_count = 4 if "pro" not in (job_provider_model or "").lower() else 1
+        # Check reference image / refinement
+        is_refinement = False
+        if prompt_generation_metadata is not None and prompt_generation_metadata.get("reference_asset_id"):
+            is_refinement = True
+
+        if is_refinement:
+            candidate_count = 2
+        elif "pro" in (job_provider_model or "").lower():
+            candidate_count = 1
+        else:
+            candidate_count = 4
 
         async with UnitOfWork(session_factory) as uow:
             # Check reference image
@@ -915,6 +935,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
 
         # 6. Initialize provider adapter
         image_provider = None
+        fallback_provider = None
         if is_live and provider_key:
             if job_provider == ProviderName.RECRAFT:
                 image_provider = RecraftImageAdapter(
@@ -928,7 +949,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
         if image_provider is None:
             image_provider = FakeImageProvider()
 
-        # 7. Execute image generation
+        # 7. Execute image generation (with fallback if refinement fails)
         request = ImageRequest(
             positive_prompt=prompt_positive_prompt,
             negative_prompt=prompt_negative_prompt or "",
@@ -943,12 +964,59 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             candidate_count=candidate_count,
             reference_image_bytes=ref_image_bytes,
             reference_image_mime_type=ref_image_mime,
+            strength=settings.recraft_refinement_strength if is_refinement else None,
         )
 
-        response = await image_provider.generate(request)
+        response = None
+        actual_provider = job_provider
+        try:
+            response = await image_provider.generate(request)
+        except Exception as primary_err:
+            # If refinement on Recraft fails and live mode is active, attempt Gemini fallback
+            if is_refinement and is_live and job_provider == ProviderName.RECRAFT:
+                logger.warning(
+                    "Recraft refinement failed (%s). Attempting Gemini fallback...",
+                    primary_err,
+                )
+                try:
+                    async with UnitOfWork(session_factory) as uow:
+                        gemini_key = await reveal_credential(
+                            uow, workflow_owner_id, provider=ProviderName.GEMINI, cipher=cipher
+                        )
+                    if gemini_key:
+                        fallback_provider = GeminiImageAdapter(
+                            api_key=gemini_key,
+                            default_model=settings.gemini_refinement_model,
+                        )
+                        gemini_req = ImageRequest(
+                            positive_prompt=prompt_positive_prompt,
+                            negative_prompt=prompt_negative_prompt or "",
+                            width=job_requested_width or 1024,
+                            height=job_requested_height or 1024,
+                            quality=job_quality or "standard",
+                            idempotency_key=f"{job_idempotency_key}-gemini-fallback",
+                            provider=ProviderName.GEMINI.value,
+                            model=settings.gemini_refinement_model,
+                            aspect_ratio="1:1",
+                            transparent_background=True,
+                            candidate_count=candidate_count,
+                            reference_image_bytes=ref_image_bytes,
+                            reference_image_mime_type=ref_image_mime,
+                            strength=settings.recraft_refinement_strength,
+                        )
+                        response = await fallback_provider.generate(gemini_req)
+                        actual_provider = ProviderName.GEMINI
+                except Exception as fallback_err:
+                    logger.error("Gemini fallback also failed: %s", fallback_err)
+                    raise primary_err from fallback_err
+            
+            if response is None:
+                raise primary_err
 
-        # 8. Upload candidates to S3 and record Assets
+        # 8. Clean candidates with local transparency pipeline, upload to S3, and record Assets
         candidate_assets: list[Asset] = []
+        image_worker_url = settings.image_worker_url.rstrip("/")
+
         async with UnitOfWork(session_factory) as uow:
             job = await uow.artwork_jobs.get(job_id)
             assert job is not None
@@ -956,22 +1024,65 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             assert workflow is not None
 
             for idx, candidate in enumerate(response.candidates):
-                sha256 = hashlib.sha256(candidate.image_bytes).hexdigest()
+                cleaned_bytes = candidate.image_bytes
+                cleaned_mime = candidate.mime_type
+
+                # Run local edge-connected background cleanup for refinement outputs
+                if is_refinement:
+                    try:
+                        async with httpx.AsyncClient(timeout=60.0) as http_client:
+                            trans_res = await http_client.post(
+                                f"{image_worker_url}/pipeline/ensure-transparency",
+                                json={
+                                    "image_base64": base64.b64encode(candidate.image_bytes).decode("utf-8"),
+                                },
+                            )
+                            if trans_res.status_code == 200:
+                                trans_data = trans_res.json()
+                                cleaned_bytes = base64.b64decode(trans_data["image_base64"])
+                                cleaned_mime = "image/png"
+                    except Exception as clean_err:
+                        logger.warning("Local transparency cleanup error: %s", clean_err)
+
+                sha256 = hashlib.sha256(cleaned_bytes).hexdigest()
                 
                 existing_asset = await uow.assets.get_by_checksum_sha256(workflow_id, sha256)
                 if existing_asset is not None:
                     candidate_assets.append(existing_asset)
                     continue
 
-                ext = "svg" if candidate.mime_type == "image/svg+xml" else "png"
+                ext = "svg" if cleaned_mime == "image/svg+xml" else "png"
                 storage_key = f"assets/{workflow_id}/{uuid.uuid4()}.{ext}"
                 
-                stored_obj = await storage.put(storage_key, candidate.image_bytes, candidate.mime_type)
+                stored_obj = await storage.put(storage_key, cleaned_bytes, cleaned_mime)
+
+                derived_from_uuid = None
+                if is_refinement and prompt_generation_metadata is not None:
+                    ref_id_val = prompt_generation_metadata.get("reference_asset_id")
+                    if ref_id_val:
+                        derived_from_uuid = uuid.UUID(str(ref_id_val))
+
+                provenance_data: dict[str, object] = {
+                    "generator": actual_provider.value,
+                    "model": response.model,
+                    "prompt": prompt_positive_prompt,
+                }
+                if is_refinement:
+                    provenance_data.update({
+                        "operation": "refinement",
+                        "provider": actual_provider.value,
+                        "model": response.model,
+                        "source_asset_id": str(derived_from_uuid) if derived_from_uuid else None,
+                        "strength": settings.recraft_refinement_strength,
+                        "change_note": prompt.change_note,
+                        "background_cleanup": "local",
+                    })
 
                 new_asset = Asset(
                     id=uuid.uuid4(),
                     workflow_id=workflow_id,
                     artwork_job_id=job_id,
+                    derived_from_id=derived_from_uuid,
                     storage_key=stored_obj.storage_key,
                     mime_type=stored_obj.content_type,
                     byte_size=stored_obj.byte_size,
@@ -981,11 +1092,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                     has_alpha=True,
                     has_transparent_pixels=True,
                     quality_check={},
-                    provenance={
-                        "generator": job_provider.value,
-                        "model": response.model,
-                        "prompt": prompt_positive_prompt,
-                    },
+                    provenance=provenance_data,
                 )
                 await uow.assets.add(new_asset)
                 candidate_assets.append(new_asset)
@@ -1005,13 +1112,14 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                 provider_job_id=response.provider_request_id,
             )
 
-            await uow.workflows.transition(
-                workflow,
-                to_state=RunStatus.ART_REVIEW,
-                expected_version=workflow.version,
-                reason="Artwork generation succeeded. Waiting for Gate 2 human approval.",
-                actor="system",
-            )
+            if workflow.state != RunStatus.ART_REVIEW:
+                await uow.workflows.transition(
+                    workflow,
+                    to_state=RunStatus.ART_REVIEW,
+                    expected_version=workflow.version,
+                    reason="Artwork generation succeeded. Waiting for Gate 2 human approval.",
+                    actor="system",
+                )
 
             await uow.audit.record(
                 action=AuditAction.JOB_STATUS_CHANGED,
@@ -1044,10 +1152,11 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             ])
 
             dash_origins = settings.cors_origins
-            dash_base = dash_origins[0] if dash_origins else "http://localhost:3000"
-            inline_keyboard.append([
-                {"text": "Open Dashboard", "url": f"{dash_base}/workflow/{workflow_id}"}
-            ])
+            dash_base = dash_origins[0] if dash_origins else ""
+            if dash_base and not dash_base.startswith("http://localhost") and not dash_base.startswith("http://127.0.0.1"):
+                inline_keyboard.append([
+                    {"text": "Open Dashboard", "url": f"{dash_base}/workflow/{workflow_id}"}
+                ])
 
             preview_links = []
             async with UnitOfWork(session_factory) as uow:

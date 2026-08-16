@@ -107,7 +107,13 @@ class GeminiImageAdapter:
         self._timeout = timeout_seconds
 
     async def _generate_single(
-        self, client: httpx.AsyncClient, model: str, prompt: str, aspect_ratio: str | None
+        self,
+        client: httpx.AsyncClient,
+        model: str,
+        prompt: str,
+        aspect_ratio: str | None,
+        reference_image_bytes: bytes | None = None,
+        reference_image_mime_type: str | None = None,
     ) -> ImageCandidate:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         
@@ -116,13 +122,22 @@ class GeminiImageAdapter:
             "Content-Type": "application/json",
         }
 
+        # Build content parts
+        parts: list[dict[str, Any]] = []
+        if reference_image_bytes:
+            parts.append({
+                "inlineData": {
+                    "mimeType": reference_image_mime_type or "image/png",
+                    "data": base64.b64encode(reference_image_bytes).decode("utf-8"),
+                }
+            })
+        parts.append({"text": prompt})
+
         # Build content payload
         payload: dict[str, Any] = {
             "contents": [
                 {
-                    "parts": [
-                        {"text": prompt}
-                    ]
+                    "parts": parts
                 }
             ],
             "generationConfig": {
@@ -257,11 +272,28 @@ class GeminiImageAdapter:
                 aspect_ratio = "3:4" if abs(request.height / request.width - 4/3) < 0.1 else "9:16"
 
         candidate_count = request.candidate_count or 1
+        prompt = request.positive_prompt
+        if request.reference_image_bytes is not None:
+            isolation_instruction = (
+                "Keep the artwork isolated on a plain clean background suitable for automatic background removal. "
+                "Do not add scenery, gradients, shadows extending to the canvas edges, frames, borders, or textured backgrounds."
+            )
+            prompt = f"{prompt}\n{isolation_instruction}"
+
+        if request.negative_prompt:
+            prompt = f"{prompt}\nAvoid: {request.negative_prompt}"
 
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 tasks = [
-                    self._generate_single(client, model, request.prompt, aspect_ratio)
+                    self._generate_single(
+                        client,
+                        model,
+                        prompt,
+                        aspect_ratio,
+                        reference_image_bytes=request.reference_image_bytes,
+                        reference_image_mime_type=request.reference_image_mime_type,
+                    )
                     for _ in range(candidate_count)
                 ]
                 candidates = await asyncio.gather(*tasks)
@@ -274,12 +306,7 @@ class GeminiImageAdapter:
             return ImageResponse(
                 candidates=list(candidates),
                 model=model,
-                cost_estimate=total_cost,
-                metadata={
-                    "aspect_ratio": aspect_ratio,
-                    "provider": "gemini",
-                    "candidate_count": len(candidates),
-                },
+                cost_usd=total_cost,
             )
 
         except ProviderError:

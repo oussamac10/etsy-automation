@@ -34,6 +34,8 @@ def estimate_artwork_cost(
             unit_price = Decimal("0.21")
         elif "vector" in m_lower:
             unit_price = Decimal("0.08")
+        elif "v3" in m_lower:
+            unit_price = Decimal("0.040")
         else:
             unit_price = Decimal("0.035")
     elif p_lower == "gemini":

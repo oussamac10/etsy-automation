@@ -92,6 +92,20 @@ class Settings(BaseSettings):
     image_max_input_bytes: int = Field(default=40 * 1024 * 1024, alias="IMAGE_MAX_INPUT_BYTES")
     image_max_pixels: int = Field(default=60_000_000, alias="IMAGE_MAX_PIXELS")
 
+    # --- Refinement and Generation Models ---
+    recraft_generation_model: str = Field(
+        default="recraftv4_1", alias="RECRAFT_GENERATION_MODEL"
+    )
+    recraft_refinement_model: str = Field(
+        default="recraftv3", alias="RECRAFT_REFINEMENT_MODEL"
+    )
+    recraft_refinement_strength: float = Field(
+        default=0.20, ge=0.0, le=1.0, alias="RECRAFT_REFINEMENT_STRENGTH"
+    )
+    gemini_refinement_model: str = Field(
+        default="gemini-3.1-flash-image", alias="GEMINI_REFINEMENT_MODEL"
+    )
+
     @field_validator("log_level")
     @classmethod
     def _normalise_log_level(cls, value: str) -> str:

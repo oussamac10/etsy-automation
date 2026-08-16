@@ -694,14 +694,28 @@ async def regenerate_artwork(
             detail="Cannot regenerate artwork unless artwork was already generated or failed.",
         )
 
-    await uow.workflows.transition(
-        workflow,
-        to_state=RunStatus.IDEA_APPROVED,
-        expected_version=workflow.version,
-        reason="Triggered artwork regeneration",
-        actor=user.email,
-    )
-    await uow.commit()
+    if workflow.state == RunStatus.ART_REVIEW:
+        from app.domain.workflow import ApprovalDecision, ApprovalGate
+        await use_cases.decide_gate(
+            uow=uow,
+            workflow_id=workflow_id,
+            owner_id=user.id,
+            gate=ApprovalGate.ARTWORK_APPROVAL,
+            decision=ApprovalDecision.REJECTED,
+            actor=user.email,
+            target_type="ArtworkJob",
+            target_id=None,
+            comment="Triggered artwork regeneration",
+        )
+    elif workflow.state != RunStatus.IDEA_APPROVED:
+        await uow.workflows.transition(
+            workflow,
+            to_state=RunStatus.IDEA_APPROVED,
+            expected_version=workflow.version,
+            reason="Triggered artwork regeneration",
+            actor=user.email,
+        )
+        await uow.commit()
 
     return await generate_artwork(workflow_id, payload, user, uow, force_new=True)
 
@@ -752,23 +766,38 @@ async def refine_artwork(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Approved concept has no design prompts.",
         )
+    base_prompt = prompts[0]
     latest_prompt = prompts[-1]
+
+    settings = get_settings()
+
+    # Automatically enhance the provider prompt with strict reference preservation instructions
+    enhancement_prefix = (
+        "Use the provided image as the main reference. "
+        "Preserve the existing composition, subject placement, visual style, palette, proportions, typography, and all unaffected elements. "
+        "Apply only the requested change. Do not redesign the whole image. "
+    )
+    combined_positive = (
+        f"{enhancement_prefix}Refinement instructions: {payload.positive_prompt}"
+        if payload.positive_prompt
+        else f"{enhancement_prefix}Refine the artwork design."
+    )
 
     refined_prompt = await uow.concepts.add_prompt_version(
         approved_concept,
-        positive_prompt=payload.positive_prompt,
-        negative_prompt=payload.negative_prompt or latest_prompt.negative_prompt,
-        typography_instructions=latest_prompt.typography_instructions,
-        exact_slogan=latest_prompt.exact_slogan,
+        positive_prompt=combined_positive,
+        negative_prompt=payload.negative_prompt or base_prompt.negative_prompt,
+        typography_instructions=base_prompt.typography_instructions,
+        exact_slogan=base_prompt.exact_slogan,
         change_note=payload.change_note,
         generation_metadata={"reference_asset_id": str(payload.candidate_asset_id)},
     )
 
-    settings = get_settings()
-    provider_val = "gemini"
-    model_val = "gemini-3.1-flash-image"
-    provider_enum = ProviderName.GEMINI
-    candidate_count = 1
+    # Primary refinement provider: Recraft V3 (with Gemini Image as fallback in worker)
+    provider_val = "recraft"
+    model_val = settings.recraft_refinement_model
+    provider_enum = ProviderName.RECRAFT
+    candidate_count = 2
 
     await ensure_artwork_within_budget(
         uow,
@@ -808,7 +837,7 @@ async def refine_artwork(
         actor=user.email,
         target_type="Asset",
         target_id=payload.candidate_asset_id,
-        target_version=None,
+        target_version=refined_prompt.version,
         comment=payload.change_note,
         revision_request=payload.positive_prompt,
     )

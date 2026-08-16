@@ -459,7 +459,10 @@ async def decide_gate(
         if (
             existing.decision == decision
             and existing.target_id == target_id
-            and existing.target_version == target_version
+            and (
+                (target_version is not None and existing.target_version == target_version)
+                or (decision == ApprovalDecision.APPROVED and existing.decision == ApprovalDecision.APPROVED)
+            )
         ):
             return existing
 
