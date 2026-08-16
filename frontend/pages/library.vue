@@ -925,13 +925,20 @@ onMounted(() => {
                   {{ Math.round(editPlacement.left_pct * 100) }}%, {{ Math.round(editPlacement.top_pct * 100) }}% ({{ Math.round(editPlacement.width_pct * 100) }}×{{ Math.round(editPlacement.height_pct * 100) }}%)
                 </div>
 
-                <!-- Sample Centered Artwork Graphic -->
-                <div class="p-2 text-center pointer-events-none select-none flex flex-col items-center justify-center space-y-1">
-                  <div class="h-7 w-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-                    <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
+                <!-- Sample Centered Artwork Graphic (Dynamically scaling with box dimensions) -->
+                <div class="w-full h-full p-1 text-center pointer-events-none select-none flex flex-col items-center justify-center overflow-hidden">
+                  <div
+                    class="rounded-md bg-indigo-600 text-white flex items-center justify-center shadow-xs transition-all shrink-0 mb-1"
+                    :class="editPlacement.width_pct < 0.25 || editPlacement.height_pct < 0.2 ? 'h-4 w-4' : 'h-6 w-6'"
+                  >
+                    <Icon name="lucide:sparkles" :class="editPlacement.width_pct < 0.25 || editPlacement.height_pct < 0.2 ? 'size-2.5' : 'size-3.5'" aria-hidden="true" />
                   </div>
-                  <span class="text-[9px] font-extrabold uppercase tracking-wider text-indigo-950 bg-white/90 px-1.5 py-0.5 rounded shadow-2xs">
-                    PNG Artwork Centered Here
+                  <span
+                    v-if="editPlacement.width_pct >= 0.16 && editPlacement.height_pct >= 0.14"
+                    class="font-extrabold uppercase tracking-wider text-indigo-950 bg-white/95 px-1 py-0.5 rounded shadow-2xs truncate max-w-[95%] transition-all"
+                    :class="editPlacement.width_pct < 0.3 || editPlacement.height_pct < 0.28 ? 'text-[7px]' : 'text-[9px]'"
+                  >
+                    PNG Center Area
                   </span>
                 </div>
 
@@ -1128,12 +1135,19 @@ onMounted(() => {
                   {{ Math.round(uploadPlacement.left_pct * 100) }}%, {{ Math.round(uploadPlacement.top_pct * 100) }}% ({{ Math.round(uploadPlacement.width_pct * 100) }}×{{ Math.round(uploadPlacement.height_pct * 100) }}%)
                 </div>
 
-                <div class="p-2 text-center pointer-events-none select-none flex flex-col items-center justify-center space-y-1">
-                  <div class="h-7 w-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-                    <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
+                <div class="w-full h-full p-1 text-center pointer-events-none select-none flex flex-col items-center justify-center overflow-hidden">
+                  <div
+                    class="rounded-md bg-indigo-600 text-white flex items-center justify-center shadow-xs transition-all shrink-0 mb-1"
+                    :class="uploadPlacement.width_pct < 0.25 || uploadPlacement.height_pct < 0.2 ? 'h-4 w-4' : 'h-6 w-6'"
+                  >
+                    <Icon name="lucide:sparkles" :class="uploadPlacement.width_pct < 0.25 || uploadPlacement.height_pct < 0.2 ? 'size-2.5' : 'size-3.5'" aria-hidden="true" />
                   </div>
-                  <span class="text-[9px] font-extrabold uppercase tracking-wider text-indigo-950 bg-white/90 px-1.5 py-0.5 rounded shadow-2xs">
-                    PNG Artwork Centered Here
+                  <span
+                    v-if="uploadPlacement.width_pct >= 0.16 && uploadPlacement.height_pct >= 0.14"
+                    class="font-extrabold uppercase tracking-wider text-indigo-950 bg-white/95 px-1 py-0.5 rounded shadow-2xs truncate max-w-[95%] transition-all"
+                    :class="uploadPlacement.width_pct < 0.3 || uploadPlacement.height_pct < 0.28 ? 'text-[7px]' : 'text-[9px]'"
+                  >
+                    PNG Center Area
                   </span>
                 </div>
 
