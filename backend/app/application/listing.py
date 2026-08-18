@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import json
+import re
 import uuid
 import structlog
 
@@ -47,9 +48,21 @@ class ListingDraftService:
         if workflow is None:
             raise EntityNotFoundError("ProductWorkflow", workflow_id)
 
-        # Initialize default listing copy
-        initial_title = workflow.name[:140]
-        initial_tags = [
+        # Initialize default listing copy from workflow context
+        initial_title = f"{workflow.name[:90]} PNG Digital Download Sublimation Design"[:140]
+
+        words = [w.lower() for w in re.findall(r"[a-zA-Z0-9]+", workflow.name) if len(w) > 2]
+        niche_words = [w for w in words if w not in {"the", "and", "for", "with", "workflow", "campaign", "concept"}]
+        main_niche = " ".join(niche_words[:2]) if niche_words else ""
+
+        candidate_tags = []
+        if main_niche:
+            candidate_tags.extend([
+                f"{main_niche[:16]} png"[:20],
+                f"{main_niche[:12]} sublimation"[:20],
+                f"{main_niche[:13]} clipart"[:20],
+            ])
+        candidate_tags.extend([
             "png digital download",
             "sublimation design",
             "tshirt graphic",
@@ -63,7 +76,17 @@ class ListingDraftService:
             "mug design download",
             "sticker png",
             "digital craft file",
-        ]
+        ])
+
+        seen: set[str] = set()
+        initial_tags: list[str] = []
+        for t in candidate_tags:
+            clean = t.strip().lower()
+            if clean and clean not in seen:
+                seen.add(clean)
+                initial_tags.append(clean)
+            if len(initial_tags) == 13:
+                break
 
         draft = ListingDraft(
             workflow_id=workflow_id,
@@ -112,18 +135,20 @@ class ListingDraftService:
         )
 
         # Record audit event
-        audit_event = AuditEvent(
+        await uow.audit.record(
+            action=AuditAction.SETTINGS_UPDATED,
+            entity_type="ListingDraft",
+            summary="Updated listing draft copy and tags",
             workflow_id=workflow_id,
-            action=AuditAction.UPDATE,
+            entity_id=draft.id,
             actor=actor_email,
-            details={
+            metadata={
                 "action": "update_listing_draft",
                 "version": updated_draft.version,
                 "title_length": len(updated_draft.title),
                 "tags_count": len(updated_draft.tags),
             },
         )
-        await uow.audit.add(audit_event)
 
         logger.info(
             "listing_draft_updated",
@@ -144,12 +169,13 @@ class ListingDraftService:
             raise EntityNotFoundError("ListingDraft", workflow_id)
 
         # Retrieve concept and design prompt for slogan
-        concept = await uow.concepts.get_for_workflow(workflow_id)
+        concepts = await uow.concepts.list_for_workflow(workflow_id)
         slogan: str | None = None
-        if concept:
-            prompts = await uow.concepts.get_prompts(concept.id)
+        if concepts:
+            concept = concepts[0]
+            prompts = await uow.concepts.prompts(concept.id)
             if prompts:
-                slogan = prompts[0].exact_slogan
+                slogan = prompts[-1].exact_slogan
 
         keywords = draft.tags[:5] if draft.tags else []
 
@@ -194,6 +220,7 @@ class ListingDraftService:
             raise EntityNotFoundError("ListingDraft", workflow_id)
 
         now = datetime.now(UTC)
+        from_state = workflow.state
 
         if decision == ApprovalDecision.APPROVED:
             # 1. Validate listing fields
@@ -229,58 +256,67 @@ class ListingDraftService:
             if package_asset is None:
                 raise DomainError("Failed to verify customer download ZIP package before Gate 3 approval.")
 
-            # 4. State transition
-            workflow.state = RunStatus.READY_FOR_ETSY_DRAFT
+            to_state = RunStatus.READY_FOR_ETSY_DRAFT
 
         elif decision == ApprovalDecision.REJECTED:
-            # Rejection returns workflow to ARTWORK_APPROVED / PRODUCTION
-            workflow.state = RunStatus.ARTWORK_APPROVED
+            to_state = RunStatus.ARTWORK_APPROVED
 
         else:
             raise DomainError(f"Unsupported Gate 3 decision: {decision}")
 
-        workflow.updated_at = now
+        # Transition workflow state
+        if workflow.state != to_state:
+            await uow.workflows.transition(
+                workflow,
+                to_state=to_state,
+                expected_version=workflow.version,
+                gate=ApprovalGate.LISTING_APPROVAL,
+                decision=decision,
+                reason=f"Gate 3 decision: {decision.value}",
+                actor=owner_email,
+            )
 
-        # Create Approval record
-        approval = Approval(
-            workflow_id=workflow_id,
+        # Record Approval
+        await uow.approvals.record(
+            workflow=workflow,
             gate=ApprovalGate.LISTING_APPROVAL,
             decision=decision,
-            decided_by=owner_email,
-            decided_at=now,
-            notes=(
-                f"Gate 3 {decision.value} by {owner_email}. "
-                f"Risk: {draft.ip_risk_level.value}. Acknowledged: {acknowledged or draft.ip_acknowledged_at is not None}."
-            ),
-        )
-        await uow.approvals.add(approval)
-
-        # Create Audit Event
-        audit_event = AuditEvent(
-            workflow_id=workflow_id,
-            action=AuditAction.GATE_DECISION,
+            previous_state=from_state,
+            resulting_state=to_state,
             actor=owner_email,
-            details={
+            target_type="ListingDraft",
+            target_id=draft.id,
+            target_version=draft.version,
+            comment=f"Risk: {draft.ip_risk_level.value}. Acknowledged: {acknowledged or draft.ip_acknowledged_at is not None}.",
+        )
+
+        # Record Audit Event
+        await uow.audit.record(
+            action=AuditAction.APPROVAL_DECISION,
+            entity_type="ListingDraft",
+            summary=f"Gate 3 {decision.value} for listing draft",
+            workflow_id=workflow_id,
+            entity_id=draft.id,
+            actor=owner_email,
+            metadata={
                 "gate": ApprovalGate.LISTING_APPROVAL.value,
                 "decision": decision.value,
                 "risk_level": draft.ip_risk_level.value,
-                "target_state": workflow.state.value,
+                "target_state": to_state.value,
             },
         )
-        await uow.audit.add(audit_event)
 
-        # Create Outbox Message
-        outbox_msg = OutboxMessage(
-            topic="workflow.gate3.decided",
+        # Record Outbox Message
+        await uow.outbox.add(
+            event_type="listing.gate3_decided",
             payload={
                 "workflow_id": str(workflow_id),
                 "gate": ApprovalGate.LISTING_APPROVAL.value,
                 "decision": decision.value,
-                "state": workflow.state.value,
+                "state": to_state.value,
                 "actor": owner_email,
             },
         )
-        await uow.outbox.add(outbox_msg)
 
         logger.info(
             "gate3_decision_applied",

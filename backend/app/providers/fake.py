@@ -93,6 +93,72 @@ class FakeTextProvider:
         import re
 
         prompt_lower = request.prompt.lower()
+
+        if "seo copywriter" in prompt_lower or "critical etsy guidelines" in prompt_lower:
+            concept_title = "Cute Artwork"
+            match = re.search(r"Product Title/Concept:\s*([^\n]+)", request.prompt, re.IGNORECASE)
+            if match:
+                concept_title = match.group(1).strip()
+
+            slogan_match = re.search(r"Artwork Slogan:\s*([^\n]+)", request.prompt, re.IGNORECASE)
+            slogan = slogan_match.group(1).strip() if slogan_match and slogan_match.group(1).strip() not in ("N/A", "None", "") else None
+
+            # Clean words from concept title
+            words = [w.lower() for w in re.findall(r"[a-zA-Z0-9]+", concept_title) if len(w) > 2]
+            niche_words = [w for w in words if w not in {"the", "and", "for", "with", "concept", "faithful", "market", "hybrid"}]
+            main_niche = " ".join(niche_words[:3]) if niche_words else "vintage design"
+
+            generated_title = f"{concept_title[:90]} PNG Digital Download, Sublimation T-Shirt Design"[:140]
+
+            candidate_tags = [
+                f"{main_niche[:16]} png"[:20],
+                f"{main_niche[:12]} sublimation"[:20],
+                f"{main_niche[:13]} clipart"[:20],
+                f"{main_niche[:14]} design"[:20],
+                f"{main_niche[:14]} tshirt"[:20],
+                "png digital download",
+                "sublimation design",
+                "transparent png",
+                "printable art",
+                "dtg shirt graphic",
+                "instant download",
+                "commercial use png",
+                "pod graphics file",
+                "tshirt graphic",
+                "sticker png",
+            ]
+
+            seen_tags: set[str] = set()
+            unique_tags: list[str] = []
+            for t in candidate_tags:
+                clean = re.sub(r"[^a-zA-Z0-9\s-]", "", t.strip().lower())
+                clean = re.sub(r"\s+", " ", clean)[:20]
+                if clean and clean not in seen_tags:
+                    seen_tags.add(clean)
+                    unique_tags.append(clean)
+                if len(unique_tags) == 13:
+                    break
+
+            seo_payload = {
+                "title": generated_title,
+                "description": (
+                    f"High-resolution digital PNG download for {concept_title}.\n\n"
+                    f"- High Resolution: 4500x5400 px @ 300 DPI, transparent background (sRGB).\n"
+                    f"- Intended Uses: DTG T-shirts, sweatshirts, mugs, stickers, sublimation, and crafts.\n"
+                    f"- Instant digital download upon purchase. No physical item will be shipped.\n"
+                    f"- Commercial use license included for physical end products."
+                ),
+                "tags": unique_tags[:13],
+                "ai_disclosure": "This digital artwork was created with human creative direction and AI design assistance.",
+            }
+
+            return TextResponse(
+                text=json.dumps(seo_payload),
+                input_tokens=len(request.prompt.split()),
+                output_tokens=350,
+                model="fake-text-seo",
+            )
+
         is_user_or_hybrid = "original idea" in prompt_lower or "user idea" in prompt_lower
 
         original_text = "Sleepy Fox curling around a mug"
