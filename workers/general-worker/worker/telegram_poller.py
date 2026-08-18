@@ -9,7 +9,7 @@ import httpx
 import redis.asyncio as aioredis
 
 from app.api.dependencies import build_credential_cipher
-from app.application.telegram import handle_telegram_command
+from app.application.telegram import handle_telegram_callback, handle_telegram_command
 from app.application.unit_of_work import UnitOfWork
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import configure_logging, get_logger
@@ -106,6 +106,35 @@ async def run_poller() -> None:
                     await redis_client.set("tg_bot_offset", str(offset))
                     continue
 
+                callback_query = update.get("callback_query")
+                if callback_query:
+                    chat = callback_query.get("message", {}).get("chat")
+                    from_user = callback_query.get("from")
+                    data = callback_query.get("data")
+                    if chat and from_user and data:
+                        chat_id = chat.get("id")
+                        tg_user_id = from_user.get("id")
+                        username = from_user.get("username")
+                        if chat_id is not None and tg_user_id is not None:
+                            logger.info("Processing callback in poller", data=data, username=username)
+                            async with UnitOfWork(session_factory) as uow:
+                                try:
+                                    response_text = await handle_telegram_callback(
+                                        uow=uow,
+                                        redis=redis_client,
+                                        telegram_user_id=tg_user_id,
+                                        telegram_chat_id=chat_id,
+                                        telegram_username=username,
+                                        callback_data=data,
+                                        now=datetime.now(UTC),
+                                    )
+                                    await gateway.send_message(
+                                        chat_id=chat_id,
+                                        text=response_text,
+                                    )
+                                except Exception as exc:
+                                    logger.error("Error processing Telegram callback in poller", exc_info=exc)
+
                 message = update.get("message")
                 if message and message.get("text"):
                     chat = message.get("chat")
@@ -137,9 +166,11 @@ async def run_poller() -> None:
                                         text=text,
                                         now=datetime.now(UTC),
                                     )
+                                    reply_markup = getattr(response_text, "reply_markup", None)
                                     await gateway.send_message(
                                         chat_id=chat_id,
                                         text=response_text,
+                                        reply_markup=reply_markup,
                                     )
                                 except Exception as exc:
                                     logger.error(
