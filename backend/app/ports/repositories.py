@@ -380,6 +380,28 @@ class CostRepository(Protocol):
         currency: str = "USD",
     ) -> Money: ...
 
+    async def list_for_owner(
+        self,
+        owner_id: uuid.UUID,
+        *,
+        provider: ProviderName | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Sequence[tuple[ProviderUsage, str]]:
+        """List provider usage records with their workflow name for an owner."""
+        ...
+
+    async def get_owner_metrics(
+        self,
+        owner_id: uuid.UUID,
+        *,
+        today_start: datetime,
+        month_start: datetime,
+        currency: str = "USD",
+    ) -> dict[str, Any]:
+        """Aggregate token counts, costs, and breakdowns for an owner."""
+        ...
+
     async def would_exceed_budget(self, *, current: Money, projected: Money, limit: Money) -> bool:
         """Compare-before-dispatch helper."""
         ...

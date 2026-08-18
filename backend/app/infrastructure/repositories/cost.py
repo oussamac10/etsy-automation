@@ -212,6 +212,157 @@ class SqlCostRepository:
         )
         return await self._sum(stmt, currency)
 
+    async def list_for_owner(
+        self,
+        owner_id: uuid.UUID,
+        *,
+        provider: ProviderName | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Sequence[tuple[ProviderUsage, str]]:
+        from app.infrastructure.models.workflow import ProductWorkflow
+
+        stmt = (
+            select(ProviderUsage, ProductWorkflow.name)
+            .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
+            .where(ProductWorkflow.owner_id == owner_id)
+            .order_by(ProviderUsage.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        if provider is not None:
+            stmt = stmt.where(ProviderUsage.provider == provider)
+
+        result = await self._session.execute(stmt)
+        return [(row[0], str(row[1])) for row in result.all()]
+
+    async def get_owner_metrics(
+        self,
+        owner_id: uuid.UUID,
+        *,
+        today_start: datetime,
+        month_start: datetime,
+        currency: str = "USD",
+    ) -> dict[str, Any]:
+        from app.infrastructure.models.workflow import ProductWorkflow
+
+        base_where = (ProductWorkflow.owner_id == owner_id) & (ProviderUsage.currency == currency)
+
+        totals_stmt = (
+            select(
+                func.coalesce(func.sum(_effective_cost_sql()), 0).label("total_spent"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (ProviderUsage.unit_kind == "tokens", ProviderUsage.input_units),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("input_tokens"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (ProviderUsage.unit_kind == "tokens", ProviderUsage.output_units),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("output_tokens"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (ProviderUsage.unit_kind == "images", ProviderUsage.output_units),
+                            (ProviderUsage.operation == "image_generation", 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("total_images"),
+                func.count(ProviderUsage.id).label("total_calls"),
+            )
+            .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
+            .where(base_where)
+        )
+        totals_row = (await self._session.execute(totals_stmt)).one()
+
+        today_stmt = (
+            select(func.coalesce(func.sum(_effective_cost_sql()), 0))
+            .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
+            .where(base_where & (ProviderUsage.created_at >= today_start))
+        )
+        today_val = (await self._session.execute(today_stmt)).scalar_one_or_none()
+        today_spent = int(today_val or 0)
+
+        month_stmt = (
+            select(func.coalesce(func.sum(_effective_cost_sql()), 0))
+            .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
+            .where(base_where & (ProviderUsage.created_at >= month_start))
+        )
+        month_val = (await self._session.execute(month_stmt)).scalar_one_or_none()
+        month_spent = int(month_val or 0)
+
+        by_prov_stmt = (
+            select(
+                ProviderUsage.provider,
+                func.coalesce(func.sum(_effective_cost_sql()), 0),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                ProviderUsage.unit_kind == "tokens",
+                                ProviderUsage.input_units + ProviderUsage.output_units,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ),
+            )
+            .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
+            .where(base_where)
+            .group_by(ProviderUsage.provider)
+        )
+        by_prov_res = (await self._session.execute(by_prov_stmt)).all()
+        by_provider = {
+            (prov.value if hasattr(prov, "value") else str(prov)): {
+                "cost_minor": int(cost or 0),
+                "tokens": int(tokens or 0),
+            }
+            for prov, cost, tokens in by_prov_res
+        }
+
+        by_op_stmt = (
+            select(
+                ProviderUsage.operation,
+                func.coalesce(func.sum(_effective_cost_sql()), 0),
+                func.count(ProviderUsage.id),
+            )
+            .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
+            .where(base_where)
+            .group_by(ProviderUsage.operation)
+        )
+        by_op_res = (await self._session.execute(by_op_stmt)).all()
+        by_operation = {
+            op: {
+                "cost_minor": int(cost or 0),
+                "calls": int(calls or 0),
+            }
+            for op, cost, calls in by_op_res
+        }
+
+        return {
+            "total_spent_minor": int(totals_row.total_spent or 0),
+            "today_spent_minor": today_spent,
+            "month_spent_minor": month_spent,
+            "total_input_tokens": int(totals_row.input_tokens or 0),
+            "total_output_tokens": int(totals_row.output_tokens or 0),
+            "total_images": int(totals_row.total_images or 0),
+            "total_calls": int(totals_row.total_calls or 0),
+            "by_provider": by_provider,
+            "by_operation": by_operation,
+        }
+
     async def would_exceed_budget(self, *, current: Money, projected: Money, limit: Money) -> bool:
         """Compare-before-dispatch helper. Pure integer arithmetic."""
         return (current + projected) > limit
