@@ -30,6 +30,8 @@ class TrademarkScreeningService:
         logger.info("screening_trademarks", phrases_count=len(phrases), phrases=phrases)
 
         all_matches: list[dict[str, Any]] = []
+        uspto_failed = False
+        uspto_failure_reason: str | None = None
 
         # Query provider for each unique phrase (deduplicated)
         for phrase in phrases:
@@ -53,13 +55,34 @@ class TrademarkScreeningService:
                     )
             except Exception as exc:
                 logger.warning("trademark_query_failed", phrase=phrase, error=str(exc))
+                uspto_failed = True
+                uspto_failure_reason = str(exc)
+
+        if uspto_failed:
+            screening_source = "local_defense_registry"
+            uspto_status = "UNAVAILABLE"
+            warning_message = (
+                "USPTO screening was unavailable. Results below are from the local preliminary "
+                "defense screen only."
+            )
+        else:
+            screening_source = "USPTO"
+            uspto_status = "SUCCESS"
+            warning_message = None
 
         # Evaluate risk deterministically using pure domain rules
-        risk_level, findings = evaluate_trademark_risk(phrases, all_matches)
+        risk_level, findings = evaluate_trademark_risk(
+            searched_phrases=phrases,
+            matches=all_matches,
+            screening_source=screening_source,
+            uspto_status=uspto_status,
+            warning_message=warning_message,
+        )
 
         logger.info(
             "trademark_screening_complete",
             risk_level=risk_level.value,
+            screening_source=screening_source,
             matches_count=len(all_matches),
         )
         return risk_level, findings

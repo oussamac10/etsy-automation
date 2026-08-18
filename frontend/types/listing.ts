@@ -3,20 +3,28 @@ import type { Asset } from '~/types/workflow';
 export type RiskLevel = 'low' | 'medium' | 'high' | 'unknown';
 
 export interface TrademarkFinding {
-  mark_text: string;
+  mark_text?: string;
+  matched_mark?: string;
+  searched_phrase?: string;
+  match_type?: string;
   serial_number?: string | null;
   registration_number?: string | null;
-  status: string;
+  status?: string;
   is_live: boolean;
   goods_services?: string | null;
-  classes: string[];
+  classes?: string[];
   owner?: string | null;
   filing_date?: string | null;
   registration_date?: string | null;
   source_url?: string | null;
+  risk_reason?: string;
+  recommended_action?: string;
 }
 
 export interface IpFindingsReport {
+  screening_source?: 'USPTO' | 'local_defense_registry' | string;
+  uspto_status?: 'SUCCESS' | 'UNAVAILABLE' | string;
+  warning_message?: string | null;
   scanned_phrases?: string[];
   searched_phrases?: string[];
   risk_level?: RiskLevel;

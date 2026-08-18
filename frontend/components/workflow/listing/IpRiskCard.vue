@@ -7,7 +7,7 @@ import CardDescription from '~/components/ui/CardDescription.vue';
 import CardContent from '~/components/ui/CardContent.vue';
 import Button from '~/components/ui/Button.vue';
 import Badge from '~/components/ui/Badge.vue';
-import type { IpFindingsReport, RiskLevel } from '~/types/listing';
+import type { IpFindingsReport, RiskLevel, TrademarkFinding } from '~/types/listing';
 
 const props = defineProps<{
   riskLevel: RiskLevel;
@@ -27,16 +27,30 @@ const isCleared = computed(() => props.riskLevel === 'low');
 const isWarning = computed(() => props.riskLevel === 'medium');
 const isHighRisk = computed(() => props.riskLevel === 'high');
 
-const matches = computed(() => props.findings.matches || []);
-const scannedPhrases = computed(() => props.findings.scanned_phrases || []);
-const reasons = computed(() => props.findings.reasons || []);
+const isUsptoLive = computed(() => props.findings.screening_source === 'USPTO' && props.findings.uspto_status !== 'UNAVAILABLE');
+const isLocalFallback = computed(() => props.findings.screening_source === 'local_defense_registry' || props.findings.uspto_status === 'UNAVAILABLE');
+const fallbackMessage = computed(() => props.findings.warning_message || 'USPTO screening was unavailable. Results below are from the local preliminary screen only.');
+
+const rawMatches = computed<TrademarkFinding[]>(() => {
+  const list = props.findings.matches || props.findings.findings || [];
+  return list as TrademarkFinding[];
+});
+const scannedPhrases = computed<string[]>(() => props.findings.scanned_phrases || props.findings.searched_phrases || []);
+const reasons = computed<string[]>(() => {
+  if (props.findings.reasons && props.findings.reasons.length > 0) {
+    return props.findings.reasons;
+  }
+  return rawMatches.value
+    .map((m) => m.risk_reason)
+    .filter((r): r is string => Boolean(r));
+});
 </script>
 
 <template>
   <Card class="border-border shadow-xs">
     <CardHeader class="flex flex-row items-center justify-between pb-3">
       <div>
-        <CardTitle class="text-base font-semibold flex items-center gap-2">
+        <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
           <Icon name="lucide:shield-check" class="size-4 text-primary" aria-hidden="true" />
           <span>USPTO Trademark Screening & IP Risk</span>
           <Badge
@@ -67,9 +81,25 @@ const reasons = computed(() => props.findings.reasons || []);
           >
             Unchecked
           </Badge>
+
+          <!-- Source Badge -->
+          <Badge
+            v-if="isUsptoLive"
+            variant="secondary"
+            class="text-[9px] font-medium tracking-normal bg-blue-50 text-blue-700 border-blue-200"
+          >
+            USPTO Live
+          </Badge>
+          <Badge
+            v-else-if="isLocalFallback"
+            variant="secondary"
+            class="text-[9px] font-medium tracking-normal bg-amber-50 text-amber-800 border-amber-200"
+          >
+            Local Defense Registry
+          </Badge>
         </CardTitle>
         <CardDescription class="text-xs">
-          Automated multi-class search against official trademark databases.
+          Automated multi-class search against official trademark databases and restricted brand defense list.
         </CardDescription>
       </div>
 
@@ -88,6 +118,17 @@ const reasons = computed(() => props.findings.reasons || []);
     </CardHeader>
 
     <CardContent class="space-y-4 pt-0">
+      <!-- Unavailable Fallback Notice Alert -->
+      <div
+        v-if="isLocalFallback"
+        class="bg-amber-50/90 border border-amber-300 rounded-lg p-2.5 flex items-center gap-2 text-xs text-amber-950"
+      >
+        <Icon name="lucide:alert-circle" class="size-4 text-amber-700 shrink-0" aria-hidden="true" />
+        <p class="text-[11px] leading-snug font-medium">
+          {{ fallbackMessage }}
+        </p>
+      </div>
+
       <!-- Legal Disclaimer Alert -->
       <div class="bg-blue-50/70 border border-blue-200/80 rounded-lg p-2.5 flex items-center gap-2 text-xs text-blue-900">
         <Icon name="lucide:info" class="size-4 text-blue-600 shrink-0" aria-hidden="true" />
@@ -119,7 +160,7 @@ const reasons = computed(() => props.findings.reasons || []);
           <span>High Risk Detected — Gate 3 Approval Blocked</span>
         </div>
         <p class="text-[11px] leading-relaxed text-red-900">
-          Exact or high-confidence registered trademark matches were detected in print-on-demand classes (apparel, graphics, print). You must edit the title, slogan, or tags to remove infringing phrases and re-screen before publishing.
+          Exact or high-confidence registered trademark matches were detected in print-on-demand classes (apparel, graphics, print) or commercial brand registries. You must edit the title, slogan, or tags to remove infringing phrases and re-screen before publishing.
         </p>
         <ul v-if="reasons.length > 0" class="list-disc list-inside text-[11px] space-y-0.5 text-red-800">
           <li v-for="(reason, idx) in reasons" :key="idx">{{ reason }}</li>
@@ -168,18 +209,18 @@ const reasons = computed(() => props.findings.reasons || []);
       </div>
 
       <!-- Matches Table / List -->
-      <div v-if="matches.length > 0" class="space-y-2">
+      <div v-if="rawMatches.length > 0" class="space-y-2">
         <p class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Identified Registry Matches ({{ matches.length }})
+          Identified Registry Matches ({{ rawMatches.length }})
         </p>
-        <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+        <div class="space-y-1.5 max-h-64 overflow-y-auto pr-1">
           <div
-            v-for="(match, idx) in matches"
+            v-for="(match, idx) in rawMatches"
             :key="idx"
             class="p-2.5 bg-slate-50 border border-slate-200 rounded-md text-xs space-y-1"
           >
             <div class="flex items-center justify-between">
-              <span class="font-bold text-slate-900 font-mono">"{{ match.mark_text }}"</span>
+              <span class="font-bold text-slate-900 font-mono">"{{ match.mark_text || match.matched_mark }}"</span>
               <div class="flex items-center gap-1.5">
                 <Badge
                   :variant="match.is_live ? 'destructive' : 'secondary'"
@@ -202,9 +243,17 @@ const reasons = computed(() => props.findings.reasons || []);
 
             <div class="text-[10px] text-slate-600 flex flex-wrap gap-x-3 gap-y-0.5">
               <span v-if="match.serial_number">Serial: <span class="font-mono">{{ match.serial_number }}</span></span>
-              <span v-if="match.classes.length > 0">Classes: <span class="font-mono font-bold">{{ match.classes.join(', ') }}</span></span>
+              <span v-if="match.classes && match.classes.length > 0">Classes: <span class="font-mono font-bold">{{ match.classes.join(', ') }}</span></span>
               <span v-if="match.owner">Owner: {{ match.owner }}</span>
             </div>
+
+            <p v-if="match.risk_reason" class="text-[10px] text-red-700 font-medium">
+              {{ match.risk_reason }}
+            </p>
+
+            <p v-if="match.recommended_action" class="text-[10px] text-slate-700">
+              <b>Action:</b> {{ match.recommended_action }}
+            </p>
 
             <p v-if="match.goods_services" class="text-[10px] text-slate-500 italic line-clamp-2">
               {{ match.goods_services }}

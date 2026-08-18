@@ -155,3 +155,103 @@ class TestTrademarkAdapters:
         assert parsed[0].classes == ["025", "009"]
         assert parsed[0].owner == "Test Corp LLC"
         assert "tsdr.uspto.gov" in (parsed[0].source_url or "")
+
+    @pytest.mark.asyncio
+    async def test_uspto_adapter_http_error_handling(self) -> None:
+        import httpx
+        from app.ports.errors import ProviderError, ProviderErrorKind
+
+        # 403 Forbidden / Auth failure
+        async def mock_handler_403(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, json={"message": "Forbidden"})
+
+        client_403 = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_403))
+        adapter_403 = UsptoTrademarkAdapter(api_key="bad-key", client=client_403)
+        with pytest.raises(ProviderError) as exc_info:
+            await adapter_403.search_trademark("test query")
+        assert exc_info.value.kind == ProviderErrorKind.AUTHENTICATION
+
+        # 429 Rate limited
+        async def mock_handler_429(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(429, text="Too Many Requests")
+
+        client_429 = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_429))
+        adapter_429 = UsptoTrademarkAdapter(api_key="test-key", client=client_429)
+        with pytest.raises(ProviderError) as exc_info:
+            await adapter_429.search_trademark("test query")
+        assert exc_info.value.kind == ProviderErrorKind.RATE_LIMITED
+
+        # 404 Not found returns empty list
+        async def mock_handler_404(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404, json={"message": "Not Found"})
+
+        client_404 = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_404))
+        adapter_404 = UsptoTrademarkAdapter(api_key="test-key", client=client_404)
+        results = await adapter_404.search_trademark("not found term")
+        assert results == []
+
+        # 500 Server error
+        async def mock_handler_500(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, text="Internal Server Error")
+
+        client_500 = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_500))
+        adapter_500 = UsptoTrademarkAdapter(api_key="test-key", client=client_500)
+        with pytest.raises(ProviderError) as exc_info:
+            await adapter_500.search_trademark("test query")
+        assert exc_info.value.kind == ProviderErrorKind.RETRYABLE
+
+
+class TestTrademarkScreeningService:
+    @pytest.mark.asyncio
+    async def test_screening_service_success_source(self) -> None:
+        from app.application.trademark import TrademarkScreeningService
+
+        adapter = FakeTrademarkSearchAdapter()
+        service = TrademarkScreeningService(adapter)
+
+        risk, findings = await service.screen_listing_trademark(
+            slogan="Cozy Season",
+            title="Cozy Season Fall Graphic",
+            keywords=["cozy", "autumn"],
+            tags=["cozy season", "autumn graphic"],
+        )
+        assert risk == RiskLevel.LOW
+        assert findings["screening_source"] == "USPTO"
+        assert findings["uspto_status"] == "SUCCESS"
+        assert findings["warning_message"] is None
+
+    @pytest.mark.asyncio
+    async def test_screening_service_fallback_when_provider_fails(self) -> None:
+        import httpx
+        from app.application.trademark import TrademarkScreeningService
+
+        async def mock_handler_fail(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, json={"message": "Unauthorized"})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_fail))
+        adapter = UsptoTrademarkAdapter(api_key="unentitled-key", client=client)
+        service = TrademarkScreeningService(adapter)
+
+        # Screen an unconflicted phrase with a failing USPTO provider
+        risk, findings = await service.screen_listing_trademark(
+            slogan="Warm Pumpkin Spice",
+            title="Warm Pumpkin Spice Latte PNG",
+            keywords=["pumpkin"],
+            tags=["pumpkin spice"],
+        )
+        # Should record local defense registry fallback
+        assert findings["screening_source"] == "local_defense_registry"
+        assert findings["uspto_status"] == "UNAVAILABLE"
+        assert "USPTO screening was unavailable" in findings["warning_message"]
+        assert risk == RiskLevel.LOW
+
+        # But if the phrase contains a restricted brand, local defense still catches it!
+        risk_brand, findings_brand = await service.screen_listing_trademark(
+            slogan="Nike Runner",
+            title="Nike Runner Digital File",
+            keywords=["nike"],
+            tags=["nike runner"],
+        )
+        assert risk_brand == RiskLevel.HIGH
+        assert findings_brand["screening_source"] == "local_defense_registry"
+        assert findings_brand["blocks_approval"] is True

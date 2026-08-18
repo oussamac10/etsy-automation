@@ -130,20 +130,18 @@ def is_goods_overlap(classes: list[str] | None, goods_services: str | None) -> b
 def evaluate_trademark_risk(
     searched_phrases: list[str],
     matches: list[dict[str, Any]],
+    screening_source: str = "USPTO",
+    uspto_status: str = "SUCCESS",
+    warning_message: str | None = None,
 ) -> tuple[RiskLevel, dict[str, Any]]:
     """Determine overall trademark risk and generate structured findings.
 
     Args:
         searched_phrases: List of input phrases queried.
-        matches: Normalized match dictionaries containing:
-                 - mark_text: str
-                 - serial_number: str | None
-                 - registration_number: str | None
-                 - is_live: bool
-                 - classes: list[str]
-                 - goods_services: str | None
-                 - owner: str | None
-                 - status: str
+        matches: Normalized match dictionaries.
+        screening_source: 'USPTO' or 'local_defense_registry'.
+        uspto_status: 'SUCCESS' or 'UNAVAILABLE'.
+        warning_message: Optional user-facing alert when USPTO lookup fails.
 
     Returns:
         tuple[RiskLevel, findings_dict]
@@ -160,6 +158,7 @@ def evaluate_trademark_risk(
             {
                 "searched_phrase": term,
                 "matched_mark": term.upper(),
+                "mark_text": term.upper(),
                 "match_type": "KNOWN_RESTRICTED_BRAND",
                 "is_live": True,
                 "classes": ["025", "009"],
@@ -182,6 +181,7 @@ def evaluate_trademark_risk(
         serial_number = match.get("serial_number")
         registration_number = match.get("registration_number")
         owner = match.get("owner")
+        source_url = match.get("source_url")
 
         overlap = is_goods_overlap(classes, goods_services)
 
@@ -199,6 +199,7 @@ def evaluate_trademark_risk(
                 {
                     "searched_phrase": mark_text,
                     "matched_mark": mark_text,
+                    "mark_text": mark_text,
                     "match_type": "DEAD_MARK",
                     "is_live": False,
                     "serial_number": serial_number,
@@ -206,6 +207,7 @@ def evaluate_trademark_risk(
                     "classes": classes,
                     "goods_services": goods_services,
                     "owner": owner,
+                    "source_url": source_url,
                     "risk_reason": "Registered mark is DEAD/cancelled.",
                     "recommended_action": "Informational record; mark is inactive.",
                 }
@@ -225,6 +227,7 @@ def evaluate_trademark_risk(
                 {
                     "searched_phrase": mark_text,
                     "matched_mark": mark_text,
+                    "mark_text": mark_text,
                     "match_type": "EXACT_LIVE_POD_OVERLAP",
                     "is_live": True,
                     "serial_number": serial_number,
@@ -232,6 +235,7 @@ def evaluate_trademark_risk(
                     "classes": classes,
                     "goods_services": goods_services,
                     "owner": owner,
+                    "source_url": source_url,
                     "risk_reason": risk_reason,
                     "recommended_action": rec_action,
                 }
@@ -247,6 +251,7 @@ def evaluate_trademark_risk(
                 {
                     "searched_phrase": mark_text,
                     "matched_mark": mark_text,
+                    "mark_text": mark_text,
                     "match_type": "EXACT_LIVE_UNRELATED_CLASS",
                     "is_live": True,
                     "serial_number": serial_number,
@@ -254,6 +259,7 @@ def evaluate_trademark_risk(
                     "classes": classes,
                     "goods_services": goods_services,
                     "owner": owner,
+                    "source_url": source_url,
                     "risk_reason": risk_reason,
                     "recommended_action": rec_action,
                 }
@@ -266,6 +272,7 @@ def evaluate_trademark_risk(
                 {
                     "searched_phrase": mark_text,
                     "matched_mark": mark_text,
+                    "mark_text": mark_text,
                     "match_type": "PARTIAL_LIVE_OVERLAP",
                     "is_live": True,
                     "serial_number": serial_number,
@@ -273,6 +280,7 @@ def evaluate_trademark_risk(
                     "classes": classes,
                     "goods_services": goods_services,
                     "owner": owner,
+                    "source_url": source_url,
                     "risk_reason": risk_reason,
                     "recommended_action": rec_action,
                 }
@@ -285,11 +293,22 @@ def evaluate_trademark_risk(
     else:
         overall_level = RiskLevel.LOW
 
+    reasons = [f["risk_reason"] for f in findings if "risk_reason" in f]
+
     structured_findings = {
+        "screening_source": screening_source,
+        "uspto_status": uspto_status,
+        "warning_message": warning_message,
         "searched_phrases": searched_phrases,
+        "scanned_phrases": searched_phrases,
         "match_count": len(findings),
+        "matches": findings,
         "findings": findings,
-        "disclaimer": "Preliminary automated trademark screening only — not legal advice.",
+        "reasons": reasons,
+        "disclaimer": (
+            "Preliminary automated trademark screening only — not legal advice. "
+            "Searches USPTO POD-relevant Nice classes (009, 016, 021, 025, 035)."
+        ),
         "requires_acknowledgement": overall_level == RiskLevel.MEDIUM,
         "blocks_approval": overall_level == RiskLevel.HIGH,
     }

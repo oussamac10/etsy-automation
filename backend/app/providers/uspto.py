@@ -30,10 +30,12 @@ class UsptoTrademarkAdapter(TrademarkSearchPort):
         api_key: str,
         base_url: str = USPTO_API_BASE,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._client = client
 
     async def search_trademark(self, phrase: str) -> list[TrademarkMatch]:
         """Search USPTO trademark records for a given phrase.
@@ -46,6 +48,7 @@ class UsptoTrademarkAdapter(TrademarkSearchPort):
 
         url = f"{self._base_url}/cases"
         headers = {
+            "x-api-key": self._api_key,
             "X-API-KEY": self._api_key,
             "Accept": "application/json",
             "User-Agent": "EtsyPngAutomation/1.0",
@@ -57,38 +60,65 @@ class UsptoTrademarkAdapter(TrademarkSearchPort):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.get(url, headers=headers, params=params)
+            if self._client is not None:
+                response = await self._client.get(url, headers=headers, params=params)
+            else:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.get(url, headers=headers, params=params)
 
-                if response.status_code in (401, 403):
-                    logger.error("uspto_auth_failed", status_code=response.status_code)
-                    raise ProviderError(
-                        kind=ProviderErrorKind.AUTHENTICATION,
-                        provider="uspto",
-                        operation="search",
-                        message="USPTO API key rejected or unauthorized.",
-                    )
+            if response.status_code in (401, 403):
+                logger.error("uspto_auth_failed", status_code=response.status_code)
+                raise ProviderError(
+                    kind=ProviderErrorKind.AUTHENTICATION,
+                    provider="uspto",
+                    operation="search",
+                    message="USPTO API key rejected or unauthorized.",
+                )
 
-                if response.status_code >= 500:
-                    logger.error("uspto_server_error", status_code=response.status_code)
-                    raise ProviderError(
-                        kind=ProviderErrorKind.RETRYABLE,
-                        provider="uspto",
-                        operation="search",
-                        message=f"USPTO service error (status {response.status_code}).",
-                    )
+            if response.status_code == 429:
+                logger.warning("uspto_rate_limited", phrase=trimmed)
+                raise ProviderError(
+                    kind=ProviderErrorKind.RATE_LIMITED,
+                    provider="uspto",
+                    operation="search",
+                    message="USPTO API rate limit exceeded.",
+                )
 
-                if response.status_code != 200:
-                    logger.warning(
-                        "uspto_unexpected_status",
-                        status_code=response.status_code,
-                        phrase=trimmed,
-                    )
-                    return []
+            if response.status_code == 404:
+                return []
 
+            if response.status_code >= 500:
+                logger.error("uspto_server_error", status_code=response.status_code)
+                raise ProviderError(
+                    kind=ProviderErrorKind.RETRYABLE,
+                    provider="uspto",
+                    operation="search",
+                    message=f"USPTO service error (status {response.status_code}).",
+                )
+
+            if response.status_code != 200:
+                logger.warning(
+                    "uspto_unexpected_status",
+                    status_code=response.status_code,
+                    phrase=trimmed,
+                )
+                return []
+
+            try:
                 data = response.json()
-                return self._parse_uspto_response(data)
+            except Exception as json_err:
+                logger.error("uspto_malformed_json", error=str(json_err))
+                raise ProviderError(
+                    kind=ProviderErrorKind.PERMANENT,
+                    provider="uspto",
+                    operation="search",
+                    message="USPTO returned malformed or non-JSON response.",
+                ) from json_err
 
+            return self._parse_uspto_response(data)
+
+        except ProviderError:
+            raise
         except httpx.TimeoutException as exc:
             logger.warning("uspto_timeout", phrase=trimmed)
             raise ProviderError(
