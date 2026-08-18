@@ -678,12 +678,17 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                     generation_metadata=prompt_data.get("generation_metadata", {}),
                 )
 
-            # Reconcile usage costs
+            # Reconcile usage costs (Gemini 2.5 Flash: $0.075 / 1M prompt tokens, $0.30 / 1M completion tokens)
             tokens_in = text_response.input_tokens
             tokens_out = text_response.output_tokens
-            cost_in = Money(int(tokens_in * 0.0075), "USD") if is_live else Money(0, "USD")
-            cost_out = Money(int(tokens_out * 0.030), "USD") if is_live else Money(0, "USD")
-            actual_cost = Money(cost_in.minor_units + cost_out.minor_units, "USD")
+            if is_live:
+                cost_usd = (
+                    (Decimal(tokens_in) * Decimal("0.075") + Decimal(tokens_out) * Decimal("0.30"))
+                    / Decimal("1000000")
+                )
+                actual_cost = Money.from_decimal(cost_usd, "USD")
+            else:
+                actual_cost = Money.zero("USD")
 
             await uow.costs.reconcile(
                 usage_id=ledger_entry.id,
