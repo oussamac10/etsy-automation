@@ -199,7 +199,7 @@ ALLOWED_IMAGE_MIMES = {"image/jpeg", "image/png", "image/webp"}
 def validate_image_payload(
     content: bytes,
     content_type: str,
-    max_bytes: int = 40 * 1024 * 1024,
+    max_bytes: int = 150 * 1024 * 1024,
 ) -> None:
     """Validate image bytes, MIME type, and decodable header."""
     clean_mime = content_type.lower().strip()

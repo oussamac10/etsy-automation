@@ -11,10 +11,10 @@ export interface DecodeLimits {
 }
 
 export const DEFAULT_DECODE_LIMITS: DecodeLimits = Object.freeze({
-  maxBytes: 40 * 1024 * 1024,
-  maxPixels: 50_000_000,
-  maxWidth: 20_000,
-  maxHeight: 20_000,
+  maxBytes: 150 * 1024 * 1024,
+  maxPixels: 100_000_000,
+  maxWidth: 25_000,
+  maxHeight: 25_000,
 });
 
 /** Formats we are willing to decode. SVG is excluded: it is rendered only through the hardened typography path. */

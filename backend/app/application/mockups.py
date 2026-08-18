@@ -192,15 +192,20 @@ class MockupCompositionService:
             "quality": 92,
         }
 
-        async with httpx.AsyncClient(timeout=45.0) as http_client:
-            resp = await http_client.post(
-                f"{self.image_worker_url}/pipeline/custom-mockup", json=worker_payload
-            )
-            if resp.status_code != 200:
-                raise MockupCompositionError(
-                    f"Image worker failed to composite custom mockup: {resp.text[:200]}"
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as http_client:
+                resp = await http_client.post(
+                    f"{self.image_worker_url}/pipeline/custom-mockup", json=worker_payload
                 )
-            result_data = resp.json()
+                if resp.status_code != 200:
+                    raise MockupCompositionError(
+                        f"Image worker failed to composite custom mockup (status {resp.status_code}): {resp.text[:200]}"
+                    )
+                result_data = resp.json()
+        except httpx.HTTPError as http_err:
+            raise MockupCompositionError(
+                f"Image processing worker error: {http_err}"
+            ) from http_err
 
         composited_bytes = base64.b64decode(result_data["mockup_base64"])
         out_w = result_data.get("width", 1200)

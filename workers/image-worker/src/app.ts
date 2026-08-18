@@ -53,7 +53,7 @@ function toBase64(bytes: Uint8Array): string {
  */
 export function buildApp({ config, redis }: AppDependencies): FastifyInstance {
   const app = Fastify({
-    bodyLimit: config.IMAGE_MAX_INPUT_BYTES ?? 50 * 1024 * 1024,
+    bodyLimit: config.IMAGE_MAX_INPUT_BYTES ?? 150 * 1024 * 1024,
     logger: {
       level: pinoLevel(config.LOG_LEVEL),
       redact: {

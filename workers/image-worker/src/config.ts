@@ -19,8 +19,8 @@ const schema = z.object({
     .number()
     .int()
     .positive()
-    .default(40 * 1024 * 1024),
-  IMAGE_MAX_PIXELS: z.coerce.number().int().positive().default(50_000_000),
+    .default(150 * 1024 * 1024),
+  IMAGE_MAX_PIXELS: z.coerce.number().int().positive().default(100_000_000),
 });
 
 export type Config = z.infer<typeof schema>;
