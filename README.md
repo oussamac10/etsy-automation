@@ -18,6 +18,7 @@ An end-to-end, production-minded automation pipeline built for Etsy print-on-dem
 ## Key Features
 
 ### 1. Market Research & Idea Discovery (Phases 1-5)
+
 - **3 Discovery Modes**:
   - *Discover Ideas*: Autonomous trend extraction across niches, buyer personas, and seasonality.
   - *Use My Idea*: Direct seller prompt & slogan input with automated keyword expansion.
@@ -27,12 +28,14 @@ An end-to-end, production-minded automation pipeline built for Etsy print-on-dem
 - **Gate 1 Approval**: Interactive idea review with one-click approval, refinement, or rejection.
 
 ### 2. Multi-Model Artwork Generation (Phase 6)
+
 - **State-of-the-Art AI Generators**: Native support for **Recraft V4.1** (Vector & Raster) and **Gemini 2.0 / 2.5 Flash Image**.
 - **Interactive Multi-Variation Gallery**: Compare generated alternatives side-by-side with zoom and inspect tools.
 - **Non-Destructive Refinement**: Iteratively refine approved artwork while retaining source asset lineage.
 - **Gate 2 Approval**: Lock in master artwork before dispatching to production.
 
 ### 3. Print-Ready Production & 2D Mockup Compositor (Phase 7)
+
 - **Master Print Engine**: Generates 4500x5400 @ 300 DPI sRGB transparent PNGs with automated margin trimming and upscaling.
 - **Automated QA Validation**: 10-point automated quality inspection (pixel density, color space, alpha transparency, cropped edges, typography bounds).
 - **User Mockup Template Store**: Upload and manage custom blank product templates (T-Shirts, Mugs, Sweatshirts, Posters, Stickers).
@@ -40,10 +43,12 @@ An end-to-end, production-minded automation pipeline built for Etsy print-on-dem
 - **Dynamic Listing Cover Badges**: Set primary cover images and reorder mockups per product type with zero page reloads.
 
 ### 4. 2-Way Telegram Remote Control & Bot (Phase 4)
+
 - Full remote control via Telegram bot: Receive instant notifications when gates require decisions.
 - Approve or reject concepts and artwork directly from chat with interactive inline buttons.
 
 ### 5. Robust Infrastructure & Cost Ledger
+
 - **Deterministic State Machine**: 8-stage transition engine with optimistic locking and automated error triage.
 - **Transactional Outbox Pattern**: Guarantees zero lost events between API and background workers.
 - **Cost Accounting**: Tracks granular token usage, compute duration, and estimated API expenditure per workflow.
@@ -101,6 +106,7 @@ An end-to-end, production-minded automation pipeline built for Etsy print-on-dem
 ## Quick Start (Docker Compose)
 
 ### Prerequisites
+
 - **Docker** with Compose v2
 - **Node.js** 24+ with `pnpm` 11+
 - **Python** 3.12+ (for local scripts and tooling)

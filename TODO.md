@@ -109,41 +109,41 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 
 ---
 
-### Phase 8 — SEO, IP Risk Review, and Download Package ⏳
+### Phase 8 — SEO, IP Risk Review, and Download Package ✅
 
 #### Phase 8 Backend & Workers
 
-- [ ] **AI Listing SEO Generator**:
-  - [ ] LLM prompt pipeline generating:
-    - [ ] Etsy Listing Title (under 140 characters, front-loaded with high-intent keywords).
-    - [ ] Etsy Description (formatted with materials, sizing chart, care instructions, file formats).
-    - [ ] Exactly 13 Etsy Search Tags (strictly ≤ 20 characters per tag, no punctuation, zero duplicates).
-    - [ ] Mandatory Etsy AI Disclosure statement.
-- [ ] **Preliminary IP & Trademark Screening**:
-  - [ ] Keyword and slogan scan against USPTO common trademark dictionaries.
-  - [ ] Compute trademark risk level (`CLEARED`, `WARNING`, `HIGH_RISK`) with matched phrases.
-- [ ] **Customer Download Package Builder**:
-  - [ ] Deterministic ZIP bundle generator containing:
-    - [ ] Master 300 DPI transparent PNG.
-    - [ ] Print-ready PDF version.
-    - [ ] Product mockups for buyer preview.
-    - [ ] Commercial Use Licence (`LICENSE.txt`).
-    - [ ] Customer Instructions & Sizing Guide (`INSTRUCTIONS.txt`).
-    - [ ] Cryptographic checksum manifest (`manifest.sha256`).
-- [ ] **Gate 3 Listing & Package Approval API**:
-  - [ ] `PUT /api/v1/workflows/{id}/listing`: Update title, description, tags with validation.
-  - [ ] `POST /api/v1/workflows/{id}/gates/listing`: Decide Gate 3 (`APPROVED` -> `LISTING_APPROVED` or `REJECTED`).
-- [ ] **Telegram Gate 3 Integration**:
-  - [ ] Send listing summary, tag cloud, IP risk notice, and inline `[Approve Listing]` / `[Edit Listing]` buttons.
+- [x] **AI Listing SEO Generator**:
+  - [x] LLM prompt pipeline generating:
+    - [x] Etsy Listing Title (under 140 characters, front-loaded with high-intent keywords).
+    - [x] Etsy Description (formatted with materials, sizing chart, care instructions, file formats).
+    - [x] Exactly 13 Etsy Search Tags (strictly ≤ 20 characters per tag, no punctuation, zero duplicates).
+    - [x] Mandatory Etsy AI Disclosure statement.
+- [x] **Preliminary IP & Trademark Screening**:
+  - [x] Keyword and slogan scan against USPTO common trademark dictionaries.
+  - [x] Compute trademark risk level (`CLEARED`, `WARNING`, `HIGH_RISK`) with matched phrases.
+- [x] **Customer Download Package Builder**:
+  - [x] Deterministic ZIP bundle generator containing:
+    - [x] Master 300 DPI transparent PNG.
+    - [x] Print-ready PDF version.
+    - [x] Product mockups for buyer preview.
+    - [x] Commercial Use Licence (`LICENSE.txt`).
+    - [x] Customer Instructions & Sizing Guide (`INSTRUCTIONS.txt`).
+    - [x] Cryptographic checksum manifest (`manifest.sha256`).
+- [x] **Gate 3 Listing & Package Approval API**:
+  - [x] `PUT /api/v1/workflows/{id}/listing`: Update title, description, tags with validation.
+  - [x] `POST /api/v1/workflows/{id}/gates/listing`: Decide Gate 3 (`APPROVED` -> `READY_FOR_ETSY_DRAFT` or `REJECTED`).
+- [x] **Telegram Gate 3 Integration**:
+  - [x] Send listing summary, tag cloud, IP risk notice, and inline `[Approve Listing]` / `[Reject Listing]` buttons.
 
 #### Phase 8 Frontend (Nuxt 3)
 
-- [ ] **Gate 3 Review Screen (`frontend/pages/workflow/[id].vue`)**:
-  - [ ] Title & Description editor with character limit counters and live validation.
-  - [ ] Interactive 13-Tag Tag Chip Editor with auto-trimming and 20-character counter per tag.
-  - [ ] IP Risk Notice Card with required human acknowledgement checkbox before approval.
-  - [ ] Customer ZIP package inspector and 1-click package download button.
-  - [ ] Final Gate 3 "Approve & Ready for Etsy" action button.
+- [x] **Gate 3 Review Screen (`frontend/pages/workflow/[id].vue`)**:
+  - [x] Title & Description editor with character limit counters and live validation.
+  - [x] Interactive 13-Tag Tag Chip Editor with auto-trimming and 20-character counter per tag.
+  - [x] IP Risk Notice Card with required human acknowledgement checkbox before approval.
+  - [x] Customer ZIP package inspector and 1-click package download button.
+  - [x] Final Gate 3 "Approve & Ready for Etsy" action button.
 
 ---
 
