@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import json
 import re
+from typing import Any
 import uuid
 import structlog
 
@@ -29,6 +30,38 @@ from app.infrastructure.models import (
 )
 
 logger = structlog.get_logger(__name__)
+
+
+def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None:
+    """Record a version snapshot into draft.ip_findings['history'] so users can view and restore past versions."""
+    findings = dict(draft.ip_findings or {})
+    raw_history = findings.get("history")
+    history: list[dict[str, Any]] = list(raw_history) if isinstance(raw_history, list) else []
+
+    risk_str = draft.ip_risk_level.value if hasattr(draft.ip_risk_level, "value") else str(draft.ip_risk_level)
+
+    # Check if latest history entry matches current content
+    if history:
+        last = history[-1]
+        if (
+            last.get("title") == draft.title
+            and last.get("description") == draft.description
+            and last.get("tags") == draft.tags
+        ):
+            return
+
+    snapshot: dict[str, Any] = {
+        "version": draft.version,
+        "title": draft.title,
+        "description": draft.description,
+        "tags": list(draft.tags),
+        "ip_risk_level": risk_str,
+        "created_at": datetime.now(UTC).isoformat(),
+        "source": source,
+    }
+    history.append(snapshot)
+    findings["history"] = history
+    draft.ip_findings = findings
 
 
 class ListingDraftService:
@@ -97,6 +130,7 @@ class ListingDraftService:
             ip_findings={},
             version=1,
         )
+        record_version_snapshot(draft, source="initial")
         await uow.listing_drafts.add(draft)
         return draft
 
@@ -153,6 +187,10 @@ class ListingDraftService:
                 tags=accepted_tags,
             )
 
+            # Preserve history across re-screens
+            raw_history = (updated_draft.ip_findings or {}).get("history")
+            findings["history"] = list(raw_history) if isinstance(raw_history, list) else []
+
             reviewed_phrase = slogan or updated_draft.title
             updated_draft = await uow.listing_drafts.update_ip_review(
                 updated_draft.id,
@@ -160,6 +198,9 @@ class ListingDraftService:
                 ip_risk_level=risk_level,
                 ip_findings=findings,
             )
+
+        # Save snapshot into history
+        record_version_snapshot(updated_draft, source="manual")
 
         # Record audit event
         await uow.audit.record(
@@ -183,6 +224,41 @@ class ListingDraftService:
             version=updated_draft.version,
         )
         return updated_draft
+
+    async def restore_version(
+        self,
+        workflow_id: uuid.UUID,
+        target_version: int,
+        uow: UnitOfWork,
+        actor_email: str,
+        trademark_service: TrademarkScreeningService | None = None,
+    ) -> ListingDraft:
+        """Restore listing copy from a previous version snapshot in history."""
+        draft = await uow.listing_drafts.get_by_workflow(workflow_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", workflow_id)
+
+        raw_history = (draft.ip_findings or {}).get("history")
+        history: list[dict[str, Any]] = list(raw_history) if isinstance(raw_history, list) else []
+        snapshot = next((s for s in history if s.get("version") == target_version), None)
+        if not snapshot:
+            raise DomainError(f"Version {target_version} not found in listing history.")
+
+        restored_title = str(snapshot.get("title", draft.title))
+        restored_description = str(snapshot.get("description", draft.description))
+        raw_tags = snapshot.get("tags", draft.tags)
+        restored_tags = [str(t) for t in raw_tags] if isinstance(raw_tags, list) else list(draft.tags)
+
+        return await self.update_listing_draft(
+            workflow_id=workflow_id,
+            title=restored_title,
+            description=restored_description,
+            tags=restored_tags,
+            expected_version=None,
+            uow=uow,
+            actor_email=actor_email,
+            trademark_service=trademark_service,
+        )
 
     async def rescreen_trademark(
         self,

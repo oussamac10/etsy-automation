@@ -54,26 +54,37 @@ class SqlListingDraftRepository:
                 "ListingDraft", draft_id, expected_version, draft.version
             )
 
-        if title is not None:
+        has_changes = False
+        if title is not None and draft.title != title:
             draft.title = title
-        if description is not None:
+            has_changes = True
+        if description is not None and draft.description != description:
             draft.description = description
-        if tags is not None:
+            has_changes = True
+        if tags is not None and draft.tags != tags:
             draft.tags = tags
-        if price_minor_units is not None:
+            has_changes = True
+        if price_minor_units is not None and draft.price_minor_units != price_minor_units:
             draft.price_minor_units = price_minor_units
-        if currency is not None:
+            has_changes = True
+        if currency is not None and draft.currency != currency:
             draft.currency = currency
-        if taxonomy_id is not None:
+            has_changes = True
+        if taxonomy_id is not None and draft.taxonomy_id != taxonomy_id:
             draft.taxonomy_id = taxonomy_id
-        if ai_disclosure is not None:
+            has_changes = True
+        if ai_disclosure is not None and draft.ai_disclosure != ai_disclosure:
             draft.ai_disclosure = ai_disclosure
-        if licence_text is not None:
+            has_changes = True
+        if licence_text is not None and draft.licence_text != licence_text:
             draft.licence_text = licence_text
-        if customer_instructions is not None:
+            has_changes = True
+        if customer_instructions is not None and draft.customer_instructions != customer_instructions:
             draft.customer_instructions = customer_instructions
+            has_changes = True
 
-        draft.version += 1
+        if has_changes:
+            draft.version += 1
         await self._session.flush()
         return draft
 

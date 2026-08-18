@@ -46,6 +46,16 @@ export interface IpFindingsReport {
   blocks_approval?: boolean;
 }
 
+export interface ListingVersionSnapshot {
+  version: number;
+  title: string;
+  description: string;
+  tags: string[];
+  ip_risk_level?: string;
+  created_at?: string;
+  source?: 'ai_generated' | 'manual' | 'initial';
+}
+
 export interface ListingDraft {
   id: string;
   workflow_id: string;
@@ -65,6 +75,7 @@ export interface ListingDraft {
   version: number;
   package_asset?: Asset | null;
   package_download_url?: string | null;
+  history?: ListingVersionSnapshot[];
   created_at?: string | null;
   updated_at?: string | null;
 }

@@ -178,6 +178,37 @@ export function useListing() {
     }
   }
 
+  const isRestoringVersion = ref(false);
+
+  async function restoreVersion(workflowId: string, versionNumber: number): Promise<ListingDraft | null> {
+    if (!workflowId) return null;
+    isRestoringVersion.value = true;
+    errorMessage.value = null;
+
+    try {
+      const data = await $fetch<ListingDraft>(
+        `${apiBase}/api/v1/workflows/${workflowId}/listing/restore-version`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            ...getCsrfHeaders(),
+          },
+          body: { version: versionNumber },
+          credentials: 'include',
+        }
+      );
+      listingDraft.value = data;
+      return data;
+    } catch (err: unknown) {
+      errorMessage.value = getApiErrorMessage(err, `Failed to restore version ${versionNumber}.`);
+      throw err;
+    } finally {
+      isRestoringVersion.value = false;
+    }
+  }
+
   return {
     listingDraft,
     isLoading,
@@ -185,6 +216,7 @@ export function useListing() {
     isScreening,
     isGeneratingSeo,
     isBuildingPackage,
+    isRestoringVersion,
     isDecidingGate,
     errorMessage,
     loadListing,
@@ -192,6 +224,7 @@ export function useListing() {
     rescreenTrademark,
     generateSeo,
     buildPackage,
+    restoreVersion,
     decideGate3,
   };
 }

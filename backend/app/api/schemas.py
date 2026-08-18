@@ -390,6 +390,11 @@ class ListingDraftResponse(BaseModel):
     version: int
     package_asset: AssetResponse | None = None
     package_download_url: str | None = None
+    history: list[dict[str, object]] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class RestoreListingVersionRequest(BaseModel):
+    version: int = Field(..., ge=1, description="Version number to restore")
 

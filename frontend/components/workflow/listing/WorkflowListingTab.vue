@@ -28,6 +28,7 @@ const {
   isScreening,
   isGeneratingSeo,
   isBuildingPackage,
+  isRestoringVersion,
   isDecidingGate,
   errorMessage,
   loadListing,
@@ -35,6 +36,7 @@ const {
   rescreenTrademark,
   generateSeo,
   buildPackage,
+  restoreVersion,
   decideGate3,
 } = useListing();
 
@@ -97,10 +99,24 @@ async function handleGenerateSeo() {
   }
 }
 
+async function handleRestoreVersion(versionNumber: number) {
+  successMessage.value = null;
+  const draft = await restoreVersion(props.workflowId, versionNumber);
+  if (draft) {
+    localTitle.value = draft.title;
+    localDescription.value = draft.description;
+    localTags.value = [...draft.tags];
+    successMessage.value = `Successfully restored to Version ${versionNumber}.`;
+    setTimeout(() => {
+      successMessage.value = null;
+    }, 4000);
+  }
+}
+
 async function handleRescreen() {
   successMessage.value = null;
   try {
-    if (listingDraft.value) {
+    if (listingDraft.value && (isListingCopyDirty.value || isTagsDirty.value)) {
       await updateListing(props.workflowId, {
         title: localTitle.value,
         description: localDescription.value,
@@ -226,10 +242,13 @@ const isApproved = computed(() => {
             :is-saving="isSaving"
             :is-generating-seo="isGeneratingSeo"
             :has-unsaved-changes="isListingCopyDirty"
+            :history="listingDraft.history"
+            :is-restoring-version="isRestoringVersion"
             @update:title="localTitle = $event"
             @update:description="localDescription = $event"
             @save="handleSave"
             @generate-seo="handleGenerateSeo"
+            @restore-version="handleRestoreVersion"
           />
 
           <TagEditorCard

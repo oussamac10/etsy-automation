@@ -37,6 +37,7 @@ from app.api.schemas import (
     RefineArtworkRequest,
     ReorderMockupsRequest,
     ResearchRunResponse,
+    RestoreListingVersionRequest,
     StartProductionRequest,
     SubmitIdeaRequest,
     TimelineEntryResponse,
@@ -1399,6 +1400,8 @@ async def _build_listing_response(
         if hasattr(draft.ip_risk_level, "value")
         else str(draft.ip_risk_level)
     )
+    raw_history = (draft.ip_findings or {}).get("history")
+    history_list = list(raw_history) if isinstance(raw_history, list) else []
 
     return ListingDraftResponse(
         id=draft.id,
@@ -1417,6 +1420,7 @@ async def _build_listing_response(
         version=draft.version,
         package_asset=pkg_resp,
         package_download_url=pkg_url,
+        history=history_list,
         created_at=draft.created_at,
         updated_at=draft.updated_at,
     )
@@ -1522,6 +1526,57 @@ async def update_listing_draft_endpoint(
             description=payload.description,
             tags=payload.tags,
             expected_version=payload.expected_version,
+            uow=uow,
+            actor_email=user.email,
+            trademark_service=trademark_service,
+        )
+        await uow.commit()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return await _build_listing_response(updated_draft, workflow_id, uow, storage)
+
+
+@router.post(
+    "/{workflow_id}/listing/restore-version",
+    response_model=ListingDraftResponse,
+    summary="Restore listing copy from a previous version snapshot",
+)
+async def restore_listing_version_endpoint(
+    workflow_id: uuid.UUID,
+    payload: RestoreListingVersionRequest,
+    user: CurrentUser,
+    uow: UowDep,
+    settings: SettingsDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+    from app.application.trademark import TrademarkScreeningService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
+        await _resolve_trademark_provider(workflow.owner_id, uow, settings)
+    )
+    trademark_service = TrademarkScreeningService(
+        primary_provider,
+        fallback_provider=fallback_provider,
+        tsdr_adapter=tsdr_adapter,
+        dataset_updated_at=dataset_updated_at,
+    )
+    listing_service = ListingDraftService()
+    try:
+        updated_draft = await listing_service.restore_version(
+            workflow_id=workflow_id,
+            target_version=payload.version,
             uow=uow,
             actor_email=user.email,
             trademark_service=trademark_service,
@@ -1658,6 +1713,7 @@ async def generate_listing_seo_endpoint(
             text_provider=text_provider,
         )
 
+        from app.application.listing import ListingDraftService, record_version_snapshot
         listing_service = ListingDraftService()
         draft = await listing_service.get_or_create_listing(workflow_id, uow)
         updated_draft = await uow.listing_drafts.update(
@@ -1683,6 +1739,7 @@ async def generate_listing_seo_endpoint(
             uow=uow,
             trademark_service=trademark_service,
         )
+        record_version_snapshot(screened_draft, source="ai_generated")
 
         # Customer package
         package_service = CustomerPackageService(storage)

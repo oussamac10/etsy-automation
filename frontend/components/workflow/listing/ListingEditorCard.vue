@@ -10,6 +10,12 @@ import Input from '~/components/ui/Input.vue';
 import Textarea from '~/components/ui/Textarea.vue';
 import Label from '~/components/ui/Label.vue';
 import Badge from '~/components/ui/Badge.vue';
+import Dialog from '~/components/ui/Dialog.vue';
+import DialogHeader from '~/components/ui/DialogHeader.vue';
+import DialogTitle from '~/components/ui/DialogTitle.vue';
+import DialogDescription from '~/components/ui/DialogDescription.vue';
+import DialogFooter from '~/components/ui/DialogFooter.vue';
+import type { ListingVersionSnapshot } from '~/types/listing';
 import { MAX_TITLE_LENGTH } from '~/utils/tags';
 
 const props = defineProps<{
@@ -20,6 +26,8 @@ const props = defineProps<{
   isSaving: boolean;
   isGeneratingSeo: boolean;
   hasUnsavedChanges?: boolean;
+  history?: ListingVersionSnapshot[];
+  isRestoringVersion?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -27,10 +35,12 @@ const emit = defineEmits<{
   (e: 'update:description', value: string): void;
   (e: 'save'): void;
   (e: 'generateSeo'): void;
+  (e: 'restoreVersion', version: number): void;
 }>();
 
 const localTitle = ref(props.title);
 const localDescription = ref(props.description);
+const isHistoryOpen = ref(false);
 
 watch(() => props.title, (newVal) => {
   localTitle.value = newVal;
@@ -49,6 +59,12 @@ const isDirty = computed(() => {
   return localTitle.value !== props.title || localDescription.value !== props.description;
 });
 
+const versionList = computed(() => {
+  const list = props.history || [];
+  // Sort descending by version number so latest is on top
+  return [...list].sort((a, b) => b.version - a.version);
+});
+
 function handleTitleUpdate(val: string | number) {
   const str = String(val);
   localTitle.value = str;
@@ -60,6 +76,26 @@ function handleDescUpdate(val: string | number) {
   localDescription.value = str;
   emit('update:description', str);
 }
+
+function handleRestore(versionNumber: number) {
+  emit('restoreVersion', versionNumber);
+  isHistoryOpen.value = false;
+}
+
+function formatSnapshotDate(dateStr?: string) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return dateStr;
+  }
+}
 </script>
 
 <template>
@@ -69,7 +105,20 @@ function handleDescUpdate(val: string | number) {
         <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
           <Icon name="lucide:file-edit" class="size-4 text-primary" aria-hidden="true" />
           <span>Listing Copy & Specifications</span>
-          <Badge variant="outline" class="text-[10px] font-mono">v{{ version }}</Badge>
+          <div class="flex items-center gap-1.5">
+            <Badge variant="outline" class="text-[10px] font-mono">v{{ version }}</Badge>
+            <Button
+              v-if="versionList.length > 0"
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="h-5 px-1.5 text-[11px] text-muted-foreground hover:text-foreground gap-1 cursor-pointer"
+              @click="isHistoryOpen = true"
+            >
+              <Icon name="lucide:history" class="size-3 text-muted-foreground" aria-hidden="true" />
+              <span>{{ versionList.length }} {{ versionList.length === 1 ? 'version' : 'versions' }}</span>
+            </Button>
+          </div>
         </CardTitle>
         <CardDescription class="text-xs">
           High-converting Etsy title, description, and buyer clarity guidelines.
@@ -81,7 +130,7 @@ function handleDescUpdate(val: string | number) {
           type="button"
           variant="outline"
           size="sm"
-          :disabled="isGeneratingSeo || isSaving"
+          :disabled="isGeneratingSeo || isSaving || isRestoringVersion"
           class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer"
           @click="emit('generateSeo')"
         >
@@ -94,7 +143,7 @@ function handleDescUpdate(val: string | number) {
           type="button"
           variant="default"
           size="sm"
-          :disabled="isSaving || isGeneratingSeo || !isDirty || isTitleOverLimit"
+          :disabled="isSaving || isGeneratingSeo || isRestoringVersion || !isDirty || isTitleOverLimit"
           class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer"
           @click="emit('save')"
         >
@@ -168,5 +217,96 @@ function handleDescUpdate(val: string | number) {
         </div>
       </div>
     </CardContent>
+
+    <!-- Version History Dialog -->
+    <Dialog :open="isHistoryOpen" max-width="2xl" @close="isHistoryOpen = false">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <Icon name="lucide:history" class="size-5 text-primary" aria-hidden="true" />
+          <span>Listing Copy Version History</span>
+        </DialogTitle>
+        <DialogDescription>
+          Review previous AI-generated and manually edited listing versions. Click restore to switch back to any version anytime.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1 py-1">
+        <div
+          v-for="item in versionList"
+          :key="item.version"
+          class="p-3.5 rounded-lg border transition-colors flex flex-col gap-2.5"
+          :class="item.version === version ? 'bg-primary/5 border-primary/40' : 'bg-card border-border hover:border-slate-300'"
+        >
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <Badge :variant="item.version === version ? 'default' : 'outline'" class="font-mono text-xs">
+                v{{ item.version }}
+              </Badge>
+              <Badge v-if="item.source === 'ai_generated'" variant="secondary" class="gap-1 text-[10px] bg-purple-50 text-purple-700 border-purple-200">
+                <Icon name="lucide:sparkles" class="size-2.5 text-purple-600" aria-hidden="true" />
+                <span>AI Generated</span>
+              </Badge>
+              <Badge v-else-if="item.source === 'manual'" variant="secondary" class="gap-1 text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                <Icon name="lucide:pencil" class="size-2.5 text-blue-600" aria-hidden="true" />
+                <span>Manual Edit</span>
+              </Badge>
+              <Badge v-else variant="outline" class="text-[10px] text-muted-foreground">
+                <span>Initial Draft</span>
+              </Badge>
+              <span v-if="item.created_at" class="text-[11px] text-muted-foreground">
+                {{ formatSnapshotDate(item.created_at) }}
+              </span>
+            </div>
+
+            <div>
+              <Badge v-if="item.version === version" variant="success" class="text-[10px] gap-1">
+                <Icon name="lucide:check" class="size-3" aria-hidden="true" />
+                <span>Active Version</span>
+              </Badge>
+              <Button
+                v-else
+                type="button"
+                variant="outline"
+                size="sm"
+                :disabled="isRestoringVersion"
+                class="h-7 px-2.5 text-xs gap-1.5 cursor-pointer"
+                @click="handleRestore(item.version)"
+              >
+                <Icon v-if="isRestoringVersion" name="lucide:loader-circle" class="size-3 animate-spin" aria-hidden="true" />
+                <Icon v-else name="lucide:rotate-ccw" class="size-3 text-primary" aria-hidden="true" />
+                <span>Restore v{{ item.version }}</span>
+              </Button>
+            </div>
+          </div>
+
+          <div class="space-y-1 bg-slate-50/80 p-2.5 rounded border border-slate-100 text-xs">
+            <p class="font-medium text-foreground line-clamp-2">
+              <span class="text-muted-foreground font-normal">Title: </span>{{ item.title }}
+            </p>
+            <p class="text-muted-foreground text-[11px] line-clamp-2">
+              <span class="font-medium text-foreground">Description: </span>{{ item.description }}
+            </p>
+            <div v-if="item.tags && item.tags.length > 0" class="pt-1 flex flex-wrap gap-1">
+              <span
+                v-for="tg in item.tags.slice(0, 7)"
+                :key="tg"
+                class="inline-block px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] text-slate-700 font-mono"
+              >
+                #{{ tg }}
+              </span>
+              <span v-if="item.tags.length > 7" class="text-[10px] text-muted-foreground self-center">
+                +{{ item.tags.length - 7 }} more
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <DialogFooter class="mt-3">
+        <Button type="button" variant="outline" size="sm" @click="isHistoryOpen = false">
+          Close
+        </Button>
+      </DialogFooter>
+    </Dialog>
   </Card>
 </template>
