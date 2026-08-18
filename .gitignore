@@ -73,7 +73,11 @@ graphify-out/
 .serena/cache/
 .serena/memories/
 
-# --- Agent files & directories ---
+# --- Agent & Assistant files & directories ---
 .agents/
 AGENTS.md
+.claude/
+CLAUDE.md
+**/CLAUDE.md
+
 
