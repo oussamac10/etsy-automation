@@ -22,9 +22,9 @@ from app.ports.providers import TextGenerationProvider, TextRequest
 class ListingSeoDraft(BaseModel):
     """Validated structured SEO output from LLM."""
 
-    title: str = Field(..., max_length=MAX_TITLE_LENGTH, description="Etsy listing title <= 140 chars")
-    description: str = Field(..., min_length=50, description="Comprehensive digital PNG product description")
-    tags: list[str] = Field(..., min_length=MAX_ETSY_TAGS, max_length=MAX_ETSY_TAGS, description="Exactly 13 Etsy tags <= 20 chars each")
+    title: str = Field(..., description="Etsy listing title <= 140 chars")
+    description: str = Field(..., description="Comprehensive digital PNG product description")
+    tags: list[str] = Field(default_factory=list, description="Etsy tags (automatically formatted to exactly 13)")
     ai_disclosure: str = Field(
         default="This design was created with the assistance of artificial intelligence tools and finalized by a human designer.",
         description="Etsy AI creation disclosure statement",
@@ -33,7 +33,7 @@ class ListingSeoDraft(BaseModel):
     @field_validator("title")
     @classmethod
     def clean_title(cls, v: str) -> str:
-        cleaned = re.sub(r"\s+", " ", v.strip())
+        cleaned = re.sub(r"\s+", " ", str(v).strip())
         if len(cleaned) > MAX_TITLE_LENGTH:
             cleaned = cleaned[:MAX_TITLE_LENGTH].rsplit(" ", 1)[0]
         return cleaned
@@ -41,18 +41,34 @@ class ListingSeoDraft(BaseModel):
     @field_validator("tags")
     @classmethod
     def validate_exact_13_tags(cls, v: list[str]) -> list[str]:
-        is_valid, accepted, errors = validate_tags(v)
-        if not is_valid:
-            # Try deduplication and padding
-            cleaned_seen: list[str] = []
-            for raw_tag in v:
-                norm = normalize_tag(raw_tag)
-                if norm and len(norm) <= MAX_TAG_LENGTH and norm not in cleaned_seen:
-                    cleaned_seen.append(norm)
-            if len(cleaned_seen) > MAX_ETSY_TAGS:
-                cleaned_seen = cleaned_seen[:MAX_ETSY_TAGS]
-            return cleaned_seen
-        return accepted
+        cleaned_seen: list[str] = []
+        for raw_tag in v:
+            norm = normalize_tag(str(raw_tag))
+            if norm and len(norm) <= MAX_TAG_LENGTH and norm not in cleaned_seen:
+                cleaned_seen.append(norm)
+
+        fallbacks = [
+            "png digital download",
+            "sublimation design",
+            "dtg shirt graphic",
+            "transparent png",
+            "printable art",
+            "clipart graphic",
+            "instant download",
+            "tshirt design png",
+            "commercial use png",
+            "pod graphics",
+            "mug design download",
+            "sticker png",
+            "digital craft file",
+        ]
+        for fb in fallbacks:
+            if len(cleaned_seen) >= MAX_ETSY_TAGS:
+                break
+            if fb not in cleaned_seen:
+                cleaned_seen.append(fb)
+
+        return cleaned_seen[:MAX_ETSY_TAGS]
 
 
 def _build_seo_prompt(

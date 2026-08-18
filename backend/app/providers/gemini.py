@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 from decimal import Decimal
+import re
 from typing import Any, cast
 
 import httpx
@@ -463,8 +464,12 @@ class GeminiSynthesisAdapter:
 
                         # Schema validation if schema_cls provided
                         if schema_cls is not None:
+                            cleaned_json_text = text.strip()
+                            if cleaned_json_text.startswith("```"):
+                                cleaned_json_text = re.sub(r"^```(?:json)?\n?", "", cleaned_json_text)
+                                cleaned_json_text = re.sub(r"\n?```$", "", cleaned_json_text).strip()
                             try:
-                                schema_cls.model_validate_json(text)
+                                schema_cls.model_validate_json(cleaned_json_text)
                             except Exception as exc:
                                 raise ProviderError(
                                     kind=ProviderErrorKind.INVALID_REQUEST,
