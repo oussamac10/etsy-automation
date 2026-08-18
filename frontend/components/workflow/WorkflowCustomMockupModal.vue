@@ -33,7 +33,7 @@ export interface MockupAssetItem {
     is_cover?: boolean;
     listing_order?: number;
     placement?: MockupPlacement;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -273,7 +273,7 @@ async function handleGenerateMockup(): Promise<void> {
     const headers = getCsrfHeaders();
     headers["Content-Type"] = "application/json";
 
-    const payload: Record<string, any> = {
+    const payload: Record<string, unknown> = {
       workflow_id: props.workflowId,
       product_type: normalizeProductKey(props.productType),
       placement: {

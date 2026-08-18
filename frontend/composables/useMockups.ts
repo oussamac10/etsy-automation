@@ -15,7 +15,7 @@ export function useMockups(
   const isLoadingTemplates = ref(false);
   const selectedMockupTab = ref<string>("tshirt");
 
-  function syncMockupAssets(assets: any[]) {
+  function syncMockupAssets(assets: MockupAsset[] | undefined | null) {
     localMockupAssets.value = assets ? [...assets] : [];
   }
 

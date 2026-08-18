@@ -9,7 +9,6 @@ import Badge from "~/components/ui/Badge.vue";
 import Button from "~/components/ui/Button.vue";
 import Label from "~/components/ui/Label.vue";
 import Alert from "~/components/ui/Alert.vue";
-import AlertTitle from "~/components/ui/AlertTitle.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
 
 interface DesignPrompt {
@@ -146,27 +145,16 @@ function getAssetJob(assetId: string): ArtworkJob | undefined {
 function isAssetRefined(assetId?: string | null): boolean {
   if (!assetId) return false;
   const asset = currentAssets.value.find((a) => a.id === assetId);
-  const prov = asset?.provenance as any;
+  const prov = asset?.provenance as Record<string, unknown> | undefined;
   if (prov?.operation === "refinement" || Boolean(asset?.derived_from_id)) return true;
-  const job = getAssetJob(assetId) as any;
+  const job = getAssetJob(assetId);
   if (!job) return false;
   return (
     job.provider === "gemini" ||
     Boolean(job.provider_model?.includes("v3")) ||
-    Boolean(job.provider_model?.includes("recraftv3")) ||
-    Boolean(job.prompt?.generation_metadata?.reference_asset_id)
+    Boolean(job.provider_model?.includes("recraftv3"))
   );
 }
-
-const isLatestJobRefinement = computed(() => {
-  const latestJob = props.artworkJobs[0] as any;
-  if (!latestJob) return false;
-  return (
-    Boolean(latestJob.provider_model?.includes("v3")) ||
-    latestJob.provider === "gemini" ||
-    Boolean(latestJob.prompt?.generation_metadata?.reference_asset_id)
-  );
-});
 
 const latestFailureMessage = computed(() => {
   return (
@@ -548,7 +536,7 @@ onUnmounted(() => {
                 title="Inspect in full size"
                 @click="getSelectedAsset() && openPreview(getSelectedAsset()!)"
               >
-                <img :src="getSelectedAsset()?.url || ''" alt="Candidate" class="w-full h-full object-contain" />
+                <img :src="getSelectedAsset()?.url || ''" alt="Candidate" class="w-full h-full object-contain">
               </div>
               <div>
                 <h4 class="text-xs font-bold text-foreground flex items-center gap-1.5">
@@ -716,7 +704,7 @@ onUnmounted(() => {
             :src="previewingAsset.url"
             :alt="`Candidate ${getPreviewAssetIndex() + 1}`"
             class="max-w-full max-h-[58vh] object-contain rounded-lg shadow-sm transition-all duration-200"
-          />
+          >
 
           <!-- Right Arrow (Next Candidate) -->
           <button

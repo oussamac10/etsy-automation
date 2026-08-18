@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* global $fetch */
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import {
   isRunning,

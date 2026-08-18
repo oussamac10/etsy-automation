@@ -2,7 +2,6 @@
 import Card from "~/components/ui/Card.vue";
 import CardHeader from "~/components/ui/CardHeader.vue";
 import CardTitle from "~/components/ui/CardTitle.vue";
-import CardDescription from "~/components/ui/CardDescription.vue";
 import CardContent from "~/components/ui/CardContent.vue";
 import CardFooter from "~/components/ui/CardFooter.vue";
 import Badge from "~/components/ui/Badge.vue";
@@ -65,7 +64,7 @@ interface ResearchRun {
   failure_reason: string | null;
 }
 
-const props = defineProps<{
+defineProps<{
   workflow: Workflow;
   concepts: Concept[];
   latestRun: ResearchRun | null;

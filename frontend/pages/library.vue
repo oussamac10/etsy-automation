@@ -1,6 +1,5 @@
 <script setup lang="ts">
-/* global $fetch, useRuntimeConfig */
-import { ref, computed, onMounted, nextTick } from "vue";
+import { ref, computed, onMounted } from "vue";
 import NavBar from "~/components/NavBar.vue";
 import Button from "~/components/ui/Button.vue";
 import Card from "~/components/ui/Card.vue";
@@ -981,7 +980,7 @@ onMounted(() => {
         </div>
 
         <div class="p-3 rounded-xl bg-secondary/40 border border-border flex items-center gap-3">
-          <img :src="templateToDelete.url" alt="Thumbnail" class="h-12 w-12 object-cover rounded-lg border border-border shrink-0" />
+          <img :src="templateToDelete.url" alt="Thumbnail" class="h-12 w-12 object-cover rounded-lg border border-border shrink-0">
           <div class="truncate">
             <p class="text-xs font-bold text-foreground truncate">{{ templateToDelete.name }}</p>
             <p class="text-[10px] text-muted-foreground">{{ getProductLabel(templateToDelete.product_type) }}</p>
@@ -1067,6 +1066,13 @@ onMounted(() => {
                 >
                   Chest Logo
                 </button>
+                <button
+                  type="button"
+                  class="px-2 py-0.5 text-[10px] font-medium bg-secondary hover:bg-slate-200 text-secondary-foreground rounded transition-colors cursor-pointer border border-border"
+                  @click="applyEditSquarePreset"
+                >
+                  Square
+                </button>
               </div>
             </div>
 
@@ -1082,7 +1088,7 @@ onMounted(() => {
                   :src="templateToEdit.url"
                   alt="Template"
                   class="max-h-[340px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-xs"
-                />
+                >
 
                 <!-- Alignment Crosshairs -->
                 <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-primary/30 pointer-events-none" />
@@ -1168,7 +1174,7 @@ onMounted(() => {
                     <span class="text-secondary-foreground">Box Width</span>
                     <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.width_pct * 100) }}%</span>
                   </div>
-                  <input type="range" v-model.number="editPlacement.width_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer" />
+                  <input v-model.number="editPlacement.width_pct" type="range" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
                 </div>
 
                 <div class="space-y-1">
@@ -1176,7 +1182,7 @@ onMounted(() => {
                     <span class="text-secondary-foreground">Box Height</span>
                     <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.height_pct * 100) }}%</span>
                   </div>
-                  <input type="range" v-model.number="editPlacement.height_pct" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer" />
+                  <input v-model.number="editPlacement.height_pct" type="range" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
                 </div>
 
                 <div class="space-y-1">
@@ -1184,7 +1190,7 @@ onMounted(() => {
                     <span class="text-secondary-foreground">Left Position</span>
                     <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.left_pct * 100) }}%</span>
                   </div>
-                  <input type="range" v-model.number="editPlacement.left_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer" />
+                  <input v-model.number="editPlacement.left_pct" type="range" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
                 </div>
 
                 <div class="space-y-1">
@@ -1192,7 +1198,7 @@ onMounted(() => {
                     <span class="text-secondary-foreground">Top Position</span>
                     <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.top_pct * 100) }}%</span>
                   </div>
-                  <input type="range" v-model.number="editPlacement.top_pct" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer" />
+                  <input v-model.number="editPlacement.top_pct" type="range" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
                 </div>
               </div>
             </div>
@@ -1250,7 +1256,7 @@ onMounted(() => {
               accept="image/jpeg,image/png,image/webp"
               class="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-secondary file:text-primary hover:file:bg-slate-200 cursor-pointer border border-dashed border-border rounded-xl p-4 text-center bg-secondary/30"
               @change="handleFileSelect"
-            />
+            >
           </div>
         </div>
 
@@ -1306,7 +1312,7 @@ onMounted(() => {
                   :src="uploadImagePreviewUrl"
                   alt="Upload Preview"
                   class="max-h-[340px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-xs"
-                />
+                >
 
                 <!-- Alignment Crosshairs -->
                 <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-primary/30 pointer-events-none" />

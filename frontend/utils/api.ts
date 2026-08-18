@@ -4,7 +4,11 @@
 export function getApiErrorMessage(err: unknown, fallback: string = "An unexpected error occurred."): string {
   if (!err) return fallback;
   if (typeof err === "string") return err;
-  const errObj = err as any;
+  const errObj = err as {
+    data?: { detail?: string; message?: string };
+    response?: { _data?: { detail?: string; message?: string } };
+    message?: string;
+  };
   return (
     errObj?.data?.detail ||
     errObj?.data?.message ||

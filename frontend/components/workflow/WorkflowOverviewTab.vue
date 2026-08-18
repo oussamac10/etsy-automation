@@ -50,7 +50,7 @@ interface ProductionJob {
   status: string;
 }
 
-const props = defineProps<{
+defineProps<{
   workflow: Workflow;
   originalIdea: OriginalIdea | null;
   latestRun: ResearchRun | null;

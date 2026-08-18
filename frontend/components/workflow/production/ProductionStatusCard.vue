@@ -1,10 +1,5 @@
 <script setup lang="ts">
 import type { ProductionJob } from "~/types/production";
-import Card from "~/components/ui/Card.vue";
-import CardHeader from "~/components/ui/CardHeader.vue";
-import CardTitle from "~/components/ui/CardTitle.vue";
-import CardDescription from "~/components/ui/CardDescription.vue";
-import Badge from "~/components/ui/Badge.vue";
 import Button from "~/components/ui/Button.vue";
 
 defineProps<{

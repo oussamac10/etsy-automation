@@ -30,7 +30,7 @@ interface ProductionJob {
   status: string;
 }
 
-const props = defineProps<{
+defineProps<{
   workflow: Workflow;
   latestProductionJob: ProductionJob | null;
   isWorkflowRunning: boolean;

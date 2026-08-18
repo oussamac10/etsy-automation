@@ -35,8 +35,8 @@ export interface MasterAsset {
   height: number;
   has_alpha?: boolean;
   has_transparent_pixels?: boolean;
-  quality_check?: Record<string, any>;
-  provenance?: Record<string, any>;
+  quality_check?: Record<string, unknown>;
+  provenance?: Record<string, unknown>;
   created_at: string;
   url?: string;
 }
@@ -58,6 +58,6 @@ export interface ProductionJob {
   failure_message?: string | null;
   created_at?: string;
   master_asset?: MasterAsset | null;
-  mockup_assets?: any[];
+  mockup_assets?: MasterAsset[];
   mockup_urls?: Record<string, string>;
 }

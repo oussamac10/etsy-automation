@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* global $fetch */
 import { ref, onMounted, onBeforeUnmount, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
@@ -134,28 +133,6 @@ interface ArtworkJob {
   failure_message: string | null;
   created_at: string;
   assets: Asset[];
-}
-
-interface QaReport {
-  dimensions_valid: boolean;
-  width: number;
-  height: number;
-  target_width: number;
-  target_height: number;
-  density_dpi: number;
-  target_dpi: number;
-  has_alpha: boolean;
-  has_transparent_pixels: boolean;
-  transparent_background_valid: boolean;
-  safe_margins_valid: boolean;
-  cropped_edges_detected: boolean;
-  color_space: string;
-  file_size_bytes: number;
-  checksum_sha256: string;
-  typography_applied: boolean;
-  exact_slogan_recorded: string | null;
-  warnings: string[];
-  qa_passed: boolean;
 }
 
 import type { ProductionJob } from "~/types/production";

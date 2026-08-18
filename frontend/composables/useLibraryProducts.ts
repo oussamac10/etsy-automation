@@ -28,8 +28,8 @@ export function useLibraryProducts() {
         { credentials: "include" }
       );
       templates.value = data || [];
-    } catch (e: any) {
-      error.value = e?.message || "Failed to load library products";
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : "Failed to load library products";
     } finally {
       isLoading.value = false;
     }

@@ -2,7 +2,7 @@
 import type { MockupAsset } from "~/types/mockup";
 import Badge from "~/components/ui/Badge.vue";
 
-const props = defineProps<{
+defineProps<{
   asset: MockupAsset;
   index: number;
   totalInTab: number;

@@ -32,7 +32,7 @@ export interface MockupAsset {
   height: number;
   has_alpha?: boolean;
   has_transparent_pixels?: boolean;
-  quality_check?: Record<string, any>;
+  quality_check?: Record<string, unknown>;
   provenance?: {
     phase?: number;
     asset_type?: string;
@@ -46,7 +46,7 @@ export interface MockupAsset {
     is_cover?: boolean;
     listing_order?: number;
     created_for_listing?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   created_at?: string;
   url?: string;

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* global $fetch */
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import Button from "~/components/ui/Button.vue";
 import Input from "~/components/ui/Input.vue";

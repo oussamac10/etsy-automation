@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
-import Badge from "./Badge.vue";
 
 interface ProductOption {
   value: string;
@@ -22,7 +21,7 @@ const DEFAULT_PRODUCTS: ProductOption[] = [
 
 const props = withDefaults(
   defineProps<{
-    modelValue: string[];
+    modelValue?: string[];
     placeholder?: string;
   }>(),
   {

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* global useRouter */
 import { ref } from "vue";
 import { useAuthStore } from "~/stores/auth";
 import Button from "~/components/ui/Button.vue";

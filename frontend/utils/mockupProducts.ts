@@ -175,7 +175,7 @@ const STANDARD_ALIASES: Record<string, string> = {
 
 export function normalizeProductKey(raw?: string | null): string {
   if (!raw) return "product";
-  const slug = raw.toLowerCase().trim().replace(/[\s\-\/]+/g, "_").replace(/^_+|_+$/g, "");
+  const slug = raw.toLowerCase().trim().replace(/[\s/-]+/g, "_").replace(/^_+|_+$/g, "");
   return STANDARD_ALIASES[slug] || slug;
 }
 

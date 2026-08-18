@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref } from "vue";
 import type { MockupAsset } from "~/types/mockup";
 import { getProductLabel } from "~/utils/mockupProducts";
 import Button from "~/components/ui/Button.vue";
@@ -11,7 +11,7 @@ import MockupCard from "~/components/workflow/production/MockupCard.vue";
 import MockupEmptyState from "~/components/workflow/production/MockupEmptyState.vue";
 import MockupProductPickerModal from "~/components/workflow/production/MockupProductPickerModal.vue";
 
-const props = defineProps<{
+defineProps<{
   availableTabs: string[];
   selectedTab: string;
   mockupsByProduct: Record<string, MockupAsset[]>;
