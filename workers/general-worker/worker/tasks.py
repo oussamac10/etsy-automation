@@ -601,17 +601,41 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 risk_level_str = concept_data.get("risk_level", "low").lower()
                 risk_note = concept_data.get("risk_note", "")
 
-                # The model self-reports a risk level; the screen can only make
-                # it worse, never better, so a model that says "low" about a
-                # flagged phrase cannot talk its way past the gate.
-                flagged = ip_risk.scan(
-                    concept_data["title"],
-                    concept_data["description"],
-                    concept_data.get("prompt", {}).get("exact_slogan"),
-                )
-                if flagged:
-                    risk_level_str = "high"
-                    risk_note = f"Trademark brand names flagged: {', '.join(flagged)}. {risk_note}"
+                # USPTO & TSDR Trademark Screening for Concept
+                from app.application.trademark import TrademarkScreeningService
+                from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
+                from app.providers.tsdr import UsptoTsdrAdapter
+                from app.providers.fake import FakeTrademarkSearchAdapter
+
+                trademark_service: TrademarkScreeningService | None = None
+                try:
+                    if is_live:
+                        db_adapter = PostgresTrademarkSearchAdapter(uow)
+                        tsdr_adapter = None
+                        if hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
+                            tsdr_adapter = UsptoTsdrAdapter(api_key=settings.uspto_api_key.get_secret_value())
+                        trademark_service = TrademarkScreeningService(db_adapter, tsdr_adapter=tsdr_adapter)
+                    else:
+                        trademark_service = TrademarkScreeningService(FakeTrademarkSearchAdapter())
+                except Exception as tm_init_err:
+                    logger.warning("trademark_service_worker_init_failed", error=str(tm_init_err))
+
+                if trademark_service:
+                    try:
+                        tm_slogan = concept_data.get("prompt", {}).get("exact_slogan")
+                        tm_risk, tm_findings = await trademark_service.screen_concept_trademark(
+                            slogan=tm_slogan,
+                            title=concept_data["title"],
+                            description=concept_data.get("description"),
+                        )
+                        score_breakdown["trademark_report"] = tm_findings
+                        if tm_risk in (RiskLevel.HIGH, RiskLevel.MEDIUM):
+                            risk_level_str = tm_risk.value
+                            reasons_list = tm_findings.get("reasons", [])
+                            if reasons_list:
+                                risk_note = f"{risk_note} {'; '.join(reasons_list)}".strip()
+                    except Exception as tm_screen_err:
+                        logger.warning("trademark_screening_worker_error", error=str(tm_screen_err))
 
                 db_concept = ProductConcept(
                     workflow_id=workflow_id,

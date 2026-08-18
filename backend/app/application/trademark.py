@@ -154,3 +154,17 @@ class TrademarkScreeningService:
         )
         return risk_level, findings
 
+    async def screen_concept_trademark(
+        self,
+        slogan: str | None,
+        title: str | None,
+        description: str | None = None,
+    ) -> tuple[RiskLevel, dict[str, Any]]:
+        """Screen a proposed product concept's slogan and title early in Phase 1."""
+        return await self.screen_listing_trademark(
+            slogan=slogan,
+            title=title,
+            keywords=[title] if title else None,
+            tags=None,
+        )
+

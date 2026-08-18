@@ -58,6 +58,9 @@ from app.domain.workflow import JobStatus, RiskLevel, RunStatus
 from app.infrastructure.models import ArtworkJob, Asset, ProductionJob
 from app.providers.s3 import S3ObjectStorage
 from app.settings import get_settings
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -438,9 +441,122 @@ async def revise_concept(
         exact_slogan=payload.exact_slogan,
         change_note=payload.change_note,
     )
+
+    # Re-screen concept with USPTO provider if available
+    try:
+        from app.application.trademark import TrademarkScreeningService
+        settings = get_settings()
+        primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
+            await _resolve_trademark_provider(workflow.owner_id, uow, settings)
+        )
+        trademark_service = TrademarkScreeningService(
+            primary_provider,
+            fallback_provider=fallback_provider,
+            tsdr_adapter=tsdr_adapter,
+            dataset_updated_at=dataset_updated_at,
+        )
+        tm_risk, tm_findings = await trademark_service.screen_concept_trademark(
+            slogan=payload.exact_slogan,
+            title=concept.title,
+            description=concept.description,
+        )
+        concept.risk_level = tm_risk
+        reasons_list = tm_findings.get("reasons", [])
+        if reasons_list:
+            concept.risk_note = "; ".join(reasons_list)
+        breakdown = dict(concept.score_breakdown or {})
+        breakdown["trademark_report"] = tm_findings
+        concept.score_breakdown = breakdown
+    except Exception as tm_exc:
+        logger.warning("revise_concept_trademark_screen_failed", error=str(tm_exc))
+
     await uow.commit()
 
     return DesignPromptResponse.model_validate(prompt)
+
+
+@router.post(
+    "/{workflow_id}/concepts/{concept_id}/screen-trademark",
+    response_model=ProductConceptResponse,
+    summary="Screen concept title and slogan against USPTO trademark registry",
+)
+async def screen_concept_trademark_endpoint(
+    workflow_id: uuid.UUID,
+    concept_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    settings: SettingsDep,
+) -> ProductConceptResponse:
+    from app.application.trademark import TrademarkScreeningService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    concept = await uow.concepts.get(concept_id)
+    if not concept or concept.workflow_id != workflow_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No concept with that ID in this workflow",
+        )
+
+    prompts = await uow.concepts.prompts(concept.id)
+    latest_slogan = prompts[-1].exact_slogan if prompts else None
+
+    primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
+        await _resolve_trademark_provider(workflow.owner_id, uow, settings)
+    )
+    trademark_service = TrademarkScreeningService(
+        primary_provider,
+        fallback_provider=fallback_provider,
+        tsdr_adapter=tsdr_adapter,
+        dataset_updated_at=dataset_updated_at,
+    )
+
+    risk_level, findings = await trademark_service.screen_concept_trademark(
+        slogan=latest_slogan,
+        title=concept.title,
+        description=concept.description,
+    )
+
+    concept.risk_level = risk_level
+    reasons_list = findings.get("reasons", [])
+    if reasons_list:
+        concept.risk_note = "; ".join(reasons_list)
+    else:
+        concept.risk_note = "Passed preliminary USPTO trademark screening."
+
+    breakdown = dict(concept.score_breakdown or {})
+    breakdown["trademark_report"] = findings
+    concept.score_breakdown = breakdown
+
+    await uow.commit()
+
+    concept_dict = {
+        "id": concept.id,
+        "workflow_id": concept.workflow_id,
+        "original_idea_id": concept.original_idea_id,
+        "research_run_id": concept.research_run_id,
+        "title": concept.title,
+        "description": concept.description,
+        "origin": concept.origin.value if hasattr(concept.origin, "value") else str(concept.origin),
+        "differentiation": concept.differentiation,
+        "target_buyer": concept.target_buyer,
+        "buyer_use_case": concept.buyer_use_case,
+        "seasonality": concept.seasonality.value if hasattr(concept.seasonality, "value") else str(concept.seasonality),
+        "risk_level": concept.risk_level.value if hasattr(concept.risk_level, "value") else str(concept.risk_level),
+        "risk_note": concept.risk_note,
+        "score": concept.score,
+        "score_breakdown": concept.score_breakdown,
+        "score_explanation": concept.score_explanation,
+        "status": concept.status.value if hasattr(concept.status, "value") else str(concept.status),
+        "created_at": concept.created_at,
+        "prompts": [DesignPromptResponse.model_validate(p) for p in prompts],
+    }
+    return ProductConceptResponse.model_validate(concept_dict)
 
 
 def to_asset_response(asset: Asset, url: str | None = None) -> AssetResponse:

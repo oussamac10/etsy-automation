@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import Card from "~/components/ui/Card.vue";
 import CardHeader from "~/components/ui/CardHeader.vue";
 import CardTitle from "~/components/ui/CardTitle.vue";
@@ -9,6 +10,11 @@ import Button from "~/components/ui/Button.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertTitle from "~/components/ui/AlertTitle.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
+import Dialog from "~/components/ui/Dialog.vue";
+import DialogHeader from "~/components/ui/DialogHeader.vue";
+import DialogTitle from "~/components/ui/DialogTitle.vue";
+import DialogDescription from "~/components/ui/DialogDescription.vue";
+import DialogFooter from "~/components/ui/DialogFooter.vue";
 
 interface DesignPrompt {
   id: string;
@@ -26,6 +32,30 @@ interface DesignPrompt {
   created_at: string;
 }
 
+interface TrademarkFinding {
+  mark_text?: string;
+  serial_number?: string | null;
+  registration_number?: string | null;
+  status?: string;
+  is_live: boolean;
+  goods_services?: string | null;
+  classes?: string[];
+  owner?: string | null;
+  filing_date?: string | null;
+  registration_date?: string | null;
+  source_url?: string | null;
+  tsdr_verified?: boolean;
+}
+
+interface TrademarkReport {
+  screening_source?: string;
+  uspto_status?: string;
+  risk_level?: string;
+  match_count?: number;
+  matches?: TrademarkFinding[];
+  reasons?: string[];
+}
+
 interface Concept {
   id: string;
   workflow_id: string;
@@ -41,7 +71,7 @@ interface Concept {
   risk_level: string;
   risk_note: string | null;
   score: number | null;
-  score_breakdown: Record<string, number>;
+  score_breakdown: Record<string, unknown>;
   score_explanation: string | null;
   status: string;
   created_at: string;
@@ -64,7 +94,7 @@ interface ResearchRun {
   failure_reason: string | null;
 }
 
-defineProps<{
+const props = defineProps<{
   workflow: Workflow;
   concepts: Concept[];
   latestRun: ResearchRun | null;
@@ -75,7 +105,65 @@ const emit = defineEmits<{
   (e: "startResearch"): void;
   (e: "decideGate", conceptId: string, decision: "APPROVED" | "REJECTED"): void;
   (e: "editPrompt", conceptId: string): void;
+  (e: "screenTrademark", conceptId: string): void;
 }>();
+
+const isScreeningMap = ref<Record<string, boolean>>({});
+const expandedFindingsMap = ref<Record<string, boolean>>({});
+const highRiskConfirmConcept = ref<Concept | null>(null);
+
+function getTrademarkReport(concept: Concept): TrademarkReport | null {
+  const report = concept.score_breakdown?.trademark_report;
+  if (report && typeof report === "object") {
+    return report as TrademarkReport;
+  }
+  return null;
+}
+
+function getMatches(concept: Concept): TrademarkFinding[] {
+  const report = getTrademarkReport(concept);
+  return report?.matches || [];
+}
+
+function hasLiveMatches(concept: Concept): boolean {
+  const matches = getMatches(concept);
+  return matches.some((m) => m.is_live);
+}
+
+function hasDeadMatches(concept: Concept): boolean {
+  const matches = getMatches(concept);
+  return matches.length > 0 && !hasLiveMatches(concept);
+}
+
+function toggleFindings(conceptId: string) {
+  expandedFindingsMap.value[conceptId] = !expandedFindingsMap.value[conceptId];
+}
+
+async function handleScreenTrademark(conceptId: string) {
+  isScreeningMap.value[conceptId] = true;
+  try {
+    emit("screenTrademark", conceptId);
+  } finally {
+    setTimeout(() => {
+      isScreeningMap.value[conceptId] = false;
+    }, 1500);
+  }
+}
+
+function handleApproveClick(concept: Concept) {
+  if (concept.risk_level?.toLowerCase() === "high" || hasLiveMatches(concept)) {
+    highRiskConfirmConcept.value = concept;
+  } else {
+    emit("decideGate", concept.id, "APPROVED");
+  }
+}
+
+function confirmHighRiskApproval() {
+  if (highRiskConfirmConcept.value) {
+    emit("decideGate", highRiskConfirmConcept.value.id, "APPROVED");
+    highRiskConfirmConcept.value = null;
+  }
+}
 </script>
 
 <template>
@@ -88,7 +176,7 @@ const emit = defineEmits<{
       <Icon name="lucide:loader-circle" class="size-8 animate-spin text-primary mx-auto mb-3" aria-hidden="true" />
       <h2 class="text-lg font-bold text-foreground mb-1">AI Market Research in Progress</h2>
       <p class="text-xs text-muted-foreground max-w-md mx-auto">
-        Our background worker is analyzing seasonal marketplace demand, matching keyword query angles, screening trademarks, and drafting structured prompts. This will automatically refresh.
+        Our background worker is analyzing seasonal marketplace demand, matching keyword query angles, screening USPTO trademarks, and drafting structured prompts. This will automatically refresh.
       </p>
     </Card>
 
@@ -118,7 +206,7 @@ const emit = defineEmits<{
         <div>
           <AlertTitle class="font-bold text-foreground">Choose one concept to continue.</AlertTitle>
           <AlertDescription class="text-xs text-secondary-foreground mt-0.5">
-            Review the AI-generated concepts below. Approve your preferred concept to proceed to Phase 6 Artwork Generation.
+            Review the AI-generated concepts and early USPTO trademark clearance below. Approve your preferred concept to proceed to Phase 6 Artwork Generation.
           </AlertDescription>
         </div>
       </Alert>
@@ -137,7 +225,7 @@ const emit = defineEmits<{
       <div class="flex items-center justify-between">
         <div class="space-y-0.5">
           <h2 class="text-xl font-bold tracking-tight text-foreground">Synthesised Product Concepts</h2>
-          <p class="text-xs text-muted-foreground">Ranked by commercial viability, competition gap, and trademark safety</p>
+          <p class="text-xs text-muted-foreground">Ranked by commercial viability, competition gap, and early USPTO trademark safety</p>
         </div>
         <Badge variant="secondary" class="text-xs font-mono font-bold">
           {{ concepts.length }} Options
@@ -182,7 +270,7 @@ const emit = defineEmits<{
 
               <Badge variant="outline" class="gap-1 font-bold text-xs bg-secondary text-primary border border-border px-2.5 py-1 inline-flex items-center">
                 <Icon name="lucide:gauge" class="size-3 text-primary" aria-hidden="true" />
-                <span>{{ concept.score ? concept.score.toFixed(2) : 'N/A' }} / 5.0</span>
+                <span>{{ concept.score ? Number(concept.score).toFixed(2) : 'N/A' }} / 5.0</span>
               </Badge>
             </div>
           </CardHeader>
@@ -196,24 +284,129 @@ const emit = defineEmits<{
               <p class="text-secondary-foreground">{{ concept.differentiation }}</p>
             </div>
 
-            <!-- Risk Alert -->
+            <!-- USPTO Early Trademark Clearance Section -->
             <div
-              v-if="concept.risk_level && concept.risk_level !== 'low'"
-              class="rounded-lg bg-red-50 p-3 border border-red-200 text-destructive"
+              class="rounded-lg border p-3.5 space-y-2.5 transition-colors"
+              :class="[
+                concept.risk_level?.toLowerCase() === 'high' || hasLiveMatches(concept)
+                  ? 'bg-red-50/70 border-red-200 text-red-950'
+                  : hasDeadMatches(concept) || concept.risk_level?.toLowerCase() === 'medium'
+                    ? 'bg-amber-50/70 border-amber-200 text-amber-950'
+                    : 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
+              ]"
             >
-              <div class="flex items-center gap-1.5 font-bold text-[11px]">
-                <Icon name="lucide:shield-alert" class="size-3.5 text-destructive" aria-hidden="true" />
-                <span>IP Risk Level: {{ concept.risk_level.toUpperCase() }}</span>
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-2">
+                  <Icon
+                    v-if="concept.risk_level?.toLowerCase() === 'high' || hasLiveMatches(concept)"
+                    name="lucide:shield-alert"
+                    class="size-4 text-destructive shrink-0"
+                    aria-hidden="true"
+                  />
+                  <Icon
+                    v-else-if="hasDeadMatches(concept) || concept.risk_level?.toLowerCase() === 'medium'"
+                    name="lucide:shield-alert"
+                    class="size-4 text-amber-600 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <Icon
+                    v-else
+                    name="lucide:shield-check"
+                    class="size-4 text-emerald-600 shrink-0"
+                    aria-hidden="true"
+                  />
+
+                  <div>
+                    <span class="font-bold text-xs">
+                      {{
+                        concept.risk_level?.toLowerCase() === 'high' || hasLiveMatches(concept)
+                          ? 'HIGH RISK: Active USPTO Registered Trademark'
+                          : hasDeadMatches(concept) || concept.risk_level?.toLowerCase() === 'medium'
+                            ? 'USPTO Notice: Inactive / DEAD Mark Match'
+                            : 'USPTO Trademark Cleared'
+                      }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                  <Button
+                    v-if="getMatches(concept).length > 0"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="h-6 px-2 text-[11px] gap-1 cursor-pointer"
+                    @click="toggleFindings(concept.id)"
+                  >
+                    <span>{{ getMatches(concept).length }} {{ getMatches(concept).length === 1 ? 'Match' : 'Matches' }}</span>
+                    <Icon :name="expandedFindingsMap[concept.id] ? 'lucide:chevron-up' : 'lucide:chevron-down'" class="size-3" aria-hidden="true" />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    :disabled="isScreeningMap[concept.id]"
+                    class="h-6 px-2 text-[11px] gap-1 bg-white/80 cursor-pointer"
+                    @click="handleScreenTrademark(concept.id)"
+                  >
+                    <Icon v-if="isScreeningMap[concept.id]" name="lucide:loader-circle" class="size-3 animate-spin text-primary" aria-hidden="true" />
+                    <Icon v-else name="lucide:rotate-ccw" class="size-3" aria-hidden="true" />
+                    <span>Re-screen</span>
+                  </Button>
+                </div>
               </div>
-              <p class="mt-0.5 text-red-700 text-[11px]">{{ concept.risk_note }}</p>
+
+              <p class="text-[11px] leading-relaxed opacity-90">
+                {{ concept.risk_note || (hasLiveMatches(concept) ? 'Active registered trademark found in Class 025/009.' : hasDeadMatches(concept) ? 'Historical match found, but the mark is officially DEAD/cancelled in USPTO.' : 'No conflicting active registered marks in apparel or printable digital goods.') }}
+              </p>
+
+              <!-- Expandable Registry Findings List -->
+              <div v-if="expandedFindingsMap[concept.id] && getMatches(concept).length > 0" class="pt-2 border-t border-current/10 space-y-2">
+                <div
+                  v-for="(match, mIdx) in getMatches(concept)"
+                  :key="mIdx"
+                  class="bg-white/90 p-2.5 rounded border border-current/20 space-y-1 text-[11px] text-foreground"
+                >
+                  <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <span class="font-bold font-mono">"{{ match.mark_text || 'UNKNOWN MARK' }}"</span>
+                    <div class="flex items-center gap-1.5">
+                      <Badge
+                        :variant="match.is_live ? 'destructive' : 'secondary'"
+                        class="text-[9px] px-1.5 py-0 uppercase font-mono font-bold"
+                      >
+                        {{ match.is_live ? 'LIVE' : 'DEAD / CANCELLED' }}
+                      </Badge>
+                      <a
+                        v-if="match.source_url || match.serial_number"
+                        :href="match.source_url || `https://tsdr.uspto.gov/#caseNumber=${match.serial_number}&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch`"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-primary hover:underline text-[10px] inline-flex items-center gap-0.5"
+                      >
+                        <span>TSDR Case</span>
+                        <Icon name="lucide:external-link" class="size-2.5" aria-hidden="true" />
+                      </a>
+                    </div>
+                  </div>
+                  <p v-if="match.owner" class="text-muted-foreground text-[10px]">
+                    <span class="font-medium text-foreground">Owner:</span> {{ match.owner }}
+                  </p>
+                  <p v-if="match.goods_services" class="text-muted-foreground text-[10px] line-clamp-2">
+                    <span class="font-medium text-foreground">Classes/Goods:</span> {{ match.goods_services }}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <!-- Score Breakdown -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-border">
-              <div v-for="(val, key) in concept.score_breakdown" :key="key" class="bg-secondary/40 p-2 rounded border border-border">
-                <span class="text-muted-foreground uppercase tracking-wider block text-[10px]">{{ key.replace('_', ' ') }}</span>
-                <span class="text-foreground font-bold text-xs">{{ val }} / 5</span>
-              </div>
+              <template v-for="(val, key) in concept.score_breakdown" :key="key">
+                <div v-if="key !== 'trademark_report' && typeof val === 'number'" class="bg-secondary/40 p-2 rounded border border-border">
+                  <span class="text-muted-foreground uppercase tracking-wider block text-[10px]">{{ String(key).replace('_', ' ') }}</span>
+                  <span class="text-foreground font-bold text-xs">{{ val }} / 5</span>
+                </div>
+              </template>
             </div>
 
             <!-- Active Design Prompt -->
@@ -263,7 +456,7 @@ const emit = defineEmits<{
               variant="success"
               size="sm"
               class="font-bold cursor-pointer inline-flex items-center gap-1.5"
-              @click="emit('decideGate', concept.id, 'APPROVED')"
+              @click="handleApproveClick(concept)"
             >
               <Icon name="lucide:circle-check" class="size-3.5" aria-hidden="true" />
               <span>Approve This Concept</span>
@@ -272,5 +465,32 @@ const emit = defineEmits<{
         </Card>
       </div>
     </div>
+
+    <!-- High Risk Approval Confirmation Dialog -->
+    <Dialog :open="highRiskConfirmConcept !== null" max-width="md" @close="highRiskConfirmConcept = null">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2 text-destructive">
+          <Icon name="lucide:shield-alert" class="size-5" aria-hidden="true" />
+          <span>High Trademark Risk Warning</span>
+        </DialogTitle>
+        <DialogDescription>
+          This concept or slogan has flagged an active LIVE registered trademark in the USPTO database. Generating artwork for this phrase may lead to listing takedowns on Etsy.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div v-if="highRiskConfirmConcept" class="p-3 bg-red-50 rounded-lg border border-red-200 text-xs text-red-900 space-y-1 my-2">
+        <p class="font-bold">{{ highRiskConfirmConcept.title }}</p>
+        <p class="text-[11px] text-red-700">{{ highRiskConfirmConcept.risk_note }}</p>
+      </div>
+
+      <DialogFooter class="gap-2 mt-4">
+        <Button variant="outline" size="sm" @click="highRiskConfirmConcept = null">
+          Cancel & Edit Slogan
+        </Button>
+        <Button variant="destructive" size="sm" class="font-bold" @click="confirmHighRiskApproval">
+          Approve Anyway
+        </Button>
+      </DialogFooter>
+    </Dialog>
   </div>
 </template>

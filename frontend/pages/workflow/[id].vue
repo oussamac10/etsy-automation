@@ -430,6 +430,26 @@ async function handleDecideGate(
   }
 }
 
+async function handleScreenConceptTrademark(conceptId: string): Promise<void> {
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (csrf) {
+      headers["x-csrf-token"] = csrf;
+    }
+    const updated = await $fetch<Concept>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/concepts/${conceptId}/screen-trademark`,
+      { method: "POST", headers, credentials: "include" }
+    );
+    const idx = concepts.value.findIndex((c) => c.id === conceptId);
+    if (idx !== -1 && updated) {
+      concepts.value[idx] = updated;
+    }
+  } catch {
+    pageError.value = "Failed to screen concept trademark.";
+  }
+}
+
 async function startArtwork(provider = "recraft", model = "recraftv4_1"): Promise<void> {
   isArtworkLoading.value = true;
   artworkError.value = null;
@@ -847,6 +867,7 @@ onBeforeUnmount(stopPolling);
               @start-research="startResearch"
               @decide-gate="handleDecideGate"
               @edit-prompt="openReviseForm"
+              @screen-trademark="handleScreenConceptTrademark"
             />
 
             <!-- Tab: Artwork Studio -->
