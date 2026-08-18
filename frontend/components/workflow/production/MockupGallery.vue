@@ -22,7 +22,7 @@ defineProps<{
   actionError?: string | null;
   workflowId?: string;
   campaignProducts?: string[];
-  aiSuggestedProducts?: string[];
+  savedSuggestions?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -158,6 +158,7 @@ function handleSelectProductFromPicker(productKey: string): void {
       :workflow-id="workflowId"
       :existing-categories="availableTabs"
       :campaign-products="campaignProducts"
+      :saved-suggestions="savedSuggestions"
       :mockups-by-product="mockupsByProduct"
       @close="showProductPickerModal = false"
       @select="handleSelectProductFromPicker"

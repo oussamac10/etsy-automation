@@ -388,6 +388,7 @@ async function handleMoveMockup(asset: MockupAsset, direction: "up" | "down"): P
             :action-error="mockupActionError"
             :workflow-id="workflow.id"
             :campaign-products="workflow.intended_product_uses"
+            :saved-suggestions="approvedConcept?.intended_product_uses || approvedConcept?.prompts?.[0]?.intended_product_uses"
             @select-tab="(tab) => selectedMockupTab = tab"
             @open-add-mockup="openAddMockupModal"
             @adjust-placement="openAdjustMockupModal"

@@ -45,6 +45,7 @@ from app.api.schemas import (
     TimelineEntryResponse,
     TimelineResponse,
     UpdateListingDraftRequest,
+    UpdateMockupSuggestionsRequest,
     WorkflowListResponse,
     WorkflowResponse,
 )
@@ -1499,6 +1500,67 @@ async def suggest_mockup_ideas_endpoint(
         ]
 
     cleaned = _clean_product_suggestion_list(suggested_raw)
+
+    # Persist the newly generated ideas in the DB for this campaign / concept
+    if approved_concept:
+        from app.infrastructure.models.concept import DesignPrompt, ProductConcept
+
+        concept_row = await uow.session.get(ProductConcept, approved_concept.id)
+        if concept_row:
+            concept_row.intended_product_uses = list(cleaned)
+            uow.session.add(concept_row)
+
+        if prompts:
+            prompt_row = await uow.session.get(DesignPrompt, prompts[0].id)
+            if prompt_row:
+                prompt_row.intended_product_uses = list(cleaned)
+                uow.session.add(prompt_row)
+
+        await uow.commit()
+
+    return SuggestMockupProductsResponse(suggestions=cleaned)
+
+
+@router.put(
+    "/{workflow_id}/mockups/suggested-products",
+    response_model=SuggestMockupProductsResponse,
+    summary="Update and persist suggested mockup product categories for this workflow in DB",
+)
+async def update_mockup_suggestions_endpoint(
+    workflow_id: uuid.UUID,
+    payload: UpdateMockupSuggestionsRequest,
+    user: CurrentUser,
+    uow: UowDep,
+) -> SuggestMockupProductsResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+
+    cleaned = _clean_product_suggestion_list(payload.suggestions)
+
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    approved_concept = next(
+        (c for c in concepts if c.status == ConceptStatus.APPROVED),
+        concepts[0] if concepts else None,
+    )
+
+    if approved_concept:
+        from app.infrastructure.models.concept import DesignPrompt, ProductConcept
+
+        concept_row = await uow.session.get(ProductConcept, approved_concept.id)
+        if concept_row:
+            concept_row.intended_product_uses = list(cleaned)
+            uow.session.add(concept_row)
+
+        prompts = await uow.concepts.prompts(approved_concept.id)
+        if prompts:
+            prompt_row = await uow.session.get(DesignPrompt, prompts[0].id)
+            if prompt_row:
+                prompt_row.intended_product_uses = list(cleaned)
+                uow.session.add(prompt_row)
+
+        await uow.commit()
+
     return SuggestMockupProductsResponse(suggestions=cleaned)
 
 

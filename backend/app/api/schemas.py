@@ -243,7 +243,14 @@ class ProductConceptResponse(BaseModel):
     score_explanation: str | None
     status: str
     created_at: datetime
+    intended_product_uses: list[str] = []
     prompts: list[DesignPromptResponse] = []
+
+
+class UpdateMockupSuggestionsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    suggestions: list[str] = []
 
 
 class ConceptRevisionRequest(BaseModel):

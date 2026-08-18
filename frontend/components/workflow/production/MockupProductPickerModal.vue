@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import type { MockupAsset } from "~/types/mockup";
 import {
   SUPPORTED_PRODUCT_TYPES,
@@ -15,6 +15,7 @@ const props = defineProps<{
   workflowId?: string;
   existingCategories?: string[];
   campaignProducts?: string[];
+  savedSuggestions?: string[];
   mockupsByProduct?: Record<string, MockupAsset[]>;
 }>();
 
@@ -156,8 +157,68 @@ async function handleGenerateAiIdeas() {
   }
 }
 
-function removeAiIdea(key: string) {
+function initFromSavedSuggestions(suggestions?: string[]) {
+  if (!suggestions || suggestions.length === 0) return;
+  const campaignKeys = new Set(campaignItems.value.map((i) => i.key));
+  const seen = new Set<string>();
+  const items: Array<{ key: string; label: string; icon: string; count: number }> = [];
+
+  for (const s of suggestions) {
+    const clean = String(s).trim().replace(/^['"\[\]\s]+|['"\[\]\s]+$/g, "");
+    const k = normalizeProductKey(clean);
+    if (k && !campaignKeys.has(k) && !seen.has(k)) {
+      seen.add(k);
+      items.push({
+        key: k,
+        label: getProductLabel(clean),
+        icon: getProductIconName(k),
+        count: getMockupCount(k),
+      });
+    }
+  }
+  if (items.length > 0) {
+    aiGeneratedItems.value = items;
+  }
+}
+
+watch(
+  () => props.savedSuggestions,
+  (newVal) => {
+    if (newVal && newVal.length > 0 && aiGeneratedItems.value.length === 0) {
+      initFromSavedSuggestions(newVal);
+    }
+  },
+  { immediate: true }
+);
+
+async function syncSuggestionsToDb(suggestions: string[]) {
+  if (!props.workflowId) return;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (csrf) headers["x-csrf-token"] = csrf;
+
+    await $fetch(`${apiBase}/api/v1/workflows/${props.workflowId}/mockups/suggested-products`, {
+      method: "PUT",
+      headers,
+      body: { suggestions },
+      credentials: "include",
+    });
+  } catch (err) {
+    // Non-blocking background sync
+    console.error("Failed to sync mockup suggestions to DB:", err);
+  }
+}
+
+async function removeAiIdea(key: string) {
   aiGeneratedItems.value = aiGeneratedItems.value.filter((item) => item.key !== key);
+  const remainingLabels = aiGeneratedItems.value.map((i) => i.label);
+  await syncSuggestionsToDb(remainingLabels);
+}
+
+async function clearAllAiIdeas() {
+  aiGeneratedItems.value = [];
+  await syncSuggestionsToDb([]);
 }
 </script>
 
@@ -230,7 +291,7 @@ function removeAiIdea(key: string) {
                 size="sm"
                 class="h-7 text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50 gap-1 px-2 cursor-pointer"
                 title="Clear all AI ideas"
-                @click="aiGeneratedItems = []"
+                @click="clearAllAiIdeas"
               >
                 <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
                 <span>Clear</span>
