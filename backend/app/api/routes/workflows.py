@@ -1459,9 +1459,11 @@ async def update_listing_draft_endpoint(
     payload: UpdateListingDraftRequest,
     user: CurrentUser,
     uow: UowDep,
+    settings: SettingsDep,
     storage: StorageDep,
 ) -> ListingDraftResponse:
     from app.application.listing import ListingDraftService
+    from app.application.trademark import TrademarkScreeningService
 
     workflow = await uow.workflows.get(workflow_id)
     if not workflow or workflow.owner_id != user.id:
@@ -1470,6 +1472,8 @@ async def update_listing_draft_endpoint(
             detail="No workflow with that ID",
         )
 
+    trademark_provider = _resolve_trademark_provider(settings)
+    trademark_service = TrademarkScreeningService(trademark_provider)
     listing_service = ListingDraftService()
     try:
         updated_draft = await listing_service.update_listing_draft(
@@ -1480,6 +1484,7 @@ async def update_listing_draft_endpoint(
             expected_version=payload.expected_version,
             uow=uow,
             actor_email=user.email,
+            trademark_service=trademark_service,
         )
         await uow.commit()
     except Exception as exc:

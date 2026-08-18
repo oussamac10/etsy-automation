@@ -110,6 +110,7 @@ class ListingDraftService:
         expected_version: int | None,
         uow: UnitOfWork,
         actor_email: str,
+        trademark_service: TrademarkScreeningService | None = None,
     ) -> ListingDraft:
         """Update listing title, description, and tags with strict validation and optimistic concurrency."""
         draft = await uow.listing_drafts.get_by_workflow(workflow_id)
@@ -133,6 +134,32 @@ class ListingDraftService:
             tags=accepted_tags,
             expected_version=expected_version,
         )
+
+        # Automatically re-screen trademark risk if service is provided
+        if trademark_service is not None:
+            concepts = await uow.concepts.list_for_workflow(workflow_id)
+            slogan: str | None = None
+            if concepts:
+                concept = concepts[0]
+                prompts = await uow.concepts.prompts(concept.id)
+                if prompts:
+                    slogan = prompts[-1].exact_slogan
+
+            keywords = accepted_tags[:5] if accepted_tags else []
+            risk_level, findings = await trademark_service.screen_listing_trademark(
+                slogan=slogan,
+                title=updated_draft.title,
+                keywords=keywords,
+                tags=accepted_tags,
+            )
+
+            reviewed_phrase = slogan or updated_draft.title
+            updated_draft = await uow.listing_drafts.update_ip_review(
+                updated_draft.id,
+                ip_reviewed_phrase=reviewed_phrase,
+                ip_risk_level=risk_level,
+                ip_findings=findings,
+            )
 
         # Record audit event
         await uow.audit.record(

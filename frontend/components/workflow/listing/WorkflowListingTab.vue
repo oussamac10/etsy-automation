@@ -68,7 +68,10 @@ async function handleSave() {
       expected_version: listingDraft.value.version,
     });
     if (updated) {
-      successMessage.value = 'Listing changes saved successfully.';
+      localTitle.value = updated.title;
+      localDescription.value = updated.description;
+      localTags.value = [...updated.tags];
+      successMessage.value = 'Listing changes saved and trademark screening updated.';
       setTimeout(() => {
         successMessage.value = null;
       }, 4000);
@@ -94,8 +97,24 @@ async function handleGenerateSeo() {
 
 async function handleRescreen() {
   successMessage.value = null;
+  try {
+    if (listingDraft.value) {
+      await updateListing(props.workflowId, {
+        title: localTitle.value,
+        description: localDescription.value,
+        tags: localTags.value,
+        expected_version: listingDraft.value.version,
+      });
+    }
+  } catch {
+    // Proceed with rescreen
+  }
+
   const draft = await rescreenTrademark(props.workflowId);
   if (draft) {
+    localTitle.value = draft.title;
+    localDescription.value = draft.description;
+    localTags.value = [...draft.tags];
     successMessage.value = 'Trademark screening updated with fresh registry data.';
     setTimeout(() => {
       successMessage.value = null;
