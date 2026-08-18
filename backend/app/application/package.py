@@ -49,11 +49,17 @@ class CustomerPackageService:
         assets = await uow.assets.list_for_workflow(workflow_id)
 
         # 1. Resolve Master PNG
-        master_asset = get_production_master_asset(assets)
+        master_asset = await get_production_master_asset(uow, workflow_id)
         if master_asset is None:
             # Fallback to any master PNG or latest PNG asset
             master_asset = next(
                 (a for a in assets if a.mime_type == "image/png" and (a.width or 0) >= 4000),
+                None,
+            )
+        if master_asset is None:
+            # Fallback to newest artwork candidate asset
+            master_asset = next(
+                (a for a in assets if a.mime_type == "image/png" and "/mockups/" not in a.storage_key and not a.storage_key.endswith(".zip")),
                 None,
             )
         if master_asset is None:
@@ -89,7 +95,7 @@ class CustomerPackageService:
                 logger.warning("mockup_fetch_failed", asset_id=str(mockup_asset.id), error=str(exc))
 
         # License and Instructions text
-        owner_settings = await uow.owner_settings.get_for_user(workflow.user_id) if hasattr(workflow, "user_id") and workflow.user_id else None
+        owner_settings = await uow.owner_settings.get_for_user(workflow.owner_id) if hasattr(workflow, "owner_id") and workflow.owner_id else None
         shop_name = getattr(owner_settings, "shop_name", "Digital Art Studio") if owner_settings else "Digital Art Studio"
 
         license_doc = generate_license_text(shop_name, listing_title)

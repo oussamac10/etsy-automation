@@ -1375,8 +1375,17 @@ async def _build_listing_response(
     storage: Any,
 ) -> ListingDraftResponse:
     assets = await uow.assets.list_for_workflow(workflow_id)
+    sorted_assets = sorted(assets, key=lambda a: a.created_at or datetime.min, reverse=True)
     package_asset = next(
-        (a for a in assets if a.provenance and a.provenance.get("kind") == "customer_package"),
+        (
+            a
+            for a in sorted_assets
+            if (
+                (a.provenance and a.provenance.get("kind") == "customer_package")
+                or a.mime_type == "application/zip"
+                or a.storage_key.endswith(".zip")
+            )
+        ),
         None,
     )
     pkg_url = None
