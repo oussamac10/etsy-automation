@@ -1,0 +1,11 @@
+mark_text,serial_number,registration_number,status_text,is_live,classes,goods_services,owner_name,filing_date,registration_date
+JUST DO IT,73666110,1545235,REGISTERED,LIVE,"025, 018, 028","Clothing, namely t-shirts, sweatshirts, hats, footwear, and bags",Nike, Inc.,1987-06-15,1989-06-27
+DISNEY,73223344,1245678,REGISTERED,LIVE,"009, 016, 025, 028","Downloadable digital media, stationery, stickers, clothing, t-shirts, toys",Disney Enterprises, Inc.,1980-01-10,1983-05-15
+BOY MAMA,88123456,6123456,REGISTERED,LIVE,"025","T-shirts, hoodies, infant wear, sweatshirts",Boy Mama Apparel LLC,2018-09-12,2020-08-18
+MAMA BEAR,87555444,5678901,REGISTERED,LIVE,"025, 021","Apparel, t-shirts, ceramic mugs, insulated tumblers",Bear Family Brands LLC,2017-08-01,2019-03-12
+COFFEE BEFORE TALKIE,88999111,6222333,REGISTERED,LIVE,"021, 025","Coffee mugs, drinkware, t-shirts, sweatshirts",Morning Fuel Co.,2019-11-20,2021-04-14
+STAY WILD MOON CHILD,88777123,6055444,REGISTERED,LIVE,"025, 016","Printed art prints, graphic shirts, apparel",Celestial Designs LLC,2019-04-10,2020-10-06
+AUTUMN VIBES,88222333,5999111,REGISTERED,LIVE,"025","T-shirts and hoodies",Seasonal Apparel Group,2018-10-05,2019-12-10
+ESPRESSO BLEND COFFEE,74111222,1888999,REGISTERED,LIVE,"030, 043","Roasted coffee beans and cafe services",Artisan Roast LLC,1990-02-14,1992-06-30
+RETRO SUNSET CANCELLED,75123999,2111222,CANCELLED,DEAD,"025","Shirts and jackets",Old Graphics Brand Inc.,1996-03-01,1998-05-12
+VINTAGE BOTANICAL EXPIRED,76222111,2444555,EXPIRED,DEAD,"016, 025","Art prints and clothing",Defunct Art House,2001-07-15,2003-09-02
