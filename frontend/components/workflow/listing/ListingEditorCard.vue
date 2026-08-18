@@ -62,9 +62,9 @@ function handleDescUpdate(val: string | number) {
 
 <template>
   <Card class="border-border shadow-xs">
-    <CardHeader class="flex flex-row items-center justify-between pb-3">
+    <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
       <div>
-        <CardTitle class="text-base font-semibold flex items-center gap-2">
+        <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
           <Icon name="lucide:file-edit" class="size-4 text-primary" aria-hidden="true" />
           <span>Listing Copy & Specifications</span>
           <Badge variant="outline" class="text-[10px] font-mono">v{{ version }}</Badge>
@@ -74,7 +74,7 @@ function handleDescUpdate(val: string | number) {
         </CardDescription>
       </div>
 
-      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
         <Button
           type="button"
           variant="outline"

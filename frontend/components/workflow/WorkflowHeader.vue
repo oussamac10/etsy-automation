@@ -55,7 +55,7 @@ function handleDelete() {
     <header class="flex flex-col sm:flex-row sm:items-start md:items-center justify-between gap-4 sm:gap-6 border-b border-border pb-4 sm:pb-6">
       <div class="space-y-1.5 min-w-0 flex-1">
         <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-          <NuxtLink to="/" class="flex items-center gap-1 font-semibold text-primary-hover hover:text-[#B33E0B] transition-colors">
+          <NuxtLink to="/" class="flex items-center gap-1 font-semibold text-primary hover:text-primary-hover transition-colors">
             <Icon name="lucide:arrow-left" class="size-3.5" aria-hidden="true" />
             <span>Campaigns</span>
           </NuxtLink>
@@ -94,7 +94,7 @@ function handleDelete() {
           <Icon
             v-else-if="workflow.state === 'PRODUCTION' && latestProductionJob?.status === 'SUCCEEDED'"
             name="lucide:circle-check"
-            class="size-3.5 text-[#2F7D32]"
+            class="size-3.5 text-emerald-600"
             aria-hidden="true"
           />
           <span>{{ displayStageLabel }}</span>
@@ -128,7 +128,7 @@ function handleDelete() {
           v-if="canDelete(workflow.state) && !confirmingDelete"
           variant="outline"
           size="sm"
-          class="gap-1.5 text-secondary-foreground hover:text-destructive hover:border-[#FFCDD2] hover:bg-[#FFEBEE] cursor-pointer inline-flex items-center"
+          class="gap-1.5 text-secondary-foreground hover:text-destructive hover:border-destructive/30 hover:bg-red-50 cursor-pointer inline-flex items-center"
           @click="confirmingDelete = true"
         >
           <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -137,7 +137,7 @@ function handleDelete() {
 
         <span
           v-else-if="confirmingDelete"
-          class="inline-flex items-center gap-2 rounded-lg border border-[#FFCDD2] bg-[#FFEBEE] px-3 py-1.5 text-xs text-destructive"
+          class="inline-flex items-center gap-2 rounded-lg border border-destructive/30 bg-red-50 px-3 py-1.5 text-xs text-destructive"
         >
           <span>Delete this campaign?</span>
           <Button
@@ -152,10 +152,10 @@ function handleDelete() {
           <Button
             variant="ghost"
             size="sm"
-            class="h-6 px-2 text-[11px] cursor-pointer"
+            class="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
             @click="confirmingDelete = false"
           >
-            Keep
+            Cancel
           </Button>
         </span>
       </div>

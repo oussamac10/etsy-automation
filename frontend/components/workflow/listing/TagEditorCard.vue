@@ -78,9 +78,9 @@ function handleKeyDown(e: KeyboardEvent) {
 
 <template>
   <Card class="border-border shadow-xs">
-    <CardHeader class="flex flex-row items-center justify-between pb-3">
+    <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3">
       <div>
-        <CardTitle class="text-base font-semibold flex items-center gap-2">
+        <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
           <Icon name="lucide:tags" class="size-4 text-primary" aria-hidden="true" />
           <span>Etsy SEO Tags</span>
           <Badge
@@ -101,7 +101,7 @@ function handleKeyDown(e: KeyboardEvent) {
         variant="default"
         size="sm"
         :disabled="isSaving || !isComplete"
-        class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer shrink-0"
+        class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer self-start sm:self-auto shrink-0"
         @click="emit('save')"
       >
         <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
@@ -116,13 +116,13 @@ function handleKeyDown(e: KeyboardEvent) {
         <div
           v-for="(tag, idx) in localTags"
           :key="tag + idx"
-          class="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-800 shadow-2xs hover:border-slate-300 transition-all"
+          class="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-800 shadow-2xs hover:border-slate-300 transition-all touch-manipulation"
         >
           <span class="font-mono text-[10px] text-muted-foreground">{{ idx + 1 }}.</span>
           <span class="font-sans">{{ tag }}</span>
           <button
             type="button"
-            class="text-slate-400 hover:text-destructive transition-colors ml-0.5 cursor-pointer focus-visible:outline-none"
+            class="text-slate-400 hover:text-destructive transition-colors ml-0.5 p-0.5 cursor-pointer focus-visible:outline-none"
             title="Remove tag"
             @click="removeTag(idx)"
           >

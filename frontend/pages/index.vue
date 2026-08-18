@@ -818,114 +818,216 @@ onUnmounted(() => {
             </Button>
           </div>
 
-          <!-- Workflows Table -->
-          <div v-else class="overflow-x-auto rounded-xl border border-border">
-            <table class="min-w-full text-left text-sm">
-              <thead class="border-b border-border bg-secondary/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th scope="col" class="px-6 py-3">Campaign</th>
-                  <th scope="col" class="px-6 py-3">Stage & Progress</th>
-                  <th scope="col" class="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-border bg-white align-middle text-secondary-foreground">
-                <tr
-                  v-for="wf in filteredWorkflows"
-                  :key="wf.id"
-                  class="transition-colors hover:bg-secondary/30 group"
-                >
-                  <td class="px-6 py-4">
+          <!-- Workflows Container -->
+          <div v-else>
+            <!-- Workflows Mobile Cards (Mobile View) -->
+            <div class="md:hidden space-y-3">
+              <div
+                v-for="wf in filteredWorkflows"
+                :key="wf.id"
+                class="p-4 bg-white border border-border rounded-xl shadow-2xs space-y-3 transition-all hover:border-slate-300"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0 flex-1">
                     <NuxtLink
                       :to="`/workflow/${wf.id}`"
-                      class="font-bold text-foreground group-hover:text-primary transition-colors focus:outline-none focus:underline"
+                      class="font-bold text-sm text-foreground hover:text-primary transition-colors block break-words"
                     >
                       {{ wf.name }}
                     </NuxtLink>
-                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                      <Badge variant="secondary" class="text-[10px] px-2 py-0">
+                    <p class="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Badge variant="secondary" class="text-[9px] px-1.5 py-0 uppercase">
                         {{ wf.idea_mode }}
                       </Badge>
-                      <span aria-hidden="true" class="text-border">·</span>
-                      <span class="font-medium text-secondary-foreground">{{ wf.target_country }}/{{ wf.output_language }}</span>
-                      <span aria-hidden="true" class="text-border">·</span>
-                      <time :datetime="wf.created_at" class="text-muted-foreground">
+                      <span>•</span>
+                      <span>{{ wf.target_country }}/{{ wf.output_language }}</span>
+                      <span>•</span>
+                      <time :datetime="wf.created_at">
                         {{ new Date(wf.created_at).toLocaleDateString() }}
                       </time>
                     </p>
-                  </td>
+                  </div>
+                </div>
 
-                  <td class="px-6 py-4">
-                    <div class="space-y-1.5">
-                      <div class="flex items-center gap-2">
-                        <span
-                          class="h-2 w-2 shrink-0 rounded-full"
-                          :class="{
-                            'bg-amber-500 motion-safe:animate-pulse': isRunning(wf.state),
-                            'bg-primary': needsOwner(wf.state),
-                            'bg-muted-foreground': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
-                            'bg-destructive': wf.state.endsWith('_FAILED'),
-                            'bg-emerald-500': !isRunning(wf.state) && !needsOwner(wf.state) && !wf.state.endsWith('_FAILED') && wf.state !== 'DRAFT' && wf.state !== 'CANCELLED'
-                          }"
-                          aria-hidden="true"
-                        />
-                        <span class="font-semibold text-xs text-foreground">
-                          {{ stageLabel(wf.state) }}
-                        </span>
-                      </div>
-
-                      <div v-if="stageProgress(wf.state)[0] > 0" class="flex items-center gap-2">
-                        <Progress
-                          :value="stageProgress(wf.state)[0]"
-                          :max="stageProgress(wf.state)[1]"
-                          class="h-1.5 w-24 bg-secondary"
-                          indicator-class="bg-primary"
-                        />
-                        <span class="text-[11px] font-medium text-muted-foreground tabular-nums">
-                          Step {{ stageProgress(wf.state)[0] }}/{{ stageProgress(wf.state)[1] }}
-                        </span>
-                      </div>
+                <!-- Stage & Progress -->
+                <div class="pt-2 border-t border-border/70 space-y-2">
+                  <div class="flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-1.5">
+                      <span
+                        class="h-2 w-2 shrink-0 rounded-full"
+                        :class="{
+                          'bg-amber-500 motion-safe:animate-pulse': isRunning(wf.state),
+                          'bg-primary': needsOwner(wf.state),
+                          'bg-muted-foreground': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
+                          'bg-destructive': wf.state.endsWith('_FAILED'),
+                          'bg-emerald-500': !isRunning(wf.state) && !needsOwner(wf.state) && !wf.state.endsWith('_FAILED') && wf.state !== 'DRAFT' && wf.state !== 'CANCELLED'
+                        }"
+                        aria-hidden="true"
+                      />
+                      <span class="font-semibold text-foreground">
+                        {{ stageLabel(wf.state) }}
+                      </span>
                     </div>
-                  </td>
 
-                  <td class="px-6 py-4">
-                    <div class="flex items-center justify-end gap-2">
-                      <Button
-                        v-if="isRunning(wf.state)"
-                        variant="destructive"
-                        size="sm"
-                        :disabled="pendingWorkflowId === wf.id"
-                        :title="`Stop ${wf.name}`"
-                        class="h-8 px-2.5 text-xs gap-1 cursor-pointer inline-flex items-center"
-                        @click="controlWorkflow(wf.id, 'cancel')"
+                    <span v-if="stageProgress(wf.state)[0] > 0" class="text-[11px] font-mono text-muted-foreground">
+                      Step {{ stageProgress(wf.state)[0] }}/{{ stageProgress(wf.state)[1] }}
+                    </span>
+                  </div>
+
+                  <Progress
+                    v-if="stageProgress(wf.state)[0] > 0"
+                    :value="stageProgress(wf.state)[0]"
+                    :max="stageProgress(wf.state)[1]"
+                    class="h-1.5 w-full bg-secondary"
+                    indicator-class="bg-primary"
+                  />
+                </div>
+
+                <!-- Mobile Actions -->
+                <div class="pt-2 border-t border-border/70 flex items-center justify-end gap-2">
+                  <Button
+                    v-if="isRunning(wf.state)"
+                    variant="destructive"
+                    size="sm"
+                    :disabled="pendingWorkflowId === wf.id"
+                    class="h-8 px-2.5 text-xs gap-1 cursor-pointer inline-flex items-center"
+                    @click="controlWorkflow(wf.id, 'cancel')"
+                  >
+                    <Icon name="lucide:square" class="size-3 fill-current" aria-hidden="true" />
+                    <span>Stop</span>
+                  </Button>
+
+                  <Button
+                    v-if="isStopped(wf.state)"
+                    variant="secondary"
+                    size="sm"
+                    :disabled="pendingWorkflowId === wf.id"
+                    class="h-8 px-2.5 text-xs gap-1 font-medium cursor-pointer inline-flex items-center"
+                    @click="controlWorkflow(wf.id, 'rerun')"
+                  >
+                    <Icon name="lucide:play" class="size-3" aria-hidden="true" />
+                    <span>Resume</span>
+                  </Button>
+
+                  <NuxtLink :to="`/workflow/${wf.id}`">
+                    <Button variant="outline" size="sm" class="h-8 px-3 text-xs gap-1 font-semibold cursor-pointer inline-flex items-center">
+                      <span>Open</span>
+                      <Icon name="lucide:chevron-right" class="size-3.5" aria-hidden="true" />
+                    </Button>
+                  </NuxtLink>
+                </div>
+              </div>
+            </div>
+
+            <!-- Workflows Table (Desktop View) -->
+            <div class="hidden md:block overflow-x-auto rounded-xl border border-border">
+              <table class="min-w-full text-left text-sm">
+                <thead class="border-b border-border bg-secondary/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th scope="col" class="px-6 py-3">Campaign</th>
+                    <th scope="col" class="px-6 py-3">Stage & Progress</th>
+                    <th scope="col" class="px-6 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border bg-white align-middle text-secondary-foreground">
+                  <tr
+                    v-for="wf in filteredWorkflows"
+                    :key="wf.id"
+                    class="transition-colors hover:bg-secondary/30 group"
+                  >
+                    <td class="px-6 py-4">
+                      <NuxtLink
+                        :to="`/workflow/${wf.id}`"
+                        class="font-bold text-foreground group-hover:text-primary transition-colors focus:outline-none focus:underline"
                       >
-                        <Icon name="lucide:square" class="size-3 fill-current" aria-hidden="true" />
-                        <span>Stop</span>
-                      </Button>
-
-                      <Button
-                        v-if="isStopped(wf.state)"
-                        variant="secondary"
-                        size="sm"
-                        :disabled="pendingWorkflowId === wf.id"
-                        :title="`Resume ${wf.name}`"
-                        class="h-8 px-2.5 text-xs gap-1 font-medium cursor-pointer inline-flex items-center"
-                        @click="controlWorkflow(wf.id, 'rerun')"
-                      >
-                        <Icon name="lucide:play" class="size-3" aria-hidden="true" />
-                        <span>Resume</span>
-                      </Button>
-
-                      <NuxtLink :to="`/workflow/${wf.id}`">
-                        <Button variant="outline" size="sm" class="h-8 px-3 text-xs gap-1 font-semibold cursor-pointer inline-flex items-center">
-                          <span>Open</span>
-                          <Icon name="lucide:chevron-right" class="size-3.5" aria-hidden="true" />
-                        </Button>
+                        {{ wf.name }}
                       </NuxtLink>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                      <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <Badge variant="secondary" class="text-[10px] px-2 py-0">
+                          {{ wf.idea_mode }}
+                        </Badge>
+                        <span aria-hidden="true" class="text-border">·</span>
+                        <span class="font-medium text-secondary-foreground">{{ wf.target_country }}/{{ wf.output_language }}</span>
+                        <span aria-hidden="true" class="text-border">·</span>
+                        <time :datetime="wf.created_at" class="text-muted-foreground">
+                          {{ new Date(wf.created_at).toLocaleDateString() }}
+                        </time>
+                      </p>
+                    </td>
+
+                    <td class="px-6 py-4">
+                      <div class="space-y-1.5">
+                        <div class="flex items-center gap-2">
+                          <span
+                            class="h-2 w-2 shrink-0 rounded-full"
+                            :class="{
+                              'bg-amber-500 motion-safe:animate-pulse': isRunning(wf.state),
+                              'bg-primary': needsOwner(wf.state),
+                              'bg-muted-foreground': wf.state === 'DRAFT' || wf.state === 'CANCELLED',
+                              'bg-destructive': wf.state.endsWith('_FAILED'),
+                              'bg-emerald-500': !isRunning(wf.state) && !needsOwner(wf.state) && !wf.state.endsWith('_FAILED') && wf.state !== 'DRAFT' && wf.state !== 'CANCELLED'
+                            }"
+                            aria-hidden="true"
+                          />
+                          <span class="font-semibold text-xs text-foreground">
+                            {{ stageLabel(wf.state) }}
+                          </span>
+                        </div>
+
+                        <div v-if="stageProgress(wf.state)[0] > 0" class="flex items-center gap-2">
+                          <Progress
+                            :value="stageProgress(wf.state)[0]"
+                            :max="stageProgress(wf.state)[1]"
+                            class="h-1.5 w-24 bg-secondary"
+                            indicator-class="bg-primary"
+                          />
+                          <span class="text-[11px] font-medium text-muted-foreground tabular-nums">
+                            Step {{ stageProgress(wf.state)[0] }}/{{ stageProgress(wf.state)[1] }}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td class="px-6 py-4">
+                      <div class="flex items-center justify-end gap-2">
+                        <Button
+                          v-if="isRunning(wf.state)"
+                          variant="destructive"
+                          size="sm"
+                          :disabled="pendingWorkflowId === wf.id"
+                          :title="`Stop ${wf.name}`"
+                          class="h-8 px-2.5 text-xs gap-1 cursor-pointer inline-flex items-center"
+                          @click="controlWorkflow(wf.id, 'cancel')"
+                        >
+                          <Icon name="lucide:square" class="size-3 fill-current" aria-hidden="true" />
+                          <span>Stop</span>
+                        </Button>
+
+                        <Button
+                          v-if="isStopped(wf.state)"
+                          variant="secondary"
+                          size="sm"
+                          :disabled="pendingWorkflowId === wf.id"
+                          :title="`Resume ${wf.name}`"
+                          class="h-8 px-2.5 text-xs gap-1 font-medium cursor-pointer inline-flex items-center"
+                          @click="controlWorkflow(wf.id, 'rerun')"
+                        >
+                          <Icon name="lucide:play" class="size-3" aria-hidden="true" />
+                          <span>Resume</span>
+                        </Button>
+
+                        <NuxtLink :to="`/workflow/${wf.id}`">
+                          <Button variant="outline" size="sm" class="h-8 px-3 text-xs gap-1 font-semibold cursor-pointer inline-flex items-center">
+                            <span>Open</span>
+                            <Icon name="lucide:chevron-right" class="size-3.5" aria-hidden="true" />
+                          </Button>
+                        </NuxtLink>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -233,24 +233,24 @@ const isApproved = computed(() => {
       </div>
 
       <!-- Gate 3 Decision Bar -->
-      <div class="bg-white border border-border rounded-xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 sticky bottom-4 z-10 backdrop-blur-md">
+      <div class="bg-white/95 backdrop-blur-md border border-border rounded-xl p-3.5 sm:p-4 shadow-md flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 sticky bottom-3 sm:bottom-4 z-10">
         <div class="space-y-0.5 text-center sm:text-left">
           <h3 class="text-sm font-bold text-slate-900 flex items-center justify-center sm:justify-start gap-2">
             <Icon name="lucide:door-open" class="size-4 text-primary" aria-hidden="true" />
             <span>Gate 3: Listing & IP Approval</span>
           </h3>
           <p class="text-xs text-muted-foreground">
-            Authorizes this campaign as ready for Etsy draft creation. No auto-publishing.
+            Authorizes this campaign as ready for Etsy draft creation.
           </p>
         </div>
 
-        <div class="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+        <div class="flex items-center gap-2 sm:gap-3 justify-stretch sm:justify-end">
           <Button
             type="button"
             variant="outline"
             size="sm"
             :disabled="isDecidingGate"
-            class="text-xs h-8 sm:h-9 px-2.5 sm:px-3.5 gap-1.5 cursor-pointer text-muted-foreground hover:text-destructive shrink-0"
+            class="text-xs h-9 px-3 gap-1.5 cursor-pointer text-muted-foreground hover:text-destructive flex-1 sm:flex-initial justify-center"
             @click="handleReject"
           >
             <Icon name="lucide:x-circle" class="size-4" aria-hidden="true" />
@@ -264,7 +264,7 @@ const isApproved = computed(() => {
             variant="destructive"
             size="sm"
             disabled
-            class="text-xs h-8 sm:h-9 px-3 sm:px-4 gap-1.5 opacity-70 cursor-not-allowed shrink-0"
+            class="text-xs h-9 px-4 gap-1.5 opacity-70 cursor-not-allowed flex-1 sm:flex-initial justify-center"
           >
             <Icon name="lucide:shield-ban" class="size-4" aria-hidden="true" />
             <span>Approval Blocked</span>
@@ -277,7 +277,7 @@ const isApproved = computed(() => {
             variant="default"
             size="sm"
             :disabled="!canApprove || isDecidingGate"
-            class="text-xs h-8 sm:h-9 px-3 sm:px-4 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shrink-0"
+            class="text-xs h-9 px-4 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer flex-1 sm:flex-initial justify-center"
             @click="handleApprove"
           >
             <Icon v-if="isDecidingGate" name="lucide:loader-circle" class="size-4 animate-spin" aria-hidden="true" />
@@ -292,7 +292,7 @@ const isApproved = computed(() => {
             variant="default"
             size="sm"
             :disabled="!canApprove || isDecidingGate"
-            class="text-xs h-8 sm:h-9 px-3 sm:px-4 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shrink-0"
+            class="text-xs h-9 px-4 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex-1 sm:flex-initial justify-center"
             @click="handleApprove"
           >
             <Icon v-if="isDecidingGate" name="lucide:loader-circle" class="size-4 animate-spin" aria-hidden="true" />

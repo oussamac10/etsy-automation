@@ -67,7 +67,7 @@ const isListingActive = computed(() => {
 </script>
 
 <template>
-  <nav class="border-b border-border bg-white/95 backdrop-blur-md sticky top-13 sm:top-14 z-20 rounded-xl shadow-2xs p-1 sm:p-1.5 flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-none">
+  <nav class="border-b border-border bg-white/95 backdrop-blur-md sticky top-12 sm:top-14 z-20 rounded-xl shadow-2xs p-1 sm:p-1.5 flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-none touch-pan-x">
     <!-- Tab 1: Overview -->
     <button
       type="button"
@@ -79,8 +79,9 @@ const isListingActive = computed(() => {
       "
       @click="emit('update:activeTab', 'overview')"
     >
-      <Icon name="lucide:file-text" class="size-4" aria-hidden="true" />
-      <span>Overview & Brief</span>
+      <Icon name="lucide:file-text" class="size-3.5 sm:size-4" aria-hidden="true" />
+      <span class="hidden sm:inline">Overview & Brief</span>
+      <span class="sm:hidden">Overview</span>
     </button>
 
     <!-- Tab 2: Concepts & Research -->
@@ -96,8 +97,9 @@ const isListingActive = computed(() => {
     >
       <Icon v-if="isResearchActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
       <Icon v-else-if="isGate1Done" name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
-      <Icon v-else name="lucide:sparkles" class="size-4 text-muted-foreground" aria-hidden="true" />
-      <span>1. Concepts & Research</span>
+      <Icon v-else name="lucide:sparkles" class="size-3.5 sm:size-4 text-muted-foreground" aria-hidden="true" />
+      <span class="hidden sm:inline">1. Concepts & Research</span>
+      <span class="sm:hidden">1. Concepts</span>
       <span
         v-if="conceptsCount > 0"
         class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
@@ -120,8 +122,9 @@ const isListingActive = computed(() => {
     >
       <Icon v-if="isArtActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
       <Icon v-else-if="isGate2Done" name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
-      <Icon v-else name="lucide:image" class="size-4 text-muted-foreground" aria-hidden="true" />
-      <span>2. Artwork Studio</span>
+      <Icon v-else name="lucide:image" class="size-3.5 sm:size-4 text-muted-foreground" aria-hidden="true" />
+      <span class="hidden sm:inline">2. Artwork Studio</span>
+      <span class="sm:hidden">2. Artwork</span>
       <span
         v-if="candidatesCount > 0"
         class="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
@@ -144,8 +147,9 @@ const isListingActive = computed(() => {
     >
       <Icon v-if="isProductionActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
       <Icon v-else-if="isProductionDone" name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
-      <Icon v-else name="lucide:file-image" class="size-4 text-muted-foreground" aria-hidden="true" />
-      <span>3. Production & Mockups</span>
+      <Icon v-else name="lucide:file-image" class="size-3.5 sm:size-4 text-muted-foreground" aria-hidden="true" />
+      <span class="hidden sm:inline">3. Production & Mockups</span>
+      <span class="sm:hidden">3. Production</span>
       <Badge
         v-if="isProductionDone"
         variant="success"
@@ -168,8 +172,9 @@ const isListingActive = computed(() => {
     >
       <Icon v-if="isListingActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
       <Icon v-else-if="isGate3Done" name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
-      <Icon v-else name="lucide:tags" class="size-4 text-muted-foreground" aria-hidden="true" />
-      <span>4. Listing & IP Review</span>
+      <Icon v-else name="lucide:tags" class="size-3.5 sm:size-4 text-muted-foreground" aria-hidden="true" />
+      <span class="hidden sm:inline">4. Listing & IP Review</span>
+      <span class="sm:hidden">4. Listing</span>
       <Badge
         v-if="isGate3Done"
         variant="success"
