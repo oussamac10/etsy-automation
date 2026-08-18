@@ -99,7 +99,8 @@ class S3ObjectStorage:
             )
             body = response["Body"]
             data = await asyncio.to_thread(body.read)
-            assert isinstance(data, bytes)
+            if not isinstance(data, bytes):
+                raise ValueError("S3 response body is not bytes")
             return data
         except Exception as exc:
             raise ProviderError(
@@ -121,7 +122,8 @@ class S3ObjectStorage:
                 },
                 ExpiresIn=expires_in_seconds,
             )
-            assert isinstance(url, str)
+            if not isinstance(url, str):
+                raise ValueError("Presigned URL is not string")
             return url
         except Exception as exc:
             raise ProviderError(

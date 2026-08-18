@@ -116,7 +116,8 @@ class UnitOfWork:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        assert self._session is not None
+        if self._session is None:
+            return
         try:
             # Any exception escaping the block rolls the whole unit back,
             # including the audit rows written before the failure.

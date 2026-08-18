@@ -56,8 +56,7 @@ def validate_idea_submission(mode: IdeaMode, original_text: str | None) -> None:
             "this mode starts from market research only; submit an idea with "
             "'user-idea' or 'hybrid' instead",
         )
-    if has_text:
-        assert original_text is not None  # narrowed by has_text
+    if original_text is not None and has_text:
         stripped = original_text.strip()
         if len(stripped) < MIN_IDEA_LENGTH:
             raise InvalidIdeaModeError(

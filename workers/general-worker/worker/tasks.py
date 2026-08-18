@@ -20,7 +20,6 @@ from app.application.owner_settings import reveal_credential
 from app.application.research import ensure_research_within_budget
 from app.application.telegram import send_telegram_notification
 from app.application.unit_of_work import UnitOfWork
-from app.domain import ip_risk
 from app.domain.enums import (
     AuditAction,
     CompetitionLevel,
@@ -180,8 +179,7 @@ async def _mark_failure_async(workflow_id: uuid.UUID, run_id: uuid.UUID, reason:
                 attempt=1,
                 retryable=True,
             )
-            session = uow._session
-            assert session is not None
+            session = uow.session
             session.add(failure)
 
             await uow.audit.record(
@@ -263,7 +261,8 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
         # Reload settings and credentials in a separate UOW/DB block
         async with UnitOfWork(session_factory) as uow:
             workflow = await uow.workflows.get(workflow_id)
-            assert workflow is not None
+            if workflow is None:
+                raise RuntimeError(f"Workflow {workflow_id} not found")
 
             owner_settings = await uow.owner_settings.get_for_user(workflow.owner_id)
             if not owner_settings:
@@ -534,9 +533,11 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
         # 4. Save results to the database in a transaction
         async with UnitOfWork(session_factory) as uow:
             db_run = await uow.research.get_run(run_id)
-            assert db_run is not None
+            if db_run is None:
+                raise RuntimeError(f"ResearchRun {run_id} not found")
             db_workflow = await uow.workflows.get(workflow_id)
-            assert db_workflow is not None
+            if db_workflow is None:
+                raise RuntimeError(f"Workflow {workflow_id} not found")
 
             # Save query angles and status on run
             db_run.query_angles = query_angles_run
@@ -803,8 +804,7 @@ async def _mark_artwork_failure_async(
                 attempt=1,
                 retryable=True,
             )
-            session = uow._session
-            assert session is not None
+            session = uow.session
             session.add(failure)
 
             await uow.audit.record(
@@ -839,8 +839,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             if workflow is None:
                 raise ValueError("Workflow not found")
 
-            assert uow._session is not None
-            prompt = await uow._session.get(DesignPrompt, job.prompt_id)
+            prompt = await uow.session.get(DesignPrompt, job.prompt_id)
             if prompt is None:
                 raise ValueError("DesignPrompt not found")
 
@@ -861,13 +860,15 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
         # 2. Update job status to RUNNING and bump attempt count
         async with UnitOfWork(session_factory) as uow:
             job = await uow.artwork_jobs.get(job_id)
-            assert job is not None
+            if job is None:
+                raise RuntimeError(f"ArtworkJob {job_id} not found")
             job.status = JobStatus.RUNNING
             job.attempt_count += 1
             job.started_at = datetime.now(UTC)
 
             workflow = await uow.workflows.get(workflow_id)
-            assert workflow is not None
+            if workflow is None:
+                raise RuntimeError(f"Workflow {workflow_id} not found")
             if workflow.state == RunStatus.ART_QUEUED:
                 await uow.workflows.transition(
                     workflow,
@@ -1071,9 +1072,11 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
 
         async with UnitOfWork(session_factory) as uow:
             job = await uow.artwork_jobs.get(job_id)
-            assert job is not None
+            if job is None:
+                raise RuntimeError(f"ArtworkJob {job_id} not found")
             workflow = await uow.workflows.get(workflow_id)
-            assert workflow is not None
+            if workflow is None:
+                raise RuntimeError(f"Workflow {workflow_id} not found")
 
             for _idx, candidate in enumerate(response.candidates):
                 cleaned_bytes = candidate.image_bytes
@@ -1308,7 +1311,8 @@ def run_production_task(
 ) -> None:
     """Entry point for Phase 7 PNG Production Pipeline."""
     actual_job_id = production_job_id or job_id
-    assert actual_job_id is not None, "production_job_id or job_id is required"
+    if actual_job_id is None:
+        raise ValueError("production_job_id or job_id is required")
     logger.info("production_task_triggered", workflow_id=workflow_id, job_id=actual_job_id)
     asyncio.run(_run_production_async(uuid.UUID(workflow_id), uuid.UUID(actual_job_id)))
 
@@ -1361,8 +1365,7 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                     attempt=1,
                     retryable=True,
                 )
-                assert uow._session is not None
-                uow._session.add(failure_record)
+                uow.session.add(failure_record)
                 await uow.audit.record(
                     action=AuditAction.FAILURE_RECORDED,
                     entity_type="ProductionJob",
@@ -1396,7 +1399,7 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
     from app.providers.fake import FakeTextProvider, FakeTrademarkSearchAdapter
     from app.providers.gemini import GeminiSynthesisAdapter
     from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
-    from app.providers.uspto import UsptoTrademarkAdapter
+    from app.providers.tsdr import UsptoTsdrAdapter
 
     settings = get_settings()
     engine = create_engine(settings.database_url)
@@ -1444,12 +1447,8 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
             tsdr_adapter: Any = None
 
             if settings.provider_mode == "live":
-                from app.providers.tsdr import UsptoTsdrAdapter
-
                 cred = await uow.credentials.get(workflow.owner_id, ProviderName.USPTO)
                 if cred:
-                    from app.api.dependencies import build_credential_cipher
-
                     cipher = build_credential_cipher(settings)
                     if cipher:
                         raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
