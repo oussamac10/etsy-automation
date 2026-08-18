@@ -17,6 +17,8 @@
     "build": "pnpm -r --workspace-concurrency=1 build",
     "dev:web": "pnpm --filter @etsy/web dev",
     "dev:image-worker": "pnpm --filter @etsy/image-worker dev",
+    "doc:schema": "./.venv/bin/python backend/scripts/generate_schema_docs.py || python backend/scripts/generate_schema_docs.py",
+    "doc:schema:check": "./.venv/bin/python backend/scripts/generate_schema_docs.py --check || python backend/scripts/generate_schema_docs.py --check",
     "compose:config": "docker compose config --quiet",
     "compose:up": "docker compose up -d --build",
     "compose:down": "docker compose down -v"
