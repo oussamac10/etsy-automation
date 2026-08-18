@@ -66,13 +66,6 @@ const activeMasterAssetId = computed(
   () => props.latestProductionJob?.output_asset_id || props.latestProductionJob?.master_asset?.id || null
 );
 
-const intendedProductList = computed<string[]>(() => {
-  const fromWorkflow = props.workflow?.intended_product_uses || [];
-  const fromConcept = props.approvedConcept?.prompts?.[0]?.intended_product_uses || [];
-  const combined = [...fromWorkflow, ...fromConcept];
-  return Array.from(new Set(combined.map(normalizeProductKey).filter(Boolean)));
-});
-
 const {
   localMockupAssets,
   selectedMockupTab,
@@ -83,7 +76,7 @@ const {
   deleteMockup,
 } = useMockups(
   () => activeMasterAssetId.value,
-  () => intendedProductList.value,
+  () => props.workflow?.intended_product_uses,
 );
 
 const renderNonce = ref<number>(Date.now());
