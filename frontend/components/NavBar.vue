@@ -56,6 +56,15 @@ async function handleLogout() {
             <span>Mockup Library</span>
           </NuxtLink>
           <NuxtLink
+            to="/usage"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+            data-testid="nav-usage-link"
+          >
+            <Icon name="lucide:coins" class="size-3.5" aria-hidden="true" />
+            <span>Usage & Costs</span>
+          </NuxtLink>
+          <NuxtLink
             to="/settings"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
             active-class="bg-blue-50 text-primary font-bold border border-blue-200"
@@ -134,6 +143,17 @@ async function handleLogout() {
         >
           <Icon name="lucide:images" class="size-4 text-primary" aria-hidden="true" />
           <span>Mockup Library</span>
+        </NuxtLink>
+
+        <NuxtLink
+          to="/usage"
+          class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+          data-testid="nav-usage-mobile-link"
+          @click="isMobileMenuOpen = false"
+        >
+          <Icon name="lucide:coins" class="size-4 text-primary" aria-hidden="true" />
+          <span>Usage & Costs</span>
         </NuxtLink>
 
         <NuxtLink
