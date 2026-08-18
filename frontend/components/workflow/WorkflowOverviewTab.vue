@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import Card from "~/components/ui/Card.vue";
 import CardHeader from "~/components/ui/CardHeader.vue";
 import CardTitle from "~/components/ui/CardTitle.vue";
@@ -8,6 +9,7 @@ import Badge from "~/components/ui/Badge.vue";
 import Button from "~/components/ui/Button.vue";
 import { isStopped } from "~/composables/useWorkflowControls";
 import { getProductIcon } from "~/config/icons";
+import { getProductLabel, normalizeProductKey } from "~/utils/mockupProducts";
 
 interface Workflow {
   id: string;
@@ -48,9 +50,16 @@ interface ResearchRun {
 interface ProductionJob {
   id: string;
   status: string;
+  mockup_assets?: Array<{
+    provenance?: {
+      product_type?: string;
+      asset_type?: string;
+      source?: string;
+    };
+  }>;
 }
 
-defineProps<{
+const props = defineProps<{
   workflow: Workflow;
   originalIdea: OriginalIdea | null;
   latestRun: ResearchRun | null;
@@ -63,14 +72,42 @@ const emit = defineEmits<{
   (e: "navigate", tab: string): void;
 }>();
 
-function formatProductLabel(product: string): string {
-  const norm = product.toLowerCase().replace(/[- ]/g, "_");
-  if (norm.includes("mug") || norm.includes("cup")) return "Ceramic Mug";
-  if (norm.includes("sweatshirt") || norm.includes("hoodie")) return "Sweatshirt";
-  if (norm.includes("tshirt") || norm.includes("t_shirt") || norm.includes("shirt")) return "T-Shirt";
-  if (norm.includes("tote") || norm.includes("bag")) return "Tote Bag";
-  return product.charAt(0).toUpperCase() + product.slice(1);
-}
+const displayProductUses = computed<string[]>(() => {
+  const seen = new Set<string>();
+  const list: string[] = [];
+
+  // 1. From workflow.intended_product_uses
+  for (const p of props.workflow?.intended_product_uses || []) {
+    const k = normalizeProductKey(p);
+    if (k && !seen.has(k)) {
+      seen.add(k);
+      list.push(k);
+    }
+  }
+
+  // 2. From active mockup assets in latest production job
+  for (const m of props.latestProductionJob?.mockup_assets || []) {
+    const pt = m.provenance?.product_type;
+    if (pt) {
+      const k = normalizeProductKey(pt);
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        list.push(k);
+      }
+    }
+  }
+
+  // 3. From originalIdea.product_uses
+  for (const p of props.originalIdea?.product_uses || []) {
+    const k = normalizeProductKey(p);
+    if (k && !seen.has(k)) {
+      seen.add(k);
+      list.push(k);
+    }
+  }
+
+  return list;
+});
 </script>
 
 <template>
@@ -111,15 +148,13 @@ function formatProductLabel(product: string): string {
         @click="emit('navigate', 'concepts')"
       >
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phase 1–5</span>
-          <Icon name="lucide:sparkles" class="size-4 text-primary" aria-hidden="true" />
+          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Phase 1-3</span>
+          <Icon name="lucide:arrow-right" class="size-4 text-muted-foreground" aria-hidden="true" />
         </div>
-        <h3 class="text-sm font-bold text-foreground">Market Concepts & Research</h3>
-        <p class="text-xs text-muted-foreground">Review AI idea analysis, scoring, IP risk checks, and prompt versions.</p>
-        <div class="pt-2 flex items-center text-xs font-bold text-primary gap-1">
-          <span>Open Concepts</span>
-          <Icon name="lucide:arrow-right" class="size-3.5" aria-hidden="true" />
-        </div>
+        <p class="text-sm font-semibold text-foreground">Market Research & Concept</p>
+        <p class="text-xs text-muted-foreground line-clamp-2">
+          Discover keyword demand, competitor gaps, and review AI scoring and trademark screening.
+        </p>
       </div>
 
       <div
@@ -127,15 +162,13 @@ function formatProductLabel(product: string): string {
         @click="emit('navigate', 'artwork')"
       >
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phase 6</span>
-          <Icon name="lucide:image" class="size-4 text-primary" aria-hidden="true" />
+          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Phase 4-6</span>
+          <Icon name="lucide:arrow-right" class="size-4 text-muted-foreground" aria-hidden="true" />
         </div>
-        <h3 class="text-sm font-bold text-foreground">Artwork Studio & Review</h3>
-        <p class="text-xs text-muted-foreground">Configure Recraft/Gemini generators, review candidate designs, and refine.</p>
-        <div class="pt-2 flex items-center text-xs font-bold text-primary gap-1">
-          <span>Open Artwork Studio</span>
-          <Icon name="lucide:arrow-right" class="size-3.5" aria-hidden="true" />
-        </div>
+        <p class="text-sm font-semibold text-foreground">Artwork Studio</p>
+        <p class="text-xs text-muted-foreground line-clamp-2">
+          Generate high-resolution transparent graphics, refine prompts, and approve candidates.
+        </p>
       </div>
 
       <div
@@ -143,40 +176,43 @@ function formatProductLabel(product: string): string {
         @click="emit('navigate', 'production')"
       >
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phase 7</span>
-          <Icon name="lucide:file-image" class="size-4 text-primary" aria-hidden="true" />
+          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Phase 7-8</span>
+          <Icon name="lucide:arrow-right" class="size-4 text-muted-foreground" aria-hidden="true" />
         </div>
-        <h3 class="text-sm font-bold text-foreground">PNG Master & Mockups</h3>
-        <p class="text-xs text-muted-foreground">Deterministic 4500×5400 px master print PNG, QA validation, and realistic mockups.</p>
-        <div class="pt-2 flex items-center text-xs font-bold text-primary gap-1">
-          <span>Open Production Gallery</span>
-          <Icon name="lucide:arrow-right" class="size-3.5" aria-hidden="true" />
-        </div>
+        <p class="text-sm font-semibold text-foreground">Production & Mockups</p>
+        <p class="text-xs text-muted-foreground line-clamp-2">
+          300 DPI master print file, automated QA checks, and multi-product mockup gallery.
+        </p>
       </div>
     </div>
 
-    <!-- Main Brief Grid -->
+    <!-- Overview Details Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Target Brief Card -->
+      <!-- Campaign Parameters Card -->
       <Card class="shadow-2xs">
-        <CardHeader class="pb-3 border-b border-border bg-secondary/30">
-          <div class="flex items-center gap-2">
-            <Icon name="lucide:target" class="size-4 text-primary" aria-hidden="true" />
-            <CardTitle class="text-base font-bold">Campaign Target Specifications</CardTitle>
+        <CardHeader class="pb-3 border-b border-border">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <Icon name="lucide:sliders" class="size-4 text-primary" aria-hidden="true" />
+              <CardTitle class="text-base font-bold">Campaign Parameters</CardTitle>
+            </div>
+            <Badge variant="outline" class="text-[10px] uppercase font-bold tracking-wider">
+              {{ workflow.idea_mode }}
+            </Badge>
           </div>
-          <CardDescription class="text-xs text-muted-foreground">
-            Marketplace target, localization parameters, and intended merchandise types.
+          <CardDescription class="text-xs">
+            Baseline configuration for research, copy generation, and marketplace targeting.
           </CardDescription>
         </CardHeader>
         <CardContent class="p-5 space-y-4 text-xs">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <span class="text-muted-foreground block uppercase tracking-wider text-[10px] font-semibold">Target Marketplace</span>
-              <span class="text-foreground font-bold uppercase">{{ workflow.target_marketplace }}</span>
+              <span class="text-muted-foreground block uppercase tracking-wider text-[10px] font-semibold">Marketplace</span>
+              <span class="text-foreground font-medium uppercase">{{ workflow.target_marketplace }} ({{ workflow.target_country }})</span>
             </div>
             <div>
-              <span class="text-muted-foreground block uppercase tracking-wider text-[10px] font-semibold">Country & Language</span>
-              <span class="text-foreground font-bold uppercase">{{ workflow.target_country }} ({{ workflow.output_language }})</span>
+              <span class="text-muted-foreground block uppercase tracking-wider text-[10px] font-semibold">Language</span>
+              <span class="text-foreground font-medium uppercase">{{ workflow.output_language }}</span>
             </div>
           </div>
 
@@ -187,12 +223,15 @@ function formatProductLabel(product: string): string {
 
           <div>
             <span class="text-muted-foreground block uppercase tracking-wider text-[10px] font-semibold mb-1.5">Intended Physical Products</span>
-            <div class="flex flex-wrap gap-1.5">
-              <Badge v-for="use in workflow.intended_product_uses" :key="use" variant="secondary" class="text-[11px] px-2.5 py-1 inline-flex items-center gap-1.5">
+            <div v-if="displayProductUses.length > 0" class="flex flex-wrap gap-1.5">
+              <Badge v-for="use in displayProductUses" :key="use" variant="secondary" class="text-[11px] px-2.5 py-1 inline-flex items-center gap-1.5 shadow-2xs">
                 <Icon :name="getProductIcon(use)" class="size-3.5 text-muted-foreground" aria-hidden="true" />
-                <span>{{ formatProductLabel(use) }}</span>
+                <span>{{ getProductLabel(use) }}</span>
               </Badge>
             </div>
+            <p v-else class="text-xs text-muted-foreground italic">
+              No products selected yet. Select categories in the Production & Mockups tab.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -234,6 +273,21 @@ function formatProductLabel(product: string): string {
             <div v-if="originalIdea.season">
               <span class="font-semibold text-secondary-foreground block text-[10px]">Season:</span>
               <span class="text-foreground font-medium">{{ originalIdea.season }}</span>
+            </div>
+
+            <!-- Target Product Categories in Brief -->
+            <div v-if="displayProductUses.length > 0" class="col-span-2 pt-1 border-t border-border/70">
+              <span class="font-semibold text-secondary-foreground block text-[10px] mb-1.5">Intended Products:</span>
+              <div class="flex flex-wrap gap-1.5">
+                <span
+                  v-for="use in displayProductUses"
+                  :key="use"
+                  class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-white border border-border text-foreground inline-flex items-center gap-1 shadow-2xs"
+                >
+                  <Icon :name="getProductIcon(use)" class="size-3 text-muted-foreground" aria-hidden="true" />
+                  <span>{{ getProductLabel(use) }}</span>
+                </span>
+              </div>
             </div>
           </div>
         </CardContent>

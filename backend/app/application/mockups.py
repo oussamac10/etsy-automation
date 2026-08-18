@@ -288,6 +288,16 @@ class MockupCompositionService:
             )
             await self.uow.assets.add(custom_asset)
 
+        # Synchronize workflow intended_product_uses with newly composited product type
+        wf = await self.uow.workflows.get(workflow_id)
+        if wf:
+            current_uses = list(wf.intended_product_uses or [])
+            if canonical_prod not in current_uses:
+                current_uses.append(canonical_prod)
+                wf.intended_product_uses = current_uses
+                if hasattr(self.uow, "session") and hasattr(self.uow.session, "add"):
+                    self.uow.session.add(wf)
+
         try:
             await self.uow.session.commit()
         except IntegrityError:
