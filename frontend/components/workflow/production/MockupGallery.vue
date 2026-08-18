@@ -62,30 +62,17 @@ function handleSelectProductFromPicker(productKey: string): void {
         </p>
       </div>
 
-      <div class="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          class="font-bold gap-1.5 shadow-2xs cursor-pointer inline-flex items-center bg-white"
-          :disabled="isActionLoading"
-          @click="showProductPickerModal = true"
-        >
-          <Icon name="lucide:sparkles" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>Product & Mockup Ideas</span>
-        </Button>
-
-        <Button
-          v-if="availableTabs.length === 0"
-          variant="default"
-          size="sm"
-          class="font-bold gap-1.5 shadow-2xs cursor-pointer inline-flex items-center"
-          :disabled="isActionLoading"
-          @click="showProductPickerModal = true"
-        >
-          <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
-          <span>Add Mockup</span>
-        </Button>
-      </div>
+      <Button
+        v-if="availableTabs.length === 0"
+        variant="default"
+        size="sm"
+        class="font-bold gap-1.5 shadow-2xs cursor-pointer inline-flex items-center"
+        :disabled="isActionLoading"
+        @click="showProductPickerModal = true"
+      >
+        <Icon name="lucide:plus" class="size-3.5" aria-hidden="true" />
+        <span>Add Mockup</span>
+      </Button>
     </div>
 
     <!-- Error Banner -->
