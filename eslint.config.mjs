@@ -61,12 +61,20 @@ export default tseslint.config(
       globals: {
         ...globals.browser,
         // Nuxt auto-imports and compiler macros.
+        $fetch: "readonly",
         computed: "readonly",
         defineEventHandler: "readonly",
         defineNuxtConfig: "readonly",
+        defineProps: "readonly",
+        defineEmits: "readonly",
+        nextTick: "readonly",
         onMounted: "readonly",
+        onUnmounted: "readonly",
         ref: "readonly",
+        useRoute: "readonly",
+        useRouter: "readonly",
         useRuntimeConfig: "readonly",
+        watch: "readonly",
       },
     },
     rules: {

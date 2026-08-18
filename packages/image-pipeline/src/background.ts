@@ -121,7 +121,7 @@ export async function detectEdgeBackground(
 
   // 2. Sample perimeter pixels
   const borderPixels: RgbColor[] = [];
-  let borderTransparentCount = 0;
+  let _borderTransparentCount = 0;
 
   for (let x = 0; x < width; x += Math.max(1, Math.floor(width / 64))) {
     // top & bottom
@@ -129,7 +129,7 @@ export async function detectEdgeBackground(
       const offset = (y * width + x) * 4;
       const a = data[offset + 3] ?? 255;
       if (a < 30) {
-        borderTransparentCount++;
+        _borderTransparentCount++;
       } else {
         borderPixels.push({
           r: data[offset] ?? 0,
@@ -146,7 +146,7 @@ export async function detectEdgeBackground(
       const offset = (y * width + x) * 4;
       const a = data[offset + 3] ?? 255;
       if (a < 30) {
-        borderTransparentCount++;
+        _borderTransparentCount++;
       } else {
         borderPixels.push({
           r: data[offset] ?? 0,

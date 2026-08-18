@@ -76,8 +76,17 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
+      redis:
+        image: redis:7.4-bookworm
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
       TEST_DATABASE_URL: postgresql+asyncpg://etsy:etsy@localhost:5432/etsy_test
+      TEST_REDIS_URL: redis://localhost:6379/1
     steps:
       - uses: actions/checkout@v5
 

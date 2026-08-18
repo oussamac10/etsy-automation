@@ -364,7 +364,7 @@ export async function compositeCustomMockup(
   const blendMode = placement.blend_mode === "over" ? "over" : "multiply";
 
   // 4. Composite onto template
-  let finalPipeline = sharp(templateBytes, { limitInputPixels: limits.maxPixels })
+  const finalPipeline = sharp(templateBytes, { limitInputPixels: limits.maxPixels })
     .composite([
       {
         input: resizedArtworkBuffer,
