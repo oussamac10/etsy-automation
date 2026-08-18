@@ -130,9 +130,9 @@ const filteredTemplates = computed(() => {
   return list;
 });
 
-// Pagination state (Max 10 per page)
+// Pagination state (Max 20 per page)
 const currentPage = ref(1);
-const pageSize = 10;
+const pageSize = 20;
 const totalFilteredTemplates = computed(() => filteredTemplates.value.length);
 const paginatedTemplates = computed(() => {
   const start = (currentPage.value - 1) * pageSize;

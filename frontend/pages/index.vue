@@ -340,9 +340,9 @@ const filteredWorkflows = computed(() => {
   return list;
 });
 
-// Pagination state (Max 10 per page)
+// Pagination state (Max 20 per page)
 const currentPage = ref(1);
-const pageSize = 10;
+const pageSize = 20;
 const totalFilteredWorkflows = computed(() => filteredWorkflows.value.length);
 const paginatedWorkflows = computed(() => {
   const start = (currentPage.value - 1) * pageSize;

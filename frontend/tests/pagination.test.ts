@@ -8,12 +8,11 @@ const IconMock = {
 };
 
 describe("Pagination Component", () => {
-  it("renders item range and page buttons correctly for 25 items (10 per page)", () => {
+  it("renders item range and page buttons correctly for 45 items with default pageSize (20 per page)", () => {
     const wrapper = mount(Pagination, {
       props: {
         currentPage: 1,
-        totalItems: 25,
-        pageSize: 10,
+        totalItems: 45,
       },
       global: {
         components: {
@@ -22,7 +21,7 @@ describe("Pagination Component", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("Showing 1 to 10 of 25 results");
+    expect(wrapper.text()).toContain("Showing 1 to 20 of 45 results");
     // Should render page numbers 1, 2, 3
     const buttons = wrapper.findAll("button");
     const pageNums = buttons.map((b) => b.text()).filter((t) => t === "1" || t === "2" || t === "3");
@@ -33,8 +32,8 @@ describe("Pagination Component", () => {
     const wrapper = mount(Pagination, {
       props: {
         currentPage: 3,
-        totalItems: 25,
-        pageSize: 10,
+        totalItems: 45,
+        pageSize: 20,
       },
       global: {
         components: {
@@ -43,15 +42,15 @@ describe("Pagination Component", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("Showing 21 to 25 of 25 results");
+    expect(wrapper.text()).toContain("Showing 41 to 45 of 45 results");
   });
 
   it("emits update:currentPage and page-change on clicking next page button", async () => {
     const wrapper = mount(Pagination, {
       props: {
         currentPage: 1,
-        totalItems: 25,
-        pageSize: 10,
+        totalItems: 45,
+        pageSize: 20,
       },
       global: {
         components: {
@@ -72,8 +71,8 @@ describe("Pagination Component", () => {
     const wrapperPage1 = mount(Pagination, {
       props: {
         currentPage: 1,
-        totalItems: 25,
-        pageSize: 10,
+        totalItems: 45,
+        pageSize: 20,
       },
       global: {
         components: {
@@ -88,8 +87,8 @@ describe("Pagination Component", () => {
     const wrapperPage3 = mount(Pagination, {
       props: {
         currentPage: 3,
-        totalItems: 25,
-        pageSize: 10,
+        totalItems: 45,
+        pageSize: 20,
       },
       global: {
         components: {
