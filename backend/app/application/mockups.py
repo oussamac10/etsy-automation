@@ -110,18 +110,32 @@ class MockupCompositionService:
         template_bytes: bytes | None = None
 
         if template_image_base64:
+            clean_b64 = template_image_base64.split(",", 1)[-1].strip()
             try:
-                template_bytes = base64.b64decode(template_image_base64)
+                template_bytes = base64.b64decode(clean_b64)
             except Exception as exc:
                 raise MockupCompositionError(
                     f"Invalid base64 encoded template image: {exc}"
                 ) from exc
 
-            validate_image_payload(
-                template_bytes,
-                "image/jpeg",
-                max_bytes=self.image_max_input_bytes,
-            )
+            # Auto-detect image MIME type from magic headers
+            if template_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+                detected_mime = "image/png"
+            elif template_bytes.startswith(b"\xff\xd8"):
+                detected_mime = "image/jpeg"
+            elif len(template_bytes) >= 12 and template_bytes[:4] == b"RIFF" and template_bytes[8:12] == b"WEBP":
+                detected_mime = "image/webp"
+            else:
+                detected_mime = "image/jpeg"
+
+            try:
+                validate_image_payload(
+                    template_bytes,
+                    detected_mime,
+                    max_bytes=self.image_max_input_bytes,
+                )
+            except ValueError as val_err:
+                raise MockupCompositionError(str(val_err)) from val_err
 
             if save_as_template:
                 saved_item = await self.template_store.save_template(
@@ -129,17 +143,18 @@ class MockupCompositionService:
                     name=resolved_template_name,
                     product_type=canonical_prod,
                     image_bytes=template_bytes,
-                    content_type="image/jpeg",
+                    content_type=detected_mime,
                     placement=resolved_placement,
                 )
                 resolved_template_id = saved_item.id
                 resolved_template_storage_key = saved_item.storage_key
             else:
                 tpl_img_id = uuid.uuid4()
+                ext = "png" if detected_mime == "image/png" else "jpg"
                 raw_tpl_key = (
-                    f"mockup-templates/{owner_id}/{canonical_prod}/source_{tpl_img_id}.jpg"
+                    f"mockup-templates/{owner_id}/{canonical_prod}/source_{tpl_img_id}.{ext}"
                 )
-                await self.storage.put(raw_tpl_key, template_bytes, content_type="image/jpeg")
+                await self.storage.put(raw_tpl_key, template_bytes, content_type=detected_mime)
                 resolved_template_storage_key = raw_tpl_key
                 resolved_template_id = str(tpl_img_id)
         elif template_id:

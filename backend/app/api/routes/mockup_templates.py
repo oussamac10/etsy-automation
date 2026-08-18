@@ -379,7 +379,7 @@ async def composite_custom_mockup_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found."
         ) from None
-    except MockupCompositionError as exc:
+    except (MockupCompositionError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return CompositeMockupResponse(

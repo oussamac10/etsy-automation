@@ -292,8 +292,36 @@ async function handleGenerateMockup(): Promise<void> {
     if (activeSubTab.value === "library" && selectedTemplateId.value) {
       payload.template_id = selectedTemplateId.value;
       payload.template_name = templateName.value || undefined;
+    } else if (uploadedFile.value) {
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result as string;
+          resolve(res.includes(",") ? res.split(",")[1] : res);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(uploadedFile.value!);
+      });
+      payload.template_image_base64 = b64;
+      payload.template_name = templateName.value || `${getProductLabel(props.productType)} Template`;
+      payload.save_as_template = saveToLibrary.value;
     } else if (uploadedPreviewUrl.value) {
-      const b64Data = uploadedPreviewUrl.value.split(",")[1] || uploadedPreviewUrl.value;
+      let b64Data = uploadedPreviewUrl.value;
+      if (b64Data.startsWith("blob:")) {
+        const blobResp = await fetch(b64Data);
+        const blob = await blobResp.blob();
+        b64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const res = reader.result as string;
+            resolve(res.includes(",") ? res.split(",")[1] : res);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } else if (b64Data.includes(",")) {
+        b64Data = b64Data.split(",")[1];
+      }
       payload.template_image_base64 = b64Data;
       payload.template_name = templateName.value || `${getProductLabel(props.productType)} Template`;
       payload.save_as_template = saveToLibrary.value;
