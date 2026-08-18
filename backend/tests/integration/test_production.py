@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
-import pytest
+
 import httpx
+import pytest
 
 from app.application.production import start_production_job
 from app.application.unit_of_work import UnitOfWork
-from app.domain.enums import ConceptOrigin, ConceptStatus, IdeaMode, Seasonality
+from app.domain.enums import IdeaMode
 from app.domain.workflow import (
     ApprovalDecision,
     ApprovalGate,
@@ -18,10 +18,6 @@ from app.domain.workflow import (
 )
 from app.infrastructure.models import (
     Asset,
-    DesignPrompt,
-    ProductConcept,
-    ProductionJob,
-    User,
 )
 
 pytestmark = pytest.mark.integration
@@ -29,6 +25,7 @@ pytestmark = pytest.mark.integration
 
 async def _create_test_workflow(uow: UnitOfWork, owner_id: uuid.UUID) -> uuid.UUID:
     from app.application.workflows import CreateWorkflowCommand, create_workflow
+
     workflow = await create_workflow(
         uow,
         CreateWorkflowCommand(
@@ -84,11 +81,11 @@ class TestProductionPipeline:
         asset = Asset(
             id=uuid.uuid4(),
             workflow_id=workflow_id,
-            artwork_job_id=uuid.uuid4(),
+            artwork_job_id=None,
             storage_key=f"assets/{workflow_id}/approved.png",
             mime_type="image/png",
             byte_size=1024,
-            checksum_sha256="abc123sha256",
+            checksum_sha256="a" * 64,
             width=1024,
             height=1024,
             has_alpha=True,
@@ -146,11 +143,11 @@ class TestProductionPipeline:
         asset = Asset(
             id=uuid.uuid4(),
             workflow_id=workflow_id,
-            artwork_job_id=uuid.uuid4(),
+            artwork_job_id=None,
             storage_key=f"assets/{workflow_id}/approved.png",
             mime_type="image/png",
             byte_size=2048,
-            checksum_sha256="def456sha256",
+            checksum_sha256="b" * 64,
             width=1024,
             height=1024,
             has_alpha=True,
@@ -162,7 +159,10 @@ class TestProductionPipeline:
         await uow.commit()
 
         # Mock S3 storage signed_url
-        with patch("app.providers.s3.S3ObjectStorage.signed_url", new=AsyncMock(return_value="https://s3.example.com/asset.png")):
+        with patch(
+            "app.providers.s3.S3ObjectStorage.signed_url",
+            new=AsyncMock(return_value="https://s3.example.com/asset.png"),
+        ):
             # 1. Trigger production
             res = await client.post(
                 f"/api/v1/workflows/{workflow_id}/production",

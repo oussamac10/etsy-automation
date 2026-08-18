@@ -74,9 +74,7 @@ class TestResearchEndpoints:
         res_other_get = await other_client.get(f"/api/v1/workflows/{workflow_id}/research")
         assert res_other_get.status_code == 404
 
-    async def test_list_research_runs(
-        self, client: httpx.AsyncClient
-    ) -> None:
+    async def test_list_research_runs(self, client: httpx.AsyncClient) -> None:
         res_create = await client.post("/api/v1/workflows", json=_workflow_payload())
         workflow_id = res_create.json()["id"]
 
@@ -97,9 +95,7 @@ class TestResearchEndpoints:
 
 
 class TestConceptEndpoints:
-    async def test_list_concepts_empty_initially(
-        self, client: httpx.AsyncClient
-    ) -> None:
+    async def test_list_concepts_empty_initially(self, client: httpx.AsyncClient) -> None:
         res_create = await client.post("/api/v1/workflows", json=_workflow_payload())
         workflow_id = res_create.json()["id"]
 

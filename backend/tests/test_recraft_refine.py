@@ -8,7 +8,7 @@ from app.providers.recraft import RecraftImageAdapter
 from app.settings import Settings
 
 
-def test_recraft_settings_defaults(settings: Settings):
+def test_recraft_settings_defaults(settings: Settings) -> None:
     assert settings.recraft_generation_model == "recraftv4_1"
     assert settings.recraft_refinement_model == "recraftv3"
     assert settings.recraft_refinement_strength == 0.20
@@ -16,7 +16,7 @@ def test_recraft_settings_defaults(settings: Settings):
 
 
 @pytest.mark.asyncio
-async def test_recraft_generation_uses_recraftv4():
+async def test_recraft_generation_uses_recraftv4() -> None:
     adapter = RecraftImageAdapter(api_key="recraft-key-123", default_model="recraftv4_1")
 
     mock_resp_json = {
@@ -36,8 +36,10 @@ async def test_recraft_generation_uses_recraftv4():
         candidate_count=2,
     )
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
-         patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+        patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+    ):
         mock_post_resp = AsyncMock()
         mock_post_resp.status_code = 200
         mock_post_resp.headers = {"x-request-id": "req-1"}
@@ -64,7 +66,7 @@ async def test_recraft_generation_uses_recraftv4():
 
 
 @pytest.mark.asyncio
-async def test_recraft_refinement_uses_image_to_image_v3():
+async def test_recraft_refinement_uses_image_to_image_v3() -> None:
     adapter = RecraftImageAdapter(api_key="recraft-key-123", default_model="recraftv3")
 
     mock_resp_json = {
@@ -88,8 +90,10 @@ async def test_recraft_refinement_uses_image_to_image_v3():
         reference_image_mime_type="image/png",
     )
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
-         patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+        patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+    ):
         mock_post_resp = AsyncMock()
         mock_post_resp.status_code = 200
         mock_post_resp.headers = {"x-request-id": "req-refine-1"}

@@ -298,6 +298,7 @@ class TestTelegramWebhookCommands:
 
         # 3. Create workflow and a product concept inside IDEA_REVIEW state
         from app.infrastructure.models.concept import DesignPrompt, ProductConcept
+
         async with UnitOfWork(session_factory) as uow:
             conn = await uow.telegram_connections.get_by_telegram_user_id(888777)
             assert conn is not None

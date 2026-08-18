@@ -3,40 +3,39 @@
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from fastapi import HTTPException
 
+from app.api.routes.mockup_templates import (
+    CompositeCustomMockupRequest,
+    composite_custom_mockup_endpoint,
+    validate_image_payload,
+)
+from app.api.routes.workflows import (
+    delete_mockup_endpoint,
+    reorder_mockups_endpoint,
+    set_mockup_cover_endpoint,
+    to_production_job_response,
+)
+from app.api.schemas import ReorderMockupsRequest
+from app.domain.enums import IdeaMode
+from app.domain.workflow import RunStatus
 from app.infrastructure.mockup_catalog import (
     DEFAULT_SUPPORTED_PRODUCTS,
-    PRODUCT_PRESETS,
     get_product_preset,
     get_requested_mockup_products,
     normalize_mockup_product,
 )
 from app.infrastructure.mockup_template_store import (
     CustomMockupPlacement,
-    MockupTemplateItem,
     MockupTemplateStore,
 )
-from app.api.routes.mockup_templates import (
-    validate_image_payload,
-    PlacementSchema,
-    UploadTemplateRequest,
-    CompositeCustomMockupRequest,
-    composite_custom_mockup_endpoint,
-)
-from app.api.routes.workflows import (
-    set_mockup_cover_endpoint,
-    reorder_mockups_endpoint,
-    delete_mockup_endpoint,
-    to_production_job_response,
-)
-from app.api.schemas import ReorderMockupsRequest
 from app.infrastructure.models import Asset, ProductionJob, ProductWorkflow
 
 
@@ -75,7 +74,9 @@ class TestMockupCatalog:
 
 class TestImagePayloadValidation:
     def test_valid_jpeg_and_png(self) -> None:
-        jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00" + b"\x00" * 30
+        jpeg_bytes = (
+            b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00" + b"\x00" * 30
+        )
         validate_image_payload(jpeg_bytes, "image/jpeg")
 
         png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" + b"\x00" * 30
@@ -117,7 +118,9 @@ class TestMockupTemplateStore:
             product_type="mug",
             image_bytes=image_bytes,
             content_type="image/jpeg",
-            placement=CustomMockupPlacement(left_pct=0.30, top_pct=0.30, width_pct=0.40, height_pct=0.40, blend_mode="over"),
+            placement=CustomMockupPlacement(
+                left_pct=0.30, top_pct=0.30, width_pct=0.40, height_pct=0.40, blend_mode="over"
+            ),
         )
 
         assert saved.id is not None
@@ -145,7 +148,14 @@ class TestMockupTemplateStore:
             "name": "Owner A T-Shirt",
             "product_type": "tshirt",
             "storage_key": f"mockup-templates/{owner_a}/tshirt/template-123.jpg",
-            "placement": {"left_pct": 0.28, "top_pct": 0.25, "width_pct": 0.44, "height_pct": 0.48, "angle_deg": 0.0, "blend_mode": "multiply"},
+            "placement": {
+                "left_pct": 0.28,
+                "top_pct": 0.25,
+                "width_pct": 0.44,
+                "height_pct": 0.48,
+                "angle_deg": 0.0,
+                "blend_mode": "multiply",
+            },
             "created_at": "2026-08-16T10:00:00Z",
         }
 
@@ -170,7 +180,7 @@ class TestMockupTemplateStore:
 
 class TestMultiMockupEndpoints:
     @pytest.fixture
-    def mock_env(self):
+    def mock_env(self) -> dict[str, Any]:
         owner_id = uuid.uuid4()
         workflow_id = uuid.uuid4()
         master_asset_id = uuid.uuid4()
@@ -182,9 +192,9 @@ class TestMultiMockupEndpoints:
         workflow = ProductWorkflow(
             id=workflow_id,
             owner_id=owner_id,
-            state="PRODUCTION",
+            state=RunStatus.PRODUCTION,
             version=1,
-            idea_mode="hybrid",
+            idea_mode=IdeaMode.HYBRID,
         )
 
         master_asset = Asset(
@@ -203,7 +213,9 @@ class TestMultiMockupEndpoints:
         storage.get = AsyncMock(return_value=b"\x89PNG\r\n\x1a\n" + b"\x00" * 50)
         storage.put = AsyncMock()
         storage.delete = AsyncMock()
-        storage.signed_url = AsyncMock(side_effect=lambda key, *args, **kwargs: f"https://s3.test/{key}")
+        storage.signed_url = AsyncMock(
+            side_effect=lambda key, *args, **kwargs: f"https://s3.test/{key}"
+        )
 
         settings = MagicMock()
         settings.image_max_input_bytes = 40 * 1024 * 1024
@@ -216,14 +228,14 @@ class TestMultiMockupEndpoints:
 
         assets_db: list[Asset] = [master_asset]
 
-        async def _list_for_wf(wid):
+        async def _list_for_wf(wid: uuid.UUID) -> list[Asset]:
             return [a for a in assets_db if a.workflow_id == wid]
 
-        async def _add_asset(a):
+        async def _add_asset(a: Asset) -> Asset:
             assets_db.append(a)
             return a
 
-        async def _delete_asset(a):
+        async def _delete_asset(a: Asset) -> None:
             if a in assets_db:
                 assets_db.remove(a)
 
@@ -248,7 +260,7 @@ class TestMultiMockupEndpoints:
         }
 
     @pytest.mark.asyncio
-    async def test_multiple_mockups_same_product_and_cover(self, mock_env) -> None:
+    async def test_multiple_mockups_same_product_and_cover(self, mock_env: dict[str, Any]) -> None:
         user = mock_env["user"]
         uow = mock_env["uow"]
         storage = mock_env["storage"]
@@ -272,7 +284,9 @@ class TestMultiMockupEndpoints:
             req1 = CompositeCustomMockupRequest(
                 workflow_id=wf_id,
                 product_type="tshirt",
-                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode("utf-8"),
+                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode(
+                    "utf-8"
+                ),
                 template_name="Black Bella Canvas Flatlay",
             )
             res1 = await composite_custom_mockup_endpoint(req1, user, uow, storage, settings)
@@ -285,7 +299,9 @@ class TestMultiMockupEndpoints:
             req2 = CompositeCustomMockupRequest(
                 workflow_id=wf_id,
                 product_type="tshirt",
-                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode("utf-8"),
+                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode(
+                    "utf-8"
+                ),
                 template_name="White Bella Canvas Flatlay",
             )
             res2 = await composite_custom_mockup_endpoint(req2, user, uow, storage, settings)
@@ -294,7 +310,11 @@ class TestMultiMockupEndpoints:
             assert res2.is_cover is False
 
             # Verify both T-shirt mockups exist in DB
-            tshirt_mockups = [a for a in assets_db if a.provenance and a.provenance.get("product_type") == "tshirt"]
+            tshirt_mockups = [
+                a
+                for a in assets_db
+                if a.provenance and a.provenance.get("product_type") == "tshirt"
+            ]
             assert len(tshirt_mockups) == 2
             assert tshirt_mockups[0].id == res1.asset_id
             assert tshirt_mockups[1].id == res2.asset_id
@@ -305,21 +325,36 @@ class TestMultiMockupEndpoints:
             req3 = CompositeCustomMockupRequest(
                 workflow_id=wf_id,
                 product_type="tshirt",
-                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode("utf-8"),
+                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode(
+                    "utf-8"
+                ),
                 template_name="Female Model Black",
             )
             res3 = await composite_custom_mockup_endpoint(req3, user, uow, storage, settings)
-            assert len([a for a in assets_db if a.provenance and a.provenance.get("product_type") == "tshirt"]) == 3
+            assert (
+                len(
+                    [
+                        a
+                        for a in assets_db
+                        if a.provenance and a.provenance.get("product_type") == "tshirt"
+                    ]
+                )
+                == 3
+            )
 
             # 4. Create Mug mockup (isolated under mug)
             req_mug = CompositeCustomMockupRequest(
                 workflow_id=wf_id,
                 product_type="mug",
-                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode("utf-8"),
+                template_image_base64=base64.b64encode(b"\xff\xd8\xff\xe0" + b"\x00" * 30).decode(
+                    "utf-8"
+                ),
                 template_name="Kitchen Scene Mug",
             )
             res_mug = await composite_custom_mockup_endpoint(req_mug, user, uow, storage, settings)
-            mug_mockups = [a for a in assets_db if a.provenance and a.provenance.get("product_type") == "mug"]
+            mug_mockups = [
+                a for a in assets_db if a.provenance and a.provenance.get("product_type") == "mug"
+            ]
             assert len(mug_mockups) == 1
             assert mug_mockups[0].id == res_mug.asset_id
 
@@ -337,7 +372,8 @@ class TestMultiMockupEndpoints:
             reorder_req = ReorderMockupsRequest(asset_ids=new_order)
             reordered = await reorder_mockups_endpoint(wf_id, reorder_req, user, uow, storage)
             assert len(reordered) == 4
-            # Cover is res2 so it will be first in sorted_mockups, but listing_order is set correctly
+            # Cover is res2 so it will be first in sorted_mockups,
+            # but listing_order is set correctly
             a3 = next(a for a in assets_db if a.id == res3.asset_id)
             assert a3.provenance.get("listing_order") == 1
 
@@ -364,10 +400,21 @@ class TestMultiMockupEndpoints:
             assert not any(a.id == res3.asset_id for a in assets_db)
             # Master PNG and other mockups remain intact
             assert any(a.id == mock_env["master_asset_id"] for a in assets_db)
-            assert len([a for a in assets_db if a.provenance and a.provenance.get("product_type") == "tshirt"]) == 2
+            assert (
+                len(
+                    [
+                        a
+                        for a in assets_db
+                        if a.provenance and a.provenance.get("product_type") == "tshirt"
+                    ]
+                )
+                == 2
+            )
 
     @pytest.mark.asyncio
-    async def test_candidate_switch_production_response_filters_old_mockups(self, mock_env) -> None:
+    async def test_candidate_switch_production_response_filters_old_mockups(
+        self, mock_env: dict[str, Any]
+    ) -> None:
         uow = mock_env["uow"]
         storage = mock_env["storage"]
         wf_id = mock_env["workflow_id"]
@@ -399,7 +446,7 @@ class TestMultiMockupEndpoints:
                 "listing_order": 1,
                 "source_asset_id": str(master_a_id),
             },
-            created_at=datetime(2026, 8, 15, 10, 0, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 8, 15, 10, 0, 0, tzinfo=UTC),
         )
         assets_db.append(tshirt_old)
 
@@ -426,7 +473,7 @@ class TestMultiMockupEndpoints:
                 "listing_order": 1,
                 "source_asset_id": str(master_b_id),
             },
-            created_at=datetime(2026, 8, 15, 10, 5, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 8, 15, 10, 5, 0, tzinfo=UTC),
         )
         assets_db.append(tshirt_new)
 
@@ -447,7 +494,9 @@ class TestMultiMockupEndpoints:
         assert resp_b.mockup_urls["tshirt"] == f"https://s3.test/{tshirt_new.storage_key}"
 
     @pytest.mark.asyncio
-    async def test_production_response_rejects_legacy_dummy_mockups(self, mock_env) -> None:
+    async def test_production_response_rejects_legacy_dummy_mockups(
+        self, mock_env: dict[str, Any]
+    ) -> None:
         uow = mock_env["uow"]
         storage = mock_env["storage"]
         wf_id = mock_env["workflow_id"]
@@ -476,7 +525,7 @@ class TestMultiMockupEndpoints:
                 "template_id": None,
                 "source_asset_id": str(master_id),
             },
-            created_at=datetime(2026, 8, 15, 10, 0, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 8, 15, 10, 0, 0, tzinfo=UTC),
         )
         assets_db.append(dummy_tote)
 
@@ -504,7 +553,7 @@ class TestMultiMockupEndpoints:
                 "listing_order": 1,
                 "source_asset_id": str(master_id),
             },
-            created_at=datetime(2026, 8, 15, 10, 5, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 8, 15, 10, 5, 0, tzinfo=UTC),
         )
         assets_db.append(real_tote)
 

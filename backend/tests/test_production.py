@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import uuid
 from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from app.application.production import start_production_job
 from app.domain.workflow import (
-    ApprovalGate,
     GateNotApprovedError,
-    IllegalTransitionError,
     JobStatus,
     RunStatus,
 )

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from unittest.mock import MagicMock, patch
-import pytest
 
 from worker.idempotency import idempotency_key
 from worker.tasks import run_production_task

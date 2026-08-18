@@ -138,17 +138,19 @@ class TestStoppingAndRestarting:
     """Cancelling is a decision the owner may change, unlike publishing."""
 
     def test_a_stopped_workflow_can_resume_or_restart(self) -> None:
-        # CANCELLED allows DRAFT (restart from scratch) and completed review/approved stages (smart resume)
-        # to avoid wasting API tokens and previously computed assets.
-        expected_exits = frozenset({
-            RunStatus.DRAFT,
-            RunStatus.IDEA_REVIEW,
-            RunStatus.IDEA_APPROVED,
-            RunStatus.ART_REVIEW,
-            RunStatus.ARTWORK_APPROVED,
-            RunStatus.PRODUCTION,
-            RunStatus.LISTING_REVIEW,
-        })
+        # CANCELLED allows DRAFT (restart from scratch) and completed
+        # review/approved stages (smart resume) to avoid wasting API tokens.
+        expected_exits = frozenset(
+            {
+                RunStatus.DRAFT,
+                RunStatus.IDEA_REVIEW,
+                RunStatus.IDEA_APPROVED,
+                RunStatus.ART_REVIEW,
+                RunStatus.ARTWORK_APPROVED,
+                RunStatus.PRODUCTION,
+                RunStatus.LISTING_REVIEW,
+            }
+        )
         assert ALLOWED_TRANSITIONS[RunStatus.CANCELLED] == expected_exits
         assert advance(RunStatus.CANCELLED, RunStatus.IDEA_APPROVED) is RunStatus.IDEA_APPROVED
         assert advance(RunStatus.CANCELLED, RunStatus.ART_REVIEW) is RunStatus.ART_REVIEW

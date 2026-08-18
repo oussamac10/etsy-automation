@@ -497,9 +497,7 @@ class TestStopAndRerun:
             RunStatus.RESEARCH_QUEUED,
         ]
 
-    async def test_stopping_a_stopped_campaign_is_refused(
-        self, client: httpx.AsyncClient
-    ) -> None:
+    async def test_stopping_a_stopped_campaign_is_refused(self, client: httpx.AsyncClient) -> None:
         workflow_id = await self._workflow_id(client)
         await client.post(f"/api/v1/workflows/{workflow_id}/cancel")
 
@@ -592,7 +590,9 @@ class TestDeleteCampaign:
 
 
 class TestCampaignCreationModes:
-    async def test_discover_ideas_mode(self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    async def test_discover_ideas_mode(
+        self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+    ) -> None:
         # 1. Campaign Name is optional - if omitted, it auto-generates
         response = await client.post(
             "/api/v1/workflows",
@@ -628,15 +628,17 @@ class TestCampaignCreationModes:
         self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
     ) -> None:
         # Create campaign
-        wf = (await client.post(
-            "/api/v1/workflows",
-            json={
-                "name": "My Custom Mugs",
-                "idea_mode": "user-idea",
-                "target_country": "US",
-                "output_language": "en",
-            },
-        )).json()
+        wf = (
+            await client.post(
+                "/api/v1/workflows",
+                json={
+                    "name": "My Custom Mugs",
+                    "idea_mode": "user-idea",
+                    "target_country": "US",
+                    "output_language": "en",
+                },
+            )
+        ).json()
         wf_id = uuid.UUID(wf["id"])
 
         # Submit original idea details
@@ -655,5 +657,3 @@ class TestCampaignCreationModes:
             assert idea is not None
             assert idea.original_text == "A beautiful sleepy fox drawing"
             assert idea.slogan == "Keep Cozy"
-
-

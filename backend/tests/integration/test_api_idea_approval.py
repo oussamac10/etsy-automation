@@ -118,9 +118,7 @@ class TestEnqueueResearchIdempotency:
         headers = {"Idempotency-Key": "run-key-2"}
 
         await client.post(f"/api/v1/workflows/{first_workflow}/research", headers=headers)
-        reused = await client.post(
-            f"/api/v1/workflows/{second_workflow}/research", headers=headers
-        )
+        reused = await client.post(f"/api/v1/workflows/{second_workflow}/research", headers=headers)
 
         # Returning the first workflow's run here would hand the caller another
         # workflow's data; refusing is the only honest answer.
@@ -234,9 +232,7 @@ class TestIdeaApprovalGate:
         self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
     ) -> None:
         workflow_id = await _create_workflow(client)
-        concept_id = await _seed_concept(
-            session_factory, workflow_id, risk_level=RiskLevel.HIGH
-        )
+        concept_id = await _seed_concept(session_factory, workflow_id, risk_level=RiskLevel.HIGH)
         await _move_to_idea_review(session_factory, workflow_id)
 
         response = await client.post(
@@ -257,9 +253,7 @@ class TestIdeaApprovalGate:
         self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
     ) -> None:
         workflow_id = await _create_workflow(client)
-        concept_id = await _seed_concept(
-            session_factory, workflow_id, risk_level=RiskLevel.HIGH
-        )
+        concept_id = await _seed_concept(session_factory, workflow_id, risk_level=RiskLevel.HIGH)
         await _move_to_idea_review(session_factory, workflow_id)
 
         response = await client.post(
@@ -330,9 +324,7 @@ class TestRevisionRescansRisk:
         self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
     ) -> None:
         workflow_id = await _create_workflow(client)
-        concept_id = await _seed_concept(
-            session_factory, workflow_id, risk_level=RiskLevel.HIGH
-        )
+        concept_id = await _seed_concept(session_factory, workflow_id, risk_level=RiskLevel.HIGH)
 
         response = await client.post(
             f"/api/v1/workflows/{workflow_id}/concepts/{concept_id}/revise",

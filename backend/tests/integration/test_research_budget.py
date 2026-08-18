@@ -47,9 +47,7 @@ async def _workflow_for(uow: UnitOfWork, owner_id: uuid.UUID) -> uuid.UUID:
 class TestEstimate:
     def test_fake_mode_costs_nothing(self) -> None:
         # A local run makes no paid call, so it must never be refused.
-        assert estimate_research_run_cost(currency="USD", provider_mode="fake") == Money(
-            0, "USD"
-        )
+        assert estimate_research_run_cost(currency="USD", provider_mode="fake") == Money(0, "USD")
 
     def test_live_mode_uses_the_documented_ceiling(self) -> None:
         assert estimate_research_run_cost(currency="USD", provider_mode="live") == Money(
@@ -69,18 +67,14 @@ class TestEnsureWithinBudget:
         settings.monthly_budget_minor = 0
         await uow.commit()
 
-        await ensure_research_within_budget(
-            uow, owner_id=owner.id, provider_mode="fake"
-        )
+        await ensure_research_within_budget(uow, owner_id=owner.id, provider_mode="fake")
 
     async def test_creates_default_settings_when_the_owner_has_none(
         self, uow: UnitOfWork, owner: User
     ) -> None:
         assert await uow.owner_settings.get_for_user(owner.id) is None
 
-        settings = await ensure_research_within_budget(
-            uow, owner_id=owner.id, provider_mode="live"
-        )
+        settings = await ensure_research_within_budget(uow, owner_id=owner.id, provider_mode="live")
 
         assert settings.user_id == owner.id
 
@@ -94,9 +88,7 @@ class TestEnsureWithinBudget:
         await uow.commit()
 
         with pytest.raises(BudgetExceededError) as caught:
-            await ensure_research_within_budget(
-                uow, owner_id=owner.id, provider_mode="live"
-            )
+            await ensure_research_within_budget(uow, owner_id=owner.id, provider_mode="live")
 
         assert caught.value.scope == "daily"
 
@@ -118,15 +110,11 @@ class TestEnsureWithinBudget:
 
         # 490 already spent plus this run's 20 breaches the 500 ceiling.
         with pytest.raises(BudgetExceededError) as caught:
-            await ensure_research_within_budget(
-                uow, owner_id=owner.id, provider_mode="live"
-            )
+            await ensure_research_within_budget(uow, owner_id=owner.id, provider_mode="live")
 
         assert caught.value.scope == "monthly"
 
-    async def test_ignores_spend_from_a_previous_month(
-        self, uow: UnitOfWork, owner: User
-    ) -> None:
+    async def test_ignores_spend_from_a_previous_month(self, uow: UnitOfWork, owner: User) -> None:
         settings = await uow.owner_settings.create_defaults(owner.id)
         settings.daily_budget_minor = 500
         settings.monthly_budget_minor = 500
@@ -143,16 +131,10 @@ class TestEnsureWithinBudget:
         usage.created_at = datetime(2020, 1, 15, tzinfo=UTC)
         await uow.commit()
 
-        await ensure_research_within_budget(
-            uow, owner_id=owner.id, provider_mode="live"
-        )
+        await ensure_research_within_budget(uow, owner_id=owner.id, provider_mode="live")
 
-    async def test_ignores_another_owners_spend(
-        self, uow: UnitOfWork, owner: User
-    ) -> None:
-        stranger = await uow.users.add(
-            email="stranger@example.invalid", display_name="Stranger"
-        )
+    async def test_ignores_another_owners_spend(self, uow: UnitOfWork, owner: User) -> None:
+        stranger = await uow.users.add(email="stranger@example.invalid", display_name="Stranger")
         settings = await uow.owner_settings.create_defaults(owner.id)
         settings.daily_budget_minor = 500
         settings.monthly_budget_minor = 500
@@ -166,6 +148,4 @@ class TestEnsureWithinBudget:
         )
         await uow.commit()
 
-        await ensure_research_within_budget(
-            uow, owner_id=owner.id, provider_mode="live"
-        )
+        await ensure_research_within_budget(uow, owner_id=owner.id, provider_mode="live")

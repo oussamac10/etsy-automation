@@ -1,9 +1,10 @@
 import json
+
 from app.providers.gemini import clean_gemini_schema
 from app.providers.openai import ResearchSynthesisSchema
 
 
-def test_clean_gemini_schema_strips_additional_properties_and_defs():
+def test_clean_gemini_schema_strips_additional_properties_and_defs() -> None:
     raw_schema = ResearchSynthesisSchema.model_json_schema()
     cleaned = clean_gemini_schema(raw_schema)
     dumped = json.dumps(cleaned)

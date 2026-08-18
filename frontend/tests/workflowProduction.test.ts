@@ -327,7 +327,7 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
     currentProdJob = updatedProdJob;
 
     // Trigger data reload in the existing mounted component without page refresh
-    await (wrapper.vm as any).loadData();
+    await (wrapper.vm as unknown as { loadData: () => Promise<void> }).loadData();
     await flushPromises();
 
     // Verify all mockups immediately render the new image URLs
@@ -420,7 +420,7 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
   });
 
   it("adds new product tab immediately upon creating mockup and removes tab when deleting last mockup", async () => {
-    let currentAssets: any[] = [
+    let currentAssets: Array<Record<string, unknown>> = [
       {
         id: "mockup-tshirt-1",
         workflow_id: "wf-prod-123",
@@ -444,7 +444,7 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
       },
     ];
 
-    vi.stubGlobal("$fetch", vi.fn().mockImplementation((url: string, opts?: any) => {
+    vi.stubGlobal("$fetch", vi.fn().mockImplementation((url: string, opts?: { method?: string }) => {
       if (url.includes("/api/v1/workflows/wf-prod-123/mockups/") && opts?.method === "DELETE") {
         const id = url.split("/").pop();
         currentAssets = currentAssets.filter((a) => a.id !== id);

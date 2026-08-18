@@ -9,7 +9,7 @@ from app.providers.gemini import GeminiImageAdapter
 
 
 @pytest.mark.asyncio
-async def test_gemini_image_generate_success():
+async def test_gemini_image_generate_success() -> None:
     adapter = GeminiImageAdapter(api_key="test-key", default_model="gemini-3.1-flash-image")
 
     fake_png_b64 = base64.b64encode(b"\x89PNG\r\n\x1a\nfake-image-bytes").decode("utf-8")
@@ -64,7 +64,7 @@ async def test_gemini_image_generate_success():
 
 
 @pytest.mark.asyncio
-async def test_gemini_image_refine_with_reference_image():
+async def test_gemini_image_refine_with_reference_image() -> None:
     adapter = GeminiImageAdapter(api_key="test-key", default_model="gemini-3.1-flash-image")
 
     fake_png_b64 = base64.b64encode(b"\x89PNG\r\n\x1a\nrefined-image").decode("utf-8")

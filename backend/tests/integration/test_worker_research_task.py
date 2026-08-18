@@ -392,14 +392,19 @@ def test_a_transient_provider_error_asks_dramatiq_to_retry(
 def test_worker_and_broker_initialization() -> None:
     # 1. Verify broker initialization does not duplicate middleware
     from worker.broker import build_broker
+
     test_broker = build_broker("redis://localhost:6379/0", "test_namespace")
     middleware_types = [type(m) for m in test_broker.middleware]
-    assert len(middleware_types) == len(set(middleware_types)), f"Duplicate middleware detected: {middleware_types}"
+    assert len(middleware_types) == len(set(middleware_types)), (
+        f"Duplicate middleware detected: {middleware_types}"
+    )
 
     # 2. Verify run_research_task is registered on the configured broker
     broker = dramatiq.get_broker()
     declared_actors = broker.get_declared_actors()
-    assert "run_research_task" in declared_actors, f"run_research_task not registered! Actors: {declared_actors}"
+    assert "run_research_task" in declared_actors, (
+        f"run_research_task not registered! Actors: {declared_actors}"
+    )
 
     # 3. Verify outbox message event_type can find the actor
     actor = broker.get_actor("run_research_task")
@@ -438,19 +443,21 @@ class TestResearchGeminiTransition:
         owner: User,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        import json
+        from datetime import UTC, datetime
+        from typing import Any
+
+        import sqlalchemy as sa
+
+        from app.api.dependencies import build_credential_cipher
+        from app.domain.enums import ProviderName
+        from app.ports.providers import SearchResult, TextResponse
         from app.providers.gemini import GeminiSynthesisAdapter
         from app.providers.search import TavilySearchAdapter
-        from app.ports.providers import SearchResult, TextResponse
-        from datetime import UTC, datetime
-        import json
-        import sqlalchemy as sa
-        from app.domain.enums import ProviderName
-        from app.api.dependencies import build_credential_cipher
-        from app.domain.money import Money
 
         settings = get_settings()
 
-        async def mock_search(self, query: Any) -> list[SearchResult]:
+        async def mock_search(self: Any, query: Any) -> list[SearchResult]:
             return [
                 SearchResult(
                     url="https://example.com",
@@ -461,7 +468,7 @@ class TestResearchGeminiTransition:
                 )
             ]
 
-        async def mock_generate(self, request: Any) -> TextResponse:
+        async def mock_generate(self: Any, request: Any) -> TextResponse:
             payload = {
                 "confidence": "high",
                 "proposed_test": None,
@@ -508,9 +515,9 @@ class TestResearchGeminiTransition:
                             "palette": "palette",
                             "post_generation_checklist": ["check"],
                             "generation_metadata": {},
-                        }
+                        },
                     }
-                ]
+                ],
             }
             return TextResponse(
                 text=json.dumps(payload),
@@ -524,15 +531,17 @@ class TestResearchGeminiTransition:
 
         # Save a GEMINI credential to the database but NO openai credential
         cipher = build_credential_cipher(settings)
+        assert cipher is not None
         encrypted_gemini = cipher.encrypt("real-gemini-key")
 
         async with UnitOfWork(session_factory) as uow:
             from app.infrastructure.models.owner_settings import ProviderCredential
+
             # Delete any existing OpenAI credential for this owner to prove it is not required
             await uow.session.execute(
                 sa.delete(ProviderCredential).where(
                     ProviderCredential.user_id == owner.id,
-                    ProviderCredential.provider == ProviderName.OPENAI
+                    ProviderCredential.provider == ProviderName.OPENAI,
                 )
             )
             # Add Gemini credential
@@ -551,8 +560,10 @@ class TestResearchGeminiTransition:
         # Verify initial states
         async with UnitOfWork(session_factory) as uow:
             workflow = await uow.workflows.get(workflow_id)
+            assert workflow is not None
             assert workflow.state == RunStatus.RESEARCH_QUEUED
             run = await uow.research.get_run(run_id)
+            assert run is not None
             assert run.status == JobStatus.QUEUED
 
         # Force live mode
@@ -568,10 +579,12 @@ class TestResearchGeminiTransition:
         async with UnitOfWork(session_factory) as uow:
             # 1. State transitioned: RESEARCH_QUEUED -> IDEA_REVIEW
             workflow = await uow.workflows.get(workflow_id)
+            assert workflow is not None
             assert workflow.state == RunStatus.IDEA_REVIEW
 
             # 2. Run completed successfully
             run = await uow.research.get_run(run_id)
+            assert run is not None
             assert run.status == JobStatus.SUCCEEDED
 
             # 3. Concepts and evidence were created
@@ -583,5 +596,3 @@ class TestResearchGeminiTransition:
             costs = await uow.costs.list_for_workflow(workflow_id)
             assert len(costs) == 1
             assert costs[0].provider == ProviderName.GEMINI
-
-
