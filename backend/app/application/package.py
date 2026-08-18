@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import uuid
 import structlog
 
@@ -89,8 +90,9 @@ class CustomerPackageService:
         for idx, mockup_asset in enumerate(active_mockups[:5], start=1):
             try:
                 mockup_bytes = await self._storage.get(mockup_asset.storage_key)
-                product_type = mockup_asset.provenance.get("product_type", f"preview-{idx}")
-                files_to_zip[f"mockup-{idx}-{product_type}.png"] = mockup_bytes
+                raw_prod = mockup_asset.provenance.get("product_type", f"preview-{idx}")
+                clean_prod = re.sub(r"[^a-zA-Z0-9_-]", "_", str(raw_prod))
+                files_to_zip[f"mockup-{idx}-{clean_prod}.png"] = mockup_bytes
             except Exception as exc:
                 logger.warning("mockup_fetch_failed", asset_id=str(mockup_asset.id), error=str(exc))
 

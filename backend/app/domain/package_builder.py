@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
+import re
 import struct
 from typing import Final
 import zipfile
@@ -272,12 +274,21 @@ def generate_checksum_manifest(files: dict[str, bytes]) -> str:
 
 
 def build_zip_archive(files: dict[str, bytes]) -> bytes:
-    """Assemble an in-memory ZIP archive from named file contents deterministically."""
+    """Assemble an in-memory ZIP archive from named file contents deterministically.
+    
+    Sanitizes filenames to prevent directory traversal or Zip Slip attacks.
+    """
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zip_file:
         for filename, content in sorted(files.items()):
+            # Strip path traversal components and ensure clean basename
+            clean_name = os.path.basename(filename.replace("\\", "/")).strip()
+            clean_name = re.sub(r"[^\w\-. ]", "_", clean_name)
+            if not clean_name or clean_name.startswith(".."):
+                clean_name = f"file_{hashlib.sha256(content).hexdigest()[:8]}.dat"
+
             # Use deterministic ZipInfo with fixed timestamp
-            info = zipfile.ZipInfo(filename, date_time=(2026, 1, 1, 0, 0, 0))
+            info = zipfile.ZipInfo(clean_name, date_time=(2026, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             zip_file.writestr(info, content)
     return zip_buffer.getvalue()
