@@ -1703,6 +1703,43 @@ async def generate_listing_seo_endpoint(
 
 
 @router.post(
+    "/{workflow_id}/listing/package",
+    response_model=ListingDraftResponse,
+    summary="Build and assemble customer ZIP download package (Zero LLM tokens)",
+)
+async def build_listing_package_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+    from app.application.package import CustomerPackageService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing_service = ListingDraftService()
+    draft = await listing_service.get_or_create_listing(workflow_id, uow)
+
+    package_service = CustomerPackageService(storage)
+    try:
+        await package_service.build_customer_package(workflow_id, uow)
+        await uow.commit()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Customer package build failed: {exc}",
+        )
+
+    return await _build_listing_response(draft, workflow_id, uow, storage)
+
+
+@router.post(
     "/{workflow_id}/gates/listing",
     response_model=ListingDraftResponse,
     summary="Submit Gate 3 human decision (Approve / Reject)",

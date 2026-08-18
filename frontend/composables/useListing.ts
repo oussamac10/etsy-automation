@@ -149,18 +149,49 @@ export function useListing() {
     }
   }
 
+  const isBuildingPackage = ref(false);
+
+  async function buildPackage(workflowId: string): Promise<ListingDraft | null> {
+    if (!workflowId) return null;
+    isBuildingPackage.value = true;
+    errorMessage.value = null;
+
+    try {
+      const data = await $fetch<ListingDraft>(
+        `${apiBase}/api/v1/workflows/${workflowId}/listing/package`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            ...getCsrfHeaders(),
+          },
+          credentials: 'include',
+        }
+      );
+      listingDraft.value = data;
+      return data;
+    } catch (err: unknown) {
+      errorMessage.value = getApiErrorMessage(err, 'Failed to compile customer ZIP package.');
+      throw err;
+    } finally {
+      isBuildingPackage.value = false;
+    }
+  }
+
   return {
     listingDraft,
     isLoading,
     isSaving,
     isScreening,
     isGeneratingSeo,
+    isBuildingPackage,
     isDecidingGate,
     errorMessage,
     loadListing,
     updateListing,
     rescreenTrademark,
     generateSeo,
+    buildPackage,
     decideGate3,
   };
 }

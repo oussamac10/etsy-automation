@@ -27,12 +27,14 @@ const {
   isSaving,
   isScreening,
   isGeneratingSeo,
+  isBuildingPackage,
   isDecidingGate,
   errorMessage,
   loadListing,
   updateListing,
   rescreenTrademark,
   generateSeo,
+  buildPackage,
   decideGate3,
 } = useListing();
 
@@ -116,6 +118,17 @@ async function handleRescreen() {
     localDescription.value = draft.description;
     localTags.value = [...draft.tags];
     successMessage.value = 'Trademark screening updated with fresh registry data.';
+    setTimeout(() => {
+      successMessage.value = null;
+    }, 4000);
+  }
+}
+
+async function handleBuildPackage() {
+  successMessage.value = null;
+  const draft = await buildPackage(props.workflowId);
+  if (draft) {
+    successMessage.value = 'Customer download ZIP package compiled successfully.';
     setTimeout(() => {
       successMessage.value = null;
     }, 4000);
@@ -228,6 +241,8 @@ const isApproved = computed(() => {
             :package-asset="listingDraft.package_asset"
             :download-url="listingDraft.package_download_url"
             :version="listingDraft.version"
+            :is-building="isBuildingPackage"
+            @build-package="handleBuildPackage"
           />
         </div>
       </div>

@@ -12,6 +12,11 @@ const props = defineProps<{
   packageAsset?: Asset | null;
   downloadUrl?: string | null;
   version: number;
+  isBuilding?: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: 'build-package'): void;
 }>();
 
 const copied = ref(false);
@@ -62,15 +67,41 @@ async function copyChecksum() {
         </CardDescription>
       </div>
 
-      <a
-        v-if="downloadUrl"
-        :href="downloadUrl"
-        download
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-2xs self-start sm:self-auto shrink-0 cursor-pointer"
-      >
-        <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
-        <span>Download ZIP</span>
-      </a>
+      <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
+        <button
+          v-if="!packageAsset"
+          type="button"
+          :disabled="isBuilding"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+          @click="emit('build-package')"
+        >
+          <Icon :name="isBuilding ? 'lucide:loader-circle' : 'lucide:box'" :class="['size-3.5', isBuilding ? 'animate-spin' : '']" aria-hidden="true" />
+          <span>{{ isBuilding ? 'Compiling ZIP...' : 'Build Package' }}</span>
+        </button>
+
+        <template v-else>
+          <button
+            type="button"
+            :disabled="isBuilding"
+            title="Rebuild ZIP package"
+            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-50"
+            @click="emit('build-package')"
+          >
+            <Icon :name="isBuilding ? 'lucide:loader-circle' : 'lucide:refresh-cw'" :class="['size-3.5', isBuilding ? 'animate-spin' : '']" aria-hidden="true" />
+            <span class="hidden sm:inline">{{ isBuilding ? 'Rebuilding...' : 'Rebuild' }}</span>
+          </button>
+
+          <a
+            v-if="downloadUrl"
+            :href="downloadUrl"
+            download
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
+          >
+            <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
+            <span>Download ZIP</span>
+          </a>
+        </template>
+      </div>
     </CardHeader>
 
     <CardContent class="space-y-3.5 pt-0">
