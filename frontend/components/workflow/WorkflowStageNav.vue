@@ -53,6 +53,17 @@ const isArtActive = computed(() => {
 const isProductionActive = computed(() => {
   return props.workflowState === "PRODUCTION" || props.productionStatus === "RUNNING" || props.productionStatus === "QUEUED";
 });
+
+const isGate3Done = computed(() => {
+  return [
+    "READY_FOR_ETSY_DRAFT",
+    "PUBLISHED",
+  ].includes(props.workflowState);
+});
+
+const isListingActive = computed(() => {
+  return ["IP_REVIEW", "LISTING_REVIEW"].includes(props.workflowState);
+});
 </script>
 
 <template>
@@ -141,6 +152,30 @@ const isProductionActive = computed(() => {
         class="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider"
       >
         Ready
+      </Badge>
+    </button>
+
+    <!-- Tab 5: Listing & IP Review -->
+    <button
+      type="button"
+      class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      :class="
+        activeTab === 'listing'
+          ? 'bg-slate-900 text-white shadow-xs'
+          : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+      "
+      @click="emit('update:activeTab', 'listing')"
+    >
+      <Icon v-if="isListingActive" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
+      <Icon v-else-if="isGate3Done" name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
+      <Icon v-else name="lucide:tags" class="size-4 text-muted-foreground" aria-hidden="true" />
+      <span>4. Listing & IP Review</span>
+      <Badge
+        v-if="isGate3Done"
+        variant="success"
+        class="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider"
+      >
+        Gate 3
       </Badge>
     </button>
   </nav>

@@ -18,6 +18,7 @@ import WorkflowOverviewTab from "~/components/workflow/WorkflowOverviewTab.vue";
 import WorkflowConceptsTab from "~/components/workflow/WorkflowConceptsTab.vue";
 import WorkflowArtworkTab from "~/components/workflow/WorkflowArtworkTab.vue";
 import WorkflowProductionTab from "~/components/workflow/WorkflowProductionTab.vue";
+import WorkflowListingTab from "~/components/workflow/listing/WorkflowListingTab.vue";
 import WorkflowPromptModal from "~/components/workflow/WorkflowPromptModal.vue";
 import WorkflowRefineModal from "~/components/workflow/WorkflowRefineModal.vue";
 
@@ -878,6 +879,15 @@ onBeforeUnmount(stopPolling);
               :production-error="productionError"
               @trigger-production="triggerProduction"
               @mockup-updated="() => loadData(true)"
+            />
+
+            <!-- Tab: Listing & IP Review -->
+            <WorkflowListingTab
+              v-else-if="activeTab === 'listing'"
+              :workflow-id="workflow.id"
+              :workflow-state="workflow.state"
+              @approved="() => loadData(true)"
+              @rejected="() => loadData(true)"
             />
           </div>
         </transition>
