@@ -28,6 +28,7 @@ from app.infrastructure.repositories.owner_settings import (
 from app.infrastructure.repositories.production import SqlProductionJobRepository
 from app.infrastructure.repositories.research import SqlResearchRepository
 from app.infrastructure.repositories.telegram import SqlTelegramConnectionRepository
+from app.infrastructure.repositories.trademark import SqlTrademarkRepository
 from app.infrastructure.repositories.user import SqlUserRepository
 from app.infrastructure.repositories.workflow import SqlWorkflowRepository
 
@@ -47,6 +48,7 @@ __all__ = [
     "SqlResearchRepository",
     "SqlSessionRepository",
     "SqlTelegramConnectionRepository",
+    "SqlTrademarkRepository",
     "SqlUserRepository",
     "SqlWorkflowRepository",
 ]

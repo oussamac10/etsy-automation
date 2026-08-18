@@ -40,6 +40,7 @@ from app.infrastructure.models import (
     ResearchEvidence,
     ResearchRun,
     TelegramConnection,
+    TrademarkRecord,
     User,
     UserSession,
     WorkflowTransition,
@@ -564,3 +565,15 @@ class ListingDraftRepository(Protocol):
         acknowledged_by: str,
         acknowledged_at: datetime,
     ) -> ListingDraft: ...
+
+
+@runtime_checkable
+class TrademarkRepository(Protocol):
+    async def add(self, record: TrademarkRecord) -> TrademarkRecord: ...
+
+    async def get_by_serial(self, serial_number: str) -> TrademarkRecord | None: ...
+
+    async def search_by_phrase(self, phrase: str, limit: int = 25) -> Sequence[TrademarkRecord]: ...
+
+    async def bulk_upsert(self, records: list[dict[str, object]]) -> int: ...
+

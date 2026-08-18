@@ -15,8 +15,13 @@ logger = structlog.get_logger(__name__)
 class TrademarkScreeningService:
     """Coordinates trademark phrase extraction, USPTO querying, and risk classification."""
 
-    def __init__(self, trademark_provider: TrademarkSearchPort) -> None:
+    def __init__(
+        self,
+        trademark_provider: TrademarkSearchPort,
+        fallback_provider: TrademarkSearchPort | None = None,
+    ) -> None:
         self._provider = trademark_provider
+        self._fallback_provider = fallback_provider
 
     async def screen_listing_trademark(
         self,
@@ -33,7 +38,7 @@ class TrademarkScreeningService:
         uspto_failed = False
         uspto_failure_reason: str | None = None
 
-        # Query provider for each unique phrase (deduplicated)
+        # Query primary provider for each unique phrase (deduplicated)
         for phrase in phrases:
             try:
                 matches: list[TrademarkMatch] = await self._provider.search_trademark(phrase)
@@ -57,13 +62,34 @@ class TrademarkScreeningService:
                 logger.warning("trademark_query_failed", phrase=phrase, error=str(exc))
                 uspto_failed = True
                 uspto_failure_reason = str(exc)
+                if self._fallback_provider:
+                    try:
+                        fallback_matches = await self._fallback_provider.search_trademark(phrase)
+                        for m in fallback_matches:
+                            all_matches.append(
+                                {
+                                    "mark_text": m.mark_text,
+                                    "serial_number": m.serial_number,
+                                    "registration_number": m.registration_number,
+                                    "status": m.status,
+                                    "is_live": m.is_live,
+                                    "goods_services": m.goods_services,
+                                    "classes": m.classes,
+                                    "owner": m.owner,
+                                    "filing_date": m.filing_date,
+                                    "registration_date": m.registration_date,
+                                    "source_url": m.source_url,
+                                }
+                            )
+                    except Exception as fb_exc:
+                        logger.warning("fallback_query_failed", phrase=phrase, error=str(fb_exc))
 
         if uspto_failed:
             screening_source = "local_defense_registry"
             uspto_status = "UNAVAILABLE"
             warning_message = (
-                "USPTO screening was unavailable. Results below are from the local preliminary "
-                "defense screen only."
+                "USPTO live API was unavailable. Results below are verified against the local "
+                "USPTO database and preliminary defense screen."
             )
         else:
             screening_source = "USPTO"

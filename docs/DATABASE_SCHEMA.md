@@ -604,6 +604,28 @@ erDiagram
 - **Unique Constraints**: `etsy_listing_id`, `workflow_id`
 - **Check Constraints**: `ck_listing_drafts_listing_price_non_negative` (`price_minor_units IS NULL OR price_minor_units >= 0`), `ck_listing_drafts_listing_tag_limit` (`cardinality(tags) <= 13`), `ck_listing_drafts_listing_version_positive` (`version >= 1`)
 
+### Other Tables
+
+#### `trademark_records`
+
+| Column | Type | Nullable | Default | PK | FK |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `id` | `CHAR(32)` | NO | `dynamic` | ✅ | - |
+| `mark_text` | `VARCHAR(512)` | NO | `-` | - | - |
+| `norm_mark_text` | `VARCHAR(512)` | NO | `-` | - | - |
+| `serial_number` | `VARCHAR(64)` | YES | `-` | - | - |
+| `registration_number` | `VARCHAR(64)` | YES | `-` | - | - |
+| `status` | `VARCHAR(64)` | NO | `REGISTERED` | - | - |
+| `is_live` | `BOOLEAN` | NO | `True` | - | - |
+| `classes` | `JSONB` | NO | `dynamic` | - | - |
+| `goods_services` | `TEXT` | YES | `-` | - | - |
+| `owner` | `VARCHAR(512)` | YES | `-` | - | - |
+| `filing_date` | `VARCHAR(32)` | YES | `-` | - | - |
+| `registration_date` | `VARCHAR(32)` | YES | `-` | - | - |
+| `source` | `VARCHAR(64)` | NO | `USPTO_BULK` | - | - |
+| `created_at` | `DATETIME` | NO | `dynamic` | - | - |
+| `updated_at` | `DATETIME` | NO | `dynamic` | - | - |
+
 ---
 
 ## Automated Verification & Updates

@@ -1371,6 +1371,7 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
     from app.domain.workflow import RunStatus
     from app.providers.fake import FakeTextProvider, FakeTrademarkSearchAdapter
     from app.providers.gemini import GeminiSynthesisAdapter
+    from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
     from app.providers.uspto import UsptoTrademarkAdapter
 
     settings = get_settings()
@@ -1411,8 +1412,11 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
                         raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
                         text_provider = GeminiSynthesisAdapter(api_key=raw_key)
 
-            # Resolve trademark provider
-            trademark_provider: Any = FakeTrademarkSearchAdapter()
+            # Resolve trademark provider & PostgreSQL database search
+            db_trademark_provider = PostgresTrademarkSearchAdapter(uow)
+            trademark_provider: Any = db_trademark_provider
+            fallback_provider: Any = None
+
             if settings.provider_mode == "live":
                 cred = await uow.credentials.get(workflow.owner_id, ProviderName.USPTO)
                 if cred:
@@ -1422,8 +1426,12 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
                     if cipher:
                         raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
                         trademark_provider = UsptoTrademarkAdapter(api_key=raw_key)
+                        fallback_provider = db_trademark_provider
                 elif hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
                     trademark_provider = UsptoTrademarkAdapter(api_key=settings.uspto_api_key.get_secret_value())
+                    fallback_provider = db_trademark_provider
+            else:
+                trademark_provider = FakeTrademarkSearchAdapter()
 
             # Keyword clusters from research
             research_runs = await uow.research.list_runs_for_workflow(workflow_id)
@@ -1453,7 +1461,7 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
             )
 
             # 2. Trademark Screening
-            trademark_service = TrademarkScreeningService(trademark_provider)
+            trademark_service = TrademarkScreeningService(trademark_provider, fallback_provider=fallback_provider)
             screened_draft = await listing_service.rescreen_trademark(
                 workflow_id=workflow_id,
                 uow=uow,

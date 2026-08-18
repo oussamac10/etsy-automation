@@ -1417,10 +1417,13 @@ async def _resolve_trademark_provider(
     owner_id: uuid.UUID,
     uow: UnitOfWork,
     settings: Any,
-) -> Any:
+) -> tuple[Any, Any | None]:
     from app.domain.enums import ProviderName
     from app.providers.fake import FakeTrademarkSearchAdapter
+    from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
     from app.providers.uspto import UsptoTrademarkAdapter
+
+    db_provider = PostgresTrademarkSearchAdapter(uow)
 
     if settings.provider_mode == "live":
         cred = await uow.credentials.get(owner_id, ProviderName.USPTO)
@@ -1430,12 +1433,14 @@ async def _resolve_trademark_provider(
             cipher = build_credential_cipher(settings)
             if cipher:
                 raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
-                return UsptoTrademarkAdapter(api_key=raw_key)
+                return UsptoTrademarkAdapter(api_key=raw_key), db_provider
 
         if hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
-            return UsptoTrademarkAdapter(api_key=settings.uspto_api_key.get_secret_value())
+            return UsptoTrademarkAdapter(api_key=settings.uspto_api_key.get_secret_value()), db_provider
 
-    return FakeTrademarkSearchAdapter()
+        return db_provider, None
+
+    return FakeTrademarkSearchAdapter(), None
 
 
 @router.get(
@@ -1488,8 +1493,12 @@ async def update_listing_draft_endpoint(
             detail="No workflow with that ID",
         )
 
-    trademark_provider = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-    trademark_service = TrademarkScreeningService(trademark_provider)
+    primary_provider, fallback_provider = await _resolve_trademark_provider(
+        workflow.owner_id, uow, settings
+    )
+    trademark_service = TrademarkScreeningService(
+        primary_provider, fallback_provider=fallback_provider
+    )
     listing_service = ListingDraftService()
     try:
         updated_draft = await listing_service.update_listing_draft(
@@ -1534,8 +1543,12 @@ async def rescreen_listing_trademark_endpoint(
             detail="No workflow with that ID",
         )
 
-    trademark_provider = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-    trademark_service = TrademarkScreeningService(trademark_provider)
+    primary_provider, fallback_provider = await _resolve_trademark_provider(
+        workflow.owner_id, uow, settings
+    )
+    trademark_service = TrademarkScreeningService(
+        primary_provider, fallback_provider=fallback_provider
+    )
     listing_service = ListingDraftService()
 
     try:
@@ -1632,8 +1645,12 @@ async def generate_listing_seo_endpoint(
         )
 
         # Trademark screen
-        trademark_provider = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-        trademark_service = TrademarkScreeningService(trademark_provider)
+        primary_provider, fallback_provider = await _resolve_trademark_provider(
+            workflow.owner_id, uow, settings
+        )
+        trademark_service = TrademarkScreeningService(
+            primary_provider, fallback_provider=fallback_provider
+        )
         screened_draft = await listing_service.rescreen_trademark(
             workflow_id=workflow_id,
             uow=uow,

@@ -242,7 +242,7 @@ class TestTrademarkScreeningService:
         # Should record local defense registry fallback
         assert findings["screening_source"] == "local_defense_registry"
         assert findings["uspto_status"] == "UNAVAILABLE"
-        assert "USPTO screening was unavailable" in findings["warning_message"]
+        assert "unavailable" in findings["warning_message"].lower()
         assert risk == RiskLevel.LOW
 
         # But if the phrase contains a restricted brand, local defense still catches it!
@@ -255,3 +255,52 @@ class TestTrademarkScreeningService:
         assert risk_brand == RiskLevel.HIGH
         assert findings_brand["screening_source"] == "local_defense_registry"
         assert findings_brand["blocks_approval"] is True
+
+    @pytest.mark.asyncio
+    async def test_screening_service_with_database_fallback(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock
+        from app.application.trademark import TrademarkScreeningService
+        from app.ports.providers import TrademarkMatch
+        from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
+
+        # Mock UoW and Trademark Repository
+        mock_uow = MagicMock()
+        mock_rec = MagicMock()
+        mock_rec.mark_text = "COFFEE BEFORE PEOPLE"
+        mock_rec.serial_number = "88999111"
+        mock_rec.registration_number = "6111222"
+        mock_rec.status = "REGISTERED"
+        mock_rec.is_live = True
+        mock_rec.classes = ["025"]
+        mock_rec.goods_services = "T-shirts and hoodies"
+        mock_rec.owner = "Coffee Lovers LLC"
+        mock_rec.filing_date = "2020-01-01"
+        mock_rec.registration_date = "2021-01-01"
+
+        mock_uow.trademarks.search_by_phrase = AsyncMock(return_value=[mock_rec])
+        db_adapter = PostgresTrademarkSearchAdapter(mock_uow)
+
+        # Primary provider fails (e.g. 403 on live USPTO)
+        failing_provider = MagicMock()
+        failing_provider.search_trademark = AsyncMock(side_effect=Exception("HTTP 403 Forbidden"))
+
+        service = TrademarkScreeningService(
+            trademark_provider=failing_provider,
+            fallback_provider=db_adapter,
+        )
+
+        risk, findings = await service.screen_listing_trademark(
+            slogan="Coffee Before People",
+            title="Coffee Before People Graphic Tee PNG",
+            keywords=["coffee"],
+            tags=["coffee lover"],
+        )
+
+        assert risk == RiskLevel.HIGH
+        assert findings["screening_source"] == "local_defense_registry"
+        assert findings["uspto_status"] == "UNAVAILABLE"
+        assert len(findings["matches"]) >= 1
+        assert findings["matches"][0]["mark_text"] == "COFFEE BEFORE PEOPLE"
+        assert findings["matches"][0]["serial_number"] == "88999111"
+        assert "tsdr.uspto.gov" in findings["matches"][0]["source_url"]
+

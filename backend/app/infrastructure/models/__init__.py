@@ -34,6 +34,7 @@ from app.infrastructure.models.research import (
     ResearchRun,
 )
 from app.infrastructure.models.telegram import TelegramConnection
+from app.infrastructure.models.trademark import TrademarkRecord
 from app.infrastructure.models.user import User
 from app.infrastructure.models.workflow import ProductWorkflow, WorkflowTransition
 
@@ -59,6 +60,7 @@ __all__ = [
     "ResearchRun",
     "TelegramConnection",
     "TimestampMixin",
+    "TrademarkRecord",
     "User",
     "UserSession",
     "UuidMixin",

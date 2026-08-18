@@ -31,6 +31,7 @@ from app.infrastructure.repositories import (
     SqlResearchRepository,
     SqlSessionRepository,
     SqlTelegramConnectionRepository,
+    SqlTrademarkRepository,
     SqlUserRepository,
     SqlWorkflowRepository,
 )
@@ -50,6 +51,7 @@ from app.ports.repositories import (
     ResearchRepository,
     SessionRepository,
     TelegramConnectionRepository,
+    TrademarkRepository,
     UserRepository,
     WorkflowRepository,
 )
@@ -78,6 +80,7 @@ class UnitOfWork:
     assets: AssetRepository
     production_jobs: ProductionJobRepository
     listing_drafts: ListingDraftRepository
+    trademarks: TrademarkRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -104,6 +107,7 @@ class UnitOfWork:
         self.assets = SqlAssetRepository(session)
         self.production_jobs = SqlProductionJobRepository(session)
         self.listing_drafts = SqlListingDraftRepository(session)
+        self.trademarks = SqlTrademarkRepository(session)
         return self
 
     async def __aexit__(
