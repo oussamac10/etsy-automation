@@ -225,17 +225,17 @@ const isApproved = computed(() => {
           </p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
           <Button
             type="button"
             variant="outline"
             size="sm"
             :disabled="isDecidingGate"
-            class="text-xs h-9 px-3 gap-1.5 cursor-pointer text-muted-foreground hover:text-destructive"
+            class="text-xs h-8 sm:h-9 px-2.5 sm:px-3.5 gap-1.5 cursor-pointer text-muted-foreground hover:text-destructive shrink-0"
             @click="handleReject"
           >
             <Icon name="lucide:x-circle" class="size-4" aria-hidden="true" />
-            <span>Reject to Production</span>
+            <span>Reject</span>
           </Button>
 
           <!-- High Risk Blocked Button -->
@@ -245,10 +245,10 @@ const isApproved = computed(() => {
             variant="destructive"
             size="sm"
             disabled
-            class="text-xs h-9 px-4 gap-1.5 opacity-70 cursor-not-allowed"
+            class="text-xs h-8 sm:h-9 px-3 sm:px-4 gap-1.5 opacity-70 cursor-not-allowed shrink-0"
           >
             <Icon name="lucide:shield-ban" class="size-4" aria-hidden="true" />
-            <span>Approval Blocked (High Risk)</span>
+            <span>Approval Blocked</span>
           </Button>
 
           <!-- Warning Button -->
@@ -258,12 +258,12 @@ const isApproved = computed(() => {
             variant="default"
             size="sm"
             :disabled="!canApprove || isDecidingGate"
-            class="text-xs h-9 px-4 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer"
+            class="text-xs h-8 sm:h-9 px-3 sm:px-4 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shrink-0"
             @click="handleApprove"
           >
             <Icon v-if="isDecidingGate" name="lucide:loader-circle" class="size-4 animate-spin" aria-hidden="true" />
             <Icon v-else name="lucide:check-circle-2" class="size-4" aria-hidden="true" />
-            <span>Approve (Acknowledge Warning)</span>
+            <span>Approve (Warning)</span>
           </Button>
 
           <!-- Standard Cleared / Approved Button -->
@@ -273,13 +273,13 @@ const isApproved = computed(() => {
             variant="default"
             size="sm"
             :disabled="!canApprove || isDecidingGate"
-            class="text-xs h-9 px-4 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+            class="text-xs h-8 sm:h-9 px-3 sm:px-4 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shrink-0"
             @click="handleApprove"
           >
             <Icon v-if="isDecidingGate" name="lucide:loader-circle" class="size-4 animate-spin" aria-hidden="true" />
             <Icon v-else-if="isApproved" name="lucide:badge-check" class="size-4" aria-hidden="true" />
             <Icon v-else name="lucide:check-circle-2" class="size-4" aria-hidden="true" />
-            <span>{{ isApproved ? 'Approved & Ready for Etsy' : 'Approve & Ready for Etsy' }}</span>
+            <span>{{ isApproved ? 'Approved' : 'Approve for Etsy' }}</span>
           </Button>
         </div>
       </div>

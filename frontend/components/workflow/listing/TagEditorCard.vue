@@ -101,12 +101,12 @@ function handleKeyDown(e: KeyboardEvent) {
         variant="default"
         size="sm"
         :disabled="isSaving || !isComplete"
-        class="text-xs h-8 gap-1.5 cursor-pointer"
+        class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer shrink-0"
         @click="emit('save')"
       >
         <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
         <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
-        <span>Save Tags</span>
+        <span>Save</span>
       </Button>
     </CardHeader>
 

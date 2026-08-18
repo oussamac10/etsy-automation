@@ -74,18 +74,18 @@ function handleDescUpdate(val: string | number) {
         </CardDescription>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <Button
           type="button"
           variant="outline"
           size="sm"
           :disabled="isGeneratingSeo || isSaving"
-          class="text-xs h-8 gap-1.5 cursor-pointer"
+          class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer"
           @click="emit('generateSeo')"
         >
           <Icon v-if="isGeneratingSeo" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
           <Icon v-else name="lucide:sparkles" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>Generate with AI</span>
+          <span>AI Generate</span>
         </Button>
 
         <Button
@@ -93,12 +93,12 @@ function handleDescUpdate(val: string | number) {
           variant="default"
           size="sm"
           :disabled="isSaving || isGeneratingSeo || !hasUnsavedChanges || isTitleOverLimit"
-          class="text-xs h-8 gap-1.5 cursor-pointer"
+          class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer"
           @click="emit('save')"
         >
           <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
           <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
-          <span>Save Changes</span>
+          <span>Save</span>
         </Button>
       </div>
     </CardHeader>

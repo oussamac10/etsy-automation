@@ -197,6 +197,6 @@ describe("WorkflowListingTab UI Components", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("High Risk");
-    expect(wrapper.text()).toContain("Approval Blocked (High Risk)");
+    expect(wrapper.text()).toContain("Approval Blocked");
   });
 });
