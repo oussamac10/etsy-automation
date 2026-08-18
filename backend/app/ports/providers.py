@@ -127,6 +127,23 @@ class TrademarkSignal:
     risk: str
 
 
+@dataclass(frozen=True, slots=True)
+class TrademarkMatch:
+    """Normalized match structure from official trademark data providers (USPTO)."""
+
+    mark_text: str
+    serial_number: str | None = None
+    registration_number: str | None = None
+    status: str = "LIVE"
+    is_live: bool = True
+    goods_services: str | None = None
+    classes: list[str] = field(default_factory=list)
+    owner: str | None = None
+    filing_date: str | None = None
+    registration_date: str | None = None
+    source_url: str | None = None
+
+
 # --------------------------------------------------------------------------
 # Ports
 # --------------------------------------------------------------------------
@@ -190,6 +207,13 @@ class EtsyGateway(Protocol):
 @runtime_checkable
 class TrademarkDataGateway(Protocol):
     async def lookup(self, phrase: str) -> list[TrademarkSignal]: ...
+
+
+@runtime_checkable
+class TrademarkSearchPort(Protocol):
+    """Authoritative port for trademark phrase search against official providers."""
+
+    async def search_trademark(self, phrase: str) -> list[TrademarkMatch]: ...
 
 
 @runtime_checkable

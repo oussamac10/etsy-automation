@@ -639,6 +639,115 @@ async def handle_telegram_callback(
         except Exception as exc:
             return f"Failed to enqueue regeneration: {exc!s}"
 
+    # Handle Gate 3 Listing Approval
+    elif action == "listing_app":
+        if len(parts) < 2:
+            return "Invalid callback data structure."
+        workflow_id_str = parts[1]
+
+        try:
+            workflow_id = uuid.UUID(workflow_id_str)
+        except ValueError:
+            return "Invalid UUID format in callback."
+
+        workflow = await uow.workflows.get(workflow_id)
+        if not workflow or workflow.owner_id != connection.user_id:
+            return "Workflow not found."
+
+        from app.application.listing import ListingDraftService
+        from app.application.package import CustomerPackageService
+        from app.domain.workflow import ApprovalDecision
+        from app.providers.s3 import S3ObjectStorage
+        from app.settings import get_settings
+
+        try:
+            settings = get_settings()
+            storage = S3ObjectStorage(
+                endpoint_url=settings.s3_endpoint_url,
+                bucket_name=settings.s3_bucket,
+                access_key_id=settings.s3_access_key_id,
+                secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+                region_name=settings.s3_region,
+                force_path_style=settings.s3_force_path_style,
+                public_endpoint_url=settings.s3_public_endpoint_url,
+            )
+            package_service = CustomerPackageService(storage)
+            listing_service = ListingDraftService()
+
+            user = await uow.users.get(connection.user_id)
+            user_email = user.email if user else f"telegram:{telegram_user_id}"
+
+            await listing_service.decide_gate3(
+                workflow_id=workflow_id,
+                decision=ApprovalDecision.APPROVED,
+                acknowledged=True,
+                owner_email=user_email,
+                uow=uow,
+                package_service=package_service,
+            )
+            await uow.commit()
+
+            return (
+                f"Gate 3 approved! Listing '<b>{escape_html(workflow.name)}</b>' "
+                "is now ready for Etsy draft creation."
+            )
+        except Exception as exc:
+            return f"Failed to approve listing: {exc!s}"
+
+    # Handle Gate 3 Listing Rejection
+    elif action == "listing_rej":
+        if len(parts) < 2:
+            return "Invalid callback data structure."
+        workflow_id_str = parts[1]
+
+        try:
+            workflow_id = uuid.UUID(workflow_id_str)
+        except ValueError:
+            return "Invalid UUID format in callback."
+
+        workflow = await uow.workflows.get(workflow_id)
+        if not workflow or workflow.owner_id != connection.user_id:
+            return "Workflow not found."
+
+        from app.application.listing import ListingDraftService
+        from app.application.package import CustomerPackageService
+        from app.domain.workflow import ApprovalDecision
+        from app.providers.s3 import S3ObjectStorage
+        from app.settings import get_settings
+
+        try:
+            settings = get_settings()
+            storage = S3ObjectStorage(
+                endpoint_url=settings.s3_endpoint_url,
+                bucket_name=settings.s3_bucket,
+                access_key_id=settings.s3_access_key_id,
+                secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+                region_name=settings.s3_region,
+                force_path_style=settings.s3_force_path_style,
+                public_endpoint_url=settings.s3_public_endpoint_url,
+            )
+            package_service = CustomerPackageService(storage)
+            listing_service = ListingDraftService()
+
+            user = await uow.users.get(connection.user_id)
+            user_email = user.email if user else f"telegram:{telegram_user_id}"
+
+            await listing_service.decide_gate3(
+                workflow_id=workflow_id,
+                decision=ApprovalDecision.REJECTED,
+                acknowledged=False,
+                owner_email=user_email,
+                uow=uow,
+                package_service=package_service,
+            )
+            await uow.commit()
+
+            return (
+                f"Listing '<b>{escape_html(workflow.name)}</b>' rejected and returned to production."
+            )
+        except Exception as exc:
+            return f"Failed to reject listing: {exc!s}"
+
     return "Unknown callback action."
 
 
@@ -657,3 +766,52 @@ async def send_telegram_notification(
             text=text,
             reply_markup=reply_markup,
         )
+
+
+async def send_gate3_review_notification(
+    uow: UnitOfWork,
+    telegram_gateway: TelegramGateway,
+    owner_id: uuid.UUID,
+    workflow_id: uuid.UUID,
+    title: str,
+    tags_count: int,
+    risk_level_value: str,
+    web_dashboard_url: str,
+) -> None:
+    """Send a structured Gate 3 review card to Telegram."""
+    risk_icon = "🟢" if risk_level_value == "low" else ("🟡" if risk_level_value == "medium" else "🔴")
+    risk_text = "CLEARED" if risk_level_value == "low" else ("WARNING" if risk_level_value == "medium" else "HIGH RISK")
+
+    msg_lines = [
+        "<b>📦 Gate 3: Listing & IP Review Ready</b>",
+        "",
+        f"<b>Title:</b> {escape_html(title)}",
+        f"<b>Tags:</b> {tags_count} / 13 validated tags",
+        f"<b>Trademark Risk:</b> {risk_icon} {risk_text}",
+        "",
+        "<i>Preliminary automated trademark screening only — not legal advice.</i>",
+    ]
+
+    inline_keyboard: list[list[dict[str, Any]]] = []
+
+    if risk_level_value == "high":
+        # Blocked: button opens dashboard only
+        inline_keyboard.append(
+            [{"text": "⚠️ High Risk - Edit in Dashboard", "url": f"{web_dashboard_url}/workflow/{workflow_id}?tab=listing"}]
+        )
+    else:
+        approve_text = "✅ Approve & Ready for Etsy" if risk_level_value == "low" else "⚠️ Approve (Acknowledge Warning)"
+        inline_keyboard.append(
+            [
+                {"text": approve_text, "callback_data": f"listing_app:{workflow_id}"},
+                {"text": "✏️ Edit Listing", "url": f"{web_dashboard_url}/workflow/{workflow_id}?tab=listing"},
+            ]
+        )
+
+    await send_telegram_notification(
+        uow=uow,
+        telegram_gateway=telegram_gateway,
+        owner_id=owner_id,
+        text="\n".join(msg_lines),
+        reply_markup={"inline_keyboard": inline_keyboard},
+    )

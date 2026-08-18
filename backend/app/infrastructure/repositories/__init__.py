@@ -19,6 +19,7 @@ from app.infrastructure.repositories.auth import SqlSessionRepository
 from app.infrastructure.repositories.concept import SqlConceptRepository
 from app.infrastructure.repositories.cost import SqlCostRepository
 from app.infrastructure.repositories.idea import SqlIdeaRepository
+from app.infrastructure.repositories.listing import SqlListingDraftRepository
 from app.infrastructure.repositories.outbox import SqlOutboxRepository
 from app.infrastructure.repositories.owner_settings import (
     SqlOwnerSettingsRepository,
@@ -38,6 +39,7 @@ __all__ = [
     "SqlConceptRepository",
     "SqlCostRepository",
     "SqlIdeaRepository",
+    "SqlListingDraftRepository",
     "SqlOutboxRepository",
     "SqlOwnerSettingsRepository",
     "SqlProductionJobRepository",

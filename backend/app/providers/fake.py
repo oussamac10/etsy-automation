@@ -22,6 +22,8 @@ from app.ports.providers import (
     StoredObject,
     TextRequest,
     TextResponse,
+    TrademarkMatch,
+    TrademarkSearchPort,
     TrademarkSignal,
 )
 
@@ -535,6 +537,74 @@ class FakeTrademarkGateway:
                 risk="unknown",
             )
         ]
+
+
+class FakeTrademarkSearchAdapter(TrademarkSearchPort):
+    """Deterministic in-memory trademark search adapter for tests and local development."""
+
+    def __init__(self, canned_matches: dict[str, list[TrademarkMatch]] | None = None) -> None:
+        self._canned = canned_matches or {}
+
+    def set_canned_matches(self, phrase: str, matches: list[TrademarkMatch]) -> None:
+        self._canned[phrase.lower().strip()] = matches
+
+    async def search_trademark(self, phrase: str) -> list[TrademarkMatch]:
+        norm = phrase.lower().strip()
+        if norm in self._canned:
+            return self._canned[norm]
+
+        # Built-in deterministic mock triggers
+        if any(brand in norm for brand in ("disney", "marvel", "starbucks", "nike", "barbie")):
+            return [
+                TrademarkMatch(
+                    mark_text=phrase.upper(),
+                    serial_number="88123456",
+                    registration_number="5678901",
+                    status="REGISTERED AND RENEWED",
+                    is_live=True,
+                    goods_services="Downloadable graphics; clothing, namely t-shirts, sweatshirts.",
+                    classes=["009", "025"],
+                    owner="Brand Holdings LLC",
+                    filing_date="2020-01-01",
+                    registration_date="2021-01-01",
+                    source_url="https://tsdr.uspto.gov/#caseNumber=88123456",
+                )
+            ]
+
+        if "warning" in norm or "partial" in norm:
+            return [
+                TrademarkMatch(
+                    mark_text=f"{phrase.upper()} CAFE",
+                    serial_number="88654321",
+                    registration_number="5432109",
+                    status="REGISTERED",
+                    is_live=True,
+                    goods_services="Coffee, tea, and restaurant services.",
+                    classes=["030", "043"],
+                    owner="Warning Ventures Inc.",
+                    filing_date="2019-05-10",
+                    registration_date="2020-08-15",
+                    source_url="https://tsdr.uspto.gov/#caseNumber=88654321",
+                )
+            ]
+
+        if "dead" in norm:
+            return [
+                TrademarkMatch(
+                    mark_text=phrase.upper(),
+                    serial_number="77111222",
+                    registration_number=None,
+                    status="CANCELLED - SECTION 8",
+                    is_live=False,
+                    goods_services="Apparel and shirts.",
+                    classes=["025"],
+                    owner="Old Corp LLC",
+                    filing_date="2010-01-01",
+                )
+            ]
+
+        # Default clean
+        return []
 
 
 class ZeroCostCalculator:

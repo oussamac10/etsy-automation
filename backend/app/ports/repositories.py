@@ -27,6 +27,7 @@ from app.infrastructure.models import (
     AuditEvent,
     DesignPrompt,
     KeywordCluster,
+    ListingDraft,
     OriginalIdea,
     OriginalIdeaRevision,
     OutboxMessage,
@@ -521,3 +522,45 @@ class ProductionJobRepository(Protocol):
         failure_kind: str | None = None,
         failure_message: str | None = None,
     ) -> ProductionJob: ...
+
+
+@runtime_checkable
+class ListingDraftRepository(Protocol):
+    async def add(self, draft: ListingDraft) -> ListingDraft: ...
+
+    async def get(self, draft_id: uuid.UUID) -> ListingDraft | None: ...
+
+    async def get_by_workflow(self, workflow_id: uuid.UUID) -> ListingDraft | None: ...
+
+    async def update(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        price_minor_units: int | None = None,
+        currency: str | None = None,
+        taxonomy_id: int | None = None,
+        ai_disclosure: str | None = None,
+        licence_text: str | None = None,
+        customer_instructions: str | None = None,
+        expected_version: int | None = None,
+    ) -> ListingDraft: ...
+
+    async def update_ip_review(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        ip_reviewed_phrase: str | None,
+        ip_risk_level: object,
+        ip_findings: dict[str, object],
+    ) -> ListingDraft: ...
+
+    async def acknowledge_ip_risk(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        acknowledged_by: str,
+        acknowledged_at: datetime,
+    ) -> ListingDraft: ...
