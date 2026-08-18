@@ -141,17 +141,23 @@ hashes, and malicious-input rejection. Full monorepo test coverage passes (398 t
 
 Evidence: `docs/progress/phase-7-png-production-pipeline.md`.
 
-## Phase 8 — SEO, risk review, and download package
+## Phase 8 — SEO, risk review, and download package ✅ complete 2026-08-18
 
-- [ ] Listing title, description, no more than 13 valid tags, and AI disclosure
-- [ ] Preliminary phrase/IP-risk records and human acknowledgement
-- [ ] Licence, instructions, manifest, PNG files, and reproducible ZIP
-- [ ] Listing review UI with optimistic concurrency and final approval gate
-- [ ] Complete review summary through Telegram
+- [x] Listing title, description, no more than 13 valid tags, and AI disclosure
+- [x] Preliminary phrase/IP-risk records and human acknowledgement
+- [x] Licence, instructions, manifest, PNG files, and reproducible ZIP
+- [x] Listing review UI with optimistic concurrency and final approval gate
+- [x] Complete review summary through Telegram
 
 Acceptance: the package is reproducible, Etsy rules are configurable rather
 than scattered constants, and neither the UI nor Telegram can label an item
 legally cleared or guaranteed profitable.
+
+Evidence: `docs/progress/phase-8-seo-ip-download-package.md`. Migration `0010_trademark_records`
+enables `pg_trgm` and GIN index for local USPTO searches; `scripts/ingest_uspto_trademarks.py`
+streams official XML/CSV bulk datasets; 300 backend tests pass (18/18 trademark tests);
+142 TypeScript tests pass across domain, frontend, image-pipeline, and image-worker.
+No auto-publishing is introduced.
 
 ## Phase 9 — Etsy integration
 
