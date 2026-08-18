@@ -15,6 +15,7 @@ import DialogHeader from "~/components/ui/DialogHeader.vue";
 import DialogTitle from "~/components/ui/DialogTitle.vue";
 import DialogDescription from "~/components/ui/DialogDescription.vue";
 import DialogFooter from "~/components/ui/DialogFooter.vue";
+import { sanitizeUrl } from "~/utils/sanitize";
 
 interface DesignPrompt {
   id: string;
@@ -379,7 +380,7 @@ function confirmHighRiskApproval() {
                       </Badge>
                       <a
                         v-if="match.source_url || match.serial_number"
-                        :href="match.source_url || `https://tsdr.uspto.gov/#caseNumber=${match.serial_number}&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch`"
+                        :href="sanitizeUrl(match.source_url || `https://tsdr.uspto.gov/#caseNumber=${match.serial_number}&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch`)"
                         target="_blank"
                         rel="noopener noreferrer"
                         class="text-primary hover:underline text-[10px] inline-flex items-center gap-0.5"

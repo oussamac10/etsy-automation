@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import Badge from "~/components/ui/Badge.vue";
 import Button from "~/components/ui/Button.vue";
+import { sanitizeUrl } from "~/utils/sanitize";
 
 defineProps<{
   masterImageUrl: string | null;
@@ -93,8 +94,9 @@ async function copyUrl(url: string | null) {
         </button>
 
         <a
-          :href="masterImageUrl"
+          :href="sanitizeUrl(masterImageUrl)"
           target="_blank"
+          rel="noopener noreferrer"
           class="h-8 w-8 rounded-lg bg-white/95 hover:bg-white text-slate-900 flex items-center justify-center shadow-md cursor-pointer active:scale-95 transition-all"
           title="Open in new tab"
         >
@@ -115,8 +117,9 @@ async function copyUrl(url: string | null) {
 
       <a
         v-if="masterImageUrl"
-        :href="masterImageUrl"
+        :href="sanitizeUrl(masterImageUrl)"
         target="_blank"
+        rel="noopener noreferrer"
         download="master_transparent_300dpi.png"
         class="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-black text-white px-3.5 py-1.5 text-xs font-semibold shadow-xs hover:shadow-sm active:scale-95 transition-all duration-150 cursor-pointer"
       >

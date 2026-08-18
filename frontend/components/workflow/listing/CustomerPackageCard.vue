@@ -7,6 +7,7 @@ import CardDescription from '~/components/ui/CardDescription.vue';
 import CardContent from '~/components/ui/CardContent.vue';
 import Badge from '~/components/ui/Badge.vue';
 import type { Asset } from '~/types/workflow';
+import { sanitizeUrl } from '~/utils/sanitize';
 
 const props = defineProps<{
   packageAsset?: Asset | null;
@@ -93,8 +94,10 @@ async function copyChecksum() {
 
           <a
             v-if="downloadUrl"
-            :href="downloadUrl"
-            download
+            :href="sanitizeUrl(downloadUrl)"
+            target="_blank"
+            rel="noopener noreferrer"
+            download="customer_print_package.zip"
             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
           >
             <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />

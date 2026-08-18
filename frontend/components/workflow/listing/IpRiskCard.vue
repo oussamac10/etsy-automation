@@ -8,6 +8,7 @@ import CardContent from '~/components/ui/CardContent.vue';
 import Button from '~/components/ui/Button.vue';
 import Badge from '~/components/ui/Badge.vue';
 import type { IpFindingsReport, RiskLevel, TrademarkFinding } from '~/types/listing';
+import { sanitizeUrl } from '~/utils/sanitize';
 
 const props = defineProps<{
   riskLevel: RiskLevel;
@@ -326,7 +327,7 @@ const hiddenTermsCount = computed(() => Math.max(0, scannedPhrases.value.length 
                 </Badge>
                 <a
                   v-if="match.source_url"
-                  :href="match.source_url"
+                  :href="sanitizeUrl(match.source_url)"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="text-[11px] text-primary hover:underline inline-flex items-center gap-1 font-medium"

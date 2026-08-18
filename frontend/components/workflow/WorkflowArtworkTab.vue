@@ -10,6 +10,7 @@ import Button from "~/components/ui/Button.vue";
 import Label from "~/components/ui/Label.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
+import { sanitizeUrl } from "~/utils/sanitize";
 
 interface DesignPrompt {
   id: string;
@@ -724,8 +725,9 @@ onUnmounted(() => {
           <div class="flex items-center gap-2">
             <a
               v-if="previewingAsset.url"
-              :href="previewingAsset.url"
+              :href="sanitizeUrl(previewingAsset.url)"
               target="_blank"
+              rel="noopener noreferrer"
               :download="`candidate_design_${getPreviewAssetIndex() + 1}.png`"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-border text-secondary-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer shadow-2xs"
             >
