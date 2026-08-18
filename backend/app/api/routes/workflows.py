@@ -392,6 +392,7 @@ async def list_concepts(
             "score_explanation": concept.score_explanation,
             "status": concept.status.value,
             "created_at": concept.created_at,
+            "intended_product_uses": concept.intended_product_uses or [],
             "prompts": [DesignPromptResponse.model_validate(p) for p in prompts],
         }
         results.append(ProductConceptResponse.model_validate(concept_dict))

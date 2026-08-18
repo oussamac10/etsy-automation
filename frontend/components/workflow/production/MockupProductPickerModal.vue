@@ -188,7 +188,16 @@ watch(
       initFromSavedSuggestions(newVal);
     }
   },
-  { immediate: true }
+  { immediate: true, deep: true }
+);
+
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen && props.savedSuggestions && props.savedSuggestions.length > 0 && aiGeneratedItems.value.length === 0) {
+      initFromSavedSuggestions(props.savedSuggestions);
+    }
+  }
 );
 
 async function syncSuggestionsToDb(suggestions: string[]) {
