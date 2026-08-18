@@ -16,7 +16,8 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [ ] **Phase 8 — SEO, IP risk review, and download package:** Next Active Milestone
 - [ ] **Phase 9 — Etsy integration:** Planned
 - [ ] **Phase 10 — Deployment, scheduling, and monitoring:** Planned
-- [ ] **Phase 11 — Optional SaaS expansion:** Future
+- [ ] **Phase 11 — Post-publishing profit intelligence & winner expansion:** Future, start only after real Etsy sales data exists
+- [ ] **Phase 12 — Optional SaaS expansion:** Future
 
 ---
 
@@ -201,7 +202,36 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 
 ---
 
-### Phase 11 — Optional Multi-Shop SaaS Expansion (Future)
+### Phase 11 — Post-Publishing Profit Intelligence & Winner Expansion (Future — Low Priority)
+
+**Do not begin until Etsy draft/publishing flow is working and the shop has enough real sales data to learn from.** This phase is intentionally lower priority than getting products published and collecting evidence.
+
+#### Sales & Profit Intelligence
+
+- [ ] Import Etsy orders, transactions, refunds, fees, and listing performance into owner-scoped analytics.
+- [ ] Calculate revenue, net profit, profit margin, API/design cost per listing, and profit per campaign.
+- [ ] Rank niches, styles, seasons, keyword clusters, buyer segments, and themes using actual sales results.
+- [ ] AI Profit Advisor explaining winners, weak listings, cost problems, and concrete profit-improvement actions.
+
+#### Winner Expansion
+
+- [ ] Detect best-selling/profitable listings and extract reusable patterns such as niche, style, season, buyer, keyword cluster, and visual direction.
+- [ ] `Winner Expansion` action that proposes new, materially differentiated product ideas based on winning patterns.
+- [ ] Generate new PNG concepts from those ideas and route approved concepts back through the existing artwork, production, SEO, and trademark workflow.
+- [ ] Never blindly clone an existing design; add safeguards against near-duplicates, trademark reuse, and overfitting to tiny sales samples.
+
+#### Learning Feedback Loop
+
+- [ ] Feed validated sales/performance signals back into Phase 5 research scoring.
+- [ ] Increase weighting for historically profitable patterns while preserving seasonal/current-market research.
+- [ ] Track recommendation history and whether recommendations later became profitable.
+- [ ] Dashboard showing winners, losers, profit trends, recommendations, and generated follow-up products.
+
+Acceptance: recommendations must cite measurable shop evidence, remain advisory until owner approval, generate materially differentiated concepts, and never automatically publish listings.
+
+---
+
+### Phase 12 — Optional Multi-Shop SaaS Expansion (Future)
 
 - [ ] Multi-tenant isolation and user role management.
 - [ ] Multiple Etsy shop connections per account.
