@@ -228,7 +228,7 @@ async def update_budget_limits(
     if payload.is_paused is not None:
         changes["is_paused"] = payload.is_paused
 
-    await uow.owner_settings.update(settings, **changes)
+    await uow.owner_settings.apply(settings, changes)
     await uow.commit()
 
     return await get_usage_summary(uow, current_user)
