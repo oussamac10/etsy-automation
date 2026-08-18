@@ -357,19 +357,21 @@ async function handleMoveMockup(asset: MockupAsset, direction: "up" | "down"): P
 
         <!-- Succeeded State (Master PNG, QA, & Mockup Gallery) -->
         <div v-if="latestProductionJob?.status === 'SUCCEEDED'" class="space-y-6">
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
             <!-- Left Column: Master PNG Preview & Actions -->
-            <div class="lg:col-span-5 space-y-4">
+            <div class="lg:col-span-5 flex flex-col">
               <MasterPngCard
+                class="h-full"
                 :master-image-url="masterImageUrl"
                 :output-asset-id="latestProductionJob.output_asset_id"
                 :render-nonce="renderNonce"
               />
             </div>
 
-            <!-- Right Column: Automated QA Verification -->
-            <div class="lg:col-span-7 space-y-4">
+            <!-- Right Column: Automated QA Verification & Specs -->
+            <div class="lg:col-span-7 flex flex-col">
               <ProductionQaCard
+                class="h-full"
                 :qa-report="latestProductionJob.qa_report"
                 :exact-slogan="approvedConcept?.prompts?.[0]?.exact_slogan"
               />
