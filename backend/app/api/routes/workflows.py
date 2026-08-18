@@ -17,9 +17,11 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
+from pydantic import BaseModel
+
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
 
-from app.api.dependencies import CurrentUser, SettingsDep, StorageDep, UowDep
+from app.api.dependencies import CipherDep, CurrentUser, SettingsDep, StorageDep, UowDep
 from app.api.schemas import (
     ApprovalResponse,
     ArtworkJobResponse,
@@ -1396,6 +1398,108 @@ async def recomposite_all_mockups_endpoint(
         url = await storage.signed_url(m.storage_key, 86400 * 7)
         resps.append(to_asset_response(m, url))
     return resps
+
+
+class SuggestMockupProductsResponse(BaseModel):
+    suggestions: list[str]
+
+
+@router.post(
+    "/{workflow_id}/mockups/suggest-ideas",
+    response_model=SuggestMockupProductsResponse,
+    summary="Generate on-demand AI mockup product ideas for this workflow design",
+)
+async def suggest_mockup_ideas_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    cipher: CipherDep,
+    settings: SettingsDep,
+) -> SuggestMockupProductsResponse:
+    """Generate on-demand AI mockup product recommendations specifically for this concept."""
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    approved_concept = next(
+        (c for c in concepts if c.status == ConceptStatus.APPROVED),
+        concepts[0] if concepts else None,
+    )
+
+    slogan = None
+    title = approved_concept.title if approved_concept else workflow.name
+    concept_uses: list[str] = []
+    if approved_concept:
+        prompts = await uow.concepts.prompts(approved_concept.id)
+        if prompts:
+            slogan = prompts[0].exact_slogan
+            concept_uses = prompts[0].intended_product_uses or []
+
+    suggested_raw: list[str] = []
+    try:
+        from app.application.owner_settings import reveal_credential
+        from app.domain.enums import ProviderName
+        from app.ports.providers import TextRequest
+        from app.providers.gemini import GeminiSynthesisAdapter
+        from app.providers.openai import OpenAISynthesisAdapter
+
+        gemini_key = None
+        openai_key = None
+        try:
+            gemini_key = await reveal_credential(
+                uow, user.id, provider=ProviderName.GEMINI, cipher=cipher
+            )
+        except Exception:
+            gemini_key = None
+
+        try:
+            openai_key = await reveal_credential(
+                uow, user.id, provider=ProviderName.OPENAI, cipher=cipher
+            )
+        except Exception:
+            openai_key = None
+
+        prompt_text = (
+            f"You are an Etsy merchandising expert. Recommend 4-6 distinct, top-selling physical product types "
+            f"for this graphic artwork:\n"
+            f"Concept Title: {title}\n"
+            f"Slogan: {slogan or 'Graphic Art'}\n"
+            f"Current Products: {workflow.intended_product_uses}\n\n"
+            f"Respond ONLY with a comma-separated list of product types (e.g. Graphic Crewneck Sweatshirt, Insulated Travel Mug, Die Cut Vinyl Decal, Canvas Tote Bag, Ceramic Mug, Soy Candle)."
+        )
+
+        if gemini_key:
+            provider = GeminiSynthesisAdapter(api_key=gemini_key)
+            resp = await provider.generate(TextRequest(prompt=prompt_text))
+            if resp and resp.text:
+                suggested_raw = [p.strip() for p in resp.text.split(",") if p.strip()]
+        elif openai_key:
+            provider = OpenAISynthesisAdapter(api_key=openai_key)
+            resp = await provider.generate(TextRequest(prompt=prompt_text))
+            if resp and resp.text:
+                suggested_raw = [p.strip() for p in resp.text.split(",") if p.strip()]
+        elif concept_uses:
+            suggested_raw = concept_uses
+        else:
+            suggested_raw = [
+                "Graphic Crewneck Sweatshirt",
+                "Insulated Travel Mug",
+                "Die Cut Vinyl Decal",
+                "Canvas Tote Bag",
+                "Wall Art Poster",
+            ]
+    except Exception:
+        suggested_raw = concept_uses or [
+            "Graphic Crewneck Sweatshirt",
+            "Insulated Travel Mug",
+            "Die Cut Vinyl Decal",
+            "Canvas Tote Bag",
+            "Wall Art Poster",
+        ]
+
+    cleaned = [s for s in suggested_raw if 2 <= len(s) <= 50][:6]
+    return SuggestMockupProductsResponse(suggestions=cleaned)
 
 
 @router.post(

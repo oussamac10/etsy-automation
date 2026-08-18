@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import type { MockupAsset } from "~/types/mockup";
 import {
   SUPPORTED_PRODUCT_TYPES,
@@ -7,13 +7,14 @@ import {
   getProductIconName,
   normalizeProductKey,
 } from "~/utils/mockupProducts";
+import Button from "~/components/ui/Button.vue";
 import { useLibraryProducts } from "~/composables/useLibraryProducts";
 
 const props = defineProps<{
   open: boolean;
+  workflowId?: string;
   existingCategories?: string[];
   campaignProducts?: string[];
-  aiSuggestedProducts?: string[];
   mockupsByProduct?: Record<string, MockupAsset[]>;
 }>();
 
@@ -22,16 +23,28 @@ const emit = defineEmits<{
   (e: "select", productKey: string): void;
 }>();
 
+const config = useRuntimeConfig();
+const apiBase = config.public.apiBase || "http://localhost:8800";
 const { libraryProductOptions, fetchLibraryProducts } = useLibraryProducts();
 
 onMounted(() => {
   fetchLibraryProducts();
 });
 
+const isGeneratingIdeas = ref(false);
+const generateError = ref<string | null>(null);
+const aiGeneratedItems = ref<Array<{ key: string; label: string; icon: string; count: number }>>([]);
+
 function getMockupCount(key: string): number {
   if (!props.mockupsByProduct) return 0;
   const normalized = normalizeProductKey(key);
   return (props.mockupsByProduct[normalized] || []).length;
+}
+
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+  return match ? match[2] : null;
 }
 
 // 1. Campaign's Intended Physical Products
@@ -55,31 +68,12 @@ const campaignItems = computed(() => {
   return items;
 });
 
-// 2. AI Concept Prompt Slogan Suggestions (excluding ones already in campaign products)
-const aiItems = computed(() => {
-  const campaignKeys = new Set(campaignItems.value.map((i) => i.key));
-  const seen = new Set<string>();
-  const items: Array<{ key: string; label: string; icon: string; count: number }> = [];
-
-  for (const c of props.aiSuggestedProducts || []) {
-    const k = normalizeProductKey(c);
-    if (k && !campaignKeys.has(k) && !seen.has(k)) {
-      seen.add(k);
-      items.push({
-        key: k,
-        label: getProductLabel(k),
-        icon: getProductIconName(k),
-        count: getMockupCount(k),
-      });
-    }
-  }
-
-  return items;
-});
-
-// 3. Other Standard Categories
+// 2. Other Standard Categories (excluding campaign target products & dynamically generated ideas)
 const otherStandardItems = computed(() => {
-  const chosenKeys = new Set([...campaignItems.value.map((i) => i.key), ...aiItems.value.map((i) => i.key)]);
+  const chosenKeys = new Set([
+    ...campaignItems.value.map((i) => i.key),
+    ...aiGeneratedItems.value.map((i) => i.key),
+  ]);
   return SUPPORTED_PRODUCT_TYPES.filter((p) => !chosenKeys.has(p.key)).map((p) => ({
     key: p.key,
     label: p.label,
@@ -88,10 +82,13 @@ const otherStandardItems = computed(() => {
   }));
 });
 
-// 4. Custom categories from library or workflow mockups
+// 3. Custom categories from library or workflow mockups
 const customItems = computed(() => {
   const standardKeys = new Set(SUPPORTED_PRODUCT_TYPES.map((p) => p.key));
-  const chosenKeys = new Set([...campaignItems.value.map((i) => i.key), ...aiItems.value.map((i) => i.key)]);
+  const chosenKeys = new Set([
+    ...campaignItems.value.map((i) => i.key),
+    ...aiGeneratedItems.value.map((i) => i.key),
+  ]);
   const set = new Set<string>();
   const items: Array<{ key: string; label: string; icon: string; count: number }> = [];
 
@@ -112,6 +109,51 @@ const customItems = computed(() => {
 
   return items;
 });
+
+// Generate AI Mockup Product Ideas on demand when the user clicks the button
+async function handleGenerateAiIdeas() {
+  if (!props.workflowId || isGeneratingIdeas.value) return;
+  isGeneratingIdeas.value = true;
+  generateError.value = null;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (csrf) headers["x-csrf-token"] = csrf;
+
+    const res = await $fetch<{ suggestions: string[] }>(
+      `${apiBase}/api/v1/workflows/${props.workflowId}/mockups/suggest-ideas`,
+      {
+        method: "POST",
+        headers,
+        credentials: "include",
+      }
+    );
+
+    if (res && Array.isArray(res.suggestions)) {
+      const campaignKeys = new Set(campaignItems.value.map((i) => i.key));
+      const seen = new Set<string>();
+      const items: Array<{ key: string; label: string; icon: string; count: number }> = [];
+
+      for (const s of res.suggestions) {
+        const k = normalizeProductKey(s);
+        if (k && !campaignKeys.has(k) && !seen.has(k)) {
+          seen.add(k);
+          items.push({
+            key: k,
+            label: getProductLabel(k),
+            icon: getProductIconName(k),
+            count: getMockupCount(k),
+          });
+        }
+      }
+      aiGeneratedItems.value = items;
+    }
+  } catch (err: unknown) {
+    generateError.value = err instanceof Error ? err.message : "Failed to generate mockup ideas.";
+  } finally {
+    isGeneratingIdeas.value = false;
+  }
+}
 </script>
 
 <template>
@@ -132,14 +174,8 @@ const customItems = computed(() => {
         </button>
       </div>
 
-      <!-- Zero Token Banner -->
-      <div class="px-6 py-2 bg-emerald-50/80 border-b border-emerald-200/80 flex items-center gap-2 text-xs text-emerald-800">
-        <Icon name="lucide:sparkles" class="size-3.5 text-emerald-600 shrink-0" aria-hidden="true" />
-        <span><b>0 AI Tokens Used:</b> Mockup composition runs locally on your master print file without consuming AI generation tokens.</span>
-      </div>
-
       <!-- Modal Body -->
-      <div class="p-6 space-y-5 max-h-[68vh] overflow-y-auto">
+      <div class="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
         <!-- Section 1: Campaign Intended Physical Products -->
         <div v-if="campaignItems.length > 0" class="space-y-2.5">
           <div class="flex items-center gap-1.5">
@@ -172,26 +208,49 @@ const customItems = computed(() => {
           </div>
         </div>
 
-        <!-- Section 2: AI Slogan/Prompt Product Suggestions -->
-        <div v-if="aiItems.length > 0" class="space-y-2.5">
-          <div class="flex items-center gap-1.5">
-            <Icon name="lucide:sparkles" class="size-3.5 text-amber-600" aria-hidden="true" />
-            <label class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-              AI Concept Suggestions (Optional)
+        <!-- Section 2: On-Demand AI Mockup Ideas Trigger & Results -->
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <Icon name="lucide:sparkles" class="size-3.5 text-amber-500" aria-hidden="true" />
+              <span>AI Product Recommendations</span>
             </label>
+            <Button
+              v-if="workflowId"
+              variant="outline"
+              size="sm"
+              class="h-7 text-xs font-bold border-amber-300 bg-amber-50/50 hover:bg-amber-100 text-amber-900 gap-1.5 cursor-pointer shadow-2xs"
+              :disabled="isGeneratingIdeas"
+              @click="handleGenerateAiIdeas"
+            >
+              <Icon
+                :name="isGeneratingIdeas ? 'lucide:loader-2' : 'lucide:sparkles'"
+                class="size-3"
+                :class="{ 'animate-spin': isGeneratingIdeas }"
+                aria-hidden="true"
+              />
+              <span>{{ isGeneratingIdeas ? 'Generating Ideas...' : aiGeneratedItems.length > 0 ? 'Regenerate Ideas' : 'Generate Mockup Ideas' }}</span>
+            </Button>
           </div>
-          <div class="grid grid-cols-3 gap-2.5">
+
+          <!-- Error Alert if generation failed -->
+          <div v-if="generateError" class="p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+            {{ generateError }}
+          </div>
+
+          <!-- Dynamic AI Generated Cards -->
+          <div v-if="aiGeneratedItems.length > 0" class="grid grid-cols-3 gap-2.5 animate-in fade-in zoom-in-95 duration-200">
             <button
-              v-for="item in aiItems"
+              v-for="item in aiGeneratedItems"
               :key="item.key"
               type="button"
-              class="relative p-3 rounded-xl border border-amber-300/60 bg-amber-50/40 hover:bg-amber-50 hover:border-amber-400 flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
+              class="relative p-3 rounded-xl border border-amber-300/80 bg-amber-50/60 hover:bg-amber-100/70 hover:border-amber-400 flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
               @click="emit('select', item.key)"
             >
-              <div class="h-9 w-9 rounded-lg bg-amber-100/70 group-hover:bg-amber-500 flex items-center justify-center text-amber-800 group-hover:text-white transition-colors">
+              <div class="h-9 w-9 rounded-lg bg-amber-200/70 group-hover:bg-amber-500 flex items-center justify-center text-amber-900 group-hover:text-white transition-colors">
                 <Icon :name="item.icon" class="size-4.5" aria-hidden="true" />
               </div>
-              <span class="text-xs font-medium text-foreground truncate max-w-full">
+              <span class="text-xs font-bold text-foreground truncate max-w-full">
                 {{ item.label }}
               </span>
               <span
@@ -201,6 +260,11 @@ const customItems = computed(() => {
                 {{ item.count }} {{ item.count === 1 ? 'mockup' : 'mockups' }}
               </span>
             </button>
+          </div>
+          <div v-else-if="!isGeneratingIdeas" class="p-3 rounded-xl border border-dashed border-border bg-secondary/20 text-center">
+            <p class="text-xs text-muted-foreground">
+              Click <b>Generate Mockup Ideas</b> to let AI suggest fresh, top-selling product categories for this design.
+            </p>
           </div>
         </div>
 
@@ -236,7 +300,7 @@ const customItems = computed(() => {
         <!-- Section 4: All Other Product Categories -->
         <div class="space-y-2.5">
           <label class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-            Other Product Categories
+            All Product Categories
           </label>
           <div class="grid grid-cols-3 gap-2.5">
             <button

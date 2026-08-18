@@ -20,6 +20,7 @@ defineProps<{
   renderNonce: number;
   isActionLoading?: boolean;
   actionError?: string | null;
+  workflowId?: string;
   campaignProducts?: string[];
   aiSuggestedProducts?: string[];
 }>();
@@ -167,9 +168,9 @@ function handleSelectProductFromPicker(productKey: string): void {
     <!-- Product Picker Modal -->
     <MockupProductPickerModal
       :open="showProductPickerModal"
+      :workflow-id="workflowId"
       :existing-categories="availableTabs"
       :campaign-products="campaignProducts"
-      :ai-suggested-products="aiSuggestedProducts"
       :mockups-by-product="mockupsByProduct"
       @close="showProductPickerModal = false"
       @select="handleSelectProductFromPicker"
