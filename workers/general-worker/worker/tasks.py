@@ -1413,8 +1413,17 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
 
             # Resolve trademark provider
             trademark_provider: Any = FakeTrademarkSearchAdapter()
-            if settings.provider_mode == "live" and hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
-                trademark_provider = UsptoTrademarkAdapter(api_key=settings.uspto_api_key.get_secret_value())
+            if settings.provider_mode == "live":
+                cred = await uow.credentials.get(workflow.owner_id, ProviderName.USPTO)
+                if cred:
+                    from app.api.dependencies import build_credential_cipher
+
+                    cipher = build_credential_cipher(settings)
+                    if cipher:
+                        raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
+                        trademark_provider = UsptoTrademarkAdapter(api_key=raw_key)
+                elif hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
+                    trademark_provider = UsptoTrademarkAdapter(api_key=settings.uspto_api_key.get_secret_value())
 
             # Keyword clusters from research
             research_runs = await uow.research.list_runs_for_workflow(workflow_id)
