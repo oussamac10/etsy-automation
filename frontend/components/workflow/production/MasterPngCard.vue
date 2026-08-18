@@ -54,7 +54,7 @@ async function copyUrl(url: string | null) {
     </div>
 
     <!-- Checkerboard Canvas Preview Area -->
-    <div class="relative group rounded-xl overflow-hidden border border-border/80 bg-[linear-gradient(45deg,#F1F5F9_25%,transparent_25%),linear-gradient(-45deg,#F1F5F9_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#F1F5F9_75%),linear-gradient(-45deg,transparent_75%,#F1F5F9_75%)] bg-[size:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px] shadow-inner aspect-4500/5400 max-h-[300px] flex items-center justify-center">
+    <div class="relative group w-full h-[280px] rounded-xl overflow-hidden border border-border/80 bg-[linear-gradient(45deg,#F1F5F9_25%,transparent_25%),linear-gradient(-45deg,#F1F5F9_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#F1F5F9_75%),linear-gradient(-45deg,transparent_75%,#F1F5F9_75%)] bg-[size:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px] shadow-inner flex items-center justify-center">
       <!-- Master Image -->
       <img
         v-if="masterImageUrl"
