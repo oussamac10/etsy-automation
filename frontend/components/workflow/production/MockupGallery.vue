@@ -20,6 +20,7 @@ defineProps<{
   renderNonce: number;
   isActionLoading?: boolean;
   actionError?: string | null;
+  recommendedCategories?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -153,6 +154,8 @@ function handleSelectProductFromPicker(productKey: string): void {
     <MockupProductPickerModal
       :open="showProductPickerModal"
       :existing-categories="availableTabs"
+      :recommended-categories="recommendedCategories"
+      :mockups-by-product="mockupsByProduct"
       @close="showProductPickerModal = false"
       @select="handleSelectProductFromPicker"
     />
