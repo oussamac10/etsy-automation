@@ -28,6 +28,7 @@ const props = defineProps<{
   hasUnsavedChanges?: boolean;
   history?: ListingVersionSnapshot[];
   isRestoringVersion?: boolean;
+  isDeletingVersion?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -36,6 +37,7 @@ const emit = defineEmits<{
   (e: 'save'): void;
   (e: 'generateSeo'): void;
   (e: 'restoreVersion', version: number): void;
+  (e: 'deleteVersion', version: number): void;
 }>();
 
 const localTitle = ref(props.title);
@@ -258,24 +260,36 @@ function formatSnapshotDate(dateStr?: string) {
               </span>
             </div>
 
-            <div>
+            <div class="flex items-center gap-1.5">
               <Badge v-if="item.version === version" variant="success" class="text-[10px] gap-1">
                 <Icon name="lucide:check" class="size-3" aria-hidden="true" />
                 <span>Active Version</span>
               </Badge>
-              <Button
-                v-else
-                type="button"
-                variant="outline"
-                size="sm"
-                :disabled="isRestoringVersion"
-                class="h-7 px-2.5 text-xs gap-1.5 cursor-pointer"
-                @click="handleRestore(item.version)"
-              >
-                <Icon v-if="isRestoringVersion" name="lucide:loader-circle" class="size-3 animate-spin" aria-hidden="true" />
-                <Icon v-else name="lucide:rotate-ccw" class="size-3 text-primary" aria-hidden="true" />
-                <span>Restore v{{ item.version }}</span>
-              </Button>
+              <template v-else>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  :disabled="isRestoringVersion || isDeletingVersion"
+                  class="h-7 px-2.5 text-xs gap-1.5 cursor-pointer"
+                  @click="handleRestore(item.version)"
+                >
+                  <Icon v-if="isRestoringVersion" name="lucide:loader-circle" class="size-3 animate-spin" aria-hidden="true" />
+                  <Icon v-else name="lucide:rotate-ccw" class="size-3 text-primary" aria-hidden="true" />
+                  <span>Restore v{{ item.version }}</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  :disabled="isRestoringVersion || isDeletingVersion"
+                  class="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                  title="Delete this version"
+                  @click="emit('deleteVersion', item.version)"
+                >
+                  <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
+                </Button>
+              </template>
             </div>
           </div>
 

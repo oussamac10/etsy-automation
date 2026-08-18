@@ -209,6 +209,35 @@ export function useListing() {
     }
   }
 
+  const isDeletingVersion = ref(false);
+
+  async function deleteVersion(workflowId: string, versionNumber: number): Promise<ListingDraft | null> {
+    if (!workflowId) return null;
+    isDeletingVersion.value = true;
+    errorMessage.value = null;
+
+    try {
+      const data = await $fetch<ListingDraft>(
+        `${apiBase}/api/v1/workflows/${workflowId}/listing/versions/${versionNumber}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Accept: 'application/json',
+            ...getCsrfHeaders(),
+          },
+          credentials: 'include',
+        }
+      );
+      listingDraft.value = data;
+      return data;
+    } catch (err: unknown) {
+      errorMessage.value = getApiErrorMessage(err, `Failed to delete version ${versionNumber}.`);
+      throw err;
+    } finally {
+      isDeletingVersion.value = false;
+    }
+  }
+
   return {
     listingDraft,
     isLoading,
@@ -217,6 +246,7 @@ export function useListing() {
     isGeneratingSeo,
     isBuildingPackage,
     isRestoringVersion,
+    isDeletingVersion,
     isDecidingGate,
     errorMessage,
     loadListing,
@@ -225,6 +255,7 @@ export function useListing() {
     generateSeo,
     buildPackage,
     restoreVersion,
+    deleteVersion,
     decideGate3,
   };
 }

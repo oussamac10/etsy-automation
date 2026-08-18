@@ -1591,6 +1591,45 @@ async def restore_listing_version_endpoint(
     return await _build_listing_response(updated_draft, workflow_id, uow, storage)
 
 
+@router.delete(
+    "/{workflow_id}/listing/versions/{version_number}",
+    response_model=ListingDraftResponse,
+    summary="Delete a listing copy version from history",
+)
+async def delete_listing_version_endpoint(
+    workflow_id: uuid.UUID,
+    version_number: int,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing_service = ListingDraftService()
+    try:
+        updated_draft = await listing_service.delete_version(
+            workflow_id=workflow_id,
+            target_version=version_number,
+            uow=uow,
+            actor_email=user.email,
+        )
+        await uow.commit()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return await _build_listing_response(updated_draft, workflow_id, uow, storage)
+
+
 @router.post(
     "/{workflow_id}/listing/rescreen",
     response_model=ListingDraftResponse,

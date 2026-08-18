@@ -29,6 +29,7 @@ const {
   isGeneratingSeo,
   isBuildingPackage,
   isRestoringVersion,
+  isDeletingVersion,
   isDecidingGate,
   errorMessage,
   loadListing,
@@ -37,6 +38,7 @@ const {
   generateSeo,
   buildPackage,
   restoreVersion,
+  deleteVersion,
   decideGate3,
 } = useListing();
 
@@ -107,6 +109,17 @@ async function handleRestoreVersion(versionNumber: number) {
     localDescription.value = draft.description;
     localTags.value = [...draft.tags];
     successMessage.value = `Successfully restored to Version ${versionNumber}.`;
+    setTimeout(() => {
+      successMessage.value = null;
+    }, 4000);
+  }
+}
+
+async function handleDeleteVersion(versionNumber: number) {
+  successMessage.value = null;
+  const draft = await deleteVersion(props.workflowId, versionNumber);
+  if (draft) {
+    successMessage.value = `Version ${versionNumber} removed from history.`;
     setTimeout(() => {
       successMessage.value = null;
     }, 4000);
@@ -244,11 +257,13 @@ const isApproved = computed(() => {
             :has-unsaved-changes="isListingCopyDirty"
             :history="listingDraft.history"
             :is-restoring-version="isRestoringVersion"
+            :is-deleting-version="isDeletingVersion"
             @update:title="localTitle = $event"
             @update:description="localDescription = $event"
             @save="handleSave"
             @generate-seo="handleGenerateSeo"
             @restore-version="handleRestoreVersion"
+            @delete-version="handleDeleteVersion"
           />
 
           <TagEditorCard

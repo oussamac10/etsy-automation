@@ -32,22 +32,44 @@ from app.infrastructure.models import (
 logger = structlog.get_logger(__name__)
 
 
+def deduplicate_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deduplicate version history by content so identical title/desc/tags are never duplicated."""
+    seen_content: set[str] = set()
+    cleaned: list[dict[str, Any]] = []
+    for item in history:
+        raw_t = [str(x).strip().lower() for x in item.get("tags", [])]
+        tags_sorted = tuple(sorted(raw_t))
+        content_key = f"{str(item.get('title', '')).strip().lower()}||{str(item.get('description', '')).strip().lower()}||{','.join(tags_sorted)}"
+        if content_key not in seen_content:
+            seen_content.add(content_key)
+            cleaned.append(item)
+    return cleaned
+
+
 def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None:
-    """Record a version snapshot into draft.ip_findings['history'] so users can view and restore past versions."""
+    """Record a version snapshot into draft.ip_findings['history'] and ensure no duplicates."""
     findings = dict(draft.ip_findings or {})
     raw_history = findings.get("history")
     history: list[dict[str, Any]] = list(raw_history) if isinstance(raw_history, list) else []
 
+    # Clean existing duplicates first
+    history = deduplicate_history(history)
+
     risk_str = draft.ip_risk_level.value if hasattr(draft.ip_risk_level, "value") else str(draft.ip_risk_level)
 
-    # Check if latest history entry matches current content
-    if history:
-        last = history[-1]
-        if (
-            last.get("title") == draft.title
-            and last.get("description") == draft.description
-            and last.get("tags") == draft.tags
-        ):
+    # Check if this exact content already exists in history
+    draft_tags_sorted = tuple(sorted(str(t).strip().lower() for t in draft.tags))
+    draft_key = f"{str(draft.title).strip().lower()}||{str(draft.description).strip().lower()}||{','.join(draft_tags_sorted)}"
+
+    for existing in history:
+        ext_tags_sorted = tuple(sorted(str(t).strip().lower() for t in existing.get("tags", [])))
+        ext_key = f"{str(existing.get('title', '')).strip().lower()}||{str(existing.get('description', '')).strip().lower()}||{','.join(ext_tags_sorted)}"
+        if ext_key == draft_key:
+            # Already exists in history; update version number and avoid adding duplicate
+            existing["version"] = draft.version
+            existing["ip_risk_level"] = risk_str
+            findings["history"] = history
+            draft.ip_findings = findings
             return
 
     snapshot: dict[str, Any] = {
@@ -60,7 +82,7 @@ def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None
         "source": source,
     }
     history.append(snapshot)
-    findings["history"] = history
+    findings["history"] = deduplicate_history(history)
     draft.ip_findings = findings
 
 
@@ -259,6 +281,46 @@ class ListingDraftService:
             actor_email=actor_email,
             trademark_service=trademark_service,
         )
+
+    async def delete_version(
+        self,
+        workflow_id: uuid.UUID,
+        target_version: int,
+        uow: UnitOfWork,
+        actor_email: str,
+    ) -> ListingDraft:
+        """Delete a version snapshot from listing history."""
+        draft = await uow.listing_drafts.get_by_workflow(workflow_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", workflow_id)
+
+        findings = dict(draft.ip_findings or {})
+        raw_history = findings.get("history")
+        history: list[dict[str, Any]] = list(raw_history) if isinstance(raw_history, list) else []
+
+        remaining_history = [s for s in history if s.get("version") != target_version]
+        if len(remaining_history) == len(history):
+            raise DomainError(f"Version {target_version} not found in listing history.")
+
+        findings["history"] = deduplicate_history(remaining_history)
+        draft.ip_findings = findings
+        await uow.listing_drafts.update_ip_review(
+            draft.id,
+            ip_reviewed_phrase=draft.ip_reviewed_phrase,
+            ip_risk_level=draft.ip_risk_level,
+            ip_findings=findings,
+        )
+
+        await uow.audit.record(
+            action=AuditAction.SETTINGS_UPDATED,
+            entity_type="ListingDraft",
+            summary=f"Deleted listing version {target_version} from history",
+            workflow_id=workflow_id,
+            entity_id=draft.id,
+            actor=actor_email,
+            metadata={"deleted_version": target_version},
+        )
+        return draft
 
     async def rescreen_trademark(
         self,
