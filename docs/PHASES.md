@@ -178,7 +178,24 @@ Acceptance: the production checklist is signed off; rollback and restore are
 documented and tested; scheduled work continues without the owner's computer;
 budget and operational failures produce actionable Telegram alerts.
 
-## Phase 11 — Optional SaaS expansion
+## Phase 11 — Post-publishing profit intelligence and winner expansion
+
+Do not begin until Etsy publishing is working and the shop has enough real sales data to produce meaningful signals. This phase is intentionally lower priority than completing the publishing MVP.
+
+- [ ] Import Etsy orders, transactions, refunds, fees, and listing performance into an owner-scoped analytics model
+- [ ] Calculate revenue, net profit, margin, API/design cost per listing, and profit per campaign
+- [ ] Rank niches, styles, seasons, keyword clusters, buyer segments, and product themes by actual shop performance
+- [ ] AI profit advisor that explains what is working, what is underperforming, and concrete actions to improve profit
+- [ ] Detect winning listings and extract reusable performance patterns without copying the original artwork
+- [ ] `Winner Expansion` workflow that proposes differentiated ideas based on best sellers
+- [ ] Generate new PNG concepts from winning patterns and route approved ideas back through the existing research, artwork, production, SEO, and trademark gates
+- [ ] Guardrails against near-duplicate designs, trademark reuse, overfitting to tiny samples, and blind automatic publishing
+- [ ] Dashboard for sales, profit, conversion signals, winners, losers, and recommendation history
+- [ ] Feed validated sales-performance signals back into Phase 5 research scoring so future campaigns learn from real shop results
+
+Acceptance: the system can explain why it recommends a new product using measurable shop evidence; recommendations are advisory until approved by the owner; new artwork is materially differentiated from prior winners; and no automatic publish action is introduced.
+
+## Phase 12 — Optional SaaS expansion
 
 Do not begin until the private single-shop MVP has real usage evidence.
 
