@@ -23,6 +23,7 @@ import Badge from "~/components/ui/Badge.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
 import CustomizableSelect, { type SelectOption } from "~/components/ui/CustomizableSelect.vue";
+import Pagination from "~/components/ui/Pagination.vue";
 import Progress from "~/components/ui/Progress.vue";
 import { useLibraryProducts } from "~/composables/useLibraryProducts";
 
@@ -337,6 +338,19 @@ const filteredWorkflows = computed(() => {
     );
   }
   return list;
+});
+
+// Pagination state (Max 10 per page)
+const currentPage = ref(1);
+const pageSize = 10;
+const totalFilteredWorkflows = computed(() => filteredWorkflows.value.length);
+const paginatedWorkflows = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return filteredWorkflows.value.slice(start, start + pageSize);
+});
+
+watch([selectedFilter, searchQuery], () => {
+  currentPage.value = 1;
 });
 
 const hasActiveWorkflows = computed(() => workflows.value.some((wf) => isRunning(wf.state)));
@@ -823,7 +837,7 @@ onUnmounted(() => {
             <!-- Workflows Mobile Cards (Mobile View) -->
             <div class="md:hidden space-y-3">
               <div
-                v-for="wf in filteredWorkflows"
+                v-for="wf in paginatedWorkflows"
                 :key="wf.id"
                 class="p-4 bg-white border border-border rounded-xl shadow-2xs space-y-3 transition-all hover:border-slate-300"
               >
@@ -931,7 +945,7 @@ onUnmounted(() => {
                 </thead>
                 <tbody class="divide-y divide-border bg-white align-middle text-secondary-foreground">
                   <tr
-                    v-for="wf in filteredWorkflows"
+                    v-for="wf in paginatedWorkflows"
                     :key="wf.id"
                     class="transition-colors hover:bg-secondary/30 group"
                   >
@@ -1028,6 +1042,14 @@ onUnmounted(() => {
                 </tbody>
               </table>
             </div>
+
+            <!-- Pagination Bar -->
+            <Pagination
+              v-model:current-page="currentPage"
+              :total-items="totalFilteredWorkflows"
+              :page-size="pageSize"
+              class="mt-3"
+            />
           </div>
         </CardContent>
       </Card>

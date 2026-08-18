@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import NavBar from "~/components/NavBar.vue";
 import Button from "~/components/ui/Button.vue";
 import Card from "~/components/ui/Card.vue";
@@ -8,6 +8,7 @@ import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
 import Input from "~/components/ui/Input.vue";
 import Label from "~/components/ui/Label.vue";
+import Pagination from "~/components/ui/Pagination.vue";
 import ImageCropperView from "~/components/ui/ImageCropperView.vue";
 import {
   STANDARD_PRODUCT_TYPES,
@@ -127,6 +128,19 @@ const filteredTemplates = computed(() => {
     );
   }
   return list;
+});
+
+// Pagination state (Max 10 per page)
+const currentPage = ref(1);
+const pageSize = 10;
+const totalFilteredTemplates = computed(() => filteredTemplates.value.length);
+const paginatedTemplates = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return filteredTemplates.value.slice(start, start + pageSize);
+});
+
+watch([selectedCategory, searchQuery], () => {
+  currentPage.value = 1;
 });
 
 // Category counts map
@@ -883,7 +897,7 @@ onMounted(() => {
       <!-- Templates Grid -->
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         <Card
-          v-for="tpl in filteredTemplates"
+          v-for="tpl in paginatedTemplates"
           :key="tpl.id"
           class="overflow-hidden bg-white border border-border shadow-2xs hover:shadow-md transition-all flex flex-col group"
         >
@@ -960,6 +974,15 @@ onMounted(() => {
           </div>
         </Card>
       </div>
+
+      <!-- Pagination Bar -->
+      <Pagination
+        v-if="filteredTemplates.length > 0"
+        v-model:current-page="currentPage"
+        :total-items="totalFilteredTemplates"
+        :page-size="pageSize"
+        class="mt-6"
+      />
     </main>
 
     <!-- Modal: Delete Confirmation -->

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import NavBar from "~/components/NavBar.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
@@ -18,6 +18,7 @@ import DialogHeader from "~/components/ui/DialogHeader.vue";
 import DialogTitle from "~/components/ui/DialogTitle.vue";
 import Input from "~/components/ui/Input.vue";
 import Label from "~/components/ui/Label.vue";
+import Pagination from "~/components/ui/Pagination.vue";
 import Progress from "~/components/ui/Progress.vue";
 import Skeleton from "~/components/ui/Skeleton.vue";
 import { useAuthStore } from "~/stores/auth";
@@ -248,6 +249,19 @@ const filteredLedger = computed(() => {
     );
   }
   return list;
+});
+
+// Pagination state (Max 10 per page)
+const currentPage = ref(1);
+const pageSize = 10;
+const totalFilteredLedger = computed(() => filteredLedger.value.length);
+const paginatedLedger = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return filteredLedger.value.slice(start, start + pageSize);
+});
+
+watch([selectedProviderFilter, searchQuery], () => {
+  currentPage.value = 1;
 });
 
 onMounted(async () => {
@@ -627,7 +641,7 @@ onMounted(async () => {
                 </tr>
 
                 <tr
-                  v-for="item in filteredLedger"
+                  v-for="item in paginatedLedger"
                   v-else
                   :key="item.id"
                   class="hover:bg-secondary/30 transition-colors"
@@ -679,6 +693,15 @@ onMounted(async () => {
               </tbody>
             </table>
           </div>
+
+          <!-- Pagination Bar -->
+          <Pagination
+            v-if="filteredLedger.length > 0"
+            v-model:current-page="currentPage"
+            :total-items="totalFilteredLedger"
+            :page-size="pageSize"
+            class="px-4"
+          />
         </CardContent>
       </Card>
     </main>
