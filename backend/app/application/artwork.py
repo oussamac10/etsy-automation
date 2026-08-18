@@ -39,10 +39,7 @@ def estimate_artwork_cost(
         else:
             unit_price = Decimal("0.035")
     elif p_lower == "gemini":
-        if "pro" in m_lower:
-            unit_price = Decimal("0.15")
-        else:
-            unit_price = Decimal("0.03")
+        unit_price = Decimal("0.15") if "pro" in m_lower else Decimal("0.03")
     else:
         unit_price = Decimal("0.035")
 

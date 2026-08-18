@@ -203,9 +203,9 @@ async def handle_telegram_command(
             ]
             inline_keyboard = []
             for i, c in enumerate(concepts[:3]):
-                score_val = (c.score if c.score is not None else 0.0)
+                score_val = c.score if c.score is not None else 0.0
                 lines.append(
-                    f"{i+1}. <b>{escape_html(c.title)}</b> "
+                    f"{i + 1}. <b>{escape_html(c.title)}</b> "
                     f"(Score: {score_val:.2f} | Risk: {c.risk_level.value})"
                 )
                 prompts = await uow.concepts.prompts(c.id)
@@ -214,15 +214,22 @@ async def handle_telegram_command(
                 if latest_prompt:
                     prompt_txt = escape_html(latest_prompt.positive_prompt)
                     lines.append(f"Prompt: <code>{prompt_txt}</code>")
-                inline_keyboard.append([
+                inline_keyboard.append(
+                    [
+                        {
+                            "text": f"Approve Concept {i + 1}",
+                            "callback_data": f"approve:{c.id}:{version}",
+                        }
+                    ]
+                )
+            inline_keyboard.append(
+                [
                     {
-                        "text": f"Approve Concept {i+1}",
-                        "callback_data": f"approve:{c.id}:{version}",
+                        "text": "Reject All",
+                        "callback_data": f"reject:{workflow.id}:{workflow.version}",
                     }
-                ])
-            inline_keyboard.append([
-                {"text": "Reject All", "callback_data": f"reject:{workflow.id}:{workflow.version}"}
-            ])
+                ]
+            )
             # Return custom TelegramResponse string subclass
             return TelegramResponse(
                 "\n".join(lines),
@@ -497,7 +504,7 @@ async def handle_telegram_callback(
                 comment="Approved via Telegram remote control inline button",
             )
             return (
-                f"Candidate artwork approved successfully! "
+                "Candidate artwork approved successfully! "
                 "The workflow campaign is ready for production."
             )
         except Exception as exc:
@@ -536,7 +543,10 @@ async def handle_telegram_callback(
                 target_version=target_version,
                 comment="Rejected options via Telegram remote control inline button",
             )
-            return f"Artwork options for campaign '<b>{escape_html(workflow.name)}</b>' have been rejected."
+            return (
+                f"Artwork options for campaign '<b>{escape_html(workflow.name)}</b>' "
+                "have been rejected."
+            )
         except Exception as exc:
             return f"Failed to reject artwork options: {exc!s}"
 
@@ -556,7 +566,7 @@ async def handle_telegram_callback(
             return "Workflow not found."
 
         from app.domain.enums import ConceptStatus, ProviderName
-        from app.domain.workflow import RunStatus, JobStatus
+        from app.domain.workflow import JobStatus, RunStatus
         from app.infrastructure.models import ArtworkJob
 
         try:
@@ -572,7 +582,9 @@ async def handle_telegram_callback(
 
             # 2. Start standard artwork generation
             concepts = await uow.concepts.list_for_workflow(workflow_id)
-            approved_concept = next((c for c in concepts if c.status == ConceptStatus.APPROVED), None)
+            approved_concept = next(
+                (c for c in concepts if c.status == ConceptStatus.APPROVED), None
+            )
             if not approved_concept:
                 return "No approved concept found to regenerate artwork from."
 
@@ -620,7 +632,10 @@ async def handle_telegram_callback(
             )
             await uow.commit()
 
-            return "Artwork generation enqueued successfully! You will receive another notification when complete."
+            return (
+                "Artwork generation enqueued successfully! "
+                "You will receive another notification when complete."
+            )
         except Exception as exc:
             return f"Failed to enqueue regeneration: {exc!s}"
 

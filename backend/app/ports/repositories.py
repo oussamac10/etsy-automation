@@ -19,7 +19,7 @@ from typing import Protocol, runtime_checkable
 
 from app.domain.enums import AuditAction, CostStatus, ProviderName
 from app.domain.money import Money
-from app.domain.workflow import ApprovalDecision, ApprovalGate, FailureStatus, JobStatus, RunStatus
+from app.domain.workflow import ApprovalDecision, ApprovalGate, RunStatus
 from app.infrastructure.models import (
     Approval,
     ArtworkJob,
@@ -191,7 +191,7 @@ class WorkflowRepository(Protocol):
         self,
         workflow: ProductWorkflow,
         *,
-        to_state: RunStatus | FailureStatus | str,
+        to_state: RunStatus,
         expected_version: int,
         reason: str,
         actor: str = "system",

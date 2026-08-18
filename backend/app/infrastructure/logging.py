@@ -56,11 +56,7 @@ def redact_secrets(
 
     def _redact_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
         return {
-            key: (
-                REDACTED
-                if key.lower() in SENSITIVE_KEYS
-                else _redact_value(value)
-            )
+            key: (REDACTED if key.lower() in SENSITIVE_KEYS else _redact_value(value))
             for key, value in mapping.items()
         }
 

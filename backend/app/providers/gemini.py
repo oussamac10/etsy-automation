@@ -1,15 +1,21 @@
 from __future__ import annotations
 
-from typing import Any
 import asyncio
 import base64
-import httpx
 from decimal import Decimal
+from typing import Any, cast
+
+import httpx
 
 from app.ports.errors import ProviderError, ProviderErrorKind
-from app.ports.providers import ImageRequest, ImageResponse, ImageCandidate, TextRequest, TextResponse
+from app.ports.providers import (
+    ImageCandidate,
+    ImageRequest,
+    ImageResponse,
+    TextRequest,
+    TextResponse,
+)
 from app.providers.openai import ResearchSynthesisSchema
-
 
 ALLOWED_GEMINI_SCHEMA_KEYS = {
     "type",
@@ -30,7 +36,8 @@ def clean_gemini_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
     1. Inlines $defs / $ref because Google Gemini responseSchema does not support $defs / $ref.
     2. Converts anyOf/oneOf null unions into nullable: True.
-    3. Recursively removes unsupported keywords like additionalProperties, title, $schema, default, etc.
+    3. Recursively removes unsupported keywords like additionalProperties,
+       title, $schema, default, etc.
     """
     defs = schema.get("$defs", {})
 
@@ -80,7 +87,7 @@ def clean_gemini_schema(schema: dict[str, Any]) -> dict[str, Any]:
                     cleaned[k] = v
         return cleaned
 
-    return resolve_schema_node(schema)
+    return cast(dict[str, Any], resolve_schema_node(schema))
 
 
 inline_refs = clean_gemini_schema
@@ -116,7 +123,7 @@ class GeminiImageAdapter:
         reference_image_mime_type: str | None = None,
     ) -> ImageCandidate:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        
+
         headers = {
             "x-goog-api-key": self._api_key,
             "Content-Type": "application/json",
@@ -125,31 +132,25 @@ class GeminiImageAdapter:
         # Build content parts
         parts: list[dict[str, Any]] = []
         if reference_image_bytes:
-            parts.append({
-                "inlineData": {
-                    "mimeType": reference_image_mime_type or "image/png",
-                    "data": base64.b64encode(reference_image_bytes).decode("utf-8"),
+            parts.append(
+                {
+                    "inlineData": {
+                        "mimeType": reference_image_mime_type or "image/png",
+                        "data": base64.b64encode(reference_image_bytes).decode("utf-8"),
+                    }
                 }
-            })
+            )
         parts.append({"text": prompt})
 
         # Build content payload
         payload: dict[str, Any] = {
-            "contents": [
-                {
-                    "parts": parts
-                }
-            ],
-            "generationConfig": {
-                "responseModalities": ["IMAGE"]
-            }
+            "contents": [{"parts": parts}],
+            "generationConfig": {"responseModalities": ["IMAGE"]},
         }
 
         # Add image config if aspect ratio is provided
         if aspect_ratio:
-            payload["generationConfig"]["imageConfig"] = {
-                "aspectRatio": aspect_ratio
-            }
+            payload["generationConfig"]["imageConfig"] = {"aspectRatio": aspect_ratio}
 
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
@@ -204,7 +205,7 @@ class GeminiImageAdapter:
                     )
 
                 parts = candidates[0].get("content", {}).get("parts", [])
-                
+
                 # Look for inlineData representing the image bytes
                 inline_data = None
                 for part in parts:
@@ -222,7 +223,7 @@ class GeminiImageAdapter:
 
                 mime_type = inline_data.get("mimeType", "image/png")
                 b64_data = inline_data["data"]
-                
+
                 try:
                     image_bytes = base64.b64decode(b64_data)
                 except Exception as exc:
@@ -260,23 +261,28 @@ class GeminiImageAdapter:
 
     async def generate(self, request: ImageRequest) -> ImageResponse:
         model = request.model or self._default_model
-        
+
         # Calculate aspect ratio string from dimensions
         aspect_ratio: str | None = None
         if request.width and request.height:
             if request.width == request.height:
                 aspect_ratio = "1:1"
             elif request.width > request.height:
-                aspect_ratio = "4:3" if abs(request.width / request.height - 4/3) < 0.1 else "16:9"
+                aspect_ratio = (
+                    "4:3" if abs(request.width / request.height - 4 / 3) < 0.1 else "16:9"
+                )
             else:
-                aspect_ratio = "3:4" if abs(request.height / request.width - 4/3) < 0.1 else "9:16"
+                aspect_ratio = (
+                    "3:4" if abs(request.height / request.width - 4 / 3) < 0.1 else "9:16"
+                )
 
         candidate_count = request.candidate_count or 1
         prompt = request.positive_prompt
         if request.reference_image_bytes is not None:
             isolation_instruction = (
-                "Keep the artwork isolated on a plain clean background suitable for automatic background removal. "
-                "Do not add scenery, gradients, shadows extending to the canvas edges, frames, borders, or textured backgrounds."
+                "Keep the artwork isolated on a plain clean background suitable "
+                "for automatic background removal. Do not add scenery, gradients, "
+                "shadows extending to the canvas edges, frames, borders, or textured backgrounds."
             )
             prompt = f"{prompt}\n{isolation_instruction}"
 
@@ -324,7 +330,8 @@ class GeminiSynthesisAdapter:
     """Live Google Gemini Structured Synthesis Adapter.
 
     Communicates with Google AI Studio REST API using the v1beta generateContent endpoint.
-    Includes built-in exponential backoff for transient 503 Service Unavailable and rate-limit errors.
+    Includes built-in exponential backoff for transient 503 Service Unavailable and
+    rate-limit errors.
     """
 
     name = "gemini"
@@ -347,25 +354,15 @@ class GeminiSynthesisAdapter:
 
         # Format content for Gemini API
         payload: dict[str, Any] = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": request.prompt}
-                    ]
-                }
-            ],
+            "contents": [{"parts": [{"text": request.prompt}]}],
             "generationConfig": {
                 "responseMimeType": "application/json",
-                "responseSchema": inline_refs(ResearchSynthesisSchema.model_json_schema())
-            }
+                "responseSchema": inline_refs(ResearchSynthesisSchema.model_json_schema()),
+            },
         }
 
         if request.system:
-            payload["systemInstruction"] = {
-                "parts": [
-                    {"text": request.system}
-                ]
-            }
+            payload["systemInstruction"] = {"parts": [{"text": request.system}]}
 
         if request.max_output_tokens:
             payload["generationConfig"]["maxOutputTokens"] = request.max_output_tokens
@@ -452,7 +449,9 @@ class GeminiSynthesisAdapter:
                                 kind=ProviderErrorKind.INVALID_REQUEST,
                                 provider=self.name,
                                 operation="generate",
-                                message=f"Model response did not validate against strict schema: {exc}",
+                                message=(
+                                    f"Model response did not validate against strict schema: {exc}"
+                                ),
                             ) from exc
 
                         usage = data.get("usageMetadata", {})

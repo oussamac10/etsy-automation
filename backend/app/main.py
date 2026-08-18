@@ -81,11 +81,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             bot_token = resolved.telegram_bot_token.get_secret_value()
         elif resolved.provider_mode == "live" and cipher:
             try:
-                from app.infrastructure.models import ProviderCredential
-                from app.domain.enums import ProviderName
                 from sqlalchemy import select
+
+                from app.domain.enums import ProviderName
+                from app.infrastructure.models import ProviderCredential
+
                 async with application.state.session_factory() as session:
-                    stmt = select(ProviderCredential).where(ProviderCredential.provider == ProviderName.TELEGRAM).limit(1)
+                    stmt = (
+                        select(ProviderCredential)
+                        .where(ProviderCredential.provider == ProviderName.TELEGRAM)
+                        .limit(1)
+                    )
                     result = await session.execute(stmt)
                     cred = result.scalar_one_or_none()
                     if cred:
@@ -105,13 +111,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         # Configure Dramatiq broker
         from worker.broker import configure_broker
+
         configure_broker(resolved.redis_url, resolved.queue_namespace)
 
         # Start Outbox Publisher
         import os
+
         outbox_publisher = None
         if not os.environ.get("PYTEST_CURRENT_TEST"):
             from app.infrastructure.outbox_publisher import OutboxPublisher
+
             session_factory = create_session_factory(engine)
             outbox_publisher = OutboxPublisher(session_factory)
             outbox_publisher.start()

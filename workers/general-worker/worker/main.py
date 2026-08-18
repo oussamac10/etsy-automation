@@ -17,7 +17,7 @@ logger = get_logger("worker")
 
 configure_broker(settings.redis_url, settings.queue_namespace)
 
-import worker.tasks  # noqa: F401 (imported to register dramatiq actors)
+import worker.tasks  # noqa: E402, F401 (imported to register dramatiq actors)
 
 
 @dramatiq.actor(max_retries=0, queue_name="health")

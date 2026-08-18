@@ -47,11 +47,17 @@ async def run_poller() -> None:
         try:
             cipher = build_credential_cipher(settings)
             if cipher:
-                from app.infrastructure.models import ProviderCredential
-                from app.domain.enums import ProviderName
                 from sqlalchemy import select
+
+                from app.domain.enums import ProviderName
+                from app.infrastructure.models import ProviderCredential
+
                 async with session_factory() as session:
-                    stmt = select(ProviderCredential).where(ProviderCredential.provider == ProviderName.TELEGRAM).limit(1)
+                    stmt = (
+                        select(ProviderCredential)
+                        .where(ProviderCredential.provider == ProviderName.TELEGRAM)
+                        .limit(1)
+                    )
                     result = await session.execute(stmt)
                     cred = result.scalar_one_or_none()
                     if cred:

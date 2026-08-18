@@ -177,9 +177,7 @@ class RecraftImageAdapter:
                     continue
                 img_resp = await client.get(url)
                 if img_resp.status_code != 200:
-                    msg = (
-                        f"Failed to download candidate {idx}: HTTP {img_resp.status_code}"
-                    )
+                    msg = f"Failed to download candidate {idx}: HTTP {img_resp.status_code}"
                     raise ProviderError(
                         kind=ProviderErrorKind.RETRYABLE,
                         provider=self.name,

@@ -8,6 +8,7 @@ Create Date: 2026-08-15
 from __future__ import annotations
 
 from collections.abc import Sequence
+
 from alembic import op
 
 revision: str = "0009_phase_7_mockups"

@@ -13,7 +13,6 @@ from collections.abc import Sequence
 
 from alembic import op
 
-
 revision: str = "0008_phase_6_telegram"
 down_revision: str | None = "0007_add_idempotency_key"
 branch_labels: str | Sequence[str] | None = None

@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from typing import Any
-import boto3
-from botocore.config import Config
+
+import boto3  # type: ignore[import-untyped]
+from botocore.config import Config  # type: ignore[import-untyped]
 
 from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import StoredObject

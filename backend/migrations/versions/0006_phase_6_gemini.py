@@ -11,9 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-import sqlalchemy as sa
 from alembic import op
-
 
 revision: str = "0006_phase_6_gemini"
 down_revision: str | None = "0005_phase_5_research_outbox"

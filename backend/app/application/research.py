@@ -54,9 +54,7 @@ async def ensure_research_within_budget(
     if settings is None:
         settings = await uow.owner_settings.create_defaults(owner_id)
 
-    projected = estimate_research_run_cost(
-        currency=settings.currency, provider_mode=provider_mode
-    )
+    projected = estimate_research_run_cost(currency=settings.currency, provider_mode=provider_mode)
 
     # The daily ceiling is checked against the single run rather than the day's
     # spend so far: one run that cannot fit in a whole day's budget is

@@ -17,7 +17,9 @@ class MockupProductPreset:
     default_top_pct: float = 0.25
     default_width_pct: float = 0.50
     default_height_pct: float = 0.50
-    default_blend_mode: str = "multiply"  # "multiply" for fabrics/textured apparel, "over" for opaque hard goods
+    default_blend_mode: str = (
+        "multiply"  # "multiply" for fabrics/textured apparel, "over" for opaque hard goods
+    )
 
 
 PRODUCT_PRESETS: dict[str, MockupProductPreset] = {

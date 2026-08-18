@@ -10,7 +10,9 @@ import asyncio
 import json
 import uuid
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
+
 import structlog
 
 from app.domain.mockup_products import get_product_preset, normalize_product_type
@@ -53,7 +55,9 @@ class MockupTemplateStore:
         owner_id: uuid.UUID | str,
         product_type: str | None = None,
     ) -> list[MockupTemplateItem]:
-        """List all saved mockup templates for an owner, optionally filtered by canonical product type."""
+        """List all saved mockup templates for an owner.
+        Optionally filtered by canonical product type.
+        """
         owner_str = str(owner_id)
         canonical_target = normalize_product_type(product_type) if product_type else None
         if canonical_target:
@@ -84,7 +88,7 @@ class MockupTemplateStore:
                     t_prod = meta.get("product_type", "tshirt")
                     t_img_key = meta.get("storage_key")
                     placement_data = meta.get("placement", {})
-                    created_at = meta.get("created_at", datetime.now(timezone.utc).isoformat())
+                    created_at = meta.get("created_at", datetime.now(UTC).isoformat())
 
                     if not t_img_key:
                         continue
@@ -97,7 +101,9 @@ class MockupTemplateStore:
                         left_pct=float(placement_data.get("left_pct", preset.default_left_pct)),
                         top_pct=float(placement_data.get("top_pct", preset.default_top_pct)),
                         width_pct=float(placement_data.get("width_pct", preset.default_width_pct)),
-                        height_pct=float(placement_data.get("height_pct", preset.default_height_pct)),
+                        height_pct=float(
+                            placement_data.get("height_pct", preset.default_height_pct)
+                        ),
                         angle_deg=float(placement_data.get("angle_deg", 0.0)),
                         blend_mode=str(placement_data.get("blend_mode", preset.default_blend_mode)),
                     )
@@ -132,15 +138,21 @@ class MockupTemplateStore:
         product_type: str,
         image_bytes: bytes,
         content_type: str = "image/jpeg",
-        placement: CustomMockupPlacement | dict | None = None,
+        placement: CustomMockupPlacement | dict[str, Any] | None = None,
     ) -> MockupTemplateItem:
         """Save a new custom mockup template image and its manifest to S3 for an owner."""
         owner_str = str(owner_id)
-        canonical = normalize_product_type(product_type) or (product_type.strip().lower().replace(" ", "_") if product_type else "custom_product")
+        canonical = normalize_product_type(product_type) or (
+            product_type.strip().lower().replace(" ", "_") if product_type else "custom_product"
+        )
         template_id = str(uuid.uuid4())
         preset = get_product_preset(canonical)
 
-        ext = "png" if "png" in content_type.lower() else ("webp" if "webp" in content_type.lower() else "jpg")
+        ext = (
+            "png"
+            if "png" in content_type.lower()
+            else ("webp" if "webp" in content_type.lower() else "jpg")
+        )
         image_key = f"mockup-templates/{owner_str}/{canonical}/{template_id}.{ext}"
         json_key = f"mockup-templates/{owner_str}/{canonical}/{template_id}.json"
 
@@ -168,14 +180,16 @@ class MockupTemplateStore:
                 blend_mode=preset.default_blend_mode,
             )
 
-        manifest = {
+        tpl_name = name.strip() or f"Custom {canonical.capitalize()} Mockup"
+        created_at_str = datetime.now(UTC).isoformat()
+        manifest: dict[str, Any] = {
             "id": template_id,
             "owner_id": owner_str,
-            "name": name.strip() or f"Custom {canonical.capitalize()} Mockup",
+            "name": tpl_name,
             "product_type": canonical,
             "storage_key": image_key,
             "placement": asdict(placement_obj),
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": created_at_str,
         }
 
         # 3. Upload manifest JSON
@@ -187,12 +201,12 @@ class MockupTemplateStore:
         return MockupTemplateItem(
             id=template_id,
             owner_id=owner_str,
-            name=manifest["name"],
+            name=tpl_name,
             product_type=canonical,
             storage_key=image_key,
             url=url,
             placement=placement_obj,
-            created_at=manifest["created_at"],
+            created_at=created_at_str,
             is_custom=True,
         )
 
@@ -213,7 +227,7 @@ class MockupTemplateStore:
         owner_id: uuid.UUID | str,
         template_id: str,
         name: str | None = None,
-        placement: CustomMockupPlacement | dict | None = None,
+        placement: CustomMockupPlacement | dict[str, Any] | None = None,
         product_type: str | None = None,
     ) -> MockupTemplateItem | None:
         """Update metadata, name, or placement coordinates of an existing template."""
@@ -251,7 +265,7 @@ class MockupTemplateStore:
             "storage_key": existing.storage_key,
             "placement": asdict(placement_obj),
             "created_at": existing.created_at,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }
 
         manifest_bytes = json.dumps(manifest, indent=2).encode("utf-8")
@@ -284,7 +298,9 @@ class MockupTemplateStore:
         try:
             await self._storage.delete(existing.storage_key)
         except Exception as err:
-            logger.warning("failed_to_delete_template_image", key=existing.storage_key, error=str(err))
+            logger.warning(
+                "failed_to_delete_template_image", key=existing.storage_key, error=str(err)
+            )
 
         # 2. Delete JSON manifest
         json_key = f"mockup-templates/{owner_str}/{existing.product_type}/{template_id}.json"

@@ -1,11 +1,12 @@
 """Domain logic for compositing and synchronizing mockups with master PNGs."""
+
 from __future__ import annotations
 
 import base64
 import hashlib
 import logging
 import uuid
-from typing import Any, cast
+from typing import cast
 
 import httpx
 
@@ -44,7 +45,9 @@ async def recomposite_workflow_mockups(
             tpl_key: str | None = str(tpl_key_val) if tpl_key_val else None
 
             if not tpl_key and prov.get("template_id"):
-                tpl = await store.get_template(owner_id=owner_id, template_id=str(prov["template_id"]))
+                tpl = await store.get_template(
+                    owner_id=owner_id, template_id=str(prov["template_id"])
+                )
                 if tpl:
                     tpl_key = tpl.storage_key
 
@@ -54,7 +57,9 @@ async def recomposite_workflow_mockups(
             try:
                 template_bytes = await storage.get(tpl_key)
             except Exception as e:
-                logger.warning("Could not load template %s for mockup %s: %s", tpl_key, mockup.id, e)
+                logger.warning(
+                    "Could not load template %s for mockup %s: %s", tpl_key, mockup.id, e
+                )
                 continue
 
             placement = prov.get("placement") or {
@@ -80,20 +85,27 @@ async def recomposite_workflow_mockups(
                     json=worker_payload,
                 )
                 if resp.status_code != 200:
-                    logger.error("Image worker failed to recomposite mockup %s: %s", mockup.id, resp.text[:200])
+                    logger.error(
+                        "Image worker failed to recomposite mockup %s: %s",
+                        mockup.id,
+                        resp.text[:200],
+                    )
                     continue
 
                 result_data = resp.json()
                 composited_bytes = base64.b64decode(result_data["mockup_base64"])
                 prod_type = str(prov.get("product_type", "mockup"))
-                new_storage_key = f"production/{workflow_id}/mockups/custom_{prod_type}_{mockup.id}_{uuid.uuid4().hex[:8]}.jpg"
+                rand_id = uuid.uuid4().hex[:8]
+                new_storage_key = (
+                    f"production/{workflow_id}/mockups/custom_{prod_type}_{mockup.id}_{rand_id}.jpg"
+                )
                 await storage.put(new_storage_key, composited_bytes, content_type="image/jpeg")
 
                 if mockup.storage_key and mockup.storage_key != new_storage_key:
-                    try:
+                    import contextlib
+
+                    with contextlib.suppress(Exception):
                         await storage.delete(mockup.storage_key)
-                    except Exception:
-                        pass
 
                 mockup.storage_key = new_storage_key
                 mockup.derived_from_id = master_asset_id

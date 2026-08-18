@@ -13,6 +13,7 @@ from app.ports.providers import TextRequest, TextResponse
 # In strict mode, all properties must be required.
 # --------------------------------------------------------------------------
 
+
 class BaseSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -115,8 +116,8 @@ class OpenAISynthesisAdapter:
                 "json_schema": {
                     "name": "research_synthesis",
                     "strict": True,
-                    "schema": ResearchSynthesisSchema.model_json_schema()
-                }
+                    "schema": ResearchSynthesisSchema.model_json_schema(),
+                },
             },
         }
 

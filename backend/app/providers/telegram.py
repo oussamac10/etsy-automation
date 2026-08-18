@@ -81,7 +81,9 @@ class RealTelegramGateway(TelegramGateway):
             ) from None
 
     async def get_updates(
-        self, offset: int | None = None, timeout: int = 30  # noqa: ASYNC109
+        self,
+        offset: int | None = None,
+        timeout: int = 30,  # noqa: ASYNC109
     ) -> list[dict[str, Any]]:
         url = f"{self._base_url}/getUpdates"
         payload: dict[str, Any] = {"timeout": timeout}
@@ -167,7 +169,9 @@ class FakeTelegramGateway(TelegramGateway):
         )
 
     async def get_updates(
-        self, offset: int | None = None, timeout: int = 30  # noqa: ASYNC109
+        self,
+        offset: int | None = None,
+        timeout: int = 30,  # noqa: ASYNC109
     ) -> list[dict[str, Any]]:
         if offset is None:
             return self.mock_updates

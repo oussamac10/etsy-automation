@@ -20,8 +20,9 @@ class SqlResearchRepository:
     ) -> ResearchRun:
         # Get next run number
         result = await self._session.execute(
-            select(func.coalesce(func.max(ResearchRun.run_number), 0))
-            .where(ResearchRun.workflow_id == workflow_id)
+            select(func.coalesce(func.max(ResearchRun.run_number), 0)).where(
+                ResearchRun.workflow_id == workflow_id
+            )
         )
         highest = result.scalar_one()
         run_number = highest + 1

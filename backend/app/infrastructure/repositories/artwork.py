@@ -86,17 +86,13 @@ class SqlAssetRepository:
 
     async def list_for_workflow(self, workflow_id: uuid.UUID) -> Sequence[Asset]:
         result = await self._session.execute(
-            select(Asset)
-            .where(Asset.workflow_id == workflow_id)
-            .order_by(Asset.created_at.desc())
+            select(Asset).where(Asset.workflow_id == workflow_id).order_by(Asset.created_at.desc())
         )
         return result.scalars().all()
 
     async def list_for_job(self, job_id: uuid.UUID) -> Sequence[Asset]:
         result = await self._session.execute(
-            select(Asset)
-            .where(Asset.artwork_job_id == job_id)
-            .order_by(Asset.created_at)
+            select(Asset).where(Asset.artwork_job_id == job_id).order_by(Asset.created_at)
         )
         return result.scalars().all()
 

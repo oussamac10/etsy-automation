@@ -14,9 +14,11 @@ from app.domain.mockup_products import (
     normalize_product_type,
 )
 
+
 # Backwards compatibility alias
 def normalize_mockup_product(raw: str | None, strict: bool = True) -> str | None:
     return normalize_product_type(raw, strict=strict)
+
 
 __all__ = [
     "DEFAULT_SUPPORTED_PRODUCTS",

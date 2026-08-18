@@ -204,11 +204,15 @@ def validate_image_payload(
     """Validate image bytes, MIME type, and decodable header."""
     clean_mime = content_type.lower().strip()
     if clean_mime not in ALLOWED_IMAGE_MIMES:
-        raise ValueError(f"Unsupported image type '{content_type}'. Allowed: {sorted(ALLOWED_IMAGE_MIMES)}")
+        raise ValueError(
+            f"Unsupported image type '{content_type}'. Allowed: {sorted(ALLOWED_IMAGE_MIMES)}"
+        )
     if len(content) == 0:
         raise ValueError("Uploaded image file is empty.")
     if len(content) > max_bytes:
-        raise ValueError(f"Uploaded image size ({len(content)} bytes) exceeds maximum limit ({max_bytes} bytes).")
+        raise ValueError(
+            f"Uploaded image size ({len(content)} bytes) exceeds maximum limit ({max_bytes} bytes)."
+        )
     # Validate magic bytes / signatures
     is_jpeg = content.startswith(b"\xff\xd8")
     is_png = content.startswith(b"\x89PNG\r\n\x1a\n")

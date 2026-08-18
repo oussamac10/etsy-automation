@@ -51,7 +51,6 @@ class CreateWorkflowRequest(BaseModel):
         return self
 
 
-
 class SubmitIdeaRequest(BaseModel):
     """The owner's own words.
 
@@ -354,5 +353,3 @@ class ReorderMockupsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     asset_ids: list[uuid.UUID]
-
-

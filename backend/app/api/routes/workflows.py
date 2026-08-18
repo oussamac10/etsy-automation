@@ -13,9 +13,9 @@ see ``docs/authentication-and-secrets.md``.
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
 import uuid
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
 
@@ -43,14 +43,14 @@ from app.api.schemas import (
     WorkflowResponse,
 )
 from app.application import workflows as use_cases
-from app.application.artwork import ensure_artwork_within_budget, estimate_artwork_cost
+from app.application.artwork import ensure_artwork_within_budget
 from app.application.production import start_production_job
 from app.application.research import queue_research_run
 from app.application.unit_of_work import UnitOfWork
 from app.domain import ip_risk
 from app.domain.enums import ConceptStatus, ProviderName
-from app.domain.workflow import RiskLevel, RunStatus, JobStatus
 from app.domain.mockup_compositor import recomposite_workflow_mockups
+from app.domain.workflow import JobStatus, RiskLevel, RunStatus
 from app.infrastructure.models import ArtworkJob, Asset, ProductionJob
 from app.providers.s3 import S3ObjectStorage
 from app.settings import get_settings
@@ -135,9 +135,7 @@ async def cancel_workflow(
     uow: UowDep,
 ) -> WorkflowResponse:
     """Stop a running campaign. Already stopped or published answers 409."""
-    workflow = await use_cases.cancel_workflow(
-        uow, workflow_id, owner_id=user.id, actor=user.email
-    )
+    workflow = await use_cases.cancel_workflow(uow, workflow_id, owner_id=user.id, actor=user.email)
     return WorkflowResponse.model_validate(workflow)
 
 
@@ -456,12 +454,14 @@ def to_asset_response(asset: Asset, url: str | None = None) -> AssetResponse:
         has_alpha=asset.has_alpha,
         has_transparent_pixels=asset.has_transparent_pixels,
         provenance=asset.provenance,
-        created_at=asset.created_at or datetime.now(timezone.utc),
+        created_at=asset.created_at or datetime.now(UTC),
         url=url,
     )
 
 
-def to_job_response(job: ArtworkJob, assets: list[AssetResponse] = []) -> ArtworkJobResponse:
+def to_job_response(
+    job: ArtworkJob, assets: list[AssetResponse] | None = None
+) -> ArtworkJobResponse:
     return ArtworkJobResponse(
         id=job.id,
         workflow_id=job.workflow_id,
@@ -481,7 +481,7 @@ def to_job_response(job: ArtworkJob, assets: list[AssetResponse] = []) -> Artwor
         failure_kind=job.failure_kind,
         failure_message=job.failure_message,
         created_at=job.created_at,
-        assets=assets,
+        assets=assets or [],
     )
 
 
@@ -505,7 +505,11 @@ async def generate_artwork(
             detail="No workflow with that ID",
         )
 
-    if workflow.state not in (RunStatus.IDEA_APPROVED, "ART_GENERATION_FAILED", RunStatus.ART_REVIEW):
+    if workflow.state not in (
+        RunStatus.IDEA_APPROVED,
+        "ART_GENERATION_FAILED",
+        RunStatus.ART_REVIEW,
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Workflow is not in a generateable state: currently in {workflow.state}",
@@ -545,11 +549,16 @@ async def generate_artwork(
         provider_mode=settings.provider_mode,
     )
 
-    idempotency_key = (
-        f"art-{workflow_id}-{latest_prompt.id}-{candidate_count}-{provider_val}-{model_val}"
-        if not force_new
-        else f"art-{workflow_id}-{latest_prompt.id}-{candidate_count}-{provider_val}-{model_val}-{uuid.uuid4().hex[:8]}"
-    )
+    if not force_new:
+        idempotency_key = (
+            f"art-{workflow_id}-{latest_prompt.id}-{candidate_count}-{provider_val}-{model_val}"
+        )
+    else:
+        rand_suffix = uuid.uuid4().hex[:8]
+        idempotency_key = (
+            f"art-{workflow_id}-{latest_prompt.id}-"
+            f"{candidate_count}-{provider_val}-{model_val}-{rand_suffix}"
+        )
 
     if not force_new:
         existing_job = await uow.artwork_jobs.get_by_idempotency_key(idempotency_key)
@@ -595,6 +604,7 @@ async def generate_artwork(
                 return to_job_response(existing_job)
 
     from app.infrastructure.models import ArtworkJob
+
     job = ArtworkJob(
         id=uuid.uuid4(),
         workflow_id=workflow_id,
@@ -688,7 +698,11 @@ async def regenerate_artwork(
             detail="No workflow with that ID",
         )
 
-    if workflow.state not in (RunStatus.ART_REVIEW, "ART_GENERATION_FAILED", RunStatus.ARTWORK_APPROVED):
+    if workflow.state not in (
+        RunStatus.ART_REVIEW,
+        "ART_GENERATION_FAILED",
+        RunStatus.ARTWORK_APPROVED,
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Cannot regenerate artwork unless artwork was already generated or failed.",
@@ -696,6 +710,7 @@ async def regenerate_artwork(
 
     if workflow.state == RunStatus.ART_REVIEW:
         from app.domain.workflow import ApprovalDecision, ApprovalGate
+
         await use_cases.decide_gate(
             uow=uow,
             workflow_id=workflow_id,
@@ -767,14 +782,14 @@ async def refine_artwork(
             detail="Approved concept has no design prompts.",
         )
     base_prompt = prompts[0]
-    latest_prompt = prompts[-1]
 
     settings = get_settings()
 
     # Automatically enhance the provider prompt with strict reference preservation instructions
     enhancement_prefix = (
         "Use the provided image as the main reference. "
-        "Preserve the existing composition, subject placement, visual style, palette, proportions, typography, and all unaffected elements. "
+        "Preserve the existing composition, subject placement, visual style, "
+        "palette, proportions, typography, and all unaffected elements. "
         "Apply only the requested change. Do not redesign the whole image. "
     )
     combined_positive = (
@@ -811,6 +826,7 @@ async def refine_artwork(
     idempotency_key = f"art-{workflow_id}-{refined_prompt.id}-{candidate_count}"
 
     from app.infrastructure.models import ArtworkJob
+
     job = ArtworkJob(
         id=uuid.uuid4(),
         workflow_id=workflow_id,
@@ -828,6 +844,7 @@ async def refine_artwork(
     await uow.artwork_jobs.add(job)
 
     from app.domain.workflow import ApprovalDecision, ApprovalGate
+
     await use_cases.decide_gate(
         uow=uow,
         workflow_id=workflow_id,
@@ -868,6 +885,7 @@ async def to_production_job_response(
 
     from app.domain.mockup_products import normalize_product_type
     from app.domain.production_resolver import filter_active_user_mockups
+
     all_wf_assets = await uow.assets.list_for_workflow(job.workflow_id)
     sorted_mockups = filter_active_user_mockups(all_wf_assets, master_asset_id=job.output_asset_id)
 
@@ -907,7 +925,7 @@ async def to_production_job_response(
         completed_at=job.completed_at,
         failure_kind=job.failure_kind,
         failure_message=job.failure_message,
-        created_at=job.created_at or datetime.now(timezone.utc),
+        created_at=job.created_at or datetime.now(UTC),
         master_asset=master_asset_resp,
         mockup_assets=mockup_resps,
         mockup_urls=mockup_urls,
@@ -1042,7 +1060,9 @@ async def set_mockup_cover_endpoint(
 ) -> AssetResponse:
     workflow = await uow.workflows.get(workflow_id)
     if not workflow or workflow.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID"
+        )
 
     all_assets = await uow.assets.list_for_workflow(workflow_id)
     target_asset = next((a for a in all_assets if a.id == asset_id), None)
@@ -1050,7 +1070,9 @@ async def set_mockup_cover_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mockup asset not found")
 
     for a in all_assets:
-        if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key:
+        if (
+            a.provenance and a.provenance.get("asset_type") == "mockup"
+        ) or "/mockups/" in a.storage_key:
             if a.id == asset_id:
                 a.provenance = dict(a.provenance or {}, is_cover=True)
             elif a.provenance and a.provenance.get("is_cover"):
@@ -1074,10 +1096,12 @@ async def reorder_mockups_endpoint(
     uow: UowDep,
     storage: StorageDep,
 ) -> list[AssetResponse]:
-    from app.api.schemas import ReorderMockupsRequest
+
     workflow = await uow.workflows.get(workflow_id)
     if not workflow or workflow.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID"
+        )
 
     all_assets = await uow.assets.list_for_workflow(workflow_id)
     asset_map = {a.id: a for a in all_assets}
@@ -1092,10 +1116,13 @@ async def reorder_mockups_endpoint(
 
     refreshed_assets = await uow.assets.list_for_workflow(workflow_id)
     mockups = [
-        a for a in refreshed_assets
-        if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key
+        a
+        for a in refreshed_assets
+        if (a.provenance and a.provenance.get("asset_type") == "mockup")
+        or "/mockups/" in a.storage_key
     ]
-    def _order_key(a: Asset):
+
+    def _order_key(a: Asset) -> tuple[int, int, datetime]:
         is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
         order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
         return (order, 0 if is_cov else 1, a.created_at or datetime.min)
@@ -1122,20 +1149,24 @@ async def delete_mockup_endpoint(
 ) -> Response:
     workflow = await uow.workflows.get(workflow_id)
     if not workflow or workflow.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID"
+        )
 
     all_assets = await uow.assets.list_for_workflow(workflow_id)
     target_asset = next((a for a in all_assets if a.id == asset_id), None)
     if not target_asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mockup asset not found")
 
-    was_cover = bool(target_asset.provenance.get("is_cover", False)) if target_asset.provenance else False
+    was_cover = (
+        bool(target_asset.provenance.get("is_cover", False)) if target_asset.provenance else False
+    )
 
     # Delete storage object in S3
-    try:
+    import contextlib
+
+    with contextlib.suppress(Exception):
         await storage.delete(target_asset.storage_key)
-    except Exception:
-        pass
 
     # Delete asset in DB
     await uow.assets.delete(target_asset)
@@ -1144,11 +1175,18 @@ async def delete_mockup_endpoint(
     # If it was cover, elect first remaining mockup as cover
     if was_cover:
         remaining_mockups = [
-            a for a in all_assets
-            if a.id != asset_id and ((a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key)
+            a
+            for a in all_assets
+            if a.id != asset_id
+            and (
+                (a.provenance and a.provenance.get("asset_type") == "mockup")
+                or "/mockups/" in a.storage_key
+            )
         ]
         if remaining_mockups:
-            remaining_mockups[0].provenance = dict(remaining_mockups[0].provenance or {}, is_cover=True)
+            remaining_mockups[0].provenance = dict(
+                remaining_mockups[0].provenance or {}, is_cover=True
+            )
             await uow.session.flush()
 
     await uow.commit()
@@ -1169,14 +1207,20 @@ async def recomposite_all_mockups_endpoint(
 ) -> list[AssetResponse]:
     workflow = await uow.workflows.get(workflow_id)
     if not workflow or workflow.owner_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No workflow with that ID"
+        )
 
     # Find active master PNG
     assets = await uow.assets.list_for_workflow(workflow_id)
     master_asset = next(
         (
-            a for a in assets
-            if (a.storage_key.endswith("/master.png") or (a.provenance and a.provenance.get("profile") == "etsy-png-standard"))
+            a
+            for a in assets
+            if (
+                a.storage_key.endswith("/master.png")
+                or (a.provenance and a.provenance.get("profile") == "etsy-png-standard")
+            )
             and "/mockups/" not in a.storage_key
             and (not a.provenance or a.provenance.get("asset_type") != "mockup")
         ),
@@ -1185,7 +1229,8 @@ async def recomposite_all_mockups_endpoint(
     if not master_asset:
         # Check artwork candidate
         artwork_assets = [
-            a for a in assets
+            a
+            for a in assets
             if a.artwork_job_id is not None
             and "/mockups/" not in a.storage_key
             and (not a.provenance or a.provenance.get("asset_type") != "mockup")
@@ -1194,7 +1239,10 @@ async def recomposite_all_mockups_endpoint(
             master_asset = artwork_assets[0]
 
     if not master_asset:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No master PNG or artwork found to composite.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No master PNG or artwork found to composite.",
+        )
 
     master_bytes = await storage.get(master_asset.storage_key)
 
@@ -1211,11 +1259,13 @@ async def recomposite_all_mockups_endpoint(
 
     refreshed_assets = await uow.assets.list_for_workflow(workflow_id)
     mockups = [
-        a for a in refreshed_assets
-        if (a.provenance and a.provenance.get("asset_type") == "mockup") or "/mockups/" in a.storage_key
+        a
+        for a in refreshed_assets
+        if (a.provenance and a.provenance.get("asset_type") == "mockup")
+        or "/mockups/" in a.storage_key
     ]
 
-    def _order_key(a: Asset):
+    def _order_key(a: Asset) -> tuple[int, int, datetime]:
         is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
         order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
         return (order, 0 if is_cov else 1, a.created_at or datetime.min)
@@ -1239,10 +1289,9 @@ async def workflow_composite_mockup_endpoint(
     storage: StorageDep,
     settings: SettingsDep,
     request: Request,
-):
+) -> Any:
     from app.api.routes.mockup_templates import (
         CompositeCustomMockupRequest,
-        CompositeMockupResponse,
         PlacementSchema,
         composite_custom_mockup_endpoint,
     )
@@ -1309,6 +1358,3 @@ async def workflow_composite_mockup_endpoint(
         storage=storage,
         settings=settings,
     )
-
-
-

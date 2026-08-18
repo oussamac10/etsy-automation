@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from decimal import Decimal
 import hashlib
 import json
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import dramatiq
-from dramatiq.middleware import CurrentMessage
 import httpx
+from dramatiq.middleware import CurrentMessage
 from sqlalchemy import select
 
 from app.api.dependencies import build_credential_cipher
@@ -32,7 +32,6 @@ from app.domain.enums import (
     SourceType,
 )
 from app.domain.errors import BudgetExceededError
-from app.domain.mockup_compositor import recomposite_workflow_mockups
 from app.domain.money import Money
 from app.domain.workflow import (
     FailureStatus,
@@ -42,20 +41,19 @@ from app.domain.workflow import (
 )
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import get_logger
+from app.infrastructure.mockup_catalog import get_requested_mockup_products
 from app.infrastructure.models import (
     Asset,
     DesignPrompt,
     KeywordCluster,
     ProductConcept,
-    ProductionJob,
     ProviderCredential,
     ResearchEvidence,
 )
 from app.infrastructure.models.audit import WorkflowFailure
-from app.infrastructure.mockup_catalog import get_requested_mockup_products
-from app.infrastructure.security import CredentialCipher
 from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import (
+    ImageGenerationProvider,
     ImageRequest,
     ResearchProvider,
     SearchQuery,
@@ -65,13 +63,18 @@ from app.ports.providers import (
 )
 
 # Providers
+from app.ports.telegram import TelegramGateway
 from app.providers.fake import FakeImageProvider, FakeResearchProvider, FakeTextProvider
 from app.providers.gemini import GeminiImageAdapter, GeminiSynthesisAdapter
 from app.providers.recraft import RecraftImageAdapter
 from app.providers.s3 import S3ObjectStorage
 from app.providers.search import TavilySearchAdapter
-from app.providers.telegram import FakeTelegramGateway, RealTelegramGateway, escape_html
-from app.settings import Settings, get_settings
+from app.providers.telegram import (
+    FakeTelegramGateway,
+    RealTelegramGateway,
+    escape_html,
+)
+from app.settings import get_settings
 from worker.retry import retry_after, should_retry
 
 logger = get_logger("worker.tasks")
@@ -103,9 +106,7 @@ def run_research_task(workflow_id: str, run_id: str) -> None:
                 attempt=attempt,
                 message=exc.message,
             )
-            asyncio.run(
-                _mark_failure_async(uuid.UUID(workflow_id), uuid.UUID(run_id), exc.message)
-            )
+            asyncio.run(_mark_failure_async(uuid.UUID(workflow_id), uuid.UUID(run_id), exc.message))
             return
 
         delay_ms = int(retry_after(exc, attempt) * 1000)
@@ -143,9 +144,7 @@ async def _release_for_retry_async(run_id: uuid.UUID, reason: str) -> None:
             run = await uow.research.get_run(run_id)
             if run is None:
                 return
-            await uow.research.update_run(
-                run_id, status=JobStatus.QUEUED, failure_reason=reason
-            )
+            await uow.research.update_run(run_id, status=JobStatus.QUEUED, failure_reason=reason)
             await uow.commit()
     except Exception as exc:
         # A failure here only costs the retry, which Dramatiq will still deliver
@@ -340,6 +339,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
         search_theme = target_theme
         if workflow.idea_mode == IdeaMode.MARKET_LED:
             import re
+
             match = re.search(r"\(([^)]+)\)", target_theme)
             if match:
                 search_theme = match.group(1)
@@ -402,68 +402,81 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             "product opportunities and produce exactly 3 unique, ranked product concepts.\n"
             "You must output a JSON object following this JSON schema exactly:\n"
             "{\n"
-            "  \"confidence\": \"high\" | \"medium\" | \"low\",\n"
-            "  \"proposed_test\": \"string outlining how to test if confidence is low\",\n"
-            "  \"keyword_clusters\": [\n"
+            '  "confidence": "high" | "medium" | "low",\n'
+            '  "proposed_test": "string outlining how to test if confidence is low",\n'
+            '  "keyword_clusters": [\n'
             "    {\n"
-            "      \"primary_phrase\": \"string\",\n"
-            "      \"attributes\": [\"string\"],\n"
-            "      \"recipient_occasion_terms\": [\"string\"],\n"
-            "      \"use_case_terms\": [\"string\"],\n"
-            "      \"competition_level\": \"saturated\" | \"crowded\" | "
-            "\"differentiable\" | \"thin\",\n"
-            "      \"competition_note\": \"string detailing why this level was selected\",\n"
-            "      \"relevance_rank\": int (0 to 100)\n"
+            '      "primary_phrase": "string",\n'
+            '      "attributes": ["string"],\n'
+            '      "recipient_occasion_terms": ["string"],\n'
+            '      "use_case_terms": ["string"],\n'
+            '      "competition_level": "saturated" | "crowded" | '
+            '"differentiable" | "thin",\n'
+            '      "competition_note": "string detailing why this level was selected",\n'
+            '      "relevance_rank": int (0 to 100)\n'
             "    }\n"
             "  ],\n"
-            "  \"concepts\": [\n"
+            '  "concepts": [\n'
             "    {\n"
-            "      \"title\": \"string\",\n"
-            "      \"description\": \"string\",\n"
-            "      \"differentiation\": \"string stating plain differentiator (do not say "
+            '      "title": "string",\n'
+            '      "description": "string",\n'
+            '      "differentiation": "string stating plain differentiator (do not say '
             "'same but prettier')\",\n"
-            "      \"target_buyer\": \"string\",\n"
-            "      \"buyer_use_case\": \"string\",\n"
-            "      \"seasonality\": \"evergreen\" | \"seasonal\" | \"both\",\n"
-            "      \"risk_level\": \"low\" | \"medium\" | \"high\",\n"
-            "      \"risk_note\": \"string detailed brand/IP trademark warnings\",\n"
-            "      \"score_breakdown\": {\n"
-            "        \"demand\": int (1 to 5),\n"
-            "        \"competition_opportunity\": int (1 to 5),\n"
-            "        \"seasonal_timing\": int (1 to 5),\n"
-            "        \"buyer_clarity\": int (1 to 5),\n"
-            "        \"differentiation\": int (1 to 5),\n"
-            "        \"product_versatility\": int (1 to 5),\n"
-            "        \"ip_safety\": int (1 to 5)\n"
+            '      "target_buyer": "string",\n'
+            '      "buyer_use_case": "string",\n'
+            '      "seasonality": "evergreen" | "seasonal" | "both",\n'
+            '      "risk_level": "low" | "medium" | "high",\n'
+            '      "risk_note": "string detailed brand/IP trademark warnings",\n'
+            '      "score_breakdown": {\n'
+            '        "demand": int (1 to 5),\n'
+            '        "competition_opportunity": int (1 to 5),\n'
+            '        "seasonal_timing": int (1 to 5),\n'
+            '        "buyer_clarity": int (1 to 5),\n'
+            '        "differentiation": int (1 to 5),\n'
+            '        "product_versatility": int (1 to 5),\n'
+            '        "ip_safety": int (1 to 5)\n'
             "      },\n"
-            "      \"score_explanation\": \"string summary of how the scores compare\",\n"
-            "      \"fidelity\": \"High\" | \"Medium\" | \"Low\",\n"
-            "      \"origin\": \"user\" | \"market\" | \"hybrid\",\n"
-            "      \"prompt\": {\n"
-            "        \"positive_prompt\": \"string detailing central subject, style, "
-            "composition, details, palette, isolated artwork on a transparent background\",\n"
-            "        \"negative_prompt\": \"string detailing elements to reject "
-            "(background, mockups, watermarks, etc.)\",\n"
-            "        \"typography_instructions\": \"string or null detailing font, layout, "
-            "placement\",\n"
-            "        \"exact_slogan\": \"string or null detailing exact text slogans\",\n"
-            "        \"intended_product_uses\": [\"string\"],\n"
-            "        \"style_notes\": \"string or null\",\n"
-            "        \"palette\": \"string or null\",\n"
-            "        \"post_generation_checklist\": [\"string\"],\n"
-            "        \"generation_metadata\": {}\n"
+            '      "score_explanation": "string summary of how the scores compare",\n'
+            '      "fidelity": "High" | "Medium" | "Low",\n'
+            '      "origin": "user" | "market" | "hybrid",\n'
+            '      "prompt": {\n'
+            '        "positive_prompt": "string detailing central subject, style, '
+            'composition, details, palette, isolated artwork on a transparent background",\n'
+            '        "negative_prompt": "string detailing elements to reject '
+            '(background, mockups, watermarks, etc.)",\n'
+            '        "typography_instructions": "string or null detailing font, layout, '
+            'placement",\n'
+            '        "exact_slogan": "string or null detailing exact text slogans",\n'
+            '        "intended_product_uses": ["string"],\n'
+            '        "style_notes": "string or null",\n'
+            '        "palette": "string or null",\n'
+            '        "post_generation_checklist": ["string"],\n'
+            '        "generation_metadata": {}\n'
             "      }\n"
             "    }\n"
             "  ]\n"
             "}\n"
             "\n"
             "Rules to strictly follow:\n"
-            "1. For 'user-idea' mode: You MUST generate EXACTLY ONE concept. It must be a faithful, improved, and analyzed version of the user's provided idea. If the user provided an exact slogan, you MUST preserve it verbatim in the 'exact_slogan' field of this concept, unless risk/trademark checks reject/flag it. Set fidelity to 'High' and origin to 'user'.\n"
-            "2. For 'hybrid' mode: You MUST generate EXACTLY 3 concepts, which MUST be derived variations of the user's theme/direction and remain recognizably connected to it, while informing them with market research. Set origin to 'hybrid' and fidelity to 'Medium'.\n"
-            "3. For 'market-led' mode: You MUST generate EXACTLY 3 concepts, discovering opportunities from the market/seasonal research evidence. Set origin to 'market' and fidelity to 'Low'.\n"
-            "4. Never name living artists in the positive prompt. Style must be descriptive (e.g. textured watercolor shading, vintage retro groovy style).\n"
-            "5. Every prompt must demand 'isolated central artwork on a transparent background' and 'clean uncropped edges'.\n"
-            "6. Keep typography separate. Slogans should be null in the positive prompt, and exact phrases must be listed in exact_slogan and layout instructions in typography_instructions.\n"
+            "1. For 'user-idea' mode: You MUST generate EXACTLY ONE concept. "
+            "It must be a faithful, improved, and analyzed version of the user's provided idea. "
+            "If the user provided an exact slogan, you MUST preserve it verbatim in the "
+            "'exact_slogan' field of this concept, unless risk/trademark checks reject/flag it. "
+            "Set fidelity to 'High' and origin to 'user'.\n"
+            "2. For 'hybrid' mode: You MUST generate EXACTLY 3 concepts, which MUST be derived "
+            "variations of the user's theme/direction and remain recognizably connected to it, "
+            "while informing them with market research. "
+            "Set origin to 'hybrid' and fidelity to 'Medium'.\n"
+            "3. For 'market-led' mode: You MUST generate EXACTLY 3 concepts, discovering "
+            "opportunities from the market/seasonal research evidence. "
+            "Set origin to 'market' and fidelity to 'Low'.\n"
+            "4. Never name living artists in the positive prompt. Style must be descriptive "
+            "(e.g. textured watercolor shading, vintage retro groovy style).\n"
+            "5. Every prompt must demand 'isolated central artwork on a transparent background' "
+            "and 'clean uncropped edges'.\n"
+            "6. Keep typography separate. Slogans should be null in the positive prompt, and exact "
+            "phrases must be listed in exact_slogan and layout instructions in "
+            "typography_instructions.\n"
             "7. Never invent or include fake search volume numbers."
         )
 
@@ -482,9 +495,14 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 f"User Season: {idea_season}\n"
             )
             if idea_slogan:
-                user_prompt += f"User Slogan: {idea_slogan} (Preserve verbatim unless it fails trademark/IP validation)\n"
+                user_prompt += (
+                    f"User Slogan: {idea_slogan} (Preserve verbatim unless "
+                    "it fails trademark/IP validation)\n"
+                )
             else:
-                user_prompt += "User Slogan: None provided (You may suggest a slogan if appropriate)\n"
+                user_prompt += (
+                    "User Slogan: None provided (You may suggest a slogan if appropriate)\n"
+                )
         user_prompt += f"\nSearch Evidence Collected:\n{evidence_content}\n"
 
         # Record estimate in ledger before paid call
@@ -725,11 +743,15 @@ def run_artwork_task(workflow_id: str, job_id: str) -> None:
         raise dramatiq.errors.Retry(delay=delay_ms) from exc
     except Exception as exc:
         logger.exception("artwork_task_unhandled_failure", error=str(exc))
-        asyncio.run(_mark_artwork_failure_async(uuid.UUID(workflow_id), uuid.UUID(job_id), str(exc)))
+        asyncio.run(
+            _mark_artwork_failure_async(uuid.UUID(workflow_id), uuid.UUID(job_id), str(exc))
+        )
         raise
 
 
-async def _mark_artwork_failure_async(workflow_id: uuid.UUID, job_id: uuid.UUID, reason: str) -> None:
+async def _mark_artwork_failure_async(
+    workflow_id: uuid.UUID, job_id: uuid.UUID, reason: str
+) -> None:
     settings = get_settings()
     engine = create_engine(settings.database_url)
     session_factory = create_session_factory(engine)
@@ -744,7 +766,7 @@ async def _mark_artwork_failure_async(workflow_id: uuid.UUID, job_id: uuid.UUID,
                     failure_kind="generation_failure",
                     failure_message=reason,
                 )
-            
+
             # Record a WorkflowFailure record
             is_transient = "timeout" in reason.lower() or "http" in reason.lower()
             failure = WorkflowFailure(
@@ -798,7 +820,6 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                 raise ValueError("DesignPrompt not found")
 
             # Copy parameters to narrow types/local variables to satisfy the type checker
-            job_prompt_id = job.prompt_id
             job_provider = job.provider
             job_provider_model = job.provider_model
             job_requested_width = job.requested_width
@@ -819,7 +840,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             job.status = JobStatus.RUNNING
             job.attempt_count += 1
             job.started_at = datetime.now(UTC)
-            
+
             workflow = await uow.workflows.get(workflow_id)
             assert workflow is not None
             if workflow.state == RunStatus.ART_QUEUED:
@@ -857,9 +878,12 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
         is_live = settings.provider_mode == "live"
         provider_key = None
         ref_image_bytes = None
+        ref_image_mime = None
         # Check reference image / refinement
         is_refinement = False
-        if prompt_generation_metadata is not None and prompt_generation_metadata.get("reference_asset_id"):
+        if prompt_generation_metadata is not None and prompt_generation_metadata.get(
+            "reference_asset_id"
+        ):
             is_refinement = True
 
         if is_refinement:
@@ -907,7 +931,9 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                         kind=ProviderErrorKind.AUTHENTICATION,
                         provider=job_provider.value,
                         operation="reveal_credential",
-                        message=f"{job_provider.value} API Key is missing or invalid in credentials.",
+                        message=(
+                            f"{job_provider.value} API Key is missing or invalid in credentials."
+                        ),
                     ) from exc
 
         # 5. Record cost estimate in ledger before paid call
@@ -934,7 +960,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             await uow.commit()
 
         # 6. Initialize provider adapter
-        image_provider = None
+        image_provider: ImageGenerationProvider | None = None
         fallback_provider = None
         if is_live and provider_key:
             if job_provider == ProviderName.RECRAFT:
@@ -943,9 +969,10 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                 )
             elif job_provider == ProviderName.GEMINI:
                 image_provider = GeminiImageAdapter(
-                    api_key=provider_key, default_model=job_provider_model or "gemini-3.1-flash-image"
+                    api_key=provider_key,
+                    default_model=job_provider_model or "gemini-3.1-flash-image",
                 )
-        
+
         if image_provider is None:
             image_provider = FakeImageProvider()
 
@@ -1009,7 +1036,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                 except Exception as fallback_err:
                     logger.error("Gemini fallback also failed: %s", fallback_err)
                     raise primary_err from fallback_err
-            
+
             if response is None:
                 raise primary_err
 
@@ -1023,7 +1050,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             workflow = await uow.workflows.get(workflow_id)
             assert workflow is not None
 
-            for idx, candidate in enumerate(response.candidates):
+            for _idx, candidate in enumerate(response.candidates):
                 cleaned_bytes = candidate.image_bytes
                 cleaned_mime = candidate.mime_type
 
@@ -1034,7 +1061,9 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                             trans_res = await http_client.post(
                                 f"{image_worker_url}/pipeline/ensure-transparency",
                                 json={
-                                    "image_base64": base64.b64encode(candidate.image_bytes).decode("utf-8"),
+                                    "image_base64": base64.b64encode(candidate.image_bytes).decode(
+                                        "utf-8"
+                                    ),
                                 },
                             )
                             if trans_res.status_code == 200:
@@ -1045,7 +1074,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                         logger.warning("Local transparency cleanup error: %s", clean_err)
 
                 sha256 = hashlib.sha256(cleaned_bytes).hexdigest()
-                
+
                 existing_asset = await uow.assets.get_by_checksum_sha256(workflow_id, sha256)
                 if existing_asset is not None:
                     candidate_assets.append(existing_asset)
@@ -1053,7 +1082,7 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
 
                 ext = "svg" if cleaned_mime == "image/svg+xml" else "png"
                 storage_key = f"assets/{workflow_id}/{uuid.uuid4()}.{ext}"
-                
+
                 stored_obj = await storage.put(storage_key, cleaned_bytes, cleaned_mime)
 
                 derived_from_uuid = None
@@ -1068,15 +1097,19 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                     "prompt": prompt_positive_prompt,
                 }
                 if is_refinement:
-                    provenance_data.update({
-                        "operation": "refinement",
-                        "provider": actual_provider.value,
-                        "model": response.model,
-                        "source_asset_id": str(derived_from_uuid) if derived_from_uuid else None,
-                        "strength": settings.recraft_refinement_strength,
-                        "change_note": prompt.change_note,
-                        "background_cleanup": "local",
-                    })
+                    provenance_data.update(
+                        {
+                            "operation": "refinement",
+                            "provider": actual_provider.value,
+                            "model": response.model,
+                            "source_asset_id": str(derived_from_uuid)
+                            if derived_from_uuid
+                            else None,
+                            "strength": settings.recraft_refinement_strength,
+                            "change_note": prompt.change_note,
+                            "background_cleanup": "local",
+                        }
+                    )
 
                 new_asset = Asset(
                     id=uuid.uuid4(),
@@ -1140,38 +1173,51 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
             inline_keyboard = []
             approve_row = []
             for idx, asset in enumerate(candidate_assets):
-                approve_row.append({
-                    "text": f"Approve {idx+1}",
-                    "callback_data": f"art_app:{asset.id}",
-                })
+                approve_row.append(
+                    {
+                        "text": f"Approve {idx + 1}",
+                        "callback_data": f"art_app:{asset.id}",
+                    }
+                )
             inline_keyboard.append(approve_row)
 
-            inline_keyboard.append([
-                {"text": "Reject Options", "callback_data": f"art_rej:{workflow_id}:{workflow_version}"},
-                {"text": "Regenerate", "callback_data": f"art_reg:{workflow_id}"},
-            ])
+            inline_keyboard.append(
+                [
+                    {
+                        "text": "Reject Options",
+                        "callback_data": f"art_rej:{workflow_id}:{workflow_version}",
+                    },
+                    {"text": "Regenerate", "callback_data": f"art_reg:{workflow_id}"},
+                ]
+            )
 
             dash_origins = settings.cors_origins
             dash_base = dash_origins[0] if dash_origins else ""
-            if dash_base and not dash_base.startswith("http://localhost") and not dash_base.startswith("http://127.0.0.1"):
-                inline_keyboard.append([
-                    {"text": "Open Dashboard", "url": f"{dash_base}/workflow/{workflow_id}"}
-                ])
+            if (
+                dash_base
+                and not dash_base.startswith("http://localhost")
+                and not dash_base.startswith("http://127.0.0.1")
+            ):
+                inline_keyboard.append(
+                    [{"text": "Open Dashboard", "url": f"{dash_base}/workflow/{workflow_id}"}]
+                )
 
             preview_links = []
             async with UnitOfWork(session_factory) as uow:
                 for idx, asset in enumerate(candidate_assets):
                     signed_url = await storage.signed_url(asset.storage_key, 3600)
-                    preview_links.append(f"• <a href=\"{signed_url}\">Candidate {idx+1} Preview</a>")
+                    preview_links.append(
+                        f'• <a href="{signed_url}">Candidate {idx + 1} Preview</a>'
+                    )
 
             notify_text = (
-                f"🎨 <b>Artwork Generation Complete!</b>\n\n"
+                "🎨 <b>Artwork Generation Complete!</b>\n\n"
                 f"Workflow: <b>{escape_html(workflow_name)}</b>\n"
                 f"Provider: <code>{job_provider.value}</code>\n"
                 f"Model: <code>{response.model}</code>\n"
                 f"Cost: <b>{actual_cost.to_decimal():.4f} USD</b>\n\n"
                 f"<b>Previews:</b>\n" + "\n".join(preview_links) + "\n\n"
-                f"Please review and approve a candidate below."
+                "Please review and approve a candidate below."
             )
 
             bot_token = None
@@ -1181,28 +1227,40 @@ async def _run_artwork_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> None:
                 try:
                     if cipher:
                         async with session_factory() as session:
-                            stmt = select(ProviderCredential).where(ProviderCredential.provider == ProviderName.TELEGRAM).limit(1)
+                            stmt = (
+                                select(ProviderCredential)
+                                .where(ProviderCredential.provider == ProviderName.TELEGRAM)
+                                .limit(1)
+                            )
                             result = await session.execute(stmt)
                             cred = result.scalar_one_or_none()
                             if cred:
-                                bot_token = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
-                except Exception:
-                    pass
+                                bot_token = cipher.decrypt(
+                                    cred.ciphertext, key_version=cred.key_version
+                                )
+                except Exception as e:
+                    logger.debug("bot_token_resolution_skipped", error=str(e))
 
             if settings.provider_mode == "live" and bot_token:
                 async with httpx.AsyncClient(timeout=10.0) as http_client:
-                    tg_gateway = RealTelegramGateway(
-                        bot_token, http_client
-                    )
+                    tg_gw: TelegramGateway = RealTelegramGateway(bot_token, http_client)
                     async with UnitOfWork(session_factory) as uow:
                         await send_telegram_notification(
-                            uow, tg_gateway, workflow_owner_id, notify_text, {"inline_keyboard": inline_keyboard}
+                            uow,
+                            tg_gw,
+                            workflow_owner_id,
+                            notify_text,
+                            {"inline_keyboard": inline_keyboard},
                         )
             else:
-                tg_gateway = FakeTelegramGateway()
+                fake_gw: TelegramGateway = FakeTelegramGateway()
                 async with UnitOfWork(session_factory) as uow:
                     await send_telegram_notification(
-                        uow, tg_gateway, workflow_owner_id, notify_text, {"inline_keyboard": inline_keyboard}
+                        uow,
+                        fake_gw,
+                        workflow_owner_id,
+                        notify_text,
+                        {"inline_keyboard": inline_keyboard},
                     )
 
         except Exception as tg_exc:
@@ -1220,7 +1278,9 @@ def _normalize_mockup_products(raw_products: list[str] | None) -> list[str]:
 
 
 @dramatiq.actor(queue_name="production", max_retries=3)
-def run_production_task(workflow_id: str, production_job_id: str | None = None, job_id: str | None = None) -> None:
+def run_production_task(
+    workflow_id: str, production_job_id: str | None = None, job_id: str | None = None
+) -> None:
     """Entry point for Phase 7 PNG Production Pipeline."""
     actual_job_id = production_job_id or job_id
     assert actual_job_id is not None, "production_job_id or job_id is required"
@@ -1267,29 +1327,17 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
                         completed_at=datetime.now(UTC),
                     )
 
-                try:
-                    workflow = await uow.workflows.get(workflow_id)
-                    if workflow and workflow.state == RunStatus.PRODUCTION:
-                        await uow.workflows.transition(
-                            workflow,
-                            to_state=FailureStatus.PRODUCTION_FAILED,
-                            expected_version=workflow.version,
-                            reason=f"PNG production failed: {str(exc)[:150]}",
-                            actor="system",
-                        )
-                except Exception as w_exc:
-                    logger.warning("failed_to_transition_workflow_on_failure", error=str(w_exc))
-                    failure_record = WorkflowFailure(
-                        workflow_id=workflow_id,
-                        failure_state="PRODUCTION_FAILED",
-                        stage="production",
-                        error_kind="transient" if "timeout" in str(exc).lower() else "permanent",
-                        error_message=str(exc),
-                        attempt=1,
-                        retryable=True,
-                    )
-                    assert uow._session is not None
-                    uow._session.add(failure_record)
+                failure_record = WorkflowFailure(
+                    workflow_id=workflow_id,
+                    failure_state=FailureStatus.PRODUCTION_FAILED.value,
+                    stage="production",
+                    error_kind="transient" if "timeout" in str(exc).lower() else "permanent",
+                    error_message=str(exc),
+                    attempt=1,
+                    retryable=True,
+                )
+                assert uow._session is not None
+                uow._session.add(failure_record)
                 await uow.audit.record(
                     action=AuditAction.FAILURE_RECORDED,
                     entity_type="ProductionJob",
@@ -1304,4 +1352,3 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
         raise exc
     finally:
         await engine.dispose()
-

@@ -16,17 +16,11 @@ from app.domain.workflow import (
 from app.infrastructure.models import Asset, ProductionJob
 
 
-async def get_approved_artwork_asset(
-    uow: UnitOfWork, workflow_id: uuid.UUID
-) -> Asset:
+async def get_approved_artwork_asset(uow: UnitOfWork, workflow_id: uuid.UUID) -> Asset:
     """Resolve the Gate 2 approved artwork Asset for this workflow."""
     approvals = await uow.approvals.history(workflow_id, gate=ApprovalGate.ARTWORK_APPROVAL)
     gate2_approval = next(
-        (
-            a
-            for a in approvals
-            if a.decision == ApprovalDecision.APPROVED
-        ),
+        (a for a in approvals if a.decision == ApprovalDecision.APPROVED),
         None,
     )
 
@@ -71,7 +65,10 @@ async def start_production_job(
         RunStatus.CANCELLED,
     }
 
-    if not gate2_approved and workflow.state not in (RunStatus.ARTWORK_APPROVED, RunStatus.ART_REVIEW):
+    if not gate2_approved and workflow.state not in (
+        RunStatus.ARTWORK_APPROVED,
+        RunStatus.ART_REVIEW,
+    ):
         raise GateNotApprovedError(
             gate=ApprovalGate.ARTWORK_APPROVAL,
             current=workflow.state,
@@ -105,19 +102,23 @@ async def start_production_job(
         source_asset = await get_approved_artwork_asset(uow, workflow_id)
 
     latest_job = await uow.production_jobs.get_latest_for_workflow(workflow_id)
-    # If not forcing new and either candidate_asset_id is omitted or matches existing job's source_asset_id, return existing job
-    if latest_job is not None and not force_new and (candidate_asset_id is None or latest_job.source_asset_id == source_asset.id):
-        if latest_job.status in (JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.SUCCEEDED):
-            # Ensure outbox task exists if queued
-            if latest_job.status == JobStatus.QUEUED:
-                await uow.outbox.add(
-                    "run_production_task",
-                    {
-                        "workflow_id": str(workflow_id),
-                        "production_job_id": str(latest_job.id),
-                    },
-                )
-            return latest_job
+    # If not forcing new and candidate_asset_id matches or is omitted, return existing job
+    if (
+        latest_job is not None
+        and not force_new
+        and (candidate_asset_id is None or latest_job.source_asset_id == source_asset.id)
+        and latest_job.status in (JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.SUCCEEDED)
+    ):
+        # Ensure outbox task exists if queued
+        if latest_job.status == JobStatus.QUEUED:
+            await uow.outbox.add(
+                "run_production_task",
+                {
+                    "workflow_id": str(workflow_id),
+                    "production_job_id": str(latest_job.id),
+                },
+            )
+        return latest_job
 
     idempotency_key = f"prod-{workflow_id}-{source_asset.id}-{uuid.uuid4().hex[:8]}"
     job = ProductionJob(

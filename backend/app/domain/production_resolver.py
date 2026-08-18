@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.application.unit_of_work import UnitOfWork
 from app.infrastructure.models import Asset
@@ -25,9 +25,7 @@ def is_valid_user_mockup_asset(asset: Asset) -> bool:
         return False
     if prov.get("provider") in ("fake", "default"):
         return False
-    if prov.get("default_mockup"):
-        return False
-    return True
+    return not bool(prov.get("default_mockup"))
 
 
 def filter_active_user_mockups(
@@ -39,17 +37,18 @@ def filter_active_user_mockups(
 
     if master_asset_id is not None:
         valid_mockups = [
-            a for a in valid_mockups
+            a
+            for a in valid_mockups
             if a.derived_from_id == master_asset_id
             or (a.provenance and str(a.provenance.get("source_asset_id")) == str(master_asset_id))
         ]
 
-    def _mockup_sort_key(a: Asset):
+    def _mockup_sort_key(a: Asset) -> tuple[int, int, float]:
         is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
         order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
-        created_dt = a.created_at or datetime(1970, 1, 1, tzinfo=timezone.utc)
+        created_dt = a.created_at or datetime(1970, 1, 1, tzinfo=UTC)
         if created_dt.tzinfo is None:
-            created_dt = created_dt.replace(tzinfo=timezone.utc)
+            created_dt = created_dt.replace(tzinfo=UTC)
         return (order, 0 if is_cov else 1, -created_dt.timestamp())
 
     return sorted(valid_mockups, key=_mockup_sort_key)
@@ -80,7 +79,8 @@ async def get_production_master_asset(
     sorted_assets = sorted(assets, key=lambda a: a.created_at or datetime.min, reverse=True)
     master_asset = next(
         (
-            a for a in sorted_assets
+            a
+            for a in sorted_assets
             if (
                 a.storage_key.endswith("/master.png")
                 or (a.provenance and a.provenance.get("profile") == "etsy-png-standard")
@@ -95,7 +95,8 @@ async def get_production_master_asset(
 
     # 3. Fallback to newest artwork candidate asset
     artwork_assets = [
-        a for a in sorted_assets
+        a
+        for a in sorted_assets
         if a.artwork_job_id is not None
         and not is_valid_user_mockup_asset(a)
         and "/mockups/" not in a.storage_key

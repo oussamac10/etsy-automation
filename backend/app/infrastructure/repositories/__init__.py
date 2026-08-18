@@ -10,6 +10,10 @@ together or not at all.
 """
 
 from app.infrastructure.repositories.approval import SqlApprovalRepository
+from app.infrastructure.repositories.artwork import (
+    SqlArtworkJobRepository,
+    SqlAssetRepository,
+)
 from app.infrastructure.repositories.audit import SqlAuditRepository
 from app.infrastructure.repositories.auth import SqlSessionRepository
 from app.infrastructure.repositories.concept import SqlConceptRepository
@@ -25,10 +29,6 @@ from app.infrastructure.repositories.research import SqlResearchRepository
 from app.infrastructure.repositories.telegram import SqlTelegramConnectionRepository
 from app.infrastructure.repositories.user import SqlUserRepository
 from app.infrastructure.repositories.workflow import SqlWorkflowRepository
-from app.infrastructure.repositories.artwork import (
-    SqlArtworkJobRepository,
-    SqlAssetRepository,
-)
 
 __all__ = [
     "SqlApprovalRepository",

@@ -445,7 +445,13 @@ class FakeImageProvider:
         for i in range(request.candidate_count):
             if is_svg:
                 # Deterministic SVG bytes that differ by index (unique checksums)
-                content = f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="blue"/><text y="5">{request.idempotency_key}-{i}</text></svg>'.encode()
+                svg_str = (
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
+                    '<rect width="10" height="10" fill="blue"/>'
+                    f'<text y="5">{request.idempotency_key}-{i}</text>'
+                    "</svg>"
+                )
+                content = svg_str.encode()
             else:
                 # PNG bytes with a small suffix to differentiate checksums
                 content = _TRANSPARENT_PNG + f"-candidate-{i}".encode()

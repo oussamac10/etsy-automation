@@ -76,7 +76,9 @@ class Settings(BaseSettings):
     s3_bucket: str = Field(default="etsy-assets", alias="S3_BUCKET")
     s3_region: str = Field(default="us-east-1", alias="S3_REGION")
     s3_access_key_id: str = Field(default="minioadmin", alias="S3_ACCESS_KEY_ID")
-    s3_secret_access_key: SecretStr = Field(default=SecretStr("minioadmin"), alias="S3_SECRET_ACCESS_KEY")
+    s3_secret_access_key: SecretStr = Field(
+        default=SecretStr("minioadmin"), alias="S3_SECRET_ACCESS_KEY"
+    )
     s3_force_path_style: bool = Field(default=True, alias="S3_FORCE_PATH_STYLE")
 
     image_worker_url: str = Field(default="http://localhost:8100", alias="IMAGE_WORKER_URL")
@@ -93,12 +95,8 @@ class Settings(BaseSettings):
     image_max_pixels: int = Field(default=60_000_000, alias="IMAGE_MAX_PIXELS")
 
     # --- Refinement and Generation Models ---
-    recraft_generation_model: str = Field(
-        default="recraftv4_1", alias="RECRAFT_GENERATION_MODEL"
-    )
-    recraft_refinement_model: str = Field(
-        default="recraftv3", alias="RECRAFT_REFINEMENT_MODEL"
-    )
+    recraft_generation_model: str = Field(default="recraftv4_1", alias="RECRAFT_GENERATION_MODEL")
+    recraft_refinement_model: str = Field(default="recraftv3", alias="RECRAFT_REFINEMENT_MODEL")
     recraft_refinement_strength: float = Field(
         default=0.20, ge=0.0, le=1.0, alias="RECRAFT_REFINEMENT_STRENGTH"
     )
@@ -158,7 +156,8 @@ class Settings(BaseSettings):
                 "ENCRYPTION_KEY_PREVIOUS_VERSION must be lower than ENCRYPTION_KEY_VERSION; "
                 "bump ENCRYPTION_KEY_VERSION when you change ENCRYPTION_KEY."
             )
-        # TELEGRAM_BOT_TOKEN can be loaded from DB, so we do not enforce it being present in the env at startup.
+        # TELEGRAM_BOT_TOKEN can be loaded from DB, so we do not
+        # enforce it being present in the env at startup.
         if self.app_env != "local" and not self.session_cookie_secure:
             raise ValueError(
                 "SESSION_COOKIE_SECURE must be true outside APP_ENV=local; a "

@@ -7,23 +7,17 @@ and compositing workflow master PNGs onto user-supplied or saved mockup template
 from __future__ import annotations
 
 import base64
-import hashlib
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
-import httpx
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, field_validator
 
 from app.api.dependencies import CurrentUser, SettingsDep, StorageDep, UowDep
 from app.infrastructure.mockup_catalog import get_product_preset, normalize_mockup_product
 from app.infrastructure.mockup_template_store import (
-    CustomMockupPlacement,
-    MockupTemplateItem,
     MockupTemplateStore,
 )
-from app.infrastructure.models import Asset
 
 router = APIRouter(prefix="/mockup-templates", tags=["mockup-templates"])
 
@@ -40,7 +34,9 @@ def validate_image_payload(
     if clean_mime not in ALLOWED_IMAGE_MIMES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported image type: {content_type}. Accepted formats are JPEG, PNG, and WebP.",
+            detail=(
+                f"Unsupported image type: {content_type}. Accepted formats are JPEG, PNG, and WebP."
+            ),
         )
 
     if len(content) > max_bytes:
@@ -162,7 +158,9 @@ class CompositeMockupResponse(BaseModel):
 async def list_templates(
     user: CurrentUser,
     storage: StorageDep,
-    product_type: str | None = Query(None, description="Optional canonical product filter (e.g. tshirt, mug, tote_bag)"),
+    product_type: str | None = Query(
+        None, description="Optional canonical product filter (e.g. tshirt, mug, tote_bag)"
+    ),
 ) -> list[MockupTemplateResponse]:
     """List all saved custom mockup templates for the authenticated owner."""
     canonical_type = normalize_mockup_product(product_type) if product_type else None
@@ -218,7 +216,9 @@ async def upload_template(
     try:
         content = base64.b64decode(payload.image_base64)
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid base64 encoded template image.")
+        raise HTTPException(
+            status_code=400, detail="Invalid base64 encoded template image."
+        ) from None
 
     validate_image_payload(
         content,
@@ -229,14 +229,18 @@ async def upload_template(
     canonical_type = normalize_mockup_product(payload.product_type) or payload.product_type
     preset = get_product_preset(canonical_type)
 
-    placement_dict = payload.placement.model_dump() if payload.placement else {
-        "left_pct": preset.default_left_pct,
-        "top_pct": preset.default_top_pct,
-        "width_pct": preset.default_width_pct,
-        "height_pct": preset.default_height_pct,
-        "angle_deg": 0.0,
-        "blend_mode": preset.default_blend_mode,
-    }
+    placement_dict = (
+        payload.placement.model_dump()
+        if payload.placement
+        else {
+            "left_pct": preset.default_left_pct,
+            "top_pct": preset.default_top_pct,
+            "width_pct": preset.default_width_pct,
+            "height_pct": preset.default_height_pct,
+            "angle_deg": 0.0,
+            "blend_mode": preset.default_blend_mode,
+        }
+    )
 
     store = MockupTemplateStore(storage)
     item = await store.save_template(
@@ -310,9 +314,13 @@ async def delete_category_templates_endpoint(
     user: CurrentUser,
     storage: StorageDep,
 ) -> dict[str, Any]:
-    """Permanently delete a product category and all its saved templates for the authenticated owner."""
+    """Permanently delete a product category and all its saved templates
+    for the authenticated owner.
+    """
     store = MockupTemplateStore(storage)
-    deleted_count = await store.delete_category_templates(owner_id=user.id, product_type=product_type)
+    deleted_count = await store.delete_category_templates(
+        owner_id=user.id, product_type=product_type
+    )
     return {
         "product_type": product_type,
         "deleted_count": deleted_count,
@@ -368,9 +376,11 @@ async def composite_custom_mockup_endpoint(
             master_asset_id=payload.master_asset_id,
         )
     except EntityNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found."
+        ) from None
     except MockupCompositionError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return CompositeMockupResponse(
         mockup_url=result.mockup_url,

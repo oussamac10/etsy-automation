@@ -19,6 +19,7 @@ from app.domain.workflow import JobStatus, RunStatus
 from app.infrastructure.models.artwork import Asset
 from app.infrastructure.models.owner_settings import ProviderCredential
 from app.ports.providers import ObjectStorage
+from app.ports.telegram import TelegramGateway
 from app.providers.telegram import FakeTelegramGateway, RealTelegramGateway
 from app.settings import Settings
 
@@ -72,7 +73,9 @@ async def execute_production_pipeline(
 
         source_storage_key = source_asset.storage_key
 
-        raw_uses = workflow.intended_product_uses if workflow and workflow.intended_product_uses else None
+        raw_uses = (
+            workflow.intended_product_uses if workflow and workflow.intended_product_uses else None
+        )
         concepts = await uow.concepts.list_for_workflow(workflow_id)
         approved_concept = next((c for c in concepts if c.status == ConceptStatus.APPROVED), None)
         exact_slogan: str | None = None
@@ -226,19 +229,22 @@ async def execute_production_pipeline(
         master_signed_url = await storage.signed_url(stored_master.storage_key, 3600)
         inline_buttons = []
         if dash_base.startswith("https://") and "localhost" not in dash_base:
-            inline_buttons.append([{"text": "Open Dashboard", "url": f"{dash_base}/workflow/{workflow_id}"}])
+            inline_buttons.append(
+                [{"text": "Open Dashboard", "url": f"{dash_base}/workflow/{workflow_id}"}]
+            )
         if master_signed_url.startswith("https://") and "localhost" not in master_signed_url:
             inline_buttons.append([{"text": "Download Master PNG", "url": master_signed_url}])
 
         reply_markup = {"inline_keyboard": inline_buttons} if inline_buttons else None
         qa_icon = "✅" if qa_passed else "⚠️"
+        typo_status = "Applied" if pipeline_data.get("typography_applied") else "None"
         notify_text = (
             f"✨ <b>PNG Production Complete!</b>\n\n"
             f"Workflow: <b>{escape_html(workflow_name)}</b>\n"
-            f"Master Profile: <code>4500×5400 px @ 300 DPI</code>\n"
+            f"Master Profile: <code>4500x5400 px @ 300 DPI</code>\n"
             f"QA Report: {qa_icon} <b>{'PASSED' if qa_passed else 'WARNINGS'}</b>\n"
-            f"Slogan Typography: <b>{'Applied' if pipeline_data.get('typography_applied') else 'None'}</b>\n\n"
-            f"• <a href=\"{master_signed_url}\">Master PNG Preview</a>\n\n"
+            f"Slogan Typography: <b>{typo_status}</b>\n\n"
+            f'• <a href="{master_signed_url}">Master PNG Preview</a>\n\n'
             f"Print-ready master asset is ready. You can now create realistic product mockups."
         )
 
@@ -248,31 +254,38 @@ async def execute_production_pipeline(
         elif settings.provider_mode == "live":
             try:
                 from sqlalchemy import select
+
                 from app.api.dependencies import build_credential_cipher
 
                 cipher = build_credential_cipher(settings)
                 if cipher:
                     async with session_factory() as session:
-                        stmt = select(ProviderCredential).where(ProviderCredential.provider == ProviderName.TELEGRAM).limit(1)
+                        stmt = (
+                            select(ProviderCredential)
+                            .where(ProviderCredential.provider == ProviderName.TELEGRAM)
+                            .limit(1)
+                        )
                         result = await session.execute(stmt)
                         cred = result.scalar_one_or_none()
                         if cred:
-                            bot_token = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
-            except Exception:
-                pass
+                            bot_token = cipher.decrypt(
+                                cred.ciphertext, key_version=cred.key_version
+                            )
+            except Exception as e:
+                logger.debug("bot_token_resolution_skipped", error=str(e))
 
         if settings.provider_mode == "live" and bot_token:
             async with httpx.AsyncClient(timeout=10.0) as http_client:
-                tg_gateway = RealTelegramGateway(bot_token, http_client)
+                tg_gateway: TelegramGateway = RealTelegramGateway(bot_token, http_client)
                 async with UnitOfWork(session_factory) as uow:
                     await send_telegram_notification(
                         uow, tg_gateway, workflow_owner_id, notify_text, reply_markup
                     )
         else:
-            tg_gateway = FakeTelegramGateway()
+            fake_gateway: TelegramGateway = FakeTelegramGateway()
             async with UnitOfWork(session_factory) as uow:
                 await send_telegram_notification(
-                    uow, tg_gateway, workflow_owner_id, notify_text, reply_markup
+                    uow, fake_gateway, workflow_owner_id, notify_text, reply_markup
                 )
     except Exception as notify_err:
         logger.warning("production_notification_failed", error=str(notify_err))

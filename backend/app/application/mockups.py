@@ -12,7 +12,7 @@ import httpx
 from sqlalchemy.exc import IntegrityError
 
 from app.application.unit_of_work import UnitOfWork
-from app.domain.errors import EntityNotFoundError, DomainError
+from app.domain.errors import DomainError, EntityNotFoundError
 from app.domain.mockup_products import get_product_preset, normalize_product_type
 from app.domain.production_resolver import (
     filter_active_user_mockups,
@@ -103,7 +103,9 @@ class MockupCompositionService:
             "blend_mode": preset.default_blend_mode,
         }
         resolved_template_id = template_id
-        resolved_template_name = template_name or f"{canonical_prod.replace('_', ' ').capitalize()} Mockup"
+        resolved_template_name = (
+            template_name or f"{canonical_prod.replace('_', ' ').capitalize()} Mockup"
+        )
         resolved_template_storage_key: str | None = None
         template_bytes: bytes | None = None
 
@@ -111,7 +113,9 @@ class MockupCompositionService:
             try:
                 template_bytes = base64.b64decode(template_image_base64)
             except Exception as exc:
-                raise MockupCompositionError(f"Invalid base64 encoded template image: {exc}") from exc
+                raise MockupCompositionError(
+                    f"Invalid base64 encoded template image: {exc}"
+                ) from exc
 
             validate_image_payload(
                 template_bytes,
@@ -132,12 +136,16 @@ class MockupCompositionService:
                 resolved_template_storage_key = saved_item.storage_key
             else:
                 tpl_img_id = uuid.uuid4()
-                raw_tpl_key = f"mockup-templates/{owner_id}/{canonical_prod}/source_{tpl_img_id}.jpg"
+                raw_tpl_key = (
+                    f"mockup-templates/{owner_id}/{canonical_prod}/source_{tpl_img_id}.jpg"
+                )
                 await self.storage.put(raw_tpl_key, template_bytes, content_type="image/jpeg")
                 resolved_template_storage_key = raw_tpl_key
                 resolved_template_id = str(tpl_img_id)
         elif template_id:
-            existing_template = await self.template_store.get_template(owner_id=owner_id, template_id=template_id)
+            existing_template = await self.template_store.get_template(
+                owner_id=owner_id, template_id=template_id
+            )
             if not existing_template:
                 raise MockupCompositionError("Selected template not found.")
             template_bytes = await self.storage.get(existing_template.storage_key)
@@ -153,7 +161,9 @@ class MockupCompositionService:
                     "blend_mode": existing_template.placement.blend_mode,
                 }
         else:
-            raise MockupCompositionError("Either template_image_base64 or template_id must be provided.")
+            raise MockupCompositionError(
+                "Either template_image_base64 or template_id must be provided."
+            )
 
         if not template_bytes:
             raise MockupCompositionError("Failed to read template image.")
@@ -168,7 +178,9 @@ class MockupCompositionService:
         }
 
         async with httpx.AsyncClient(timeout=45.0) as http_client:
-            resp = await http_client.post(f"{self.image_worker_url}/pipeline/custom-mockup", json=worker_payload)
+            resp = await http_client.post(
+                f"{self.image_worker_url}/pipeline/custom-mockup", json=worker_payload
+            )
             if resp.status_code != 200:
                 raise MockupCompositionError(
                     f"Image worker failed to composite custom mockup: {resp.text[:200]}"
@@ -212,7 +224,9 @@ class MockupCompositionService:
         mock_sha256 = hashlib.sha256(composited_bytes).hexdigest()
 
         mockup_id = target_asset.id if target_asset else uuid.uuid4()
-        mockup_storage_key = f"production/{workflow_id}/mockups/custom_{canonical_prod}_{mockup_id}.jpg"
+        mockup_storage_key = (
+            f"production/{workflow_id}/mockups/custom_{canonical_prod}_{mockup_id}.jpg"
+        )
         await self.storage.put(mockup_storage_key, composited_bytes, content_type="image/jpeg")
         mockup_url = await self.storage.signed_url(mockup_storage_key, expires_in_seconds=86400 * 7)
 

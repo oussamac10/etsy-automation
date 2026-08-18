@@ -32,7 +32,6 @@ from app.domain.workflow import (
 )
 from app.infrastructure.models import (
     Approval,
-    Asset,
     AuditEvent,
     OriginalIdea,
     ProductWorkflow,
@@ -110,6 +109,7 @@ async def create_workflow(uow: UnitOfWork, command: CreateWorkflowCommand) -> Pr
     resolved_name = command.name
     if not resolved_name or not resolved_name.strip():
         from datetime import datetime
+
         month_year = datetime.now().strftime("%b %Y")
         resolved_name = f"{command.target_country.upper()} Trend Discovery - {month_year}"
 
@@ -320,9 +320,7 @@ async def rerun_workflow(
         has_artwork_approved = await uow.approvals.is_approved(
             workflow_id, ApprovalGate.ARTWORK_APPROVAL
         )
-        has_idea_approved = await uow.approvals.is_approved(
-            workflow_id, ApprovalGate.IDEA_APPROVAL
-        )
+        has_idea_approved = await uow.approvals.is_approved(workflow_id, ApprovalGate.IDEA_APPROVAL)
 
         concepts = await uow.concepts.list_for_workflow(workflow_id)
         concept_approved = any(c.status == ConceptStatus.APPROVED for c in concepts)
@@ -369,7 +367,10 @@ async def rerun_workflow(
             workflow,
             to_state=target_state,
             expected_version=workflow.version,
-            reason=f"Smart resume: continuing from {target_state.value} to preserve API tokens and previous assets",
+            reason=(
+                f"Smart resume: continuing from {target_state.value} "
+                "to preserve API tokens and previous assets"
+            ),
             actor=actor,
         )
         await uow.audit.record(
@@ -461,7 +462,10 @@ async def decide_gate(
             and existing.target_id == target_id
             and (
                 (target_version is not None and existing.target_version == target_version)
-                or (decision == ApprovalDecision.APPROVED and existing.decision == ApprovalDecision.APPROVED)
+                or (
+                    decision == ApprovalDecision.APPROVED
+                    and existing.decision == ApprovalDecision.APPROVED
+                )
             )
         ):
             return existing

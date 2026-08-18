@@ -65,7 +65,6 @@ def downgrade() -> None:
     op.drop_table("outbox_messages")
 
     op.execute(
-        "ALTER TABLE research_runs "
-        "DROP CONSTRAINT IF EXISTS uq_research_runs_idempotency_key"
+        "ALTER TABLE research_runs DROP CONSTRAINT IF EXISTS uq_research_runs_idempotency_key"
     )
     op.execute("ALTER TABLE research_runs DROP COLUMN IF EXISTS idempotency_key")

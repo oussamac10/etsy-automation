@@ -199,6 +199,7 @@ class SqlCostRepository:
         """Total spent (reconciled or estimated) across every workflow this owner
         holds, within the period. Used by the per-run budget gate."""
         from app.infrastructure.models.workflow import ProductWorkflow
+
         stmt = (
             select(func.sum(_effective_cost_sql()))
             .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
