@@ -352,26 +352,37 @@ class GeminiSynthesisAdapter:
             "Content-Type": "application/json",
         }
 
+        # Resolve response schema if requested
+        schema_cls = request.schema_class
+        if schema_cls is None and ("keyword_clusters" in request.prompt or "market evidence" in request.prompt.lower()):
+            schema_cls = ResearchSynthesisSchema
+
+        generation_config: dict[str, Any] = {
+            "responseMimeType": "application/json",
+        }
+        if schema_cls is not None:
+            generation_config["responseSchema"] = inline_refs(schema_cls.model_json_schema())
+
+        if request.max_output_tokens:
+            generation_config["maxOutputTokens"] = request.max_output_tokens
+
         # Format content for Gemini API
         payload: dict[str, Any] = {
             "contents": [{"parts": [{"text": request.prompt}]}],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "responseSchema": inline_refs(ResearchSynthesisSchema.model_json_schema()),
-            },
+            "generationConfig": generation_config,
         }
 
         if request.system:
             payload["systemInstruction"] = {"parts": [{"text": request.system}]}
 
-        if request.max_output_tokens:
-            payload["generationConfig"]["maxOutputTokens"] = request.max_output_tokens
-
-        models_to_try = [self._model]
-        if "flash" in self._model:
-            for alt in ("gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"):
-                if alt not in models_to_try:
-                    models_to_try.append(alt)
+        # Prioritize active Google AI Studio models
+        preferred_models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro"]
+        models_to_try: list[str] = []
+        if self._model and self._model not in ("gemini-flash-latest",):
+            models_to_try.append(self._model)
+        for m in preferred_models:
+            if m not in models_to_try:
+                models_to_try.append(m)
 
         last_exc: Exception | None = None
         max_attempts_per_model = 3
@@ -414,6 +425,9 @@ class GeminiSynthesisAdapter:
                             )
                             break
                         elif response.status_code >= 400:
+                            # Try next model if 404
+                            if response.status_code == 404:
+                                break
                             raise ProviderError(
                                 kind=ProviderErrorKind.INVALID_REQUEST,
                                 provider=self.name,
@@ -441,18 +455,19 @@ class GeminiSynthesisAdapter:
                                 message="Gemini response candidate text is empty.",
                             )
 
-                        # Double-check schema validation
-                        try:
-                            ResearchSynthesisSchema.model_validate_json(text)
-                        except Exception as exc:
-                            raise ProviderError(
-                                kind=ProviderErrorKind.INVALID_REQUEST,
-                                provider=self.name,
-                                operation="generate",
-                                message=(
-                                    f"Model response did not validate against strict schema: {exc}"
-                                ),
-                            ) from exc
+                        # Schema validation if schema_cls provided
+                        if schema_cls is not None:
+                            try:
+                                schema_cls.model_validate_json(text)
+                            except Exception as exc:
+                                raise ProviderError(
+                                    kind=ProviderErrorKind.INVALID_REQUEST,
+                                    provider=self.name,
+                                    operation="generate",
+                                    message=(
+                                        f"Model response did not validate against strict schema: {exc}"
+                                    ),
+                                ) from exc
 
                         usage = data.get("usageMetadata", {})
                         input_tokens = usage.get("promptTokenCount", 0)

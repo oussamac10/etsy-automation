@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 # --------------------------------------------------------------------------
 # Value objects crossing the port boundary. Deliberately plain: no provider
@@ -43,6 +43,7 @@ class TextRequest:
     prompt: str
     system: str | None = None
     max_output_tokens: int = 2048
+    schema_class: Any | None = None
 
 
 @dataclass(frozen=True, slots=True)

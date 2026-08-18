@@ -108,15 +108,17 @@ class OpenAISynthesisAdapter:
         messages.append({"role": "user", "content": request.prompt})
 
         # Request structured JSON format using strict json_schema mode
+        schema_cls = request.schema_class or ResearchSynthesisSchema
+        schema_name = getattr(schema_cls, "__name__", "structured_response").lower()
         payload: dict[str, object] = {
             "model": self._model,
             "messages": messages,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
-                    "name": "research_synthesis",
+                    "name": schema_name,
                     "strict": True,
-                    "schema": ResearchSynthesisSchema.model_json_schema(),
+                    "schema": schema_cls.model_json_schema(),
                 },
             },
         }

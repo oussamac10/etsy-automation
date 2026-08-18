@@ -114,6 +114,7 @@ async def generate_listing_seo(
         prompt=prompt_text,
         system="You are a professional Etsy SEO generator that outputs strict JSON.",
         max_output_tokens=2048,
+        schema_class=ListingSeoDraft,
     )
 
     response = await text_provider.generate(request)
