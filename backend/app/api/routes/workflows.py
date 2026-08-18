@@ -1528,9 +1528,15 @@ async def update_listing_draft_endpoint(
 
 
 @router.post(
-    "/{workflow_id}/listing/rescreen-trademark",
+    "/{workflow_id}/listing/rescreen",
     response_model=ListingDraftResponse,
     summary="Re-screen existing listing draft terms against trademark database",
+)
+@router.post(
+    "/{workflow_id}/listing/rescreen-trademark",
+    response_model=ListingDraftResponse,
+    summary="Re-screen existing listing draft terms against trademark database (alias)",
+    include_in_schema=False,
 )
 async def rescreen_trademark_endpoint(
     workflow_id: uuid.UUID,
