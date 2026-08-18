@@ -72,3 +72,8 @@ graphify-out/
 # Serena: project.yml is shared configuration; its caches and notes are local.
 .serena/cache/
 .serena/memories/
+
+# --- Agent files & directories ---
+.agents/
+AGENTS.md
+
