@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 import structlog
 
@@ -13,15 +14,19 @@ logger = structlog.get_logger(__name__)
 
 
 class TrademarkScreeningService:
-    """Coordinates trademark phrase extraction, USPTO querying, and risk classification."""
+    """Coordinates trademark phrase extraction, USPTO querying, TSDR verification, and risk classification."""
 
     def __init__(
         self,
         trademark_provider: TrademarkSearchPort,
         fallback_provider: TrademarkSearchPort | None = None,
+        tsdr_adapter: Any | None = None,
+        dataset_updated_at: str | None = None,
     ) -> None:
         self._provider = trademark_provider
         self._fallback_provider = fallback_provider
+        self._tsdr_adapter = tsdr_adapter
+        self._dataset_updated_at = dataset_updated_at
 
     async def screen_listing_trademark(
         self,
@@ -84,15 +89,47 @@ class TrademarkScreeningService:
                     except Exception as fb_exc:
                         logger.warning("fallback_query_failed", phrase=phrase, error=str(fb_exc))
 
+        tsdr_status = "NOT_QUERIED"
+        tsdr_verified_at: str | None = None
+
+        # TSDR candidate verification when serial number exists and tsdr_adapter is configured
+        if self._tsdr_adapter and all_matches:
+            for match in all_matches[:5]:  # Bounded verification on candidate matches
+                serial = match.get("serial_number")
+                if serial:
+                    try:
+                        tsdr_data = await self._tsdr_adapter.verify_serial_number(serial)
+                        if tsdr_data:
+                            match["status"] = tsdr_data.get("status", match["status"])
+                            match["is_live"] = tsdr_data.get("is_live", match["is_live"])
+                            if tsdr_data.get("classes"):
+                                match["classes"] = tsdr_data["classes"]
+                            if tsdr_data.get("goods_services"):
+                                match["goods_services"] = tsdr_data["goods_services"]
+                            if tsdr_data.get("owner"):
+                                match["owner"] = tsdr_data["owner"]
+                            match["tsdr_verified"] = True
+                            tsdr_status = "VERIFIED"
+                            tsdr_verified_at = datetime.now(timezone.utc).isoformat()
+                    except Exception as tsdr_exc:
+                        logger.warning("tsdr_candidate_verification_failed", serial=serial, error=str(tsdr_exc))
+                        tsdr_status = "UNAVAILABLE"
+
         if uspto_failed:
             screening_source = "local_defense_registry"
             uspto_status = "UNAVAILABLE"
             warning_message = (
-                "USPTO live API was unavailable. Results below are verified against the local "
-                "USPTO database and preliminary defense screen."
+                "USPTO screening was unavailable. Results below are from the local "
+                "preliminary defense screen only."
             )
         else:
-            screening_source = "USPTO"
+            if tsdr_status == "VERIFIED":
+                screening_source = "USPTO_LOCAL_INDEX_TSDR_VERIFIED"
+            elif tsdr_status == "UNAVAILABLE":
+                screening_source = "USPTO_LOCAL_INDEX_TSDR_UNAVAILABLE"
+            else:
+                screening_source = "USPTO_LOCAL_INDEX"
+
             uspto_status = "SUCCESS"
             warning_message = None
 
@@ -103,6 +140,9 @@ class TrademarkScreeningService:
             screening_source=screening_source,
             uspto_status=uspto_status,
             warning_message=warning_message,
+            dataset_updated_at=self._dataset_updated_at,
+            tsdr_status=tsdr_status,
+            tsdr_verified_at=tsdr_verified_at,
         )
 
         logger.info(
@@ -110,5 +150,7 @@ class TrademarkScreeningService:
             risk_level=risk_level.value,
             screening_source=screening_source,
             matches_count=len(all_matches),
+            tsdr_status=tsdr_status,
         )
         return risk_level, findings
+

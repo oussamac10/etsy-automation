@@ -133,15 +133,21 @@ def evaluate_trademark_risk(
     screening_source: str = "USPTO",
     uspto_status: str = "SUCCESS",
     warning_message: str | None = None,
+    dataset_updated_at: str | None = None,
+    tsdr_status: str | None = None,
+    tsdr_verified_at: str | None = None,
 ) -> tuple[RiskLevel, dict[str, Any]]:
     """Determine overall trademark risk and generate structured findings.
 
     Args:
         searched_phrases: List of input phrases queried.
         matches: Normalized match dictionaries.
-        screening_source: 'USPTO' or 'local_defense_registry'.
+        screening_source: Source of screening data.
         uspto_status: 'SUCCESS' or 'UNAVAILABLE'.
-        warning_message: Optional user-facing alert when USPTO lookup fails.
+        warning_message: Optional user-facing alert when lookup or TSDR fails.
+        dataset_updated_at: ISO timestamp of local USPTO database freshness.
+        tsdr_status: 'VERIFIED', 'UNAVAILABLE', or 'NOT_QUERIED'.
+        tsdr_verified_at: ISO timestamp of TSDR verification.
 
     Returns:
         tuple[RiskLevel, findings_dict]
@@ -182,6 +188,7 @@ def evaluate_trademark_risk(
         registration_number = match.get("registration_number")
         owner = match.get("owner")
         source_url = match.get("source_url")
+        tsdr_verified = match.get("tsdr_verified", False)
 
         overlap = is_goods_overlap(classes, goods_services)
 
@@ -208,6 +215,7 @@ def evaluate_trademark_risk(
                     "goods_services": goods_services,
                     "owner": owner,
                     "source_url": source_url,
+                    "tsdr_verified": tsdr_verified,
                     "risk_reason": "Registered mark is DEAD/cancelled.",
                     "recommended_action": "Informational record; mark is inactive.",
                 }
@@ -221,14 +229,15 @@ def evaluate_trademark_risk(
                 f'classes ({", ".join(classes) if classes else "POD overlap"}).'
             )
             rec_action = (
-                "Do not use this phrase. Change the artwork slogan or listing tags to proceed."
+                "Conflicting active registered trademark found. Strictly blocks Etsy listing. "
+                "Must modify or remove term to clear Gate 3."
             )
             findings.append(
                 {
                     "searched_phrase": mark_text,
                     "matched_mark": mark_text,
                     "mark_text": mark_text,
-                    "match_type": "EXACT_LIVE_POD_OVERLAP",
+                    "match_type": "EXACT_LIVE_POD_MATCH",
                     "is_live": True,
                     "serial_number": serial_number,
                     "registration_number": registration_number,
@@ -236,6 +245,7 @@ def evaluate_trademark_risk(
                     "goods_services": goods_services,
                     "owner": owner,
                     "source_url": source_url,
+                    "tsdr_verified": tsdr_verified,
                     "risk_reason": risk_reason,
                     "recommended_action": rec_action,
                 }
@@ -260,6 +270,7 @@ def evaluate_trademark_risk(
                     "goods_services": goods_services,
                     "owner": owner,
                     "source_url": source_url,
+                    "tsdr_verified": tsdr_verified,
                     "risk_reason": risk_reason,
                     "recommended_action": rec_action,
                 }
@@ -281,6 +292,7 @@ def evaluate_trademark_risk(
                     "goods_services": goods_services,
                     "owner": owner,
                     "source_url": source_url,
+                    "tsdr_verified": tsdr_verified,
                     "risk_reason": risk_reason,
                     "recommended_action": rec_action,
                 }
@@ -299,6 +311,9 @@ def evaluate_trademark_risk(
         "screening_source": screening_source,
         "uspto_status": uspto_status,
         "warning_message": warning_message,
+        "dataset_updated_at": dataset_updated_at,
+        "tsdr_status": tsdr_status or "NOT_QUERIED",
+        "tsdr_verified_at": tsdr_verified_at,
         "searched_phrases": searched_phrases,
         "scanned_phrases": searched_phrases,
         "match_count": len(findings),
@@ -306,8 +321,8 @@ def evaluate_trademark_risk(
         "findings": findings,
         "reasons": reasons,
         "disclaimer": (
-            "Preliminary automated trademark screening only — not legal advice. "
-            "Searches USPTO POD-relevant Nice classes (009, 016, 021, 025, 035)."
+            "Automated preliminary screening only — not legal advice. "
+            "Searches USPTO registered trademark records and POD-relevant Nice classes (009, 016, 021, 025, 035)."
         ),
         "requires_acknowledgement": overall_level == RiskLevel.MEDIUM,
         "blocks_approval": overall_level == RiskLevel.HIGH,

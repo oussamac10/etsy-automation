@@ -17,14 +17,18 @@ export interface TrademarkFinding {
   filing_date?: string | null;
   registration_date?: string | null;
   source_url?: string | null;
+  tsdr_verified?: boolean;
   risk_reason?: string;
   recommended_action?: string;
 }
 
 export interface IpFindingsReport {
-  screening_source?: 'USPTO' | 'local_defense_registry' | string;
+  screening_source?: 'USPTO_LOCAL_INDEX' | 'USPTO_LOCAL_INDEX_TSDR_VERIFIED' | 'USPTO_LOCAL_INDEX_TSDR_UNAVAILABLE' | 'local_defense_registry' | string;
   uspto_status?: 'SUCCESS' | 'UNAVAILABLE' | string;
   warning_message?: string | null;
+  dataset_updated_at?: string | null;
+  tsdr_status?: 'VERIFIED' | 'UNAVAILABLE' | 'NOT_QUERIED' | string;
+  tsdr_verified_at?: string | null;
   scanned_phrases?: string[];
   searched_phrases?: string[];
   risk_level?: RiskLevel;

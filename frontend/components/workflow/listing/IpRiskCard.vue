@@ -27,9 +27,40 @@ const isCleared = computed(() => props.riskLevel === 'low');
 const isWarning = computed(() => props.riskLevel === 'medium');
 const isHighRisk = computed(() => props.riskLevel === 'high');
 
-const isUsptoLive = computed(() => props.findings.screening_source === 'USPTO' && props.findings.uspto_status !== 'UNAVAILABLE');
-const isLocalFallback = computed(() => props.findings.screening_source === 'local_defense_registry' || props.findings.uspto_status === 'UNAVAILABLE');
-const fallbackMessage = computed(() => props.findings.warning_message || 'USPTO screening was unavailable. Results below are from the local preliminary screen only.');
+const isLocalIndex = computed(() =>
+  props.findings.screening_source?.startsWith('USPTO_LOCAL_INDEX') ||
+  props.findings.screening_source === 'USPTO'
+);
+const isTsdrVerified = computed(() =>
+  props.findings.tsdr_status === 'VERIFIED' ||
+  props.findings.screening_source === 'USPTO_LOCAL_INDEX_TSDR_VERIFIED'
+);
+const isTsdrUnavailable = computed(() =>
+  props.findings.tsdr_status === 'UNAVAILABLE' ||
+  props.findings.screening_source === 'USPTO_LOCAL_INDEX_TSDR_UNAVAILABLE'
+);
+const isLocalFallback = computed(() =>
+  props.findings.screening_source === 'local_defense_registry' ||
+  props.findings.uspto_status === 'UNAVAILABLE'
+);
+
+const datasetFormattedDate = computed(() => {
+  if (!props.findings.dataset_updated_at) return null;
+  try {
+    return new Date(props.findings.dataset_updated_at).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return props.findings.dataset_updated_at;
+  }
+});
+
+const fallbackMessage = computed(() =>
+  props.findings.warning_message ||
+  'USPTO screening was unavailable. Results below are from the local preliminary screen only.'
+);
 
 const rawMatches = computed<TrademarkFinding[]>(() => {
   const list = props.findings.matches || props.findings.findings || [];
@@ -84,11 +115,11 @@ const reasons = computed<string[]>(() => {
 
           <!-- Source Badge -->
           <Badge
-            v-if="isUsptoLive"
+            v-if="isLocalIndex"
             variant="secondary"
             class="text-[9px] font-medium tracking-normal bg-blue-50 text-blue-700 border-blue-200"
           >
-            USPTO Live
+            USPTO Data — Local Index
           </Badge>
           <Badge
             v-else-if="isLocalFallback"
@@ -97,9 +128,28 @@ const reasons = computed<string[]>(() => {
           >
             Local Defense Registry
           </Badge>
+
+          <!-- TSDR Verification Badge -->
+          <Badge
+            v-if="isTsdrVerified"
+            variant="secondary"
+            class="text-[9px] font-medium tracking-normal bg-emerald-50 text-emerald-700 border-emerald-200"
+          >
+            TSDR Verified
+          </Badge>
+          <Badge
+            v-else-if="isTsdrUnavailable"
+            variant="secondary"
+            class="text-[9px] font-medium tracking-normal bg-slate-100 text-slate-600 border-slate-200"
+          >
+            TSDR Unavailable
+          </Badge>
         </CardTitle>
-        <CardDescription class="text-xs">
-          Automated multi-class search against official trademark databases and restricted brand defense list.
+        <CardDescription class="text-xs flex items-center gap-2 flex-wrap">
+          <span>Official USPTO trademark dataset and restricted brand defense indexing.</span>
+          <span v-if="datasetFormattedDate" class="text-muted-foreground font-mono text-[10px]">
+            • Dataset indexed: {{ datasetFormattedDate }}
+          </span>
         </CardDescription>
       </div>
 
@@ -133,7 +183,7 @@ const reasons = computed<string[]>(() => {
       <div class="bg-blue-50/70 border border-blue-200/80 rounded-lg p-2.5 flex items-center gap-2 text-xs text-blue-900">
         <Icon name="lucide:info" class="size-4 text-blue-600 shrink-0" aria-hidden="true" />
         <p class="text-[11px] leading-snug">
-          <b>Notice:</b> Preliminary automated trademark screening only — not legal advice. Searches USPTO POD-relevant Nice classes (009, 016, 021, 025, 035).
+          <b>Notice:</b> Preliminary automated trademark screening only — not legal advice. Searches USPTO registered trademark records and POD-relevant Nice classes (009, 016, 021, 025, 035).
         </p>
       </div>
 
@@ -228,6 +278,13 @@ const reasons = computed<string[]>(() => {
                 >
                   {{ match.is_live ? 'LIVE' : 'DEAD' }}
                 </Badge>
+                <Badge
+                  v-if="match.tsdr_verified"
+                  variant="outline"
+                  class="text-[9px] px-1 py-0 text-emerald-700 border-emerald-200 bg-emerald-50 font-medium"
+                >
+                  TSDR
+                </Badge>
                 <a
                   v-if="match.source_url"
                   :href="match.source_url"
@@ -235,7 +292,7 @@ const reasons = computed<string[]>(() => {
                   rel="noopener noreferrer"
                   class="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5"
                 >
-                  <span>TSDR</span>
+                  <span>TSDR Case</span>
                   <Icon name="lucide:external-link" class="size-2.5" aria-hidden="true" />
                 </a>
               </div>
@@ -264,3 +321,4 @@ const reasons = computed<string[]>(() => {
     </CardContent>
   </Card>
 </template>
+

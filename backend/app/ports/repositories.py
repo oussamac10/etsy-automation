@@ -15,7 +15,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from app.domain.enums import AuditAction, CostStatus, ProviderName
 from app.domain.money import Money
@@ -573,7 +573,14 @@ class TrademarkRepository(Protocol):
 
     async def get_by_serial(self, serial_number: str) -> TrademarkRecord | None: ...
 
-    async def search_by_phrase(self, phrase: str, limit: int = 25) -> Sequence[TrademarkRecord]: ...
+    async def get_by_registration(self, registration_number: str) -> TrademarkRecord | None: ...
 
-    async def bulk_upsert(self, records: list[dict[str, object]]) -> int: ...
+    async def search_by_phrase(
+        self, phrase: str, limit: int = 25, live_only: bool | None = None
+    ) -> Sequence[TrademarkRecord]: ...
+
+    async def get_latest_source_date(self) -> datetime | None: ...
+
+    async def bulk_upsert(self, records: list[dict[str, Any]]) -> dict[str, int]: ...
+
 

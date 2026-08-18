@@ -1,29 +1,48 @@
-"""Tests for USPTO trademark screening and risk classification."""
+"""Tests for USPTO trademark screening, database search, bulk ingestion, and TSDR verification."""
 
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import tempfile
+from unittest.mock import AsyncMock, MagicMock
+import httpx
 import pytest
 
 from app.domain.ip_risk import (
     evaluate_trademark_risk,
     extract_searchable_phrases,
+    normalize_trademark_phrase,
 )
 from app.domain.workflow import RiskLevel
+from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import TrademarkMatch
 from app.providers.fake import FakeTrademarkSearchAdapter
+from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
+from app.providers.tsdr import UsptoTsdrAdapter
 from app.providers.uspto import UsptoTrademarkAdapter
+from app.application.trademark import TrademarkScreeningService
 
 
 class TestTrademarkDomain:
-    def test_extract_searchable_phrases(self) -> None:
+    def test_normalize_trademark_phrase(self) -> None:
+        assert normalize_trademark_phrase("  NiKe,  Runner!  ") == "nike runner"
+        assert normalize_trademark_phrase("Coffee... Before    People???") == "coffee before people"
+        assert normalize_trademark_phrase("Boy-Mama / Girl_Mama") == "boymama girl_mama"
+
+    def test_extract_searchable_phrases_deduplication(self) -> None:
         phrases = extract_searchable_phrases(
             slogan="Stay Wild Moon Child",
-            title="Vintage Celestial Moon Child PNG Sublimation",
-            keywords=["moon child", "celestial art"],
-            tags=["moon child", "vintage moon", "celestial art", "png download"],
+            title="Vintage Celestial Moon Child PNG | Sublimation Design",
+            keywords=["moon child", "celestial art", "moon child"],
+            tags=["moon child", "vintage moon", "celestial art", "png download", "and", "the"],
         )
         assert "Stay Wild Moon Child" in phrases
         assert "moon child" in phrases
         assert "celestial art" in phrases
         assert "vintage moon" in phrases
+        # Stopwords and duplicate occurrences are filtered
+        assert "and" not in phrases
+        assert "the" not in phrases
 
     def test_evaluate_risk_cleared_when_no_matches(self) -> None:
         phrases = ["cute mushroom png", "cottagecore frog"]
@@ -88,219 +107,349 @@ class TestTrademarkDomain:
         assert findings["blocks_approval"] is False
 
 
-class TestTrademarkAdapters:
+class TestTsdrAdapter:
     @pytest.mark.asyncio
-    async def test_fake_adapter_deterministic_triggers(self) -> None:
-        adapter = FakeTrademarkSearchAdapter()
-
-        disney_matches = await adapter.search_trademark("Vintage Disney Castle")
-        assert len(disney_matches) > 0
-        assert disney_matches[0].is_live is True
-        assert "025" in disney_matches[0].classes
-
-        warning_matches = await adapter.search_trademark("Coffee Warning Cafe")
-        assert len(warning_matches) > 0
-        assert "030" in warning_matches[0].classes
-
-        dead_matches = await adapter.search_trademark("Dead Brand Apparel")
-        assert len(dead_matches) > 0
-        assert dead_matches[0].is_live is False
-
-        clean_matches = await adapter.search_trademark("cottagecore mushroom frog")
-        assert len(clean_matches) == 0
-
-    @pytest.mark.asyncio
-    async def test_fake_adapter_canned_matches(self) -> None:
-        adapter = FakeTrademarkSearchAdapter()
-        adapter.set_canned_matches(
-            "custom phrase",
-            [
-                TrademarkMatch(
-                    mark_text="CUSTOM PHRASE",
-                    status="REGISTERED",
-                    is_live=True,
-                    classes=["025"],
-                )
-            ],
-        )
-
-        matches = await adapter.search_trademark("Custom Phrase")
-        assert len(matches) == 1
-        assert matches[0].mark_text == "CUSTOM PHRASE"
-
-    def test_uspto_adapter_response_parsing(self) -> None:
-        adapter = UsptoTrademarkAdapter(api_key="test-key")
-        raw_json = {
-            "cases": [
-                {
-                    "markLiteralText": "TEST BRAND",
-                    "serialNumber": "88123456",
-                    "registrationNumber": "5678901",
-                    "statusDescriptionText": "REGISTERED",
+    async def test_tsdr_adapter_success(self) -> None:
+        async def mock_handler(request: httpx.Request) -> httpx.Response:
+            data = {
+                "caseHeader": {
+                    "markLiteralText": "TEST NIKE",
+                    "statusDesc": "REGISTERED",
                     "liveDeadIndicator": "LIVE",
-                    "internationalClassCodes": ["025", "009"],
-                    "goodsAndServicesDescriptionText": "T-shirts and digital graphic files.",
-                    "ownerName": "Test Corp LLC",
-                    "filingDate": "2021-01-01",
-                    "registrationDate": "2022-01-01",
-                }
-            ]
-        }
+                },
+                "internationalClassList": [{"classCode": "025"}, {"classCode": "009"}],
+                "goodsAndServicesList": [{"description": "Footwear and athletic apparel"}],
+                "ownerList": [{"partyName": "Nike, Inc."}],
+            }
+            return httpx.Response(200, json=data)
 
-        parsed = adapter._parse_uspto_response(raw_json)
-        assert len(parsed) == 1
-        assert parsed[0].mark_text == "TEST BRAND"
-        assert parsed[0].serial_number == "88123456"
-        assert parsed[0].is_live is True
-        assert parsed[0].classes == ["025", "009"]
-        assert parsed[0].owner == "Test Corp LLC"
-        assert "tsdr.uspto.gov" in (parsed[0].source_url or "")
+        client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
+        adapter = UsptoTsdrAdapter(api_key="valid-key", client=client)
+
+        result = await adapter.verify_serial_number("73000001")
+        assert result is not None
+        assert result["mark_text"] == "TEST NIKE"
+        assert result["is_live"] is True
+        assert result["classes"] == ["025", "009"]
+        assert result["owner"] == "Nike, Inc."
+        assert result["tsdr_verified"] is True
 
     @pytest.mark.asyncio
-    async def test_uspto_adapter_http_error_handling(self) -> None:
-        import httpx
-        from app.ports.errors import ProviderError, ProviderErrorKind
-
-        # 403 Forbidden / Auth failure
-        async def mock_handler_403(request: httpx.Request) -> httpx.Response:
+    async def test_tsdr_adapter_auth_error_403(self) -> None:
+        async def mock_handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(403, json={"message": "Forbidden"})
 
-        client_403 = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_403))
-        adapter_403 = UsptoTrademarkAdapter(api_key="bad-key", client=client_403)
+        client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
+        adapter = UsptoTsdrAdapter(api_key="bad-key", client=client)
+
         with pytest.raises(ProviderError) as exc_info:
-            await adapter_403.search_trademark("test query")
+            await adapter.verify_serial_number("73000001")
         assert exc_info.value.kind == ProviderErrorKind.AUTHENTICATION
 
-        # 429 Rate limited
-        async def mock_handler_429(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(429, text="Too Many Requests")
+    @pytest.mark.asyncio
+    async def test_tsdr_adapter_rate_limit_429(self) -> None:
+        async def mock_handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(429, text="Rate limit exceeded")
 
-        client_429 = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_429))
-        adapter_429 = UsptoTrademarkAdapter(api_key="test-key", client=client_429)
+        client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
+        adapter = UsptoTsdrAdapter(api_key="key", client=client)
+
         with pytest.raises(ProviderError) as exc_info:
-            await adapter_429.search_trademark("test query")
+            await adapter.verify_serial_number("73000001")
         assert exc_info.value.kind == ProviderErrorKind.RATE_LIMITED
 
-        # 404 Not found returns empty list
-        async def mock_handler_404(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(404, json={"message": "Not Found"})
+    @pytest.mark.asyncio
+    async def test_tsdr_adapter_timeout(self) -> None:
+        async def mock_handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ReadTimeout("Timeout connecting to TSDR")
 
-        client_404 = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_404))
-        adapter_404 = UsptoTrademarkAdapter(api_key="test-key", client=client_404)
-        results = await adapter_404.search_trademark("not found term")
-        assert results == []
+        client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
+        adapter = UsptoTsdrAdapter(api_key="key", client=client)
 
-        # 500 Server error
-        async def mock_handler_500(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(500, text="Internal Server Error")
-
-        client_500 = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_500))
-        adapter_500 = UsptoTrademarkAdapter(api_key="test-key", client=client_500)
         with pytest.raises(ProviderError) as exc_info:
-            await adapter_500.search_trademark("test query")
+            await adapter.verify_serial_number("73000001")
         assert exc_info.value.kind == ProviderErrorKind.RETRYABLE
+
+
+class TestPostgresTrademarkAdapter:
+    @pytest.mark.asyncio
+    async def test_postgres_trademark_search_adapter_mapping(self) -> None:
+        mock_uow = MagicMock()
+        mock_rec = MagicMock()
+        mock_rec.mark_text = "NIKE"
+        mock_rec.serial_number = "73000001"
+        mock_rec.registration_number = "1234567"
+        mock_rec.status_text = "REGISTERED"
+        mock_rec.is_live = True
+        mock_rec.classes = ["025", "009"]
+        mock_rec.goods_services = "Athletic apparel"
+        mock_rec.owner_name = "Nike, Inc."
+        mock_rec.filing_date = "1971-01-01"
+        mock_rec.registration_date = "1974-01-01"
+
+        mock_uow.trademarks.search_by_phrase = AsyncMock(return_value=[mock_rec])
+        adapter = PostgresTrademarkSearchAdapter(mock_uow)
+
+        matches = await adapter.search_trademark("Nike Runner")
+        assert len(matches) == 1
+        assert matches[0].mark_text == "NIKE"
+        assert matches[0].serial_number == "73000001"
+        assert matches[0].is_live is True
+        assert matches[0].classes == ["025", "009"]
+        assert "caseSearchType=US_APPLICATION" in (matches[0].source_url or "")
 
 
 class TestTrademarkScreeningService:
     @pytest.mark.asyncio
-    async def test_screening_service_success_source(self) -> None:
-        from app.application.trademark import TrademarkScreeningService
-
-        adapter = FakeTrademarkSearchAdapter()
-        service = TrademarkScreeningService(adapter)
-
-        risk, findings = await service.screen_listing_trademark(
-            slogan="Cozy Season",
-            title="Cozy Season Fall Graphic",
-            keywords=["cozy", "autumn"],
-            tags=["cozy season", "autumn graphic"],
-        )
-        assert risk == RiskLevel.LOW
-        assert findings["screening_source"] == "USPTO"
-        assert findings["uspto_status"] == "SUCCESS"
-        assert findings["warning_message"] is None
-
-    @pytest.mark.asyncio
-    async def test_screening_service_fallback_when_provider_fails(self) -> None:
-        import httpx
-        from app.application.trademark import TrademarkScreeningService
-
-        async def mock_handler_fail(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(403, json={"message": "Unauthorized"})
-
-        client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler_fail))
-        adapter = UsptoTrademarkAdapter(api_key="unentitled-key", client=client)
-        service = TrademarkScreeningService(adapter)
-
-        # Screen an unconflicted phrase with a failing USPTO provider
-        risk, findings = await service.screen_listing_trademark(
-            slogan="Warm Pumpkin Spice",
-            title="Warm Pumpkin Spice Latte PNG",
-            keywords=["pumpkin"],
-            tags=["pumpkin spice"],
-        )
-        # Should record local defense registry fallback
-        assert findings["screening_source"] == "local_defense_registry"
-        assert findings["uspto_status"] == "UNAVAILABLE"
-        assert "unavailable" in findings["warning_message"].lower()
-        assert risk == RiskLevel.LOW
-
-        # But if the phrase contains a restricted brand, local defense still catches it!
-        risk_brand, findings_brand = await service.screen_listing_trademark(
-            slogan="Nike Runner",
-            title="Nike Runner Digital File",
-            keywords=["nike"],
-            tags=["nike runner"],
-        )
-        assert risk_brand == RiskLevel.HIGH
-        assert findings_brand["screening_source"] == "local_defense_registry"
-        assert findings_brand["blocks_approval"] is True
-
-    @pytest.mark.asyncio
-    async def test_screening_service_with_database_fallback(self) -> None:
-        from unittest.mock import AsyncMock, MagicMock
-        from app.application.trademark import TrademarkScreeningService
-        from app.ports.providers import TrademarkMatch
-        from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
-
-        # Mock UoW and Trademark Repository
+    async def test_screening_with_tsdr_verification(self) -> None:
         mock_uow = MagicMock()
         mock_rec = MagicMock()
         mock_rec.mark_text = "COFFEE BEFORE PEOPLE"
         mock_rec.serial_number = "88999111"
         mock_rec.registration_number = "6111222"
-        mock_rec.status = "REGISTERED"
+        mock_rec.status_text = "REGISTERED"
         mock_rec.is_live = True
         mock_rec.classes = ["025"]
-        mock_rec.goods_services = "T-shirts and hoodies"
-        mock_rec.owner = "Coffee Lovers LLC"
+        mock_rec.goods_services = "T-shirts and sweatshirts"
+        mock_rec.owner_name = "Coffee Lovers LLC"
         mock_rec.filing_date = "2020-01-01"
         mock_rec.registration_date = "2021-01-01"
 
         mock_uow.trademarks.search_by_phrase = AsyncMock(return_value=[mock_rec])
         db_adapter = PostgresTrademarkSearchAdapter(mock_uow)
 
-        # Primary provider fails (e.g. 403 on live USPTO)
-        failing_provider = MagicMock()
-        failing_provider.search_trademark = AsyncMock(side_effect=Exception("HTTP 403 Forbidden"))
+        mock_tsdr = MagicMock()
+        mock_tsdr.verify_serial_number = AsyncMock(
+            return_value={
+                "serial_number": "88999111",
+                "mark_text": "COFFEE BEFORE PEOPLE",
+                "status": "REGISTERED",
+                "is_live": True,
+                "classes": ["025"],
+                "goods_services": "T-shirts, hoodies, and apparel",
+                "owner": "Coffee Lovers LLC",
+                "tsdr_verified": True,
+            }
+        )
 
         service = TrademarkScreeningService(
-            trademark_provider=failing_provider,
-            fallback_provider=db_adapter,
+            trademark_provider=db_adapter,
+            tsdr_adapter=mock_tsdr,
+            dataset_updated_at="2026-08-18T00:00:00Z",
         )
 
         risk, findings = await service.screen_listing_trademark(
             slogan="Coffee Before People",
-            title="Coffee Before People Graphic Tee PNG",
+            title="Coffee Before People Fall Graphic PNG",
             keywords=["coffee"],
-            tags=["coffee lover"],
+            tags=["coffee lover", "coffee before people"],
         )
 
         assert risk == RiskLevel.HIGH
-        assert findings["screening_source"] == "local_defense_registry"
-        assert findings["uspto_status"] == "UNAVAILABLE"
+        assert findings["screening_source"] == "USPTO_LOCAL_INDEX_TSDR_VERIFIED"
+        assert findings["tsdr_status"] == "VERIFIED"
+        assert findings["dataset_updated_at"] == "2026-08-18T00:00:00Z"
+        assert findings["blocks_approval"] is True
         assert len(findings["matches"]) >= 1
-        assert findings["matches"][0]["mark_text"] == "COFFEE BEFORE PEOPLE"
-        assert findings["matches"][0]["serial_number"] == "88999111"
-        assert "tsdr.uspto.gov" in findings["matches"][0]["source_url"]
+        assert findings["matches"][0]["tsdr_verified"] is True
+
+    @pytest.mark.asyncio
+    async def test_screening_with_tsdr_unavailable_keeps_local_result(self) -> None:
+        mock_uow = MagicMock()
+        mock_rec = MagicMock()
+        mock_rec.mark_text = "STAY WILD"
+        mock_rec.serial_number = "88777666"
+        mock_rec.registration_number = "5999888"
+        mock_rec.status_text = "REGISTERED"
+        mock_rec.is_live = True
+        mock_rec.classes = ["025"]
+        mock_rec.goods_services = "Outdoor apparel"
+        mock_rec.owner_name = "Wild Outdoors Co."
+        mock_rec.filing_date = "2019-01-01"
+        mock_rec.registration_date = "2020-01-01"
+
+        mock_uow.trademarks.search_by_phrase = AsyncMock(return_value=[mock_rec])
+        db_adapter = PostgresTrademarkSearchAdapter(mock_uow)
+
+        mock_tsdr = MagicMock()
+        mock_tsdr.verify_serial_number = AsyncMock(
+            side_effect=ProviderError(
+                kind=ProviderErrorKind.AUTHENTICATION,
+                provider="tsdr",
+                operation="verify_serial_number",
+                message="HTTP 403 Forbidden",
+            )
+        )
+
+        service = TrademarkScreeningService(
+            trademark_provider=db_adapter,
+            tsdr_adapter=mock_tsdr,
+            dataset_updated_at="2026-08-18T00:00:00Z",
+        )
+
+        risk, findings = await service.screen_listing_trademark(
+            slogan="Stay Wild",
+            title="Stay Wild Moon Child PNG",
+            keywords=["stay wild"],
+            tags=["stay wild"],
+        )
+
+        assert risk == RiskLevel.HIGH
+        assert findings["screening_source"] == "USPTO_LOCAL_INDEX_TSDR_UNAVAILABLE"
+        assert findings["tsdr_status"] == "UNAVAILABLE"
+        assert len(findings["matches"]) >= 1
+        assert findings["matches"][0]["mark_text"] == "STAY WILD"
+
+
+class TestBulkIngestionParsers:
+    def test_xml_streaming_parser(self) -> None:
+        import sys
+        backend_dir = str(Path(__file__).resolve().parent.parent)
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+        from scripts.ingest_uspto_trademarks import _parse_xml_trademark_stream
+
+        xml_sample = """<?xml version="1.0" encoding="UTF-8"?>
+        <TrademarkBag>
+            <Trademark>
+                <Wordmark>TEST RUNNER</Wordmark>
+                <SerialNumber>90123456</SerialNumber>
+                <RegistrationNumber>6543210</RegistrationNumber>
+                <LiveDeadIndicator>LIVE</LiveDeadIndicator>
+                <StatusCode>700</StatusCode>
+                <StatusDescriptionText>REGISTERED</StatusDescriptionText>
+                <InternationalClassNumber>025</InternationalClassNumber>
+                <GoodsAndServicesDescription>Running shoes and shirts</GoodsAndServicesDescription>
+                <PartyName>Test Athletics LLC</PartyName>
+                <FilingDate>2021-05-01</FilingDate>
+                <RegistrationDate>2022-06-01</RegistrationDate>
+            </Trademark>
+        </TrademarkBag>
+        """
+        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False) as f:
+            f.write(xml_sample)
+            temp_path = Path(f.name)
+
+        try:
+            records = list(_parse_xml_trademark_stream(temp_path))
+            assert len(records) == 1
+            assert records[0]["mark_text"] == "TEST RUNNER"
+            assert records[0]["serial_number"] == "90123456"
+            assert records[0]["is_live"] is True
+            assert records[0]["classes"] == ["025"]
+            assert records[0]["owner_name"] == "Test Athletics LLC"
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def test_csv_streaming_parser(self) -> None:
+        import sys
+        backend_dir = str(Path(__file__).resolve().parent.parent)
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+        from scripts.ingest_uspto_trademarks import _parse_csv_trademark_stream
+
+        csv_sample = (
+            "mark_text,serial_number,registration_number,status_text,is_live,classes,goods_services,owner_name\n"
+            "COFFEE HERO,90999888,6777888,REGISTERED,LIVE,\"025, 021\",Mugs and shirts,Coffee Corp\n"
+        )
+        with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as f:
+            f.write(csv_sample)
+            temp_path = Path(f.name)
+
+        try:
+            records = list(_parse_csv_trademark_stream(temp_path))
+            assert len(records) == 1
+            assert records[0]["mark_text"] == "COFFEE HERO"
+            assert records[0]["serial_number"] == "90999888"
+            assert records[0]["classes"] == ["025", "021"]
+            assert records[0]["is_live"] is True
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def test_json_streaming_parser(self) -> None:
+        import sys
+        backend_dir = str(Path(__file__).resolve().parent.parent)
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+        from scripts.ingest_uspto_trademarks import _parse_json_trademark_stream
+
+        json_sample = [
+            {
+                "mark_text": "MAMA BEAR",
+                "serial_number": "87654321",
+                "registration_number": "5432109",
+                "status_text": "REGISTERED",
+                "is_live": True,
+                "classes": ["025", "016"],
+                "goods_services": "Apparel and stickers",
+                "owner_name": "Family Brands LLC",
+            }
+        ]
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(json_sample, f)
+            temp_path = Path(f.name)
+
+        try:
+            records = list(_parse_json_trademark_stream(temp_path))
+            assert len(records) == 1
+            assert records[0]["mark_text"] == "MAMA BEAR"
+            assert records[0]["serial_number"] == "87654321"
+            assert records[0]["classes"] == ["025", "016"]
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+
+class TestSqlTrademarkRepository:
+    @pytest.mark.asyncio
+    async def test_repository_get_by_serial_and_registration(self) -> None:
+        from app.infrastructure.repositories.trademark import SqlTrademarkRepository
+
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_rec = MagicMock()
+        mock_rec.serial_number = "90111222"
+        mock_rec.registration_number = "6555444"
+        mock_result.scalars.return_value.first.return_value = mock_rec
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        repo = SqlTrademarkRepository(mock_session)
+        rec_serial = await repo.get_by_serial("90111222")
+        assert rec_serial is not None
+        assert rec_serial.serial_number == "90111222"
+
+        rec_reg = await repo.get_by_registration("6555444")
+        assert rec_reg is not None
+        assert rec_reg.registration_number == "6555444"
+
+    @pytest.mark.asyncio
+    async def test_repository_bulk_upsert(self) -> None:
+        from app.infrastructure.repositories.trademark import SqlTrademarkRepository
+
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.first.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.flush = AsyncMock()
+
+        repo = SqlTrademarkRepository(mock_session)
+        counts = await repo.bulk_upsert(
+            [
+                {
+                    "mark_text": "NIKE RUNNER",
+                    "serial_number": "90111222",
+                    "classes": ["025"],
+                    "is_live": True,
+                },
+                {
+                    "mark_text": "COFFEE HERO",
+                    "serial_number": "90333444",
+                    "classes": ["021"],
+                    "is_live": True,
+                },
+            ]
+        )
+        assert counts["inserted"] == 2
+        assert counts["updated"] == 0
+        assert counts["failed"] == 0
+        assert mock_session.add.call_count == 2
 

@@ -120,8 +120,19 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
     - [x] Exactly 13 Etsy Search Tags (strictly ≤ 20 characters per tag, no punctuation, zero duplicates).
     - [x] Mandatory Etsy AI Disclosure statement.
 - [x] **Preliminary IP & Trademark Screening**:
-  - [x] Keyword and slogan scan against USPTO common trademark dictionaries.
-  - [x] Compute trademark risk level (`CLEARED`, `WARNING`, `HIGH_RISK`) with matched phrases.
+  - [x] **PostgreSQL USPTO Trademark Index (`trademark_records`)**:
+    - [x] Stores wordmarks, serial numbers, registration numbers, status codes/text, live/dead flags, Nice classes (JSONB), goods/services, owner, filing/registration dates, source file and timestamps.
+    - [x] High-performance `pg_trgm` GIN trigram index on `normalized_mark_text`.
+    - [x] Streaming bulk ingestion CLI (`scripts/ingest_uspto_trademarks.py`) supporting USPTO Daily/Annual XML (`iterparse`), CSV, and JSON/JSONL formats with O(1) memory usage.
+  - [x] **Fast Local Phrase & Trigram Search (`PostgresTrademarkSearchAdapter`)**:
+    - [x] Phrase normalization (case-folding, whitespace collapsing, punctuation stripping, deduplication).
+    - [x] Exact match, substring, and trigram similarity ranking in PostgreSQL.
+  - [x] **TSDR Candidate Verification (`UsptoTsdrAdapter`)**:
+    - [x] Queries TSDR for candidates by serial number using encrypted `USPTO_API_KEY`.
+    - [x] Enriches candidate status, live/dead indicator, goods/services, and classes without erasing local evidence on TSDR timeout/failure.
+  - [x] **Deterministic Risk Engine**:
+    - [x] Classification into `CLEARED`, `WARNING`, `HIGH_RISK` based on POD-relevant Nice classes (`009`, `016`, `021`, `025`, `035`) and brand registries.
+    - [x] Gate 3 enforcement: `HIGH_RISK` blocks approval; `WARNING` requires manual user acknowledgement; `CLEARED` enables approval.
 - [x] **Customer Download Package Builder**:
   - [x] Deterministic ZIP bundle generator containing:
     - [x] Master 300 DPI transparent PNG.

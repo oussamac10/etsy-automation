@@ -1417,15 +1417,18 @@ async def _resolve_trademark_provider(
     owner_id: uuid.UUID,
     uow: UnitOfWork,
     settings: Any,
-) -> tuple[Any, Any | None]:
+) -> tuple[Any, Any | None, Any | None, str | None]:
     from app.domain.enums import ProviderName
     from app.providers.fake import FakeTrademarkSearchAdapter
     from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
-    from app.providers.uspto import UsptoTrademarkAdapter
+    from app.providers.tsdr import UsptoTsdrAdapter
 
     db_provider = PostgresTrademarkSearchAdapter(uow)
+    latest_dt = await uow.trademarks.get_latest_source_date()
+    dataset_updated_at = latest_dt.isoformat() if latest_dt else None
 
     if settings.provider_mode == "live":
+        tsdr_adapter: Any | None = None
         cred = await uow.credentials.get(owner_id, ProviderName.USPTO)
         if cred:
             from app.api.dependencies import build_credential_cipher
@@ -1433,14 +1436,14 @@ async def _resolve_trademark_provider(
             cipher = build_credential_cipher(settings)
             if cipher:
                 raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
-                return UsptoTrademarkAdapter(api_key=raw_key), db_provider
+                tsdr_adapter = UsptoTsdrAdapter(api_key=raw_key)
 
-        if hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
-            return UsptoTrademarkAdapter(api_key=settings.uspto_api_key.get_secret_value()), db_provider
+        if tsdr_adapter is None and hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
+            tsdr_adapter = UsptoTsdrAdapter(api_key=settings.uspto_api_key.get_secret_value())
 
-        return db_provider, None
+        return db_provider, None, tsdr_adapter, dataset_updated_at
 
-    return FakeTrademarkSearchAdapter(), None
+    return FakeTrademarkSearchAdapter(), None, None, dataset_updated_at
 
 
 @router.get(
@@ -1493,11 +1496,14 @@ async def update_listing_draft_endpoint(
             detail="No workflow with that ID",
         )
 
-    primary_provider, fallback_provider = await _resolve_trademark_provider(
-        workflow.owner_id, uow, settings
+    primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
+        await _resolve_trademark_provider(workflow.owner_id, uow, settings)
     )
     trademark_service = TrademarkScreeningService(
-        primary_provider, fallback_provider=fallback_provider
+        primary_provider,
+        fallback_provider=fallback_provider,
+        tsdr_adapter=tsdr_adapter,
+        dataset_updated_at=dataset_updated_at,
     )
     listing_service = ListingDraftService()
     try:
@@ -1522,11 +1528,11 @@ async def update_listing_draft_endpoint(
 
 
 @router.post(
-    "/{workflow_id}/listing/rescreen",
+    "/{workflow_id}/listing/rescreen-trademark",
     response_model=ListingDraftResponse,
-    summary="Re-screen current listing draft terms against USPTO trademark registry",
+    summary="Re-screen existing listing draft terms against trademark database",
 )
-async def rescreen_listing_trademark_endpoint(
+async def rescreen_trademark_endpoint(
     workflow_id: uuid.UUID,
     user: CurrentUser,
     uow: UowDep,
@@ -1543,11 +1549,14 @@ async def rescreen_listing_trademark_endpoint(
             detail="No workflow with that ID",
         )
 
-    primary_provider, fallback_provider = await _resolve_trademark_provider(
-        workflow.owner_id, uow, settings
+    primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
+        await _resolve_trademark_provider(workflow.owner_id, uow, settings)
     )
     trademark_service = TrademarkScreeningService(
-        primary_provider, fallback_provider=fallback_provider
+        primary_provider,
+        fallback_provider=fallback_provider,
+        tsdr_adapter=tsdr_adapter,
+        dataset_updated_at=dataset_updated_at,
     )
     listing_service = ListingDraftService()
 
@@ -1645,11 +1654,14 @@ async def generate_listing_seo_endpoint(
         )
 
         # Trademark screen
-        primary_provider, fallback_provider = await _resolve_trademark_provider(
-            workflow.owner_id, uow, settings
+        primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
+            await _resolve_trademark_provider(workflow.owner_id, uow, settings)
         )
         trademark_service = TrademarkScreeningService(
-            primary_provider, fallback_provider=fallback_provider
+            primary_provider,
+            fallback_provider=fallback_provider,
+            tsdr_adapter=tsdr_adapter,
+            dataset_updated_at=dataset_updated_at,
         )
         screened_draft = await listing_service.rescreen_trademark(
             workflow_id=workflow_id,

@@ -14,8 +14,9 @@ if TYPE_CHECKING:
 class PostgresTrademarkSearchAdapter(TrademarkSearchPort):
     """Searches official USPTO trademark records stored in PostgreSQL database."""
 
-    def __init__(self, uow: UnitOfWork) -> None:
+    def __init__(self, uow: UnitOfWork, limit: int = 25) -> None:
         self._uow = uow
+        self._limit = limit
 
     async def search_trademark(self, phrase: str) -> list[TrademarkMatch]:
         """Query PostgreSQL trademark database for matching registered marks."""
@@ -23,11 +24,11 @@ class PostgresTrademarkSearchAdapter(TrademarkSearchPort):
         if not norm_phrase or len(norm_phrase) < 2:
             return []
 
-        records = await self._uow.trademarks.search_by_phrase(norm_phrase)
+        records = await self._uow.trademarks.search_by_phrase(norm_phrase, limit=self._limit)
         matches: list[TrademarkMatch] = []
         for r in records:
             source_url = (
-                f"https://tsdr.uspto.gov/#caseNumber={r.serial_number}&caseType=SERIAL_NO&searchType=statusSearch"
+                f"https://tsdr.uspto.gov/#caseNumber={r.serial_number}&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch"
                 if r.serial_number
                 else None
             )
@@ -36,11 +37,11 @@ class PostgresTrademarkSearchAdapter(TrademarkSearchPort):
                     mark_text=r.mark_text,
                     serial_number=r.serial_number,
                     registration_number=r.registration_number,
-                    status=r.status,
+                    status=r.status_text,
                     is_live=r.is_live,
                     classes=list(r.classes or []),
                     goods_services=r.goods_services,
-                    owner=r.owner,
+                    owner=r.owner_name,
                     filing_date=r.filing_date,
                     registration_date=r.registration_date,
                     source_url=source_url,

@@ -612,17 +612,20 @@ erDiagram
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `id` | `CHAR(32)` | NO | `dynamic` | ✅ | - |
 | `mark_text` | `VARCHAR(512)` | NO | `-` | - | - |
-| `norm_mark_text` | `VARCHAR(512)` | NO | `-` | - | - |
+| `normalized_mark_text` | `VARCHAR(512)` | NO | `-` | - | - |
 | `serial_number` | `VARCHAR(64)` | YES | `-` | - | - |
 | `registration_number` | `VARCHAR(64)` | YES | `-` | - | - |
-| `status` | `VARCHAR(64)` | NO | `REGISTERED` | - | - |
+| `status_code` | `VARCHAR(32)` | YES | `-` | - | - |
+| `status_text` | `VARCHAR(64)` | NO | `REGISTERED` | - | - |
 | `is_live` | `BOOLEAN` | NO | `True` | - | - |
 | `classes` | `JSONB` | NO | `dynamic` | - | - |
 | `goods_services` | `TEXT` | YES | `-` | - | - |
-| `owner` | `VARCHAR(512)` | YES | `-` | - | - |
+| `owner_name` | `VARCHAR(512)` | YES | `-` | - | - |
 | `filing_date` | `VARCHAR(32)` | YES | `-` | - | - |
 | `registration_date` | `VARCHAR(32)` | YES | `-` | - | - |
-| `source` | `VARCHAR(64)` | NO | `USPTO_BULK` | - | - |
+| `source_file` | `VARCHAR(512)` | YES | `-` | - | - |
+| `source_updated_at` | `DATETIME` | YES | `-` | - | - |
+| `imported_at` | `DATETIME` | NO | `now()` | - | - |
 | `created_at` | `DATETIME` | NO | `dynamic` | - | - |
 | `updated_at` | `DATETIME` | NO | `dynamic` | - | - |
 
