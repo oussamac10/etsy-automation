@@ -172,6 +172,21 @@ const canApprove = computed(() => {
   return true;
 });
 
+const isListingCopyDirty = computed(() => {
+  if (!listingDraft.value) return false;
+  return (
+    localTitle.value !== (listingDraft.value.title || '') ||
+    localDescription.value !== (listingDraft.value.description || '')
+  );
+});
+
+const isTagsDirty = computed(() => {
+  if (!listingDraft.value) return false;
+  const savedTags = listingDraft.value.tags || [];
+  if (localTags.value.length !== savedTags.length) return true;
+  return JSON.stringify(localTags.value) !== JSON.stringify(savedTags);
+});
+
 const isApproved = computed(() => {
   return ['READY_FOR_ETSY_DRAFT', 'PUBLISHED'].includes(props.workflowState);
 });
@@ -210,6 +225,7 @@ const isApproved = computed(() => {
             :version="listingDraft.version"
             :is-saving="isSaving"
             :is-generating-seo="isGeneratingSeo"
+            :has-unsaved-changes="isListingCopyDirty"
             @update:title="localTitle = $event"
             @update:description="localDescription = $event"
             @save="handleSave"
@@ -219,6 +235,7 @@ const isApproved = computed(() => {
           <TagEditorCard
             :tags="localTags"
             :is-saving="isSaving"
+            :has-unsaved-changes="isTagsDirty"
             @update:tags="localTags = $event"
             @save="handleSave"
           />

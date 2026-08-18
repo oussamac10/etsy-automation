@@ -19,6 +19,7 @@ const props = defineProps<{
   version: number;
   isSaving: boolean;
   isGeneratingSeo: boolean;
+  hasUnsavedChanges?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -43,7 +44,8 @@ const titleLength = computed(() => localTitle.value.length);
 const isTitleOverLimit = computed(() => titleLength.value > MAX_TITLE_LENGTH);
 const isTitleApproachingLimit = computed(() => titleLength.value > 120 && !isTitleOverLimit.value);
 
-const hasUnsavedChanges = computed(() => {
+const isDirty = computed(() => {
+  if (props.hasUnsavedChanges !== undefined) return props.hasUnsavedChanges;
   return localTitle.value !== props.title || localDescription.value !== props.description;
 });
 
@@ -92,7 +94,7 @@ function handleDescUpdate(val: string | number) {
           type="button"
           variant="default"
           size="sm"
-          :disabled="isSaving || isGeneratingSeo || !hasUnsavedChanges || isTitleOverLimit"
+          :disabled="isSaving || isGeneratingSeo || !isDirty || isTitleOverLimit"
           class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer"
           @click="emit('save')"
         >

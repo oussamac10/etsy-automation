@@ -13,6 +13,7 @@ import { MAX_ETSY_TAGS, MAX_TAG_LENGTH, normalizeTag, validateTag } from '~/util
 const props = defineProps<{
   tags: string[];
   isSaving: boolean;
+  hasUnsavedChanges?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -36,7 +37,8 @@ const normalizedNewTag = computed(() => normalizeTag(newTagInput.value));
 const newTagLength = computed(() => normalizedNewTag.value.length);
 const isNewTagTooLong = computed(() => newTagLength.value > MAX_TAG_LENGTH);
 
-const hasUnsavedChanges = computed(() => {
+const isDirty = computed(() => {
+  if (props.hasUnsavedChanges !== undefined) return props.hasUnsavedChanges;
   if (localTags.value.length !== props.tags.length) return true;
   return JSON.stringify(localTags.value) !== JSON.stringify(props.tags);
 });
@@ -96,7 +98,7 @@ function handleKeyDown(e: KeyboardEvent) {
       </div>
 
       <Button
-        v-if="hasUnsavedChanges"
+        v-if="isDirty"
         type="button"
         variant="default"
         size="sm"
@@ -106,7 +108,7 @@ function handleKeyDown(e: KeyboardEvent) {
       >
         <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
         <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
-        <span>Save</span>
+        <span>Save Tags</span>
       </Button>
     </CardHeader>
 
