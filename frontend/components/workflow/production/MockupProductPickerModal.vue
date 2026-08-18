@@ -135,12 +135,13 @@ async function handleGenerateAiIdeas() {
       const items: Array<{ key: string; label: string; icon: string; count: number }> = [];
 
       for (const s of res.suggestions) {
-        const k = normalizeProductKey(s);
+        const clean = String(s).trim().replace(/^['"\[\]\s]+|['"\[\]\s]+$/g, "");
+        const k = normalizeProductKey(clean);
         if (k && !campaignKeys.has(k) && !seen.has(k)) {
           seen.add(k);
           items.push({
             key: k,
-            label: getProductLabel(k),
+            label: getProductLabel(clean),
             icon: getProductIconName(k),
             count: getMockupCount(k),
           });
@@ -153,6 +154,10 @@ async function handleGenerateAiIdeas() {
   } finally {
     isGeneratingIdeas.value = false;
   }
+}
+
+function removeAiIdea(key: string) {
+  aiGeneratedItems.value = aiGeneratedItems.value.filter((item) => item.key !== key);
 }
 </script>
 
@@ -189,13 +194,16 @@ async function handleGenerateAiIdeas() {
               v-for="item in campaignItems"
               :key="item.key"
               type="button"
-              class="relative p-3 rounded-xl border border-primary/50 bg-primary/5 hover:bg-primary/10 hover:border-primary flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
+              class="relative p-3 rounded-xl border border-primary/50 bg-primary/5 hover:bg-primary/10 hover:border-primary flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer group text-center min-h-[7.5rem]"
               @click="emit('select', item.key)"
             >
-              <div class="h-9 w-9 rounded-lg bg-primary/10 group-hover:bg-primary flex items-center justify-center text-primary group-hover:text-white transition-colors">
+              <div class="h-9 w-9 rounded-lg bg-primary/10 group-hover:bg-primary flex items-center justify-center text-primary group-hover:text-white transition-colors shrink-0">
                 <Icon :name="item.icon" class="size-4.5" aria-hidden="true" />
               </div>
-              <span class="text-xs font-bold text-foreground truncate max-w-full">
+              <span
+                class="text-xs font-bold text-foreground line-clamp-2 min-h-[2rem] flex items-center justify-center leading-tight break-words px-0.5 text-center"
+                :title="item.label"
+              >
                 {{ item.label }}
               </span>
               <span
@@ -210,27 +218,40 @@ async function handleGenerateAiIdeas() {
 
         <!-- Section 2: On-Demand AI Mockup Ideas Trigger & Results -->
         <div class="space-y-2.5">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-2">
             <label class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Icon name="lucide:sparkles" class="size-3.5 text-amber-500" aria-hidden="true" />
               <span>AI Product Recommendations</span>
             </label>
-            <Button
-              v-if="workflowId"
-              variant="outline"
-              size="sm"
-              class="h-7 text-xs font-bold border-amber-300 bg-amber-50/50 hover:bg-amber-100 text-amber-900 gap-1.5 cursor-pointer shadow-2xs"
-              :disabled="isGeneratingIdeas"
-              @click="handleGenerateAiIdeas"
-            >
-              <Icon
-                :name="isGeneratingIdeas ? 'lucide:loader-2' : 'lucide:sparkles'"
-                class="size-3"
-                :class="{ 'animate-spin': isGeneratingIdeas }"
-                aria-hidden="true"
-              />
-              <span>{{ isGeneratingIdeas ? 'Generating Ideas...' : aiGeneratedItems.length > 0 ? 'Regenerate Ideas' : 'Generate Mockup Ideas' }}</span>
-            </Button>
+            <div class="flex items-center gap-1.5">
+              <Button
+                v-if="aiGeneratedItems.length > 0"
+                variant="ghost"
+                size="sm"
+                class="h-7 text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50 gap-1 px-2 cursor-pointer"
+                title="Clear all AI ideas"
+                @click="aiGeneratedItems = []"
+              >
+                <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
+                <span>Clear</span>
+              </Button>
+              <Button
+                v-if="workflowId"
+                variant="outline"
+                size="sm"
+                class="h-7 text-xs font-bold border-amber-300 bg-amber-50/50 hover:bg-amber-100 text-amber-900 gap-1.5 cursor-pointer shadow-2xs"
+                :disabled="isGeneratingIdeas"
+                @click="handleGenerateAiIdeas"
+              >
+                <Icon
+                  :name="isGeneratingIdeas ? 'lucide:loader-2' : 'lucide:sparkles'"
+                  class="size-3"
+                  :class="{ 'animate-spin': isGeneratingIdeas }"
+                  aria-hidden="true"
+                />
+                <span>{{ isGeneratingIdeas ? 'Generating Ideas...' : aiGeneratedItems.length > 0 ? 'Regenerate Ideas' : 'Generate Mockup Ideas' }}</span>
+              </Button>
+            </div>
           </div>
 
           <!-- Error Alert if generation failed -->
@@ -240,26 +261,43 @@ async function handleGenerateAiIdeas() {
 
           <!-- Dynamic AI Generated Cards -->
           <div v-if="aiGeneratedItems.length > 0" class="grid grid-cols-3 gap-2.5 animate-in fade-in zoom-in-95 duration-200">
-            <button
+            <div
               v-for="item in aiGeneratedItems"
               :key="item.key"
-              type="button"
-              class="relative p-3 rounded-xl border border-amber-300/80 bg-amber-50/60 hover:bg-amber-100/70 hover:border-amber-400 flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
-              @click="emit('select', item.key)"
+              class="relative group"
             >
-              <div class="h-9 w-9 rounded-lg bg-amber-200/70 group-hover:bg-amber-500 flex items-center justify-center text-amber-900 group-hover:text-white transition-colors">
-                <Icon :name="item.icon" class="size-4.5" aria-hidden="true" />
-              </div>
-              <span class="text-xs font-bold text-foreground truncate max-w-full">
-                {{ item.label }}
-              </span>
-              <span
-                class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                :class="item.count > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-white text-muted-foreground border border-border'"
+              <!-- Delete Option Button for AI Idea -->
+              <button
+                type="button"
+                class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-white border border-amber-300 text-muted-foreground hover:text-red-600 hover:border-red-400 hover:bg-red-50 flex items-center justify-center shadow-xs transition-colors z-10 cursor-pointer"
+                title="Delete this mockup idea"
+                @click.stop="removeAiIdea(item.key)"
               >
-                {{ item.count }} {{ item.count === 1 ? 'mockup' : 'mockups' }}
-              </span>
-            </button>
+                <Icon name="lucide:x" class="size-3" aria-hidden="true" />
+              </button>
+
+              <button
+                type="button"
+                class="w-full h-full p-3 rounded-xl border border-amber-300/80 bg-amber-50/60 hover:bg-amber-100/70 hover:border-amber-400 flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer text-center min-h-[7.5rem]"
+                @click="emit('select', item.key)"
+              >
+                <div class="h-9 w-9 rounded-lg bg-amber-200/70 group-hover:bg-amber-500 flex items-center justify-center text-amber-900 group-hover:text-white transition-colors shrink-0">
+                  <Icon :name="item.icon" class="size-4.5" aria-hidden="true" />
+                </div>
+                <span
+                  class="text-xs font-bold text-foreground line-clamp-2 min-h-[2rem] flex items-center justify-center leading-tight break-words px-0.5 text-center"
+                  :title="item.label"
+                >
+                  {{ item.label }}
+                </span>
+                <span
+                  class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
+                  :class="item.count > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-white text-muted-foreground border border-border'"
+                >
+                  {{ item.count }} {{ item.count === 1 ? 'mockup' : 'mockups' }}
+                </span>
+              </button>
+            </div>
           </div>
           <div v-else-if="!isGeneratingIdeas" class="p-3 rounded-xl border border-dashed border-border bg-secondary/20 text-center">
             <p class="text-xs text-muted-foreground">
@@ -278,13 +316,16 @@ async function handleGenerateAiIdeas() {
               v-for="item in customItems"
               :key="item.key"
               type="button"
-              class="p-3 rounded-xl border border-[#FFDCC7] bg-secondary/50 hover:bg-secondary hover:border-primary/50 flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
+              class="p-3 rounded-xl border border-[#FFDCC7] bg-secondary/50 hover:bg-secondary hover:border-primary/50 flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer group text-center min-h-[7.5rem]"
               @click="emit('select', item.key)"
             >
-              <div class="h-9 w-9 rounded-lg bg-white border border-[#FFDCC7] flex items-center justify-center text-primary transition-colors">
+              <div class="h-9 w-9 rounded-lg bg-white border border-[#FFDCC7] flex items-center justify-center text-primary transition-colors shrink-0">
                 <Icon :name="item.icon" class="size-4.5" aria-hidden="true" />
               </div>
-              <span class="text-xs font-bold text-foreground truncate max-w-full">
+              <span
+                class="text-xs font-bold text-foreground line-clamp-2 min-h-[2rem] flex items-center justify-center leading-tight break-words px-0.5 text-center"
+                :title="item.label"
+              >
                 {{ item.label }}
               </span>
               <span
@@ -307,13 +348,16 @@ async function handleGenerateAiIdeas() {
               v-for="p in otherStandardItems"
               :key="p.key"
               type="button"
-              class="p-3 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/40 flex flex-col items-center gap-1.5 transition-all cursor-pointer group text-center"
+              class="p-3 rounded-xl border border-border hover:border-primary/50 hover:bg-secondary/40 flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer group text-center min-h-[7.5rem]"
               @click="emit('select', p.key)"
             >
-              <div class="h-9 w-9 rounded-lg bg-secondary/60 group-hover:bg-secondary flex items-center justify-center text-secondary-foreground group-hover:text-primary transition-colors">
+              <div class="h-9 w-9 rounded-lg bg-secondary/60 group-hover:bg-secondary flex items-center justify-center text-secondary-foreground group-hover:text-primary transition-colors shrink-0">
                 <Icon :name="p.icon" class="size-4.5" aria-hidden="true" />
               </div>
-              <span class="text-xs font-semibold text-foreground truncate max-w-full">
+              <span
+                class="text-xs font-semibold text-foreground line-clamp-2 min-h-[2rem] flex items-center justify-center leading-tight break-words px-0.5 text-center"
+                :title="p.label"
+              >
                 {{ p.label }}
               </span>
               <span

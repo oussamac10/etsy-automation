@@ -1473,14 +1473,14 @@ async def suggest_mockup_ideas_endpoint(
             provider = GeminiSynthesisAdapter(api_key=gemini_key)
             resp = await provider.generate(TextRequest(prompt=prompt_text))
             if resp and resp.text:
-                suggested_raw = [p.strip() for p in resp.text.split(",") if p.strip()]
+                suggested_raw = _clean_product_suggestion_list(resp.text)
         elif openai_key:
             provider = OpenAISynthesisAdapter(api_key=openai_key)
             resp = await provider.generate(TextRequest(prompt=prompt_text))
             if resp and resp.text:
-                suggested_raw = [p.strip() for p in resp.text.split(",") if p.strip()]
+                suggested_raw = _clean_product_suggestion_list(resp.text)
         elif concept_uses:
-            suggested_raw = concept_uses
+            suggested_raw = _clean_product_suggestion_list(concept_uses)
         else:
             suggested_raw = [
                 "Graphic Crewneck Sweatshirt",
@@ -1490,7 +1490,7 @@ async def suggest_mockup_ideas_endpoint(
                 "Wall Art Poster",
             ]
     except Exception:
-        suggested_raw = concept_uses or [
+        suggested_raw = _clean_product_suggestion_list(concept_uses) if concept_uses else [
             "Graphic Crewneck Sweatshirt",
             "Insulated Travel Mug",
             "Die Cut Vinyl Decal",
@@ -1498,8 +1498,48 @@ async def suggest_mockup_ideas_endpoint(
             "Wall Art Poster",
         ]
 
-    cleaned = [s for s in suggested_raw if 2 <= len(s) <= 50][:6]
+    cleaned = _clean_product_suggestion_list(suggested_raw)
     return SuggestMockupProductsResponse(suggestions=cleaned)
+
+
+def _clean_product_suggestion_list(raw_input: Any) -> list[str]:
+    """Parse JSON lists, comma-delimited strings, and strip quotes/brackets from LLM output."""
+    import json
+    import re
+
+    if isinstance(raw_input, list):
+        items = raw_input
+    elif isinstance(raw_input, str):
+        text = raw_input.strip()
+        if "[" in text and "]" in text:
+            try:
+                start = text.index("[")
+                end = text.rindex("]") + 1
+                parsed = json.loads(text[start:end])
+                if isinstance(parsed, list):
+                    items = parsed
+                else:
+                    items = text.split(",")
+            except Exception:
+                items = text.split(",")
+        else:
+            items = text.replace("\n", ",").split(",")
+    else:
+        items = []
+
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        s = str(item).strip()
+        # Strip brackets, quotes, markdown formatting, bullets
+        s = s.strip("[]\"'`*•-\t\r\n ")
+        s = re.sub(r"^\d+[\.\)]\s*", "", s).strip("[]\"'` ")
+        if s and 2 <= len(s) <= 50:
+            norm = s.lower()
+            if norm not in seen:
+                seen.add(norm)
+                cleaned.append(s)
+    return cleaned[:6]
 
 
 @router.post(
