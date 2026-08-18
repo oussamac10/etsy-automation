@@ -27,8 +27,10 @@ from app.api.schemas import (
     ConceptRevisionRequest,
     CreateWorkflowRequest,
     DesignPromptResponse,
+    Gate3DecisionRequest,
     GateDecisionRequest,
     GenerateArtworkRequest,
+    ListingDraftResponse,
     OriginalIdeaResponse,
     ProductConceptResponse,
     ProductionJobResponse,
@@ -39,6 +41,7 @@ from app.api.schemas import (
     SubmitIdeaRequest,
     TimelineEntryResponse,
     TimelineResponse,
+    UpdateListingDraftRequest,
     WorkflowListResponse,
     WorkflowResponse,
 )
@@ -1358,3 +1361,321 @@ async def workflow_composite_mockup_endpoint(
         storage=storage,
         settings=settings,
     )
+
+
+# --------------------------------------------------------------------------
+# Phase 8: Listing Draft, Trademark Screening & Gate 3 Review
+# --------------------------------------------------------------------------
+
+
+async def _build_listing_response(
+    draft: Any,
+    workflow_id: uuid.UUID,
+    uow: UnitOfWork,
+    storage: Any,
+) -> ListingDraftResponse:
+    assets = await uow.assets.list_for_workflow(workflow_id)
+    package_asset = next(
+        (a for a in assets if a.provenance and a.provenance.get("kind") == "customer_package"),
+        None,
+    )
+    pkg_url = None
+    pkg_resp = None
+    if package_asset:
+        pkg_url = await storage.signed_url(package_asset.storage_key, 3600)
+        pkg_resp = to_asset_response(package_asset, pkg_url)
+
+    risk_val = (
+        draft.ip_risk_level.value
+        if hasattr(draft.ip_risk_level, "value")
+        else str(draft.ip_risk_level)
+    )
+
+    return ListingDraftResponse(
+        id=draft.id,
+        workflow_id=draft.workflow_id,
+        title=draft.title,
+        description=draft.description,
+        tags=draft.tags,
+        ai_disclosure=draft.ai_disclosure,
+        licence_text=draft.licence_text,
+        customer_instructions=draft.customer_instructions,
+        ip_reviewed_phrase=draft.ip_reviewed_phrase,
+        ip_risk_level=risk_val,
+        ip_findings=draft.ip_findings or {},
+        ip_acknowledged_at=draft.ip_acknowledged_at,
+        ip_acknowledged_by=draft.ip_acknowledged_by,
+        version=draft.version,
+        package_asset=pkg_resp,
+        package_download_url=pkg_url,
+        created_at=draft.created_at,
+        updated_at=draft.updated_at,
+    )
+
+
+def _resolve_trademark_provider(settings: Any) -> Any:
+    from app.providers.fake import FakeTrademarkSearchAdapter
+    from app.providers.uspto import UsptoTrademarkAdapter
+
+    if settings.provider_mode == "live" and hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
+        return UsptoTrademarkAdapter(api_key=settings.uspto_api_key.get_secret_value())
+    return FakeTrademarkSearchAdapter()
+
+
+@router.get(
+    "/{workflow_id}/listing",
+    response_model=ListingDraftResponse,
+    summary="Get or initialize listing draft and customer package status",
+)
+async def get_listing_draft_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing_service = ListingDraftService()
+    draft = await listing_service.get_or_create_listing(workflow_id, uow)
+    await uow.commit()
+
+    return await _build_listing_response(draft, workflow_id, uow, storage)
+
+
+@router.put(
+    "/{workflow_id}/listing",
+    response_model=ListingDraftResponse,
+    summary="Update listing title, description, and tags",
+)
+async def update_listing_draft_endpoint(
+    workflow_id: uuid.UUID,
+    payload: UpdateListingDraftRequest,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing_service = ListingDraftService()
+    try:
+        updated_draft = await listing_service.update_listing_draft(
+            workflow_id=workflow_id,
+            title=payload.title,
+            description=payload.description,
+            tags=payload.tags,
+            expected_version=payload.expected_version,
+            uow=uow,
+            actor_email=user.email,
+        )
+        await uow.commit()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return await _build_listing_response(updated_draft, workflow_id, uow, storage)
+
+
+@router.post(
+    "/{workflow_id}/listing/rescreen",
+    response_model=ListingDraftResponse,
+    summary="Re-screen current listing draft terms against USPTO trademark registry",
+)
+async def rescreen_listing_trademark_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    settings: SettingsDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+    from app.application.trademark import TrademarkScreeningService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    trademark_provider = _resolve_trademark_provider(settings)
+    trademark_service = TrademarkScreeningService(trademark_provider)
+    listing_service = ListingDraftService()
+
+    try:
+        updated_draft = await listing_service.rescreen_trademark(
+            workflow_id=workflow_id,
+            uow=uow,
+            trademark_service=trademark_service,
+        )
+        await uow.commit()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return await _build_listing_response(updated_draft, workflow_id, uow, storage)
+
+
+@router.post(
+    "/{workflow_id}/listing/generate-seo",
+    response_model=ListingDraftResponse,
+    summary="Generate AI SEO copy and run trademark screening",
+)
+async def generate_listing_seo_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    settings: SettingsDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+    from app.application.package import CustomerPackageService
+    from app.application.seo import generate_listing_seo
+    from app.application.trademark import TrademarkScreeningService
+    from app.providers.fake import FakeTextProvider
+    from app.providers.gemini import GeminiSynthesisAdapter
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    if not concepts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Workflow has no product concept",
+        )
+    concept = concepts[0]
+
+    prompts = await uow.concepts.prompts(concept.id)
+    latest_prompt = prompts[-1] if prompts else None
+
+    # Text provider resolution
+    text_provider: Any = FakeTextProvider()
+    if settings.provider_mode == "live":
+        # Check for Gemini credentials
+        cred = await uow.credentials.get(workflow.owner_id, ProviderName.GEMINI)
+        if cred:
+            from app.api.dependencies import build_credential_cipher
+
+            cipher = build_credential_cipher(settings)
+            if cipher:
+                raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
+                text_provider = GeminiSynthesisAdapter(api_key=raw_key)
+
+    # Keyword clusters from research
+    research_runs = await uow.research.list_runs_for_workflow(workflow_id)
+    keywords: list[str] = []
+    for r in research_runs:
+        clusters = await uow.research.get_keyword_clusters_for_run(r.id)
+        for cl in clusters:
+            keywords.append(cl.primary_phrase)
+            keywords.extend(cl.attributes)
+
+    try:
+        seo_draft = await generate_listing_seo(
+            concept=concept,
+            prompt=latest_prompt,
+            keywords=keywords[:15],
+            text_provider=text_provider,
+        )
+
+        listing_service = ListingDraftService()
+        draft = await listing_service.get_or_create_listing(workflow_id, uow)
+        updated_draft = await uow.listing_drafts.update(
+            draft.id,
+            title=seo_draft.title,
+            description=seo_draft.description,
+            tags=seo_draft.tags,
+            ai_disclosure=seo_draft.ai_disclosure,
+        )
+
+        # Trademark screen
+        trademark_provider = _resolve_trademark_provider(settings)
+        trademark_service = TrademarkScreeningService(trademark_provider)
+        screened_draft = await listing_service.rescreen_trademark(
+            workflow_id=workflow_id,
+            uow=uow,
+            trademark_service=trademark_service,
+        )
+
+        # Customer package
+        package_service = CustomerPackageService(storage)
+        try:
+            await package_service.build_customer_package(workflow_id, uow)
+        except Exception as pkg_err:
+            # Package builder error shouldn't fail the SEO generation
+            pass
+
+        await uow.commit()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"SEO generation failed: {exc}",
+        )
+
+    return await _build_listing_response(screened_draft, workflow_id, uow, storage)
+
+
+@router.post(
+    "/{workflow_id}/gates/listing",
+    response_model=ListingDraftResponse,
+    summary="Submit Gate 3 human decision (Approve / Reject)",
+)
+async def decide_gate3_endpoint(
+    workflow_id: uuid.UUID,
+    payload: Gate3DecisionRequest,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+    from app.application.package import CustomerPackageService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    package_service = CustomerPackageService(storage)
+    listing_service = ListingDraftService()
+
+    try:
+        _, draft = await listing_service.decide_gate3(
+            workflow_id=workflow_id,
+            decision=payload.decision,
+            acknowledged=payload.acknowledged,
+            owner_email=user.email,
+            uow=uow,
+            package_service=package_service,
+        )
+        await uow.commit()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return await _build_listing_response(draft, workflow_id, uow, storage)

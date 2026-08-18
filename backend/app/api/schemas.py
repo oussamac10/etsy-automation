@@ -353,3 +353,43 @@ class ReorderMockupsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     asset_ids: list[uuid.UUID]
+
+
+class UpdateListingDraftRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: Annotated[str, Field(min_length=1, max_length=140)]
+    description: Annotated[str, Field(min_length=1)]
+    tags: Annotated[list[str], Field(min_length=13, max_length=13)]
+    expected_version: int | None = None
+
+
+class Gate3DecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: ApprovalDecision
+    acknowledged: bool = False
+
+
+class ListingDraftResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    title: str
+    description: str
+    tags: list[str]
+    ai_disclosure: str | None = None
+    licence_text: str | None = None
+    customer_instructions: str | None = None
+    ip_reviewed_phrase: str | None = None
+    ip_risk_level: str
+    ip_findings: dict[str, object]
+    ip_acknowledged_at: datetime | None = None
+    ip_acknowledged_by: str | None = None
+    version: int
+    package_asset: AssetResponse | None = None
+    package_download_url: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+

@@ -7,6 +7,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 import dramatiq
 import httpx
@@ -1352,3 +1353,168 @@ async def _run_production_async(workflow_id: uuid.UUID, job_id: uuid.UUID) -> No
         raise exc
     finally:
         await engine.dispose()
+
+
+@dramatiq.actor(queue_name="default", max_retries=3)
+def run_listing_pipeline_task(workflow_id: str) -> None:
+    """Entry point for Phase 8 SEO, Trademark Screening & Customer Package Generation."""
+    logger.info("listing_pipeline_task_triggered", workflow_id=workflow_id)
+    asyncio.run(_run_listing_pipeline_async(uuid.UUID(workflow_id)))
+
+
+async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
+    from app.application.listing import ListingDraftService
+    from app.application.package import CustomerPackageService
+    from app.application.seo import generate_listing_seo
+    from app.application.telegram import send_gate3_review_notification
+    from app.application.trademark import TrademarkScreeningService
+    from app.domain.workflow import RunStatus
+    from app.providers.fake import FakeTextProvider, FakeTrademarkSearchAdapter
+    from app.providers.gemini import GeminiSynthesisAdapter
+    from app.providers.uspto import UsptoTrademarkAdapter
+
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    session_factory = create_session_factory(engine)
+    storage = S3ObjectStorage(
+        endpoint_url=settings.s3_endpoint_url,
+        bucket_name=settings.s3_bucket,
+        access_key_id=settings.s3_access_key_id,
+        secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+        region_name=settings.s3_region,
+        force_path_style=settings.s3_force_path_style,
+        public_endpoint_url=settings.s3_public_endpoint_url,
+    )
+
+    try:
+        async with UnitOfWork(session_factory) as uow:
+            workflow = await uow.workflows.get(workflow_id)
+            if not workflow:
+                logger.error("workflow_not_found_for_listing_pipeline", workflow_id=str(workflow_id))
+                return
+
+            concepts = await uow.concepts.list_for_workflow(workflow_id)
+            if not concepts:
+                logger.error("no_concepts_for_listing_pipeline", workflow_id=str(workflow_id))
+                return
+            concept = concepts[0]
+            prompts = await uow.concepts.prompts(concept.id)
+            latest_prompt = prompts[-1] if prompts else None
+
+            # Resolve text provider
+            text_provider: Any = FakeTextProvider()
+            if settings.provider_mode == "live":
+                cred = await uow.credentials.get(workflow.owner_id, ProviderName.GEMINI)
+                if cred:
+                    cipher = build_credential_cipher(settings)
+                    if cipher:
+                        raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
+                        text_provider = GeminiSynthesisAdapter(api_key=raw_key)
+
+            # Resolve trademark provider
+            trademark_provider: Any = FakeTrademarkSearchAdapter()
+            if settings.provider_mode == "live" and hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
+                trademark_provider = UsptoTrademarkAdapter(api_key=settings.uspto_api_key.get_secret_value())
+
+            # Keyword clusters from research
+            research_runs = await uow.research.list_runs_for_workflow(workflow_id)
+            keywords: list[str] = []
+            for r in research_runs:
+                clusters = await uow.research.get_keyword_clusters_for_run(r.id)
+                for cl in clusters:
+                    keywords.append(cl.primary_phrase)
+                    keywords.extend(cl.attributes)
+
+            # 1. Generate SEO Copy
+            seo_draft = await generate_listing_seo(
+                concept=concept,
+                prompt=latest_prompt,
+                keywords=keywords[:15],
+                text_provider=text_provider,
+            )
+
+            listing_service = ListingDraftService()
+            draft = await listing_service.get_or_create_listing(workflow_id, uow)
+            await uow.listing_drafts.update(
+                draft.id,
+                title=seo_draft.title,
+                description=seo_draft.description,
+                tags=seo_draft.tags,
+                ai_disclosure=seo_draft.ai_disclosure,
+            )
+
+            # 2. Trademark Screening
+            trademark_service = TrademarkScreeningService(trademark_provider)
+            screened_draft = await listing_service.rescreen_trademark(
+                workflow_id=workflow_id,
+                uow=uow,
+                trademark_service=trademark_service,
+            )
+
+            # 3. Assemble Customer Package
+            package_service = CustomerPackageService(storage)
+            try:
+                await package_service.build_customer_package(workflow_id, uow)
+            except Exception as pkg_err:
+                logger.warning("customer_package_builder_deferred", error=str(pkg_err))
+
+            # 4. Advance Workflow State
+            workflow.state = RunStatus.LISTING_REVIEW
+            workflow.updated_at = datetime.now(UTC)
+
+            # Audit record
+            await uow.audit.record(
+                action=AuditAction.WORKFLOW_TRANSITION,
+                entity_type="ListingDraft",
+                entity_id=draft.id,
+                workflow_id=workflow_id,
+                actor="system",
+                summary=f"SEO generated & trademark screened (Risk: {screened_draft.ip_risk_level.value})",
+            )
+
+            # Telegram Notification
+            bot_token = None
+            if settings.telegram_bot_token:
+                bot_token = settings.telegram_bot_token.get_secret_value()
+            elif settings.provider_mode == "live":
+                cred = await uow.credentials.get(workflow.owner_id, ProviderName.TELEGRAM)
+                if cred:
+                    cipher = build_credential_cipher(settings)
+                    if cipher:
+                        bot_token = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
+
+            if settings.provider_mode == "live" and bot_token:
+                async with httpx.AsyncClient(timeout=10.0) as http_client:
+                    tg_gw: TelegramGateway = RealTelegramGateway(bot_token, http_client)
+                    await send_gate3_review_notification(
+                        uow=uow,
+                        telegram_gateway=tg_gw,
+                        owner_id=workflow.owner_id,
+                        workflow_id=workflow_id,
+                        title=screened_draft.title,
+                        tags_count=len(screened_draft.tags),
+                        risk_level_value=screened_draft.ip_risk_level.value,
+                        web_dashboard_url="http://localhost:3000",
+                    )
+            else:
+                fake_tg = FakeTelegramGateway()
+                await send_gate3_review_notification(
+                    uow=uow,
+                    telegram_gateway=fake_tg,
+                    owner_id=workflow.owner_id,
+                    workflow_id=workflow_id,
+                    title=screened_draft.title,
+                    tags_count=len(screened_draft.tags),
+                    risk_level_value=screened_draft.ip_risk_level.value,
+                    web_dashboard_url="http://localhost:3000",
+                )
+
+            await uow.commit()
+            logger.info("listing_pipeline_completed_successfully", workflow_id=str(workflow_id))
+
+    except Exception as exc:
+        logger.exception("listing_pipeline_failed", error=str(exc))
+        raise exc
+    finally:
+        await engine.dispose()
+
