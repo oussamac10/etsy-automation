@@ -339,7 +339,7 @@ class GeminiSynthesisAdapter:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-flash-latest",
+        model: str = "gemini-3.6-flash",
         timeout_seconds: float = 60.0,
     ) -> None:
         self._api_key = api_key
@@ -376,9 +376,15 @@ class GeminiSynthesisAdapter:
             payload["systemInstruction"] = {"parts": [{"text": request.system}]}
 
         # Prioritize active Google AI Studio models
-        preferred_models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro"]
+        preferred_models = [
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.7-flash",
+            "gemini-3.1-pro-preview",
+        ]
         models_to_try: list[str] = []
-        if self._model and self._model not in ("gemini-flash-latest",):
+        if self._model and self._model not in ("gemini-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash"):
             models_to_try.append(self._model)
         for m in preferred_models:
             if m not in models_to_try:
