@@ -282,28 +282,18 @@ const isApproved = computed(() => {
 
     <!-- Main Content Grid -->
     <div v-else-if="listingDraft" class="space-y-6">
-      <!-- Top Row: Etsy Seller Category & Etsy Listing Dispatch in same line -->
+      <!-- 2-Column Responsive Grid: Left (Category & Copy & Tags) vs Right (Etsy Dispatch & IP Risk & Package) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <CategorySelectorCard
-          :workflow-id="workflowId"
-          :taxonomy-id="listingDraft.taxonomy_id"
-          :taxonomy-path="listingDraft.taxonomy_path"
-          :is-updating="isUpdatingTaxonomy"
-          @update-category="handleUpdateCategory"
-        />
-
-        <EtsyDraftCard
-          :workflow-id="workflowId"
-          :workflow-state="workflowState"
-          :listing="listingDraft"
-          @draft-created="loadListingData"
-        />
-      </div>
-
-      <!-- Core Content Grid: Left (Copy & Tags) vs Right (IP Risk & Customer ZIP Package) -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <!-- Left Column: Copy & Tags -->
+        <!-- Left Column: Etsy Seller Category, Copy & Tags -->
         <div class="space-y-6">
+          <CategorySelectorCard
+            :workflow-id="workflowId"
+            :taxonomy-id="listingDraft.taxonomy_id"
+            :taxonomy-path="listingDraft.taxonomy_path"
+            :is-updating="isUpdatingTaxonomy"
+            @update-category="handleUpdateCategory"
+          />
+
           <ListingEditorCard
             :title="localTitle"
             :description="localDescription"
@@ -335,8 +325,15 @@ const isApproved = computed(() => {
           />
         </div>
 
-        <!-- Right Column: IP Risk & Customer ZIP Package -->
+        <!-- Right Column: Etsy Dispatch, IP Risk & Customer ZIP Package -->
         <div class="space-y-6">
+          <EtsyDraftCard
+            :workflow-id="workflowId"
+            :workflow-state="workflowState"
+            :listing="listingDraft"
+            @draft-created="loadListingData"
+          />
+
           <IpRiskCard
             :risk-level="riskLevel"
             :findings="listingDraft.ip_findings"

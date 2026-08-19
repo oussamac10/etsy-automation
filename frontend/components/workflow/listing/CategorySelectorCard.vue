@@ -145,7 +145,7 @@ watch(searchQuery, (newQuery) => {
       </div>
     </CardHeader>
 
-    <CardContent class="p-4 sm:p-5 pt-0 space-y-3">
+    <CardContent class="p-4 sm:p-5 pt-0">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border/70 text-xs">
         <div class="flex items-start gap-2.5 min-w-0">
           <Icon name="lucide:check-circle-2" class="size-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
@@ -161,34 +161,6 @@ watch(searchQuery, (newQuery) => {
         <Badge variant="outline" class="bg-primary/5 text-primary border-primary/20 shrink-0 self-start sm:self-auto text-2xs py-0.5">
           Digital Deliverable
         </Badge>
-      </div>
-
-      <!-- Quick Recommended Digital Categories -->
-      <div class="space-y-1.5 pt-1">
-        <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">
-          Quick Switch Category:
-        </span>
-        <div class="flex flex-wrap gap-1.5">
-          <button
-            v-for="cat in RECOMMENDED_CATEGORIES"
-            :key="cat.id"
-            type="button"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 text-2xs rounded-md border transition-colors cursor-pointer text-left"
-            :class="cat.id === currentId
-              ? 'bg-primary/10 text-primary border-primary/30 font-medium'
-              : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted hover:text-foreground'"
-            @click="emit('updateCategory', { id: cat.id, path: cat.full_path })"
-          >
-            <Icon
-              v-if="cat.id === currentId"
-              name="lucide:check"
-              class="size-3 text-primary shrink-0"
-              aria-hidden="true"
-            />
-            <span class="truncate max-w-[180px]">{{ cat.name }}</span>
-            <span class="text-2xs opacity-60 font-mono">({{ cat.id }})</span>
-          </button>
-        </div>
       </div>
     </CardContent>
 
