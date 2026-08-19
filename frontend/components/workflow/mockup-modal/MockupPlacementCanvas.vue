@@ -9,7 +9,7 @@ const props = defineProps<{
   widthPct: number;
   heightPct: number;
   angleDeg: number;
-  blendMode: "multiply" | "over" | "screen" | "overlay" | "darken" | "lighten";
+  blendMode: "multiply" | "over" | "screen" | "overlay" | "soft-light" | "hard-light" | "darken" | "lighten" | string;
   viewMode: "edit" | "preview";
 }>();
 
@@ -137,19 +137,57 @@ const artworkBoxStyle = computed(() => {
 });
 
 const blendStyle = computed(() => {
+  const norm = (props.blendMode || "over").toLowerCase().trim().replace(/_/g, "-");
+  let cssBlend: any = "normal";
+  switch (norm) {
+    case "multiply":
+      cssBlend = "multiply";
+      break;
+    case "screen":
+      cssBlend = "screen";
+      break;
+    case "overlay":
+      cssBlend = "overlay";
+      break;
+    case "soft-light":
+      cssBlend = "soft-light";
+      break;
+    case "hard-light":
+      cssBlend = "hard-light";
+      break;
+    case "darken":
+      cssBlend = "darken";
+      break;
+    case "lighten":
+      cssBlend = "lighten";
+      break;
+    case "color-burn":
+      cssBlend = "color-burn";
+      break;
+    case "color-dodge":
+      cssBlend = "color-dodge";
+      break;
+    case "over":
+    default:
+      cssBlend = "normal";
+      break;
+  }
   return {
-    mixBlendMode: props.blendMode === "multiply" ? ("multiply" as const) : ("normal" as const),
+    mixBlendMode: cssBlend,
   };
 });
 </script>
 
 <template>
-  <div class="relative w-full aspect-square bg-zinc-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center select-none p-2">
-    <!-- Template Aspect-Ratio Sized Container with 1:1 Pixel Mapping -->
+  <div class="relative w-full aspect-square bg-slate-900 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center select-none p-2">
+    <!-- Template Aspect-Ratio Sized Container with 1:1 Pixel Mapping & CSS Blend Isolation -->
     <div
       ref="containerRef"
       class="relative max-w-full max-h-full overflow-hidden rounded-lg flex items-center justify-center shadow-lg"
-      :style="imageAspectRatio ? { aspectRatio: `${imageAspectRatio}` } : { width: '100%', height: '100%' }"
+      :style="[
+        imageAspectRatio ? { aspectRatio: `${imageAspectRatio}` } : { width: '100%', height: '100%' },
+        { isolation: 'isolate' }
+      ]"
     >
       <!-- Base Mockup Template Photo -->
       <img
@@ -167,7 +205,7 @@ const blendStyle = computed(() => {
         class="absolute cursor-move transition-[box-shadow]"
         :class="
           viewMode === 'edit'
-            ? 'border-2 border-dashed border-primary bg-primary/10 shadow-lg'
+            ? 'border-2 border-dashed border-primary/90 bg-transparent shadow-sm'
             : 'border-0 bg-transparent'
         "
         :style="artworkBoxStyle"

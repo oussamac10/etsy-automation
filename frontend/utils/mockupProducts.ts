@@ -4,6 +4,79 @@
 
 import { icons } from "~/config/icons";
 
+export interface BlendModeOption {
+  value: "over" | "overlay" | "soft-light" | "multiply" | "screen" | "darken" | "lighten";
+  label: string;
+  shortLabel: string;
+  badge: string;
+  badgeVariant?: "default" | "secondary" | "outline" | "success" | "warning";
+  description: string;
+  bestFor: string;
+  iconName: string;
+}
+
+export const BLEND_MODE_OPTIONS: BlendModeOption[] = [
+  {
+    value: "over",
+    label: "Solid / Opaque (Direct-to-Garment)",
+    shortLabel: "Solid / Opaque",
+    badge: "Crisp & True Colors",
+    description: "100% true vibrant colors without darkening. Preserves crisp white text on black/dark shirts, mugs, stickers, and canvas.",
+    bestFor: "Dark/Colored Shirts, Mugs, Posters, Crisp White Text",
+    iconName: "lucide:layers",
+  },
+  {
+    value: "overlay",
+    label: "Overlay (Vibrant Fabric Integration)",
+    shortLabel: "Overlay",
+    badge: "Balanced & Vivid",
+    description: "Natural fabric texture and folds show through while preserving bright highlights and vivid colors.",
+    bestFor: "Colored Fabrics, Graphic Tees, High Contrast Designs",
+    iconName: "lucide:sparkles",
+  },
+  {
+    value: "soft-light",
+    label: "Soft Light (Subtle Realism)",
+    shortLabel: "Soft Light",
+    badge: "Soft & Natural",
+    description: "Softly diffuses fabric shadows and lighting into the graphic without heavily darkening midtones.",
+    bestFor: "Pastel Shirts, Heather Fabrics, Soft Prints",
+    iconName: "lucide:sun",
+  },
+  {
+    value: "multiply",
+    label: "Multiply (Apparel Shadow / Sublimation)",
+    shortLabel: "Multiply",
+    badge: "Vintage Sublimation",
+    description: "Ink embeds deeply into fabric fibers. Folds and shadows pass through completely (darkens colors).",
+    bestFor: "White / Light Heather Shirts (Avoid if design has white text)",
+    iconName: "lucide:blend",
+  },
+  {
+    value: "screen",
+    label: "Screen (Light / Neon Graphics)",
+    shortLabel: "Screen",
+    badge: "Luminous & Glow",
+    description: "Only bright pixels blend onto the mockup while dark backgrounds turn transparent.",
+    bestFor: "Dark / Black Backgrounds, Neon & Luminous Art",
+    iconName: "lucide:sun-medium",
+  },
+  {
+    value: "darken",
+    label: "Darken (Deep Inks)",
+    shortLabel: "Darken",
+    badge: "Deep Contrast",
+    description: "Keeps only design pixels that are darker than the underlying garment texture.",
+    bestFor: "Black Linework, Typographic Quotes",
+    iconName: "lucide:moon",
+  },
+];
+
+export function getBlendModeInfo(mode?: string | null): BlendModeOption {
+  const norm = (mode || "over").toLowerCase().trim().replace(/_/g, "-");
+  return BLEND_MODE_OPTIONS.find((b) => b.value === norm) || BLEND_MODE_OPTIONS[0];
+}
+
 export interface MockupProductPreset {
   key: string;
   label: string;
@@ -14,7 +87,7 @@ export interface MockupProductPreset {
     width_pct: number;
     height_pct: number;
     angle_deg: number;
-    blend_mode: "multiply" | "over" | "screen" | "overlay" | "darken" | "lighten";
+    blend_mode: "multiply" | "over" | "screen" | "overlay" | "soft-light" | "darken" | "lighten" | string;
   };
 }
 

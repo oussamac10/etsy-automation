@@ -78,6 +78,51 @@ describe("mockup generator", () => {
       expect(meta.width).toBe(1600);
       expect(meta.height).toBe(1200);
     });
+
+    it("supports all blend modes (over, overlay, soft-light, screen, darken, etc.)", async () => {
+      const artwork = await sharp({
+        create: {
+          width: 200,
+          height: 200,
+          channels: 4,
+          background: { r: 255, g: 255, b: 255, alpha: 1 },
+        },
+      })
+        .png()
+        .toBuffer();
+
+      const template = await sharp({
+        create: {
+          width: 500,
+          height: 500,
+          channels: 4,
+          background: { r: 100, g: 100, b: 100, alpha: 1 },
+        },
+      })
+        .png()
+        .toBuffer();
+
+      for (const mode of ["over", "overlay", "soft-light", "screen", "darken", "lighten", "color-burn", "color-dodge"] as const) {
+        const result = await compositeCustomMockup(
+          new Uint8Array(artwork),
+          new Uint8Array(template),
+          {
+            placement: {
+              left_pct: 0.25,
+              top_pct: 0.25,
+              width_pct: 0.5,
+              height_pct: 0.5,
+              blend_mode: mode,
+            },
+            format: "png",
+          },
+        );
+
+        expect(result.width).toBe(500);
+        expect(result.height).toBe(500);
+        expect(result.format).toBe("png");
+      }
+    });
   });
 
   describe("mug wrap canvas layout", () => {

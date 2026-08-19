@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { BLEND_MODE_OPTIONS, getBlendModeInfo } from "~/utils/mockupProducts";
+import type { MockupBlendMode } from "~/types/mockup";
 
-defineProps<{
+const props = defineProps<{
   leftPct: number;
   topPct: number;
   widthPct: number;
   heightPct: number;
   angleDeg: number;
-  blendMode: "multiply" | "over" | "screen" | "overlay" | "darken" | "lighten";
+  blendMode: MockupBlendMode | string;
   templateName: string;
   saveToLibrary: boolean;
   isCover: boolean;
@@ -20,7 +23,7 @@ const emit = defineEmits<{
   (e: "update:widthPct", val: number): void;
   (e: "update:heightPct", val: number): void;
   (e: "update:angleDeg", val: number): void;
-  (e: "update:blendMode", val: "multiply" | "over" | "screen" | "overlay" | "darken" | "lighten"): void;
+  (e: "update:blendMode", val: MockupBlendMode | string): void;
   (e: "update:templateName", val: string): void;
   (e: "update:saveToLibrary", val: boolean): void;
   (e: "update:isCover", val: boolean): void;
@@ -28,6 +31,8 @@ const emit = defineEmits<{
   (e: "centerHorizontal"): void;
   (e: "centerBoth"): void;
 }>();
+
+const activeBlendInfo = computed(() => getBlendModeInfo(props.blendMode));
 </script>
 
 <template>
@@ -155,32 +160,84 @@ const emit = defineEmits<{
       </div>
     </div>
 
-    <!-- Blend Mode & Cover Checkbox -->
-    <div class="pt-2 border-t border-border space-y-3">
-      <div class="flex items-center justify-between gap-4">
-        <label class="text-xs font-semibold text-foreground">Blend Mode</label>
-        <select
-          :value="blendMode"
-          class="rounded-lg border border-border bg-white px-3 py-1.5 text-xs text-foreground font-medium focus:ring-2 focus:ring-primary cursor-pointer"
-          @change="(e) => emit('update:blendMode', (e.target as HTMLSelectElement).value as any)"
+    <!-- Enhanced Texture Blend Mode Section -->
+    <div class="pt-3 border-t border-border space-y-2.5">
+      <div class="flex items-center justify-between">
+        <label class="text-xs font-bold text-foreground flex items-center gap-1.5">
+          <Icon name="lucide:palette" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>Texture Blend Mode</span>
+        </label>
+        <span class="text-[10px] font-mono text-muted-foreground uppercase font-bold tracking-wider">
+          Active: {{ activeBlendInfo.shortLabel }}
+        </span>
+      </div>
+
+      <!-- Blend Mode Selection Cards Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+        <button
+          v-for="opt in BLEND_MODE_OPTIONS"
+          :key="opt.value"
+          type="button"
+          class="flex flex-col text-left p-2 rounded-xl border transition-all cursor-pointer relative"
+          :class="[
+            blendMode === opt.value
+              ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
+              : 'bg-white border-border/80 hover:border-slate-300 hover:bg-slate-50/50'
+          ]"
+          @click="emit('update:blendMode', opt.value)"
         >
-          <option value="multiply">Multiply (Realistic Apparel Shadow)</option>
-          <option value="over">Over / Normal (Solid Mugs & Prints)</option>
-          <option value="screen">Screen (Light Colors on Dark)</option>
-          <option value="overlay">Overlay (Balanced Textures)</option>
-        </select>
+          <div class="flex items-center justify-between gap-1 w-full mb-1">
+            <span class="text-[11px] font-bold truncate" :class="blendMode === opt.value ? 'text-primary font-bold' : 'text-foreground'">
+              {{ opt.shortLabel }}
+            </span>
+            <Icon
+              :name="opt.iconName"
+              class="size-3 shrink-0"
+              :class="blendMode === opt.value ? 'text-primary' : 'text-muted-foreground'"
+              aria-hidden="true"
+            />
+          </div>
+
+          <span
+            class="text-[9px] font-semibold px-1 py-0.5 rounded-md inline-block max-w-full truncate mb-0.5"
+            :class="[
+              blendMode === opt.value
+                ? 'bg-primary/15 text-primary font-bold'
+                : 'bg-secondary text-secondary-foreground'
+            ]"
+          >
+            {{ opt.badge }}
+          </span>
+
+          <span class="text-[10px] text-muted-foreground line-clamp-2 leading-tight">
+            {{ opt.bestFor }}
+          </span>
+        </button>
+      </div>
+
+      <!-- Active Mode Detailed Explainer Banner -->
+      <div class="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px] text-slate-700 space-y-1">
+        <div class="font-bold flex items-center gap-1 text-slate-900">
+          <Icon :name="activeBlendInfo.iconName" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
+          <span>{{ activeBlendInfo.label }}</span>
+        </div>
+        <p class="text-muted-foreground leading-relaxed">
+          {{ activeBlendInfo.description }}
+        </p>
       </div>
 
       <!-- Set as Cover Toggle -->
-      <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
-        <input
-          type="checkbox"
-          :checked="isCover"
-          class="rounded border-border text-primary focus:ring-primary size-4"
-          @change="(e) => emit('update:isCover', (e.target as HTMLInputElement).checked)"
-        >
-        <span>Set as primary listing cover mockup</span>
-      </label>
+      <div class="pt-2">
+        <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            :checked="isCover"
+            class="rounded border-border text-primary focus:ring-primary size-4 cursor-pointer"
+            @change="(e) => emit('update:isCover', (e.target as HTMLInputElement).checked)"
+          >
+          <span class="font-semibold">Set as primary listing cover mockup</span>
+        </label>
+      </div>
 
       <!-- Save to Library (if Uploading New Photo) -->
       <div v-if="isUploadingNew" class="space-y-2 pt-2 border-t border-border">
@@ -188,7 +245,7 @@ const emit = defineEmits<{
           <input
             type="checkbox"
             :checked="saveToLibrary"
-            class="rounded border-border text-primary focus:ring-primary size-4"
+            class="rounded border-border text-primary focus:ring-primary size-4 cursor-pointer"
             @change="(e) => emit('update:saveToLibrary', (e.target as HTMLInputElement).checked)"
           >
           <span>Save this blank photo as reusable template in my library</span>

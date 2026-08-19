@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import sharp, { type Blend } from "sharp";
 import { DEFAULT_DECODE_LIMITS, type DecodeLimits } from "./limits.js";
 
 export type MockupProductType = "tshirt" | "sweatshirt" | "tote" | "mug";
@@ -287,10 +287,51 @@ export interface CustomMockupPlacement {
   readonly width_pct?: number | undefined;
   /** Maximum height of artwork bounding box as a percentage (0.0 to 1.0) of template height. Default 0.50 */
   readonly height_pct?: number | undefined;
-  /** Blend mode for realistic texture simulation: 'multiply' | 'over'. Default 'multiply' */
-  readonly blend_mode?: "multiply" | "over" | undefined;
+  /** Blend mode for realistic texture simulation. Default 'over' or 'multiply' */
+  readonly blend_mode?: MockupBlendMode | string | undefined;
   /** Optional rotation in degrees (-180 to 180). Default 0 */
   readonly angle_deg?: number | undefined;
+}
+
+export type MockupBlendMode =
+  | "over"
+  | "multiply"
+  | "screen"
+  | "overlay"
+  | "soft-light"
+  | "hard-light"
+  | "darken"
+  | "lighten"
+  | "color-burn"
+  | "color-dodge";
+
+export function resolveSharpBlendMode(mode?: string): Blend {
+  const norm = (mode || "over").toLowerCase().trim().replace(/_/g, "-");
+  switch (norm) {
+    case "multiply":
+      return "multiply";
+    case "screen":
+      return "screen";
+    case "overlay":
+      return "overlay";
+    case "soft-light":
+      return "soft-light";
+    case "hard-light":
+      return "hard-light";
+    case "darken":
+      return "darken";
+    case "lighten":
+      return "lighten";
+    case "color-burn":
+    case "colour-burn":
+      return "colour-burn";
+    case "color-dodge":
+    case "colour-dodge":
+      return "colour-dodge";
+    case "over":
+    default:
+      return "over";
+  }
 }
 
 export interface CustomMockupResult {
@@ -339,6 +380,7 @@ export async function compositeCustomMockup(
 
   // 3. Resize and orient artwork
   let artworkPipeline = sharp(artworkBytes, { limitInputPixels: limits.maxPixels })
+    .toColorspace("srgb")
     .resize({
       width: targetBoxWidth,
       height: targetBoxHeight,
@@ -361,10 +403,11 @@ export async function compositeCustomMockup(
   const compositeLeft = Math.round(targetLeft + (targetBoxWidth - actualArtW) / 2);
   const compositeTop = Math.round(targetTop + (targetBoxHeight - actualArtH) / 2);
 
-  const blendMode = placement.blend_mode === "over" ? "over" : "multiply";
+  const blendMode = resolveSharpBlendMode(placement.blend_mode);
 
-  // 4. Composite onto template
+  // 4. Composite onto template with matching sRGB colorspace
   const finalPipeline = sharp(templateBytes, { limitInputPixels: limits.maxPixels })
+    .toColorspace("srgb")
     .composite([
       {
         input: resizedArtworkBuffer,

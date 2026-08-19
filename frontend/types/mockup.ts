@@ -1,10 +1,22 @@
+export type MockupBlendMode =
+  | "over"
+  | "multiply"
+  | "overlay"
+  | "soft-light"
+  | "screen"
+  | "darken"
+  | "lighten"
+  | "hard-light"
+  | "color-burn"
+  | "color-dodge";
+
 export interface MockupPlacement {
   left_pct: number;
   top_pct: number;
   width_pct: number;
   height_pct: number;
   angle_deg: number;
-  blend_mode: "multiply" | "over" | "screen" | "overlay" | "darken" | "lighten";
+  blend_mode: MockupBlendMode | string;
 }
 
 export interface MockupTemplateItem {

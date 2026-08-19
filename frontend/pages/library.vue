@@ -17,6 +17,7 @@ import {
   normalizeProductKey,
   type ProductTypeOption,
 } from "~/config/productTypes";
+import { BLEND_MODE_OPTIONS } from "~/utils/mockupProducts";
 
 interface PlacementData {
   left_pct: number;
@@ -523,6 +524,27 @@ function centerUploadPlacement(): void {
   const h = uploadPlacement.value.height_pct;
   uploadPlacement.value.left_pct = Math.max(0, Math.round(((1.0 - w) / 2) * 100) / 100);
   uploadPlacement.value.top_pct = Math.max(0, Math.round(((1.0 - h) / 2) * 100) / 100);
+}
+
+function applyUploadChestPreset(): void {
+  uploadPlacement.value.left_pct = 0.50;
+  uploadPlacement.value.top_pct = 0.26;
+  uploadPlacement.value.width_pct = 0.22;
+  uploadPlacement.value.height_pct = 0.24;
+}
+
+function applyUploadFullCenterPreset(): void {
+  uploadPlacement.value.left_pct = 0.28;
+  uploadPlacement.value.top_pct = 0.25;
+  uploadPlacement.value.width_pct = 0.44;
+  uploadPlacement.value.height_pct = 0.48;
+}
+
+function applyUploadSquarePreset(): void {
+  uploadPlacement.value.left_pct = 0.30;
+  uploadPlacement.value.top_pct = 0.30;
+  uploadPlacement.value.width_pct = 0.40;
+  uploadPlacement.value.height_pct = 0.40;
 }
 
 function onUploadArtworkPointerDown(e: PointerEvent): void {
@@ -1065,36 +1087,43 @@ onMounted(() => {
                 <span>Interactive Placement Canvas</span>
               </span>
 
-              <!-- Quick Placement Helpers -->
-              <div class="flex items-center gap-1">
+              <!-- Quick Placement Preset Segmented Toolbar -->
+              <div class="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-border/80 shadow-2xs">
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-bold bg-blue-50 hover:bg-blue-100 text-primary rounded transition-colors cursor-pointer border border-blue-200 flex items-center gap-1"
+                  class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                  title="Center artwork box"
                   @click="centerEditPlacement"
                 >
-                  <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
+                  <Icon name="lucide:align-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
                   <span>Center Box</span>
                 </button>
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-medium bg-secondary hover:bg-slate-200 text-secondary-foreground rounded transition-colors cursor-pointer border border-border"
+                  class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                  title="Apply full center preset"
                   @click="applyEditFullCenterPreset"
                 >
-                  Full Center
+                  <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>Full Center</span>
                 </button>
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-medium bg-secondary hover:bg-slate-200 text-secondary-foreground rounded transition-colors cursor-pointer border border-border"
+                  class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                  title="Apply left chest preset"
                   @click="applyEditChestPreset"
                 >
-                  Chest Logo
+                  <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>Chest Logo</span>
                 </button>
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-medium bg-secondary hover:bg-slate-200 text-secondary-foreground rounded transition-colors cursor-pointer border border-border"
+                  class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                  title="Apply square 1:1 preset"
                   @click="applyEditSquarePreset"
                 >
-                  Square
+                  <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>Square</span>
                 </button>
               </div>
             </div>
@@ -1180,10 +1209,11 @@ onMounted(() => {
               <Label class="text-xs font-bold">Texture Blend Mode</Label>
               <select
                 v-model="editPlacement.blend_mode"
-                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs text-foreground"
+                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs text-foreground font-medium"
               >
-                <option value="multiply">Multiply (Realistic Apparel Wrinkles & Shadows)</option>
-                <option value="over">Over / Opaque (Ceramics, Posters, Stickers, Tumblers)</option>
+                <option v-for="opt in BLEND_MODE_OPTIONS" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
               </select>
             </div>
 
@@ -1303,23 +1333,56 @@ onMounted(() => {
                 <span>Designate PNG Print Area</span>
               </span>
 
-              <div class="flex items-center gap-1.5">
+              <!-- Quick Placement Preset Segmented Toolbar -->
+              <div class="flex items-center gap-2">
                 <button
                   type="button"
-                  class="px-2 py-0.5 text-[10px] font-bold bg-blue-50 hover:bg-blue-100 text-primary rounded transition-colors cursor-pointer border border-blue-200 flex items-center gap-1"
+                  class="px-2.5 py-1 text-[11px] font-bold bg-blue-50 hover:bg-blue-100 text-primary rounded-lg transition-all cursor-pointer border border-blue-200 shadow-2xs hover:shadow-xs inline-flex items-center gap-1.5"
+                  title="Crop and crop template photo"
                   @click="uploadStep = 'crop'"
                 >
-                  <Icon name="lucide:crop" class="size-3" aria-hidden="true" />
-                  <span>Crop / Cut Photo</span>
+                  <Icon name="lucide:crop" class="size-3.5" aria-hidden="true" />
+                  <span>Crop / Cut</span>
                 </button>
-                <button
-                  type="button"
-                  class="px-2 py-0.5 text-[10px] font-bold bg-secondary hover:bg-slate-200 text-secondary-foreground rounded transition-colors cursor-pointer border border-border flex items-center gap-1"
-                  @click="centerUploadPlacement"
-                >
-                  <Icon name="lucide:align-center" class="size-3" aria-hidden="true" />
-                  <span>Center Box</span>
-                </button>
+
+                <div class="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-border/80 shadow-2xs">
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    title="Center artwork box"
+                    @click="centerUploadPlacement"
+                  >
+                    <Icon name="lucide:align-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Center Box</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    title="Apply full center preset"
+                    @click="applyUploadFullCenterPreset"
+                  >
+                    <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Full Center</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    title="Apply left chest preset"
+                    @click="applyUploadChestPreset"
+                  >
+                    <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Chest Logo</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    title="Apply square 1:1 preset"
+                    @click="applyUploadSquarePreset"
+                  >
+                    <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Square</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1437,10 +1500,11 @@ onMounted(() => {
               <Label class="text-xs font-bold">Texture Blend Mode</Label>
               <select
                 v-model="uploadPlacement.blend_mode"
-                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs text-foreground"
+                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs text-foreground font-medium"
               >
-                <option value="multiply">Multiply (Realistic Apparel Wrinkles & Shadows)</option>
-                <option value="over">Over / Opaque (Ceramics, Posters, Stickers, Tumblers)</option>
+                <option v-for="opt in BLEND_MODE_OPTIONS" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
               </select>
             </div>
           </div>

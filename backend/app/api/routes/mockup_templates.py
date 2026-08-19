@@ -95,8 +95,22 @@ class PlacementSchema(BaseModel):
     @field_validator("blend_mode", mode="before")
     @classmethod
     def normalize_blend(cls, v: Any) -> str:
-        s = str(v).lower().strip()
-        return "over" if s == "over" else "multiply"
+        s = str(v).lower().strip().replace("_", "-")
+        valid_modes = {
+            "over",
+            "multiply",
+            "screen",
+            "overlay",
+            "soft-light",
+            "hard-light",
+            "darken",
+            "lighten",
+            "color-burn",
+            "colour-burn",
+            "color-dodge",
+            "colour-dodge",
+        }
+        return s if s in valid_modes else "over"
 
 
 class UploadTemplateRequest(BaseModel):

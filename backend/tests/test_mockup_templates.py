@@ -50,3 +50,23 @@ async def test_mockup_template_store_save_and_list() -> None:
     assert len(templates) == 1
     assert templates[0].id == "tpl-123"
     assert templates[0].placement.left_pct == 0.3
+
+
+def test_placement_schema_blend_mode_normalization() -> None:
+    from app.api.routes.mockup_templates import PlacementSchema
+
+    # Valid blend modes preserved
+    for mode in ["over", "multiply", "overlay", "soft-light", "screen", "darken", "lighten"]:
+        schema = PlacementSchema(blend_mode=mode)
+        assert schema.blend_mode == mode
+
+    # Hyphenated / underscored variations normalized
+    schema = PlacementSchema(blend_mode="soft_light")
+    assert schema.blend_mode == "soft-light"
+
+    schema = PlacementSchema(blend_mode="color_burn")
+    assert schema.blend_mode == "color-burn"
+
+    # Unknown blend modes safely fall back to "over"
+    schema = PlacementSchema(blend_mode="invalid_xyz")
+    assert schema.blend_mode == "over"

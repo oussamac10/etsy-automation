@@ -78,13 +78,15 @@ const templateName = ref("");
 const saveToLibrary = ref(true);
 const isCover = ref(false);
 
+import type { MockupBlendMode } from "~/types/mockup";
+
 // Placement state
 const leftPct = ref(25);
 const topPct = ref(25);
 const widthPct = ref(50);
 const heightPct = ref(50);
 const angleDeg = ref(0);
-const blendMode = ref<"multiply" | "over" | "screen" | "overlay" | "darken" | "lighten">("multiply");
+const blendMode = ref<MockupBlendMode | string>("over");
 
 const isCompositing = ref(false);
 const compositeError = ref<string | null>(null);
