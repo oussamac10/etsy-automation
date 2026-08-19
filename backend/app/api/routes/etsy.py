@@ -196,6 +196,7 @@ async def create_etsy_draft_endpoint(
     user: CurrentUser,
     uow: UowDep,
     storage: StorageDep,
+    etsy_gateway: EtsyGatewayDep,
 ) -> EtsyDraftDispatchResponse:
     """Validate pre-conditions and enqueue background worker task to create Etsy draft."""
     try:
@@ -204,6 +205,7 @@ async def create_etsy_draft_endpoint(
             owner_id=user.id,
             uow=uow,
             storage=storage,
+            etsy_gateway=etsy_gateway,
         )
     except Exception as exc:
         raise HTTPException(

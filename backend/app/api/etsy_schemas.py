@@ -48,5 +48,8 @@ class EtsyDraftDispatchResponse(BaseModel):
     etsy_shop_id: str | None = Field(default=None, description="Etsy shop ID where listing was created.")
     etsy_image_ids: list[str] = Field(default_factory=list, description="Uploaded mockup image IDs on Etsy.")
     etsy_file_id: str | None = Field(default=None, description="Uploaded digital download file ID on Etsy.")
+    etsy_file_ids: list[str] = Field(default_factory=list, description="Uploaded digital download file IDs on Etsy.")
+    taxonomy_id: int | None = Field(default=None, description="Etsy seller taxonomy category ID.")
+    taxonomy_path: str | None = Field(default=None, description="Etsy seller taxonomy category full path.")
     error_message: str | None = Field(default=None, description="Human-readable error details if dispatch failed.")
     last_synced_at: datetime | None = Field(default=None, description="Last successful sync timestamp.")

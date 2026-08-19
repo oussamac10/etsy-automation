@@ -388,6 +388,8 @@ class UpdateListingDraftRequest(BaseModel):
     title: Annotated[str, Field(min_length=1, max_length=140)]
     description: Annotated[str, Field(min_length=1)]
     tags: Annotated[list[str], Field(min_length=13, max_length=13)]
+    taxonomy_id: int | None = None
+    taxonomy_path: str | None = None
     expected_version: int | None = None
 
 
@@ -416,6 +418,8 @@ class ListingDraftResponse(BaseModel):
     title: str
     description: str
     tags: list[str]
+    taxonomy_id: int | None = None
+    taxonomy_path: str | None = None
     ai_disclosure: str | None = None
     licence_text: str | None = None
     customer_instructions: str | None = None
@@ -434,6 +438,7 @@ class ListingDraftResponse(BaseModel):
     etsy_dispatch_status: str | None = None
     etsy_image_ids: list[str] | None = None
     etsy_file_id: str | None = None
+    etsy_file_ids: list[str] | None = None
     etsy_failure_reason: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -441,4 +446,18 @@ class ListingDraftResponse(BaseModel):
 
 class RestoreListingVersionRequest(BaseModel):
     version: int = Field(..., ge=1, description="Version number to restore")
+
+
+class TaxonomyCategoryResponse(BaseModel):
+    id: int
+    name: str
+    full_path: str
+    level: int
+
+
+class UpdateListingTaxonomyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    taxonomy_id: int
+    taxonomy_path: str | None = None
 

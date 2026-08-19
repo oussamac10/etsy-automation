@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
 
-from app.api.dependencies import CipherDep, CurrentUser, SettingsDep, StorageDep, UowDep
+from app.api.dependencies import CipherDep, CurrentUser, EtsyGatewayDep, SettingsDep, StorageDep, UowDep
 from app.api.schemas import (
     ApprovalResponse,
     ArtworkJobResponse,
@@ -42,9 +42,11 @@ from app.api.schemas import (
     RestoreListingVersionRequest,
     StartProductionRequest,
     SubmitIdeaRequest,
+    TaxonomyCategoryResponse,
     TimelineEntryResponse,
     TimelineResponse,
     UpdateListingDraftRequest,
+    UpdateListingTaxonomyRequest,
     UpdateMockupSuggestionsRequest,
     WorkflowListResponse,
     WorkflowResponse,
@@ -1751,6 +1753,8 @@ async def _build_listing_response(
         title=draft.title,
         description=draft.description,
         tags=draft.tags,
+        taxonomy_id=draft.taxonomy_id,
+        taxonomy_path=draft.taxonomy_path,
         ai_disclosure=draft.ai_disclosure,
         licence_text=draft.licence_text,
         customer_instructions=draft.customer_instructions,
@@ -1773,6 +1777,7 @@ async def _build_listing_response(
         etsy_dispatch_status=draft.etsy_dispatch_status or "not_started",
         etsy_image_ids=draft.etsy_image_ids or [],
         etsy_file_id=draft.etsy_file_id,
+        etsy_file_ids=draft.etsy_file_ids or ([draft.etsy_file_id] if draft.etsy_file_id else []),
         etsy_failure_reason=draft.etsy_failure_reason,
         created_at=draft.created_at,
         updated_at=draft.updated_at,
@@ -1815,7 +1820,7 @@ async def _resolve_trademark_provider(
 @router.get(
     "/{workflow_id}/listing",
     response_model=ListingDraftResponse,
-    summary="Get or initialize listing draft and customer package status",
+    summary="Get listing draft for a workflow",
 )
 async def get_listing_draft_endpoint(
     workflow_id: uuid.UUID,
@@ -1835,7 +1840,6 @@ async def get_listing_draft_endpoint(
     listing_service = ListingDraftService()
     draft = await listing_service.get_or_create_listing(workflow_id, uow)
     await uow.commit()
-
     return await _build_listing_response(draft, workflow_id, uow, storage)
 
 
@@ -1878,6 +1882,8 @@ async def update_listing_draft_endpoint(
             title=payload.title,
             description=payload.description,
             tags=payload.tags,
+            taxonomy_id=payload.taxonomy_id,
+            taxonomy_path=payload.taxonomy_path,
             expected_version=payload.expected_version,
             uow=uow,
             actor_email=user.email,
@@ -2269,3 +2275,110 @@ async def decide_gate3_endpoint(
         )
 
     return await _build_listing_response(draft, workflow_id, uow, storage)
+
+
+@router.get(
+    "/{workflow_id}/listing/taxonomy/categories",
+    response_model=list[TaxonomyCategoryResponse],
+    summary="List available digital Etsy seller taxonomy categories",
+)
+async def get_listing_taxonomy_categories_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+    q: str | None = Query(default=None, description="Search term for taxonomy nodes"),
+) -> list[TaxonomyCategoryResponse]:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
+
+    resolver = EtsyTaxonomyResolver()
+    try:
+        nodes = await etsy_gateway.get_seller_taxonomy_nodes()
+    except Exception:
+        nodes = []
+
+    flat = resolver.flatten_nodes(nodes) if nodes else []
+    # Filter non-disqualified digital/craft nodes
+    valid_nodes = [n for n in flat if not resolver.is_physical_disqualified(n.full_path)]
+
+    if q and q.strip():
+        tokens = [t.lower() for t in q.strip().split() if t]
+        matched_nodes = [
+            n for n in valid_nodes if all(t in n.full_path.lower() for t in tokens)
+        ]
+    else:
+        # Default to primary digital categories
+        matched_nodes = [
+            n
+            for n in valid_nodes
+            if n.id
+            in (
+                resolver.CLIP_ART_ID,
+                resolver.DIGITAL_DRAWING_ID,
+                resolver.DIGITAL_PRINTS_ID,
+                resolver.GRAPHIC_DESIGN_ID,
+            )
+            or "digital" in n.full_path.lower()
+            or "clip art" in n.full_path.lower()
+        ]
+
+    return [
+        TaxonomyCategoryResponse(
+            id=n.id,
+            name=n.name,
+            full_path=n.full_path,
+            level=n.level,
+        )
+        for n in matched_nodes[:30]
+    ]
+
+
+@router.put(
+    "/{workflow_id}/listing/taxonomy",
+    response_model=ListingDraftResponse,
+    summary="Override/update listing Etsy seller taxonomy category",
+)
+async def update_listing_taxonomy_endpoint(
+    workflow_id: uuid.UUID,
+    payload: UpdateListingTaxonomyRequest,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No listing draft found for this workflow",
+        )
+
+    from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
+
+    resolver = EtsyTaxonomyResolver()
+    if payload.taxonomy_path and resolver.is_physical_disqualified(payload.taxonomy_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Physical product categories cannot be used for digital transparent PNG listings.",
+        )
+
+    updated = await uow.listing_drafts.update(
+        listing.id,
+        taxonomy_id=payload.taxonomy_id,
+        taxonomy_path=payload.taxonomy_path,
+    )
+    await uow.commit()
+    return await _build_listing_response(updated, workflow_id, uow, storage)

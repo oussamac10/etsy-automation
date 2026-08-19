@@ -258,6 +258,9 @@ def test_trigger_etsy_draft_endpoint(
     zip_asset.provenance = {"kind": "customer_package"}
 
     mock_uow.assets.list_for_workflow = AsyncMock(return_value=[master, zip_asset])
+    mock_uow.assets.get_by_checksum_sha256 = AsyncMock(return_value=None)
+    mock_uow.assets.add = AsyncMock()
+    mock_uow.listing_drafts.update = AsyncMock(return_value=listing)
     mock_uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
 
     response = client.post(f"/api/v1/workflows/{workflow_id}/etsy/draft")
