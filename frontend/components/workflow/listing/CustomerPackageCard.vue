@@ -33,6 +33,14 @@ const byteSize = computed(() => {
 
 const checksum = computed(() => props.packageAsset?.checksum_sha256 || null);
 
+const downloadFilename = computed(() => {
+  const prov = props.packageAsset?.provenance as Record<string, unknown> | undefined;
+  if (prov?.filename && typeof prov.filename === 'string') {
+    return prov.filename;
+  }
+  return 'customer_digital_download.zip';
+});
+
 async function copyChecksum() {
   if (!checksum.value) return;
   try {
@@ -64,7 +72,7 @@ async function copyChecksum() {
           </Badge>
         </div>
         <CardDescription class="text-xs">
-          Complete digital delivery ZIP archive packaged for direct Etsy buyer upload.
+          Complete digital delivery ZIP archive packaged identically for direct Etsy buyer download.
         </CardDescription>
       </div>
 
@@ -97,7 +105,7 @@ async function copyChecksum() {
             :href="sanitizeUrl(downloadUrl)"
             target="_blank"
             rel="noopener noreferrer"
-            download="customer_print_package.zip"
+            :download="downloadFilename"
             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
           >
             <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
@@ -117,7 +125,7 @@ async function copyChecksum() {
           </div>
           <div class="space-y-0.5 min-w-0 flex-1">
             <div class="flex items-center justify-between gap-1">
-              <p class="font-semibold text-slate-900 truncate text-xs">master.png</p>
+              <p class="font-semibold text-slate-900 truncate text-xs">Master Artwork</p>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 font-bold">PNG</span>
             </div>
             <p class="text-[10px] text-slate-500 truncate">4500×5400 px • 300 DPI • Transparent</p>
@@ -131,38 +139,38 @@ async function copyChecksum() {
           </div>
           <div class="space-y-0.5 min-w-0 flex-1">
             <div class="flex items-center justify-between gap-1">
-              <p class="font-semibold text-slate-900 truncate text-xs">print-ready.pdf</p>
+              <p class="font-semibold text-slate-900 truncate text-xs">Print-Ready Document</p>
               <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-red-50 text-red-700 font-bold">PDF</span>
             </div>
-            <p class="text-[10px] text-slate-500 truncate">Vector-compatible layout • 300 DPI</p>
+            <p class="text-[10px] text-slate-500 truncate">Scale-preserved layout • 300 DPI</p>
           </div>
         </div>
 
-        <!-- Product Mockups Item -->
+        <!-- Commercial License Item -->
         <div class="p-3 bg-slate-50/90 border border-slate-200/90 rounded-xl flex items-center gap-3 transition-all hover:bg-white hover:shadow-2xs">
           <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shrink-0 border border-emerald-100/80">
-            <Icon name="lucide:layers" class="size-5" aria-hidden="true" />
+            <Icon name="lucide:shield-check" class="size-5" aria-hidden="true" />
           </div>
           <div class="space-y-0.5 min-w-0 flex-1">
             <div class="flex items-center justify-between gap-1">
-              <p class="font-semibold text-slate-900 truncate text-xs">Product Mockups</p>
-              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold">WEBP/JPG</span>
+              <p class="font-semibold text-slate-900 truncate text-xs">Commercial License</p>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold">TXT</span>
             </div>
-            <p class="text-[10px] text-slate-500 truncate">Realistic blank template previews</p>
+            <p class="text-[10px] text-slate-500 truncate">Commercial terms & POD permissions</p>
           </div>
         </div>
 
-        <!-- License & Instructions Item -->
+        <!-- Instructions & Sizing Item -->
         <div class="p-3 bg-slate-50/90 border border-slate-200/90 rounded-xl flex items-center gap-3 transition-all hover:bg-white hover:shadow-2xs">
           <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 shrink-0 border border-amber-100/80">
             <Icon name="lucide:scroll-text" class="size-5" aria-hidden="true" />
           </div>
           <div class="space-y-0.5 min-w-0 flex-1">
             <div class="flex items-center justify-between gap-1">
-              <p class="font-semibold text-slate-900 truncate text-xs">LICENSE & GUIDE</p>
-              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 font-bold">TXT/PDF</span>
+              <p class="font-semibold text-slate-900 truncate text-xs">Sizing & Instructions</p>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 font-bold">TXT</span>
             </div>
-            <p class="text-[10px] text-slate-500 truncate">Commercial license terms & buyer guide</p>
+            <p class="text-[10px] text-slate-500 truncate">Apparel sizing guide & usage steps</p>
           </div>
         </div>
       </div>

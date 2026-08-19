@@ -180,7 +180,7 @@ class EtsyDigitalDeliveryPlanner:
 
         # 1. Optimize master PNG losslessly
         optimized_master = optimize_png_deflate(master_png_bytes)
-        validate_png_integrity(optimized_master, master_width, master_height)
+        validate_png_integrity(optimized_master)
         master_sha = hashlib.sha256(optimized_master).hexdigest()
 
         # 2. Build Documentation

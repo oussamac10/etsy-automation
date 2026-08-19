@@ -10,20 +10,18 @@ import structlog
 from app.application.brand_resolver import resolve_connected_shop_name
 from app.application.unit_of_work import UnitOfWork
 from app.domain.errors import EntityNotFoundError
+from app.domain.etsy_delivery_planner import (
+    MAX_ETSY_DIGITAL_FILE_BYTES,
+    MAX_ETSY_DIGITAL_FILES_COUNT,
+    EtsyDigitalDeliveryPlanner,
+)
 from app.domain.package_builder import (
-    build_zip_archive,
-    create_print_ready_pdf,
-    generate_checksum_manifest,
     generate_instructions_text,
     generate_license_text,
-    optimize_png_deflate,
     sanitize_brand_slug,
     sanitize_product_title,
 )
-from app.domain.production_resolver import (
-    filter_active_user_mockups,
-    get_production_master_asset,
-)
+from app.domain.production_resolver import get_production_master_asset
 from app.infrastructure.models import Asset, ListingDraft, ProductWorkflow
 from app.ports.providers import ObjectStorage
 
@@ -31,7 +29,7 @@ logger = structlog.get_logger(__name__)
 
 
 class CustomerPackageService:
-    """Builds and stores deterministic customer ZIP packages."""
+    """Builds and stores deterministic customer ZIP packages identical to Etsy digital deliverables."""
 
     def __init__(self, storage: ObjectStorage) -> None:
         self._storage = storage
@@ -41,9 +39,9 @@ class CustomerPackageService:
         workflow_id: uuid.UUID,
         uow: UnitOfWork,
         *,
-        include_mockups: bool = True,
+        include_mockups: bool = False,
     ) -> Asset:
-        """Assemble customer ZIP package from master artwork, optional mockups, and legal documents."""
+        """Assemble customer ZIP package identical to the upload package dispatched to Etsy."""
         workflow: ProductWorkflow | None = await uow.workflows.get(workflow_id)
         if workflow is None:
             raise EntityNotFoundError("ProductWorkflow", workflow_id)
@@ -72,64 +70,33 @@ class CustomerPackageService:
         if master_asset is None:
             raise EntityNotFoundError("Master PNG Asset", workflow_id)
 
-        logger.info("building_customer_package", workflow_id=str(workflow_id), master_id=str(master_asset.id), include_mockups=include_mockups)
+        logger.info("building_customer_package", workflow_id=str(workflow_id), master_id=str(master_asset.id))
         master_bytes = await self._storage.get(master_asset.storage_key)
 
         # Resolve dynamic connected Etsy shop name
         shop_name = await resolve_connected_shop_name(uow, workflow.owner_id)
-        shop_slug = sanitize_brand_slug(shop_name)
-        product_slug = sanitize_product_title(listing_title)
-        base_prefix = f"{shop_slug}_{product_slug}"
 
-        files_to_zip: dict[str, bytes] = {}
+        planner = EtsyDigitalDeliveryPlanner(
+            max_file_bytes=MAX_ETSY_DIGITAL_FILE_BYTES,
+            max_files_count=MAX_ETSY_DIGITAL_FILES_COUNT,
+        )
+        planned_files = planner.plan_delivery(
+            master_png_bytes=master_bytes,
+            listing_title=listing_title,
+            shop_name=shop_name,
+            master_width=master_asset.width or 4500,
+            master_height=master_asset.height or 5400,
+            include_pdf=True,
+        )
 
-        # Master PNG (losslessly optimized with level 9 deflate)
-        optimized_master = optimize_png_deflate(master_bytes)
-        files_to_zip[f"{base_prefix}_PNG.png"] = optimized_master
-
-        # Print-ready PDF (include only if master raster is small enough to keep ZIP under Etsy 20MB limit)
-        if len(optimized_master) < 10 * 1024 * 1024:
-            try:
-                pdf_bytes = create_print_ready_pdf(
-                    optimized_master,
-                    width_px=master_asset.width or 4500,
-                    height_px=master_asset.height or 5400,
-                )
-                files_to_zip[f"{base_prefix}_Print_Ready.pdf"] = pdf_bytes
-            except Exception as exc:
-                logger.warning("pdf_generation_failed", error=str(exc))
-
-        # Mockups (only for general downloads if requested, never for Etsy buyer delivery)
-        if include_mockups:
-            active_mockups = filter_active_user_mockups(assets, master_asset.id)
-            for idx, mockup_asset in enumerate(active_mockups[:5], start=1):
-                try:
-                    mockup_bytes = await self._storage.get(mockup_asset.storage_key)
-                    raw_prod = mockup_asset.provenance.get("product_type", f"preview-{idx}")
-                    clean_prod = re.sub(r"[^a-zA-Z0-9_-]", "_", str(raw_prod))
-                    files_to_zip[f"{base_prefix}_Mockup_{idx}_{clean_prod}.png"] = mockup_bytes
-                except Exception as exc:
-                    logger.warning("mockup_fetch_failed", asset_id=str(mockup_asset.id), error=str(exc))
-
-        # License and Instructions text
-        license_doc = generate_license_text(shop_name, listing_title)
-        instructions_doc = generate_instructions_text(listing_title, shop_name=shop_name)
-
-        files_to_zip[f"{base_prefix}_LICENSE.txt"] = license_doc.encode("utf-8")
-        files_to_zip[f"{base_prefix}_INSTRUCTIONS.txt"] = instructions_doc.encode("utf-8")
-
-        # Checksum manifest
-        manifest_text = generate_checksum_manifest(files_to_zip)
-        files_to_zip[f"{base_prefix}_manifest.sha256"] = manifest_text.encode("utf-8")
-
-        # Build ZIP
-        zip_bytes = build_zip_archive(files_to_zip)
-        zip_sha256 = hashlib.sha256(zip_bytes).hexdigest()
-        package_prefix = "customer-package" if include_mockups else "etsy-delivery"
-        storage_key = f"workflows/{workflow_id}/packages/{package_prefix}-v{listing_version}.zip"
+        # Primary customer delivery ZIP file
+        zip_file = next((f for f in planned_files if f.mime_type == "application/zip"), planned_files[0])
+        zip_bytes = zip_file.content
+        zip_sha256 = zip_file.checksum_sha256
+        storage_key = f"workflows/{workflow_id}/packages/{zip_file.filename}"
 
         # Put to S3 / MinIO
-        stored_obj = await self._storage.put(storage_key, zip_bytes, "application/zip")
+        stored_obj = await self._storage.put(storage_key, zip_bytes, zip_file.mime_type)
 
         # Check if asset record exists for this sha256
         existing_asset = await uow.assets.get_by_checksum_sha256(workflow_id, zip_sha256)
@@ -139,20 +106,23 @@ class CustomerPackageService:
         package_asset = Asset(
             workflow_id=workflow_id,
             storage_key=stored_obj.storage_key,
-            mime_type="application/zip",
+            mime_type=zip_file.mime_type,
             byte_size=len(zip_bytes),
             checksum_sha256=zip_sha256,
             provenance={
-                "kind": "customer_package" if include_mockups else "etsy_delivery_package",
+                "kind": "customer_package",
                 "version": listing_version,
-                "file_count": len(files_to_zip),
-                "has_pdf": "print-ready.pdf" in files_to_zip,
-                "mockup_count": len(files_to_zip) - 4 if include_mockups else 0,
+                "filename": zip_file.filename,
+                "file_count": len(planned_files),
+                "has_pdf": True,
+                "mockup_count": 0,
             },
         )
         await uow.assets.add(package_asset)
 
-        # Update listing licence_text & customer_instructions if empty
+        # Update listing licence_text & customer_instructions
+        license_doc = generate_license_text(shop_name, listing_title)
+        instructions_doc = generate_instructions_text(listing_title, shop_name=shop_name)
         if listing is not None:
             await uow.listing_drafts.update(
                 listing.id,
@@ -164,6 +134,7 @@ class CustomerPackageService:
             "customer_package_assembled",
             workflow_id=str(workflow_id),
             asset_id=str(package_asset.id),
+            filename=zip_file.filename,
             size=len(zip_bytes),
         )
         return package_asset
@@ -173,5 +144,5 @@ class CustomerPackageService:
         workflow_id: uuid.UUID,
         uow: UnitOfWork,
     ) -> Asset:
-        """Build customer delivery package strictly for Etsy without marketing mockups."""
-        return await self.build_customer_package(workflow_id, uow, include_mockups=False)
+        """Build customer delivery package strictly matching Etsy digital delivery."""
+        return await self.build_customer_package(workflow_id, uow)

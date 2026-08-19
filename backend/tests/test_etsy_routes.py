@@ -75,11 +75,28 @@ def mock_uow() -> MagicMock:
     return uow
 
 
+def _make_test_png() -> bytes:
+    import struct
+    import zlib
+    header = b"\x89PNG\r\n\x1a\n"
+    ihdr_data = struct.pack(">IIBBBBB", 4500, 5400, 8, 6, 0, 0, 0)
+    ihdr_crc = zlib.crc32(b"IHDR" + ihdr_data)
+    ihdr = struct.pack(">I", len(ihdr_data)) + b"IHDR" + ihdr_data + struct.pack(">I", ihdr_crc)
+    raw_scanlines = b"\x00" + b"\xff\x00\x00\xff" * 100
+    compressed_idat = zlib.compress(raw_scanlines, level=0)
+    idat_crc = zlib.crc32(b"IDAT" + compressed_idat)
+    idat = struct.pack(">I", len(compressed_idat)) + b"IDAT" + compressed_idat + struct.pack(">I", idat_crc)
+    iend_crc = zlib.crc32(b"IEND")
+    iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
+    return header + ihdr + idat + iend
+
+
 @pytest.fixture
 def mock_storage() -> MagicMock:
     storage = MagicMock()
-    storage.get = AsyncMock(return_value=b"mock-data")
-    storage.put = AsyncMock()
+    valid_png = _make_test_png()
+    storage.get = AsyncMock(return_value=valid_png)
+    storage.put = AsyncMock(return_value=MagicMock(storage_key="workflows/pkg.zip"))
     return storage
 
 
@@ -228,7 +245,8 @@ def test_trigger_etsy_draft_endpoint(
     listing.workflow_id = workflow_id
     listing.title = "Celestial Art Sublimation PNG"
     listing.description = "Download file."
-    listing.tags = [f"tag_{i}" for i in range(13)]
+    listing.tags = [f"tag {i}" for i in range(13)]
+    listing.taxonomy_id = 6844
     listing.etsy_listing_id = None
     listing.etsy_image_ids = []
     listing.etsy_file_id = None
