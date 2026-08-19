@@ -177,24 +177,23 @@ async function handleCreateDraft() {
       </Alert>
 
       <!-- Shop Not Connected Notice -->
-      <div
+      <Alert
         v-if="!connectionStatus?.connected && !isLoading"
-        class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+        variant="warning"
+        class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
       >
-        <div class="flex items-start gap-2.5">
-          <Icon name="lucide:triangle-alert" class="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden="true" />
-          <div>
-            <strong class="font-semibold text-foreground block">Etsy Shop Connection Required</strong>
-            <span>You must connect your Etsy shop in Settings before creating draft listings.</span>
-          </div>
+        <Icon name="lucide:triangle-alert" class="size-4" aria-hidden="true" />
+        <div class="flex-1">
+          <AlertTitle>Etsy Shop Connection Required</AlertTitle>
+          <AlertDescription>You must connect your Etsy shop in Settings before creating draft listings.</AlertDescription>
         </div>
-        <NuxtLink to="/settings">
-          <Button variant="outline" size="sm" class="text-xs h-8 gap-1.5 cursor-pointer shrink-0">
+        <NuxtLink to="/settings" class="shrink-0">
+          <Button variant="outline" size="sm" class="text-xs h-8 gap-1.5 cursor-pointer">
             <Icon name="lucide:settings" class="size-3.5" aria-hidden="true" />
             <span>Open Settings</span>
           </Button>
         </NuxtLink>
-      </div>
+      </Alert>
 
       <!-- In-Progress Steps Indicator -->
       <div v-if="isInProgress" class="bg-muted/40 border border-border rounded-xl p-4 space-y-3" data-testid="etsy-dispatching-progress">

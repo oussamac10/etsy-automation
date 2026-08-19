@@ -117,8 +117,8 @@ async function handleDisconnect(): Promise<void> {
 
       <!-- Feedback Alerts -->
       <div v-else class="space-y-4">
-        <Alert v-if="successFeedback" variant="success" class="border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200">
-          <Icon name="lucide:circle-check" class="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        <Alert v-if="successFeedback" variant="success">
+          <Icon name="lucide:circle-check" class="size-4" aria-hidden="true" />
           <AlertTitle>Connection Successful</AlertTitle>
           <AlertDescription>{{ successFeedback }}</AlertDescription>
         </Alert>
