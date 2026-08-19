@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 import structlog
@@ -44,7 +45,7 @@ from app.infrastructure.models import (
     ShopConnection,
 )
 from app.infrastructure.security import CredentialCipher
-from app.ports.errors import ProviderError
+from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import (
     EtsyGateway,
     EtsyListingDraftInput,
@@ -210,7 +211,7 @@ async def execute_etsy_draft_pipeline(
                 access_token=access_token,
                 shop_id=conn.etsy_shop_id,
                 listing=payload,
-                idempotency_key=str(workflow_id),
+                idempotency_key=f"{workflow_id}_{listing.version}_{uuid.uuid4().hex[:8]}",
             )
             listing_id = create_resp.listing_id
             management_url = build_etsy_shop_manager_url(listing_id)
@@ -563,3 +564,210 @@ async def send_etsy_draft_failed_notification(
             workflow_id=str(workflow_id),
             error=str(exc),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationResult:
+    """Outcome of reconciling a local workflow against remote Etsy draft state."""
+
+    workflow_id: uuid.UUID
+    reconciled: bool
+    exists_on_etsy: bool
+    status: str  # "synced", "draft_removed", "not_started", "reauth_required", "transient_error", "no_listing"
+    etsy_listing_id: str | None = None
+    detail: str | None = None
+
+
+async def reconcile_etsy_draft(
+    workflow_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    uow: UnitOfWork,
+    etsy_gateway: EtsyGateway,
+    cipher: CredentialCipher | None = None,
+    settings: Any = None,
+) -> ReconciliationResult:
+    """Reconcile local Etsy draft state against Etsy Open API v3.
+
+    If the draft has been deleted/removed in Etsy Shop Manager, automatically resets
+    the local Etsy draft metadata and transitions the workflow back to READY_FOR_ETSY_DRAFT
+    so a new draft can be dispatched from the same approved campaign assets.
+    """
+    workflow = await uow.workflows.get(workflow_id)
+    if workflow is None or workflow.owner_id != owner_id:
+        raise EntityNotFoundError("ProductWorkflow", workflow_id)
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    if listing is None or not listing.etsy_listing_id:
+        return ReconciliationResult(
+            workflow_id=workflow_id,
+            reconciled=False,
+            exists_on_etsy=False,
+            status="no_listing",
+            detail="No Etsy draft listing ID associated with this workflow.",
+        )
+
+    previous_listing_id = listing.etsy_listing_id
+    shop_id = listing.etsy_shop_id or ""
+
+    conn = await uow.shop_connections.get_by_user_id(owner_id)
+    if conn is None or conn.connection_status == "disconnected" or not conn.is_connected:
+        return ReconciliationResult(
+            workflow_id=workflow_id,
+            reconciled=False,
+            exists_on_etsy=True,
+            status="reauth_required",
+            etsy_listing_id=previous_listing_id,
+            detail="Etsy shop connection is disconnected or not authorized.",
+        )
+
+    if cipher is None:
+        return ReconciliationResult(
+            workflow_id=workflow_id,
+            reconciled=False,
+            exists_on_etsy=True,
+            status="reauth_required",
+            etsy_listing_id=previous_listing_id,
+            detail="Server credential cipher is not configured.",
+        )
+
+    if not shop_id and conn.etsy_shop_id:
+        shop_id = conn.etsy_shop_id
+
+    # Retrieve valid access token
+    try:
+        access_token = await get_valid_access_token(
+            uow=uow,
+            cipher=cipher,
+            etsy_gateway=etsy_gateway,
+            owner_id=owner_id,
+        )
+    except Exception as exc:
+        logger.warning(
+            "reconcile_token_refresh_failed",
+            workflow_id=str(workflow_id),
+            error=str(exc),
+        )
+        return ReconciliationResult(
+            workflow_id=workflow_id,
+            reconciled=False,
+            exists_on_etsy=True,
+            status="reauth_required",
+            etsy_listing_id=previous_listing_id,
+            detail=f"Failed to obtain valid Etsy access token: {exc}",
+        )
+
+    # Check listing status on Etsy
+    try:
+        remote_listing = await etsy_gateway.get_listing(
+            access_token=access_token,
+            shop_id=shop_id,
+            listing_id=previous_listing_id,
+        )
+    except ProviderError as pe:
+        if pe.kind == ProviderErrorKind.NOT_FOUND:
+            remote_listing = None
+        elif pe.kind == ProviderErrorKind.AUTHENTICATION:
+            logger.warning("reconcile_etsy_auth_failed", workflow_id=str(workflow_id), error=str(pe))
+            return ReconciliationResult(
+                workflow_id=workflow_id,
+                reconciled=False,
+                exists_on_etsy=True,
+                status="reauth_required",
+                etsy_listing_id=previous_listing_id,
+                detail=f"Etsy authentication revoked: {pe.message}",
+            )
+        elif pe.is_retryable:
+            logger.warning("reconcile_etsy_transient_error", workflow_id=str(workflow_id), error=str(pe))
+            return ReconciliationResult(
+                workflow_id=workflow_id,
+                reconciled=False,
+                exists_on_etsy=True,
+                status="transient_error",
+                etsy_listing_id=previous_listing_id,
+                detail=f"Transient Etsy communication error: {pe.message}",
+            )
+        else:
+            logger.warning("reconcile_etsy_request_error", workflow_id=str(workflow_id), error=str(pe))
+            return ReconciliationResult(
+                workflow_id=workflow_id,
+                reconciled=False,
+                exists_on_etsy=True,
+                status="transient_error",
+                etsy_listing_id=previous_listing_id,
+                detail=f"Etsy API error: {pe.message}",
+            )
+    except Exception as exc:
+        logger.warning("reconcile_unexpected_error", workflow_id=str(workflow_id), error=str(exc))
+        return ReconciliationResult(
+            workflow_id=workflow_id,
+            reconciled=False,
+            exists_on_etsy=True,
+            status="transient_error",
+            etsy_listing_id=previous_listing_id,
+            detail=f"Unexpected error querying Etsy: {exc}",
+        )
+
+    now = datetime.now(UTC)
+
+    # 1. Listing exists on Etsy
+    if remote_listing is not None:
+        listing.etsy_last_synced_at = now
+        if remote_listing.state:
+            listing.etsy_state = remote_listing.state
+        await uow.commit()
+        return ReconciliationResult(
+            workflow_id=workflow_id,
+            reconciled=True,
+            exists_on_etsy=True,
+            status="synced",
+            etsy_listing_id=previous_listing_id,
+            detail="Etsy draft listing verified and synchronized.",
+        )
+
+    # 2. Listing does NOT exist on Etsy (authoritative 404/deleted)
+    logger.info(
+        "etsy_draft_deleted_externally",
+        workflow_id=str(workflow_id),
+        previous_listing_id=previous_listing_id,
+        shop_id=shop_id,
+    )
+
+    # Reset listing draft Etsy metadata (retains title, description, tags, taxonomy, IP findings, package assets)
+    await uow.listing_drafts.clear_etsy_draft_state(listing.id, last_synced_at=now)
+
+    # Transition workflow state back to READY_FOR_ETSY_DRAFT if currently ETSY_DRAFT_CREATED
+    if workflow.state == RunStatus.ETSY_DRAFT_CREATED:
+        await uow.workflows.transition(
+            workflow,
+            to_state=RunStatus.READY_FOR_ETSY_DRAFT,
+            expected_version=workflow.version,
+            reason="Etsy draft was deleted on Etsy. Reconciled local state back to ready for draft.",
+            actor=str(owner_id),
+        )
+
+    # Record dedicated audit event
+    await uow.audit.record(
+        action=AuditAction.ETSY_DRAFT_REMOVED_EXTERNALLY,
+        entity_type="ListingDraft",
+        entity_id=listing.id,
+        actor=str(owner_id),
+        summary=f"Etsy draft listing {previous_listing_id} was removed in Etsy Shop Manager. Reset local state to ready for draft.",
+        metadata={
+            "workflow_id": str(workflow_id),
+            "previous_etsy_listing_id": previous_listing_id,
+            "shop_id": shop_id,
+            "reason": "listing_not_found_on_etsy",
+            "reconciled_at": now.isoformat(),
+        },
+    )
+
+    await uow.commit()
+
+    return ReconciliationResult(
+        workflow_id=workflow_id,
+        reconciled=True,
+        exists_on_etsy=False,
+        status="draft_removed",
+        etsy_listing_id=None,
+        detail="Draft listing no longer exists in Etsy Shop Manager. Campaign reset to ready for draft.",
+    )

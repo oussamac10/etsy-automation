@@ -261,6 +261,10 @@ async def get_etsy_draft_status_endpoint(
     workflow_id: uuid.UUID,
     user: CurrentUser,
     uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+    cipher: CipherDep,
+    settings: SettingsDep,
+    reconcile: bool = Query(default=True, description="Reconcile against Etsy if draft listing exists."),
 ) -> EtsyDraftDispatchResponse:
     """Poll the current progress and results of the Etsy draft listing operation."""
     workflow = await uow.workflows.get(workflow_id)
@@ -277,15 +281,95 @@ async def get_etsy_draft_status_endpoint(
             dispatch_status="not_started",
         )
 
+    reconcile_res = None
+    # If reconcile is requested and listing has an active Etsy draft ID, verify existence
+    if reconcile and listing.etsy_listing_id and listing.etsy_dispatch_status == "completed":
+        reconcile_res = await etsy_draft.reconcile_etsy_draft(
+            workflow_id=workflow_id,
+            owner_id=user.id,
+            uow=uow,
+            etsy_gateway=etsy_gateway,
+            cipher=cipher,
+            settings=settings,
+        )
+        listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+        if listing is None:
+            return EtsyDraftDispatchResponse(
+                workflow_id=workflow_id,
+                dispatch_status="not_started",
+            )
+
+    dispatch_status = (
+        "draft_removed"
+        if reconcile_res and reconcile_res.status == "draft_removed"
+        else (listing.etsy_dispatch_status or "not_started")
+    )
+
     return EtsyDraftDispatchResponse(
         workflow_id=workflow_id,
-        dispatch_status=listing.etsy_dispatch_status or "not_started",
+        dispatch_status=dispatch_status,
         etsy_listing_id=listing.etsy_listing_id,
         etsy_listing_url=listing.etsy_listing_url,
         etsy_state=listing.etsy_state,
         etsy_shop_id=listing.etsy_shop_id,
         etsy_image_ids=list(listing.etsy_image_ids or []),
         etsy_file_id=listing.etsy_file_id,
-        error_message=listing.etsy_failure_reason,
+        etsy_file_ids=list(listing.etsy_file_ids or []),
+        taxonomy_id=listing.taxonomy_id,
+        taxonomy_path=listing.taxonomy_path,
+        error_message=listing.etsy_failure_reason if not (reconcile_res and reconcile_res.status == "draft_removed") else reconcile_res.detail,
+        last_synced_at=listing.etsy_last_synced_at,
+    )
+
+
+@router.post(
+    "/workflows/{workflow_id}/etsy/reconcile",
+    response_model=EtsyDraftDispatchResponse,
+    summary="Reconcile Etsy draft status against remote Etsy listing",
+)
+async def reconcile_etsy_draft_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+    cipher: CipherDep,
+    settings: SettingsDep,
+) -> EtsyDraftDispatchResponse:
+    """Explicitly verify if the Etsy draft listing still exists in Etsy Shop Manager."""
+    reconcile_res = await etsy_draft.reconcile_etsy_draft(
+        workflow_id=workflow_id,
+        owner_id=user.id,
+        uow=uow,
+        etsy_gateway=etsy_gateway,
+        cipher=cipher,
+        settings=settings,
+    )
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    if listing is None:
+        return EtsyDraftDispatchResponse(
+            workflow_id=workflow_id,
+            dispatch_status="not_started",
+        )
+
+    dispatch_status = (
+        "draft_removed"
+        if reconcile_res.status == "draft_removed"
+        else (listing.etsy_dispatch_status or "not_started")
+    )
+
+    return EtsyDraftDispatchResponse(
+        workflow_id=workflow_id,
+        dispatch_status=dispatch_status,
+        etsy_listing_id=listing.etsy_listing_id,
+        etsy_listing_url=listing.etsy_listing_url,
+        etsy_state=listing.etsy_state,
+        etsy_shop_id=listing.etsy_shop_id,
+        etsy_image_ids=list(listing.etsy_image_ids or []),
+        etsy_file_id=listing.etsy_file_id,
+        etsy_file_ids=list(listing.etsy_file_ids or []),
+        taxonomy_id=listing.taxonomy_id,
+        taxonomy_path=listing.taxonomy_path,
+        error_message=listing.etsy_failure_reason if reconcile_res.status != "draft_removed" else reconcile_res.detail,
         last_synced_at=listing.etsy_last_synced_at,
     )

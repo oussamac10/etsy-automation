@@ -38,7 +38,7 @@ class EtsyDraftDispatchResponse(BaseModel):
     workflow_id: uuid.UUID = Field(..., description="Workflow ID.")
     dispatch_status: str = Field(
         ...,
-        description="Status: not_started, queued, creating_listing, uploading_images, uploading_file, completed, failed.",
+        description="Status: not_started, queued, creating_listing, uploading_images, uploading_file, completed, draft_removed, failed.",
     )
     etsy_listing_id: str | None = Field(default=None, description="Created Etsy listing ID.")
     etsy_listing_url: str | None = Field(

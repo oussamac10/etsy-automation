@@ -271,3 +271,80 @@ def test_trigger_etsy_draft_endpoint(
     mock_uow.outbox.add.assert_called_once_with(
         "create_etsy_draft_task", {"workflow_id": str(workflow_id)}
     )
+
+
+def test_reconcile_etsy_draft_endpoint_when_draft_deleted(
+    client: TestClient,
+    mock_uow: MagicMock,
+    test_user: User,
+    cipher: CredentialCipher,
+) -> None:
+    workflow_id = uuid.uuid4()
+    listing_id = "listing_to_reconcile_123"
+
+    workflow = MagicMock(spec=ProductWorkflow)
+    workflow.id = workflow_id
+    workflow.owner_id = test_user.id
+    workflow.state = RunStatus.ETSY_DRAFT_CREATED
+    workflow.version = 2
+    mock_uow.workflows.get = AsyncMock(return_value=workflow)
+
+    conn = MagicMock(spec=ShopConnection)
+    conn.id = uuid.uuid4()
+    conn.user_id = test_user.id
+    conn.connection_status = "connected"
+    conn.is_connected = True
+    conn.etsy_shop_id = "shop_1"
+    conn.is_token_expired = False
+    conn.key_version = 1
+    conn.ciphertext_access_token = cipher.encrypt("token")
+    conn.token_expires_at = datetime.now(UTC) + timedelta(hours=1)
+    mock_uow.shop_connections.get_by_user_id = AsyncMock(return_value=conn)
+
+    listing = MagicMock(spec=ListingDraft)
+    listing.id = uuid.uuid4()
+    listing.workflow_id = workflow_id
+    listing.title = "Cute Cat Clipart"
+    listing.etsy_listing_id = listing_id
+    listing.etsy_dispatch_status = "completed"
+    listing.etsy_state = "draft"
+    listing.etsy_shop_id = "shop_1"
+    listing.etsy_image_ids = ["img_1"]
+    listing.etsy_file_id = "file_1"
+    listing.etsy_file_ids = ["file_1"]
+    listing.etsy_listing_url = "https://etsy.com/edit/123"
+    listing.etsy_last_synced_at = datetime.now(UTC)
+    listing.etsy_failure_reason = None
+    listing.taxonomy_id = 6844
+    listing.taxonomy_path = "Craft Supplies & Tools > Clip Art & Image Files"
+    mock_uow.listing_drafts.get_by_workflow = AsyncMock(return_value=listing)
+
+    async def fake_clear(draft_id: uuid.UUID, **kwargs: object) -> ListingDraft:
+        listing.etsy_listing_id = None
+        listing.etsy_dispatch_status = "not_started"
+        listing.etsy_state = None
+        listing.etsy_image_ids = []
+        listing.etsy_file_id = None
+        listing.etsy_file_ids = []
+        listing.etsy_listing_url = None
+        return listing
+
+    mock_uow.listing_drafts.clear_etsy_draft_state = AsyncMock(side_effect=fake_clear)
+    mock_uow.workflows.transition = AsyncMock()
+    mock_uow.audit.record = AsyncMock()
+    mock_uow.commit = AsyncMock()
+
+    # Create a FakeEtsyProvider where listing_id is marked deleted
+    fake_etsy = FakeEtsyProvider(default_shop_id="shop_1")
+    fake_etsy.mark_listing_deleted(listing_id)
+    app = client.app
+    app.dependency_overrides[get_etsy_gateway] = lambda: fake_etsy
+
+    response = client.post(f"/api/v1/workflows/{workflow_id}/etsy/reconcile")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["dispatch_status"] == "draft_removed"
+    assert data["etsy_listing_id"] is None
+    assert mock_uow.listing_drafts.clear_etsy_draft_state.call_count == 1
+    assert mock_uow.workflows.transition.call_count == 1
+
