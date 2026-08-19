@@ -74,16 +74,17 @@ class CustomerPackageService:
         # Master PNG
         files_to_zip["master.png"] = master_bytes
 
-        # Print-ready PDF
-        try:
-            pdf_bytes = create_print_ready_pdf(
-                master_bytes,
-                width_px=master_asset.width or 4500,
-                height_px=master_asset.height or 5400,
-            )
-            files_to_zip["print-ready.pdf"] = pdf_bytes
-        except Exception as exc:
-            logger.warning("pdf_generation_failed", error=str(exc))
+        # Print-ready PDF (include only if master raster is small enough to keep ZIP under Etsy 20MB limit)
+        if len(master_bytes) < 10 * 1024 * 1024:
+            try:
+                pdf_bytes = create_print_ready_pdf(
+                    master_bytes,
+                    width_px=master_asset.width or 4500,
+                    height_px=master_asset.height or 5400,
+                )
+                files_to_zip["print-ready.pdf"] = pdf_bytes
+            except Exception as exc:
+                logger.warning("pdf_generation_failed", error=str(exc))
 
         # Mockups
         active_mockups = filter_active_user_mockups(assets, master_asset.id)

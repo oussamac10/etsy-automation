@@ -20,6 +20,7 @@ from app.application.telegram import send_telegram_notification
 from app.application.unit_of_work import UnitOfWork
 from app.domain.enums import AuditAction
 from app.domain.errors import DomainError, EntityNotFoundError
+from app.domain.package_builder import create_access_delivery_pdf
 from app.domain.production_resolver import (
     filter_active_user_mockups,
     get_production_master_asset,
@@ -262,14 +263,39 @@ async def execute_etsy_draft_pipeline(
 
         if not listing.etsy_file_id:
             zip_bytes = await storage.get(zip_asset.storage_key)
-            file_resp = await etsy_gateway.upload_listing_file(
-                access_token=access_token,
-                shop_id=conn.etsy_shop_id,
-                listing_id=listing_id,
-                file_bytes=zip_bytes,
-                filename="digital-package.zip",
-                rank=1,
-            )
+            max_etsy_bytes = 20 * 1024 * 1024  # 20MB Etsy Open API v3 limit
+
+            if len(zip_bytes) <= max_etsy_bytes:
+                file_resp = await etsy_gateway.upload_listing_file(
+                    access_token=access_token,
+                    shop_id=conn.etsy_shop_id,
+                    listing_id=listing_id,
+                    file_bytes=zip_bytes,
+                    filename="digital-package.zip",
+                    rank=1,
+                )
+            else:
+                logger.info(
+                    "package_exceeds_etsy_limit_generating_access_pdf",
+                    workflow_id=str(workflow_id),
+                    size_bytes=len(zip_bytes),
+                )
+                download_url = await storage.signed_url(zip_asset.storage_key, expires_in_seconds=604800)
+                shop_name = conn.etsy_shop_name or "Digital Art Studio"
+                access_pdf_bytes = create_access_delivery_pdf(
+                    listing_title=listing.title or "High-Resolution Digital Artwork",
+                    shop_name=shop_name,
+                    download_url=download_url,
+                )
+                file_resp = await etsy_gateway.upload_listing_file(
+                    access_token=access_token,
+                    shop_id=conn.etsy_shop_id,
+                    listing_id=listing_id,
+                    file_bytes=access_pdf_bytes,
+                    filename="Digital_Download_Access_Instructions.pdf",
+                    rank=1,
+                )
+
             listing = await uow.listing_drafts.record_etsy_file_upload(
                 listing.id, file_id=file_resp.listing_file_id
             )

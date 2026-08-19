@@ -292,3 +292,116 @@ def build_zip_archive(files: dict[str, bytes]) -> bytes:
             info.compress_type = zipfile.ZIP_DEFLATED
             zip_file.writestr(info, content)
     return zip_buffer.getvalue()
+
+
+def create_access_delivery_pdf(
+    listing_title: str,
+    shop_name: str,
+    download_url: str,
+) -> bytes:
+    """Generate a clean, conforming PDF document providing digital download access & instructions.
+    
+    Used for digital delivery when asset bundles exceed Etsy's 20MB upload limit.
+    """
+    w_pt = 612
+    h_pt = 792
+
+    def escape_pdf_str(text: str) -> str:
+        return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+    safe_title = escape_pdf_str(listing_title[:80])
+    safe_shop = escape_pdf_str(shop_name[:50])
+    safe_url = escape_pdf_str(download_url)
+
+    stream_content = f"""BT
+/F1 20 Tf
+50 720 Td
+({safe_shop}) Tj
+ET
+BT
+/F1 14 Tf
+50 680 Td
+({safe_title}) Tj
+ET
+BT
+/F2 11 Tf
+50 630 Td
+(Thank you for your purchase! Your high-resolution digital files are ready.) Tj
+ET
+BT
+/F1 11 Tf
+50 590 Td
+(DOWNLOAD INSTRUCTIONS:) Tj
+ET
+BT
+/F2 10 Tf
+50 565 Td
+(1. Click or copy the secure download link below to access your complete ZIP bundle:) Tj
+ET
+BT
+/F1 10 Tf
+50 535 Td
+({safe_url}) Tj
+ET
+BT
+/F2 10 Tf
+50 495 Td
+(2. File Bundle Includes: 4500x5400 px @ 300 DPI Transparent PNG + Mockups + License) Tj
+ET
+BT
+/F2 10 Tf
+50 470 Td
+(3. Unzip the package to your device and use in Canva, Photoshop, Illustrator, or Cricut) Tj
+ET
+BT
+/F1 11 Tf
+50 420 Td
+(COMMERCIAL USE LICENSE:) Tj
+ET
+BT
+/F2 9 Tf
+50 395 Td
+(- Permitted: Physical products, Print-On-Demand apparel, stickers, mugs, and gifts up to 5,000 units.) Tj
+ET
+BT
+/F2 9 Tf
+50 375 Td
+(- Prohibited: Digital file resale, digital sharing, clipart bundles, or AI model training.) Tj
+ET
+BT
+/F2 10 Tf
+50 320 Td
+(Questions or need help? Please reach out via Etsy Messages!) Tj
+ET
+"""
+    stream_bytes = stream_content.encode("latin1", errors="replace")
+    pdf_buffer = io.BytesIO()
+    pdf_buffer.write(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {w_pt} {h_pt}] /Contents 4 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> /F2 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>".encode("ascii"),
+        f"<< /Length {len(stream_bytes)} >>\nstream\n".encode("ascii") + stream_bytes + b"\nendstream",
+    ]
+
+    xref_offsets = [0]
+    for i, obj in enumerate(objects, start=1):
+        offset_pos = pdf_buffer.tell()
+        xref_offsets.append(offset_pos)
+        pdf_buffer.write(f"{i} 0 obj\n".encode("ascii"))
+        pdf_buffer.write(obj)
+        pdf_buffer.write(b"\nendobj\n")
+
+    xref_start = pdf_buffer.tell()
+    pdf_buffer.write(f"xref\n0 {len(xref_offsets)}\n".encode("ascii"))
+    pdf_buffer.write(b"0000000000 65535 f \n")
+    for off in xref_offsets[1:]:
+        pdf_buffer.write(f"{off:010d} 00000 n \n".encode("ascii"))
+
+    pdf_buffer.write(
+        f"trailer\n<< /Size {len(xref_offsets)} /Root 1 0 R >>\n"
+        f"startxref\n{xref_start}\n%%EOF\n".encode("ascii")
+    )
+    return pdf_buffer.getvalue()
+

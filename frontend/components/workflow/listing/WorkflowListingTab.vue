@@ -231,24 +231,30 @@ const isTagsDirty = computed(() => {
 });
 
 const isApproved = computed(() => {
-  return ['READY_FOR_ETSY_DRAFT', 'PUBLISHED'].includes(props.workflowState);
+  return ['READY_FOR_ETSY_DRAFT', 'ETSY_DRAFT_CREATED', 'PUBLISHED'].includes(props.workflowState);
 });
 </script>
 
 <template>
   <div class="space-y-6">
     <!-- Feedback Alerts -->
-    <Alert v-if="errorMessage" variant="destructive" class="border-destructive/40">
-      <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
-      <AlertTitle>Action Failed</AlertTitle>
-      <AlertDescription>{{ errorMessage }}</AlertDescription>
-    </Alert>
+    <Alert
+      v-if="errorMessage"
+      variant="destructive"
+      title="Action Failed"
+      :description="errorMessage"
+      dismissible
+      @dismiss="errorMessage = null"
+    />
 
-    <Alert v-if="successMessage" variant="success" class="border-emerald-200 bg-emerald-50 text-emerald-900">
-      <Icon name="lucide:circle-check" class="size-4 text-emerald-600" aria-hidden="true" />
-      <AlertTitle>Success</AlertTitle>
-      <AlertDescription>{{ successMessage }}</AlertDescription>
-    </Alert>
+    <Alert
+      v-if="successMessage"
+      variant="success"
+      title="Success"
+      :description="successMessage"
+      dismissible
+      @dismiss="successMessage = null"
+    />
 
     <!-- Loading Skeleton -->
     <div v-if="isLoading && !listingDraft" class="space-y-4">
@@ -324,8 +330,11 @@ const isApproved = computed(() => {
         </div>
       </div>
 
-      <!-- Gate 3 Decision Bar -->
-      <div class="bg-white/95 backdrop-blur-md border border-border rounded-xl p-3.5 sm:p-4 shadow-md flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 sticky bottom-3 sm:bottom-4 z-10">
+      <!-- Gate 3 Decision Bar (Only shown when pending human approval) -->
+      <div
+        v-if="!isApproved"
+        class="bg-white/95 backdrop-blur-md border border-border rounded-xl p-3.5 sm:p-4 shadow-md flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 sticky bottom-3 sm:bottom-4 z-10"
+      >
         <div class="space-y-0.5 text-center sm:text-left">
           <h3 class="text-sm font-bold text-slate-900 flex items-center justify-center sm:justify-start gap-2">
             <Icon name="lucide:door-open" class="size-4 text-primary" aria-hidden="true" />
