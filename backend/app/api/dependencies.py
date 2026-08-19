@@ -21,6 +21,9 @@ from app.infrastructure.security import (
     EncryptionConfigurationError,
     tokens_equal,
 )
+import redis.asyncio as aioredis
+from app.ports.providers import EtsyGateway
+from app.ports.telegram import TelegramGateway
 from app.providers.s3 import S3ObjectStorage
 from app.settings import Settings
 
@@ -77,6 +80,38 @@ def get_credential_cipher(request: Request) -> CredentialCipher | None:
 
 
 CipherDep = Annotated[CredentialCipher | None, Depends(get_credential_cipher)]
+
+
+def get_redis(request: Request) -> aioredis.Redis:
+    redis_client: aioredis.Redis = request.app.state.redis
+    return redis_client
+
+
+RedisDep = Annotated[aioredis.Redis, Depends(get_redis)]
+
+
+def get_etsy_gateway(request: Request) -> EtsyGateway:
+    from app.providers.fake import FakeEtsyProvider
+
+    gateway = getattr(request.app.state, "etsy_gateway", None)
+    if gateway is None:
+        gateway = FakeEtsyProvider()
+    return gateway
+
+
+EtsyGatewayDep = Annotated[EtsyGateway, Depends(get_etsy_gateway)]
+
+
+def get_telegram_gateway(request: Request) -> TelegramGateway:
+    from app.providers.telegram import FakeTelegramGateway
+
+    gateway = getattr(request.app.state, "telegram_gateway", None)
+    if gateway is None:
+        gateway = FakeTelegramGateway()
+    return gateway
+
+
+TelegramGatewayDep = Annotated[TelegramGateway, Depends(get_telegram_gateway)]
 
 
 def build_credential_cipher(settings: Settings) -> CredentialCipher | None:

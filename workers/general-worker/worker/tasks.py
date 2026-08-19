@@ -1569,3 +1569,13 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
     finally:
         await engine.dispose()
 
+
+@dramatiq.actor(queue_name="default", max_retries=3)
+def create_etsy_draft_task(workflow_id: str) -> None:
+    """Entry point for Phase 9 Etsy Draft Creation, Mockup Image Uploads & Customer ZIP Upload."""
+    from worker.etsy import run_etsy_draft_pipeline_async
+
+    logger.info("create_etsy_draft_task_triggered", workflow_id=workflow_id)
+    asyncio.run(run_etsy_draft_pipeline_async(uuid.UUID(workflow_id)))
+
+

@@ -16,7 +16,7 @@ from starlette.responses import Response
 from app import __version__
 from app.api.dependencies import CSRF_HEADER, build_credential_cipher
 from app.api.problems import register_exception_handlers
-from app.api.routes import auth, health, mockup_templates, telegram, usage, workflow, workflows
+from app.api.routes import auth, etsy as etsy_routes, health, mockup_templates, telegram, usage, workflow, workflows
 from app.api.routes import settings as settings_routes
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import configure_logging, get_logger
@@ -109,6 +109,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             telegram_gateway = FakeTelegramGateway()
         application.state.telegram_gateway = telegram_gateway
 
+        from app.ports.providers import EtsyGateway
+        from app.providers.etsy import EtsyProvider
+        from app.providers.fake import FakeEtsyProvider
+
+        etsy_gateway: EtsyGateway
+        if resolved.provider_mode == "live" and resolved.resolved_etsy_api_key:
+            etsy_gateway = EtsyProvider(
+                api_key=resolved.resolved_etsy_api_key,
+                base_url=resolved.etsy_api_base_url,
+                token_url=resolved.etsy_token_url,
+                client=http_client,
+            )
+        else:
+            etsy_gateway = FakeEtsyProvider()
+        application.state.etsy_gateway = etsy_gateway
+
         # Configure Dramatiq broker
         from worker.broker import configure_broker
 
@@ -183,6 +199,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(workflows.router, prefix="/api/v1")
     application.include_router(mockup_templates.router, prefix="/api/v1")
     application.include_router(telegram.router, prefix="/api/v1")
+    application.include_router(etsy_routes.router, prefix="/api/v1")
     application.include_router(usage.router, prefix="/api/v1")
 
     return application
