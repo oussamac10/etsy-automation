@@ -68,8 +68,16 @@ function openDisconnectModal(): void {
 async function confirmDisconnect(): Promise<void> {
   const success = await disconnectShop();
   if (success) {
+    successFeedback.value = null;
+    oauthError.value = null;
     showDisconnectModal.value = false;
   }
+}
+
+async function handleConnect(): Promise<void> {
+  successFeedback.value = null;
+  oauthError.value = null;
+  await initiateOAuthConnect();
 }
 </script>
 
@@ -128,10 +136,20 @@ async function confirmDisconnect(): Promise<void> {
 
       <!-- Feedback Alerts -->
       <div v-else class="space-y-4">
-        <Alert v-if="successFeedback" variant="success">
-          <Icon name="lucide:circle-check" class="size-4" aria-hidden="true" />
-          <AlertTitle>Connection Successful</AlertTitle>
-          <AlertDescription>{{ successFeedback }}</AlertDescription>
+        <Alert v-if="successFeedback && connectionStatus?.connected" variant="success" class="flex items-center justify-between">
+          <div>
+            <Icon name="lucide:circle-check" class="size-4" aria-hidden="true" />
+            <AlertTitle>Connection Successful</AlertTitle>
+            <AlertDescription>{{ successFeedback }}</AlertDescription>
+          </div>
+          <button
+            type="button"
+            class="text-emerald-700 hover:text-emerald-900 p-1 cursor-pointer rounded-lg hover:bg-emerald-100/50"
+            aria-label="Dismiss"
+            @click="successFeedback = null"
+          >
+            <Icon name="lucide:x" class="size-4" aria-hidden="true" />
+          </button>
         </Alert>
 
         <Alert v-if="oauthError || errorMessage" variant="destructive">
@@ -139,9 +157,19 @@ async function confirmDisconnect(): Promise<void> {
           <AlertTitle>Etsy Connection Notice</AlertTitle>
           <AlertDescription class="flex items-center justify-between">
             <span>{{ oauthError || errorMessage }}</span>
-            <Button variant="outline" size="sm" class="h-7 text-xs cursor-pointer" @click="fetchConnectionStatus">
-              Retry
-            </Button>
+            <div class="flex items-center gap-2">
+              <Button variant="outline" size="sm" class="h-7 text-xs cursor-pointer" @click="fetchConnectionStatus">
+                Retry
+              </Button>
+              <button
+                type="button"
+                class="text-red-700 hover:text-red-900 p-1 cursor-pointer rounded-lg hover:bg-red-100/50"
+                aria-label="Dismiss"
+                @click="() => { oauthError = null; errorMessage = null; }"
+              >
+                <Icon name="lucide:x" class="size-4" aria-hidden="true" />
+              </button>
+            </div>
           </AlertDescription>
         </Alert>
 
@@ -194,7 +222,7 @@ async function confirmDisconnect(): Promise<void> {
               size="sm"
               class="gap-1.5 cursor-pointer bg-amber-600 hover:bg-amber-700"
               :disabled="isConnecting"
-              @click="initiateOAuthConnect"
+              @click="handleConnect"
             >
               <Icon v-if="isConnecting" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
               <Icon v-else name="lucide:rotate-ccw" class="size-3.5" aria-hidden="true" />
@@ -236,7 +264,7 @@ async function confirmDisconnect(): Promise<void> {
               class="gap-2 cursor-pointer"
               :disabled="isConnecting"
               data-testid="etsy-connect-button"
-              @click="initiateOAuthConnect"
+              @click="handleConnect"
             >
               <Icon v-if="isConnecting" name="lucide:loader-circle" class="size-4 animate-spin" aria-hidden="true" />
               <Icon v-else name="lucide:store" class="size-4" aria-hidden="true" />
