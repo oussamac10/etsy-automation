@@ -247,6 +247,14 @@ def test_trigger_etsy_draft_endpoint(
     listing.description = "Download file."
     listing.tags = [f"tag {i}" for i in range(13)]
     listing.taxonomy_id = 6844
+    listing.price_minor_units = 499
+    listing.currency = "USD"
+    listing.quantity = 999
+    listing.sku = "NCP-CELESTIAL-001"
+    listing.shop_section_id = None
+    listing.should_auto_renew = False
+    listing.etsy_properties = {}
+    listing.primary_mockup_asset_id = None
     listing.etsy_listing_id = None
     listing.etsy_image_ids = []
     listing.etsy_file_id = None
