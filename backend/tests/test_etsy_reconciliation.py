@@ -26,6 +26,32 @@ from app.ports.providers import ObjectStorage
 from app.providers.fake import FakeEtsyProvider
 
 
+def _create_test_png_bytes(
+    width: int = 4500,
+    height: int = 5400,
+    color_type: int = 6,
+    raw_bytes: int = 1000,
+) -> bytes:
+    import os
+    import struct
+    import zlib
+
+    header = b"\x89PNG\r\n\x1a\n"
+    ihdr_data = struct.pack(">IIBBBBB", width, height, 8, color_type, 0, 0, 0)
+    ihdr_crc = zlib.crc32(b"IHDR" + ihdr_data)
+    ihdr = struct.pack(">I", len(ihdr_data)) + b"IHDR" + ihdr_data + struct.pack(">I", ihdr_crc)
+
+    raw_scanlines = b"\x00" + (b"ABCD1234EFGH5678" * (raw_bytes // 16 + 1))[:raw_bytes]
+    compressed_idat = zlib.compress(raw_scanlines, level=6)
+    idat_crc = zlib.crc32(b"IDAT" + compressed_idat)
+    idat = struct.pack(">I", len(compressed_idat)) + b"IDAT" + compressed_idat + struct.pack(">I", idat_crc)
+
+    iend_crc = zlib.crc32(b"IEND")
+    iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
+
+    return header + ihdr + idat + iend
+
+
 @pytest.fixture
 def cipher() -> CredentialCipher:
     return CredentialCipher("test-encryption-key-32-chars-long!", key_version=1)
@@ -34,7 +60,7 @@ def cipher() -> CredentialCipher:
 @pytest.fixture
 def mock_storage() -> MagicMock:
     storage = MagicMock(spec=ObjectStorage)
-    storage.get = AsyncMock(return_value=b"mock-binary-content-bytes")
+    storage.get = AsyncMock(return_value=_create_test_png_bytes(4500, 5400))
     storage.put = AsyncMock()
     return storage
 
@@ -364,6 +390,9 @@ class TestEtsyReconciliation:
         master_asset.workflow_id = workflow_id
         master_asset.mime_type = "image/png"
         master_asset.storage_key = f"workflows/{workflow_id}/master.png"
+        master_asset.width = 4500
+        master_asset.height = 5400
+        master_asset.checksum_sha256 = "recon_sha256"
         master_asset.created_at = now
         master_asset.provenance = {"is_master": True, "asset_type": "transparent_png"}
 

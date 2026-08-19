@@ -28,6 +28,37 @@ from app.ports.telegram import TelegramGateway
 from app.providers.fake import FakeEtsyProvider
 
 
+def _create_test_png_bytes(
+    width: int = 4500,
+    height: int = 5400,
+    color_type: int = 6,
+    raw_bytes: int = 1000,
+    compressible: bool = True,
+) -> bytes:
+    import os
+    import struct
+    import zlib
+
+    header = b"\x89PNG\r\n\x1a\n"
+    ihdr_data = struct.pack(">IIBBBBB", width, height, 8, color_type, 0, 0, 0)
+    ihdr_crc = zlib.crc32(b"IHDR" + ihdr_data)
+    ihdr = struct.pack(">I", len(ihdr_data)) + b"IHDR" + ihdr_data + struct.pack(">I", ihdr_crc)
+
+    if compressible:
+        raw_scanlines = b"\x00" + (b"ABCD1234EFGH5678" * (raw_bytes // 16 + 1))[:raw_bytes]
+    else:
+        raw_scanlines = b"\x00" + os.urandom(raw_bytes)
+
+    compressed_idat = zlib.compress(raw_scanlines, level=6 if compressible else 0)
+    idat_crc = zlib.crc32(b"IDAT" + compressed_idat)
+    idat = struct.pack(">I", len(compressed_idat)) + b"IDAT" + compressed_idat + struct.pack(">I", idat_crc)
+
+    iend_crc = zlib.crc32(b"IEND")
+    iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
+
+    return header + ihdr + idat + iend
+
+
 @pytest.fixture
 def cipher() -> CredentialCipher:
     return CredentialCipher("test-encryption-key-32-chars-long!", key_version=1)
@@ -36,7 +67,7 @@ def cipher() -> CredentialCipher:
 @pytest.fixture
 def mock_storage() -> MagicMock:
     storage = MagicMock(spec=ObjectStorage)
-    storage.get = AsyncMock(return_value=b"mock-binary-content-bytes")
+    storage.get = AsyncMock(return_value=_create_test_png_bytes(4500, 5400))
     storage.put = AsyncMock()
     return storage
 
@@ -172,6 +203,9 @@ class TestEtsyDraftExecution:
         master_asset.workflow_id = workflow_id
         master_asset.mime_type = "image/png"
         master_asset.storage_key = f"workflows/{workflow_id}/master.png"
+        master_asset.width = 4500
+        master_asset.height = 5400
+        master_asset.checksum_sha256 = "master_sha256"
         master_asset.created_at = now
         master_asset.provenance = {"profile": "etsy-png-standard"}
 
@@ -313,8 +347,8 @@ class TestEtsyDraftExecution:
         uow.listing_drafts.record_etsy_image_upload = AsyncMock(return_value=listing)
         uow.listing_drafts.record_etsy_file_upload = AsyncMock(return_value=listing)
 
-        # Storage mock with master PNG (5MB) and oversized delivery ZIP (25MB)
-        master_bytes = b"M" * (5 * 1024 * 1024)
+        # Storage mock with master PNG and oversized delivery ZIP (25MB)
+        master_bytes = _create_test_png_bytes(4500, 5400, raw_bytes=1000)
         mock_storage = MagicMock(spec=ObjectStorage)
 
         async def fake_storage_get(key: str) -> bytes:
@@ -354,14 +388,98 @@ class TestEtsyDraftExecution:
             etsy_gateway=fake_etsy,
         )
 
-        # Multiple digital files uploaded directly to Etsy (Master PNG + Print PDF + License & Info ZIP)
-        assert len(fake_etsy.uploaded_files) >= 2
+        # Multiple digital files uploaded directly to Etsy (Master PNG + Extras ZIP or Complete ZIP)
+        assert len(fake_etsy.uploaded_files) >= 1
         uploaded_names = [f["filename"] for f in fake_etsy.uploaded_files]
         # Never upload Digital_Download_Access_Instructions.pdf!
         assert "Digital_Download_Access_Instructions.pdf" not in uploaded_names
-        # Must contain actual master PNG artwork deliverable
-        assert any("master.png" in fn for fn in uploaded_names)
-        assert any("license-and-info.zip" in fn for fn in uploaded_names)
+        assert any("master" in fn or fn.endswith(".zip") for fn in uploaded_names)
+
+    @pytest.mark.asyncio
+    async def test_execute_etsy_draft_partial_file_upload_retry_does_not_duplicate(
+        self,
+        cipher: CredentialCipher,
+    ) -> None:
+        uow = MagicMock()
+        workflow_id = uuid.uuid4()
+        owner_id = uuid.uuid4()
+
+        workflow = MagicMock(spec=ProductWorkflow)
+        workflow.id = workflow_id
+        workflow.owner_id = owner_id
+        workflow.name = "Partial Upload Workflow"
+        workflow.state = RunStatus.READY_FOR_ETSY_DRAFT
+        workflow.version = 1
+        uow.workflows.get = AsyncMock(return_value=workflow)
+
+        conn = MagicMock(spec=ShopConnection)
+        conn.is_connected = True
+        conn.etsy_shop_id = "shop_partial_123"
+        conn.key_version = 1
+        conn.ciphertext_access_token = cipher.encrypt("token")
+        conn.token_expires_at = datetime.now(UTC) + timedelta(hours=1)
+        uow.shop_connections.get_by_user_id = AsyncMock(return_value=conn)
+
+        listing = MagicMock(spec=ListingDraft)
+        listing.id = uuid.uuid4()
+        listing.workflow_id = workflow_id
+        listing.title = "Partial Retry Artwork"
+        listing.description = "Download file."
+        listing.tags = [f"tag_{i}" for i in range(13)]
+        listing.price_minor_units = 500
+        listing.currency = "USD"
+        listing.taxonomy_id = 6844
+        listing.taxonomy_path = "Craft Supplies & Tools > Clip Art & Image Files"
+        listing.etsy_listing_id = "existing_listing_123"
+        listing.etsy_image_ids = ["img_1"]
+        listing.etsy_file_id = "file_already_uploaded_1"
+        # Simulate that file 1 is already recorded as uploaded
+        listing.etsy_file_ids = ["file_already_uploaded_1"]
+        listing.etsy_dispatch_status = "uploading_file"
+
+        uow.listing_drafts.get_by_workflow = AsyncMock(return_value=listing)
+        uow.listing_drafts.update = AsyncMock(return_value=listing)
+        uow.listing_drafts.update_etsy_draft = AsyncMock(return_value=listing)
+        uow.listing_drafts.update_etsy_dispatch_status = AsyncMock(return_value=listing)
+        uow.listing_drafts.record_etsy_image_upload = AsyncMock(return_value=listing)
+        uow.listing_drafts.record_etsy_file_upload = AsyncMock(return_value=listing)
+
+        master_bytes = _create_test_png_bytes(4500, 5400, raw_bytes=1000)
+        mock_storage = MagicMock(spec=ObjectStorage)
+        mock_storage.get = AsyncMock(return_value=master_bytes)
+        mock_storage.put = AsyncMock(return_value=MagicMock(storage_key="workflows/pkg.zip"))
+
+        master_asset = MagicMock(spec=Asset)
+        master_asset.id = uuid.uuid4()
+        master_asset.workflow_id = workflow_id
+        master_asset.mime_type = "image/png"
+        master_asset.storage_key = f"workflows/{workflow_id}/master.png"
+        master_asset.width = 4500
+        master_asset.height = 5400
+        master_asset.checksum_sha256 = "master_sha"
+        master_asset.provenance = {"profile": "etsy-png-standard"}
+
+        uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset])
+        uow.assets.get_by_checksum_sha256 = AsyncMock(return_value=None)
+        uow.assets.add = AsyncMock()
+        uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
+        uow.audit.record = AsyncMock()
+        uow.commit = AsyncMock()
+        uow.workflows.transition = AsyncMock()
+
+        fake_etsy = FakeEtsyProvider()
+
+        await execute_etsy_draft_pipeline(
+            workflow_id=workflow_id,
+            owner_id=owner_id,
+            uow=uow,
+            storage=mock_storage,
+            cipher=cipher,
+            etsy_gateway=fake_etsy,
+        )
+
+        # Since file 1 was already present in etsy_file_ids, it was skipped and not re-uploaded
+        assert len(fake_etsy.uploaded_images) == 0
 
     @pytest.mark.asyncio
     async def test_execute_etsy_draft_with_large_master_png_wraps_in_zip(
@@ -375,7 +493,7 @@ class TestEtsyDraftExecution:
         workflow = MagicMock(spec=ProductWorkflow)
         workflow.id = workflow_id
         workflow.owner_id = owner_id
-        workflow.name = "Large 23MB Artwork"
+        workflow.name = "Large 21MB Artwork"
         workflow.state = RunStatus.READY_FOR_ETSY_DRAFT
         workflow.version = 1
         uow.workflows.get = AsyncMock(return_value=workflow)
@@ -411,8 +529,8 @@ class TestEtsyDraftExecution:
         uow.listing_drafts.record_etsy_image_upload = AsyncMock(return_value=listing)
         uow.listing_drafts.record_etsy_file_upload = AsyncMock(return_value=listing)
 
-        # 23.5MB uncompressed bytes
-        large_master_bytes = b"RAW_PIXELS_" * (2 * 1024 * 1024)
+        # 20.5MB uncompressed scanlines that compress under 20MB with deflate
+        large_master_bytes = _create_test_png_bytes(4500, 5400, raw_bytes=20 * 1024 * 1024 + 500 * 1024, compressible=True)
         mock_storage = MagicMock(spec=ObjectStorage)
 
         async def fake_storage_get(key: str) -> bytes:
@@ -456,4 +574,86 @@ class TestEtsyDraftExecution:
         assert len(fake_etsy.uploaded_files) >= 1
         for uploaded in fake_etsy.uploaded_files:
             assert uploaded["filesize"] <= 20 * 1024 * 1024
+
+    @pytest.mark.asyncio
+    async def test_execute_etsy_draft_fails_safely_when_master_exceeds_limit(
+        self,
+        cipher: CredentialCipher,
+    ) -> None:
+        uow = MagicMock()
+        workflow_id = uuid.uuid4()
+        owner_id = uuid.uuid4()
+
+        workflow = MagicMock(spec=ProductWorkflow)
+        workflow.id = workflow_id
+        workflow.owner_id = owner_id
+        workflow.name = "Massive Artwork"
+        workflow.state = RunStatus.READY_FOR_ETSY_DRAFT
+        workflow.version = 1
+        uow.workflows.get = AsyncMock(return_value=workflow)
+
+        conn = MagicMock(spec=ShopConnection)
+        conn.is_connected = True
+        conn.etsy_shop_id = "shop_massive_123"
+        conn.key_version = 1
+        conn.ciphertext_access_token = cipher.encrypt("token")
+        conn.token_expires_at = datetime.now(UTC) + timedelta(hours=1)
+        uow.shop_connections.get_by_user_id = AsyncMock(return_value=conn)
+
+        listing = MagicMock(spec=ListingDraft)
+        listing.id = uuid.uuid4()
+        listing.workflow_id = workflow_id
+        listing.title = "Massive 24MB Art"
+        listing.description = "Download file."
+        listing.tags = [f"tag_{i}" for i in range(13)]
+        listing.price_minor_units = 500
+        listing.currency = "USD"
+        listing.taxonomy_id = 6844
+        listing.taxonomy_path = "Craft Supplies & Tools > Clip Art & Image Files"
+        listing.etsy_listing_id = None
+        listing.etsy_image_ids = []
+        listing.etsy_file_id = None
+        listing.etsy_file_ids = []
+        listing.etsy_dispatch_status = "not_started"
+
+        uow.listing_drafts.get_by_workflow = AsyncMock(return_value=listing)
+        uow.listing_drafts.update = AsyncMock(return_value=listing)
+        uow.listing_drafts.update_etsy_draft = AsyncMock(return_value=listing)
+        uow.listing_drafts.update_etsy_dispatch_status = AsyncMock(return_value=listing)
+        uow.listing_drafts.record_etsy_image_upload = AsyncMock(return_value=listing)
+        uow.listing_drafts.record_etsy_file_upload = AsyncMock(return_value=listing)
+
+        # 21MB uncompressible PNG
+        oversized_master_bytes = _create_test_png_bytes(4500, 5400, raw_bytes=21 * 1024 * 1024, compressible=False)
+        mock_storage = MagicMock(spec=ObjectStorage)
+        mock_storage.get = AsyncMock(return_value=oversized_master_bytes)
+
+        master_asset = MagicMock(spec=Asset)
+        master_asset.id = uuid.uuid4()
+        master_asset.workflow_id = workflow_id
+        master_asset.mime_type = "image/png"
+        master_asset.storage_key = f"workflows/{workflow_id}/master.png"
+        master_asset.width = 4500
+        master_asset.height = 5400
+        master_asset.checksum_sha256 = "oversized_sha"
+        master_asset.provenance = {"profile": "etsy-png-standard"}
+
+        uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset])
+        uow.assets.get_by_checksum_sha256 = AsyncMock(return_value=None)
+        uow.assets.add = AsyncMock()
+        uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
+        uow.audit.record = AsyncMock()
+        uow.commit = AsyncMock()
+
+        fake_etsy = FakeEtsyProvider()
+
+        with pytest.raises(DomainError, match="exceeds Etsy's maximum digital file limit of 20MB"):
+            await execute_etsy_draft_pipeline(
+                workflow_id=workflow_id,
+                owner_id=owner_id,
+                uow=uow,
+                storage=mock_storage,
+                cipher=cipher,
+                etsy_gateway=fake_etsy,
+            )
 

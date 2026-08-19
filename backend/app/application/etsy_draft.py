@@ -24,6 +24,11 @@ from app.application.telegram import send_telegram_notification
 from app.application.unit_of_work import UnitOfWork
 from app.domain.enums import AuditAction
 from app.domain.errors import DomainError, EntityNotFoundError
+from app.domain.etsy_delivery_planner import (
+    EtsyDeliveryFile,
+    EtsyDigitalDeliveryPlanner,
+    MAX_ETSY_DIGITAL_FILES_COUNT,
+)
 from app.domain.package_builder import (
     build_zip_archive,
     create_print_ready_pdf,
@@ -289,96 +294,55 @@ async def execute_etsy_draft_pipeline(
                 )
                 raise
 
-        # Step 3: Upload Real Customer Digital Download Files (Up to 5 files, <= 20MB each)
+        # Step 3: Plan & Upload Real Customer Digital Download Files (Up to 5 files, <= 20MB each)
         await uow.listing_drafts.update_etsy_dispatch_status(
             listing.id, status="uploading_file"
         )
         await uow.commit()
 
-        zip_bytes = await storage.get(zip_asset.storage_key)
-        clean_slug = re.sub(r"[^a-zA-Z0-9_-]", "_", listing.title[:35]).strip("_") or "artwork"
-
-        files_to_upload: list[tuple[str, bytes]] = []
-
-        master_bytes = await storage.get(master_asset.storage_key)
-        optimized_master = optimize_png_deflate(master_bytes)
-
-        if len(zip_bytes) <= MAX_ETSY_DIGITAL_FILE_BYTES:
-            # Single complete customer package ZIP fits safely
-            files_to_upload.append((f"{clean_slug}-package.zip", zip_bytes))
-        else:
-            # Package exceeds 20MB: split into real deliverables (master PNG, print-ready PDF, documentation ZIP)
-            logger.info(
-                "etsy_package_exceeds_limit_splitting_deliverables",
-                workflow_id=str(workflow_id),
-                zip_size=len(zip_bytes),
-                master_size=len(master_bytes),
-                optimized_master_size=len(optimized_master),
-            )
-
-            # 1. Master PNG or Master ZIP if standalone PNG exceeds 20MB
-            if len(optimized_master) <= MAX_ETSY_DIGITAL_FILE_BYTES:
-                files_to_upload.append((f"{clean_slug}-master.png", optimized_master))
-            else:
-                # Wrap master PNG in an optimized ZIP archive (which adds extra deflation)
-                master_zip = build_zip_archive({f"{clean_slug}-master.png": optimized_master})
-                if len(master_zip) <= MAX_ETSY_DIGITAL_FILE_BYTES:
-                    files_to_upload.append((f"{clean_slug}-master-png.zip", master_zip))
-                else:
-                    # Multi-part chunking (Etsy supports up to 5 files, 20MB each = 100MB)
-                    part_size = 19 * 1024 * 1024
-                    for part_idx in range(0, len(master_zip), part_size):
-                        chunk = master_zip[part_idx : part_idx + part_size]
-                        part_num = (part_idx // part_size) + 1
-                        files_to_upload.append((f"{clean_slug}-master-part{part_num}.zip", chunk))
-
-            # 2. Print-ready PDF if generated and fits within 20MB
-            if len(optimized_master) < 10 * 1024 * 1024 and len(files_to_upload) < 5:
-                try:
-                    pdf_bytes = create_print_ready_pdf(
-                        optimized_master,
-                        width_px=master_asset.width or 4500,
-                        height_px=master_asset.height or 5400,
-                    )
-                    if len(pdf_bytes) <= MAX_ETSY_DIGITAL_FILE_BYTES:
-                        files_to_upload.append((f"{clean_slug}-print-ready.pdf", pdf_bytes))
-                except Exception as exc:
-                    logger.warning("print_pdf_generation_skipped", error=str(exc))
-
-            # 3. Documentation bundle ZIP (License, Instructions, Checksum manifest)
-            if len(files_to_upload) < 5:
+        # Fetch shop settings for license attribution
+        owner_settings = None
+        if hasattr(uow, "owner_settings") and uow.owner_settings and hasattr(workflow, "owner_id") and workflow.owner_id:
+            try:
+                import inspect
+                res = uow.owner_settings.get_for_user(workflow.owner_id)
+                if inspect.isawaitable(res):
+                    owner_settings = await res
+                elif hasattr(res, "shop_name"):
+                    owner_settings = res
+            except Exception:
                 owner_settings = None
-                if hasattr(uow, "owner_settings") and uow.owner_settings and hasattr(workflow, "owner_id") and workflow.owner_id:
-                    try:
-                        import inspect
-                        res = uow.owner_settings.get_for_user(workflow.owner_id)
-                        if inspect.isawaitable(res):
-                            owner_settings = await res
-                        elif hasattr(res, "shop_name"):
-                            owner_settings = res
-                    except Exception:
-                        owner_settings = None
 
-                shop_name = getattr(owner_settings, "shop_name", "Digital Art Studio") if owner_settings else "Digital Art Studio"
-                license_doc = generate_license_text(shop_name, listing.title)
-                instructions_doc = generate_instructions_text(listing.title)
+        shop_name = getattr(owner_settings, "shop_name", "Digital Art Studio") if owner_settings else "Digital Art Studio"
+        master_bytes = await storage.get(master_asset.storage_key)
 
-                doc_files = {
-                    "LICENSE.txt": license_doc.encode("utf-8"),
-                    "INSTRUCTIONS.txt": instructions_doc.encode("utf-8"),
-                    "master_artwork_checksum.sha256": f"{master_asset.checksum_sha256}  {clean_slug}-master.png\n".encode("utf-8"),
-                }
-                doc_manifest = generate_checksum_manifest(doc_files)
-                doc_files["manifest.sha256"] = doc_manifest.encode("utf-8")
-                doc_zip_bytes = build_zip_archive(doc_files)
-                files_to_upload.append((f"{clean_slug}-license-and-info.zip", doc_zip_bytes))
+        planner = EtsyDigitalDeliveryPlanner(
+            max_file_bytes=MAX_ETSY_DIGITAL_FILE_BYTES,
+            max_files_count=MAX_ETSY_DIGITAL_FILES_COUNT,
+        )
+        planned_files = planner.plan_delivery(
+            master_png_bytes=master_bytes,
+            listing_title=listing.title,
+            shop_name=shop_name,
+            master_width=master_asset.width or 4500,
+            master_height=master_asset.height or 5400,
+            include_pdf=True,
+        )
 
-        # Idempotent upload loop across all deliverables
+        logger.info(
+            "etsy_digital_delivery_planned",
+            workflow_id=str(workflow_id),
+            file_count=len(planned_files),
+            filenames=[f.filename for f in planned_files],
+            sizes=[len(f.content) for f in planned_files],
+        )
+
+        # Idempotent upload loop across all planned deliverables
         current_file_ids = list(
             listing.etsy_file_ids or ([listing.etsy_file_id] if listing.etsy_file_id else [])
         )
 
-        for rank, (filename, file_content) in enumerate(files_to_upload, start=1):
+        for rank, delivery_file in enumerate(planned_files, start=1):
             if len(current_file_ids) >= rank:
                 continue
 
@@ -386,8 +350,8 @@ async def execute_etsy_draft_pipeline(
                 access_token=access_token,
                 shop_id=conn.etsy_shop_id,
                 listing_id=listing_id,
-                file_bytes=file_content,
-                filename=filename,
+                file_bytes=delivery_file.content,
+                filename=delivery_file.filename,
                 rank=rank,
             )
             listing = await uow.listing_drafts.record_etsy_file_upload(
@@ -400,7 +364,8 @@ async def execute_etsy_draft_pipeline(
                 workflow_id=str(workflow_id),
                 listing_id=listing_id,
                 file_id=file_resp.listing_file_id,
-                filename=filename,
+                filename=delivery_file.filename,
+                file_key=delivery_file.file_key,
                 rank=rank,
             )
 
