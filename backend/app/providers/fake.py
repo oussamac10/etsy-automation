@@ -21,7 +21,9 @@ from app.ports.providers import (
     EtsyListingDraftInput,
     EtsyListingResponse,
     EtsyShop,
+    EtsyShopSection,
     EtsyTaxonomyNode,
+    EtsyTaxonomyProperty,
     EtsyTokenResponse,
     EtsyUser,
     ImageCandidate,
@@ -721,6 +723,15 @@ class FakeEtsyProvider(EtsyGateway):
         self.created_listings: list[dict[str, Any]] = []
         self.uploaded_images: list[dict[str, Any]] = []
         self.uploaded_files: list[dict[str, Any]] = []
+        self.updated_properties: list[dict[str, Any]] = []
+        self.updated_inventory: list[dict[str, Any]] = []
+
+        # Fake shop sections
+        self.fake_shop_sections: list[EtsyShopSection] = [
+            EtsyShopSection(shop_section_id="101", title="Christmas PNGs", rank=1, active_listing_count=5),
+            EtsyShopSection(shop_section_id="102", title="Fall PNGs", rank=2, active_listing_count=3),
+            EtsyShopSection(shop_section_id="103", title="Book Lover PNGs", rank=3, active_listing_count=2),
+        ]
 
         # Error triggers for tests
         self.fail_exchange: bool = False
@@ -728,6 +739,7 @@ class FakeEtsyProvider(EtsyGateway):
         self.fail_create_listing: bool = False
         self.fail_upload_image: bool = False
         self.fail_upload_file: bool = False
+        self.fail_get_sections: bool = False
         self.get_listing_rate_limited: bool = False
         self.get_listing_server_error: bool = False
         self.get_listing_timeout: bool = False
@@ -857,6 +869,10 @@ class FakeEtsyProvider(EtsyGateway):
             "price_cents": listing.price_cents,
             "currency": listing.currency,
             "taxonomy_id": listing.taxonomy_id,
+            "quantity": listing.quantity,
+            "sku": listing.sku,
+            "shop_section_id": listing.shop_section_id,
+            "should_auto_renew": listing.should_auto_renew,
             "state": "draft",  # Hardcoded draft guarantee
             "idempotency_key": idempotency_key,
         }
@@ -1106,4 +1122,87 @@ class FakeEtsyProvider(EtsyGateway):
                 ),
             ),
         ]
+
+    async def get_shop_sections(self, *, access_token: str, shop_id: str) -> list[EtsyShopSection]:
+        self.call_count += 1
+        if self.fail_get_sections:
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider="etsy",
+                operation="get_shop_sections",
+                message="Failed to fetch shop sections.",
+            )
+        return list(self.fake_shop_sections)
+
+    async def create_shop_section(self, *, access_token: str, shop_id: str, title: str) -> EtsyShopSection:
+        self.call_count += 1
+        sec_id = str(len(self.fake_shop_sections) + 101)
+        sec = EtsyShopSection(
+            shop_section_id=sec_id,
+            title=title.strip(),
+            rank=len(self.fake_shop_sections) + 1,
+            active_listing_count=0,
+        )
+        self.fake_shop_sections.append(sec)
+        return sec
+
+    async def get_taxonomy_properties(self, *, taxonomy_id: int) -> list[EtsyTaxonomyProperty]:
+        self.call_count += 1
+        from app.domain.taxonomy_properties import STANDARD_DIGITAL_PROPERTIES
+
+        props: list[EtsyTaxonomyProperty] = []
+        for raw in STANDARD_DIGITAL_PROPERTIES:
+            props.append(
+                EtsyTaxonomyProperty(
+                    property_id=int(raw["property_id"]),
+                    name=str(raw["name"]),
+                    is_required=bool(raw.get("is_required", False)),
+                    supports_attributes=bool(raw.get("supports_attributes", False)),
+                    is_multivalued=bool(raw.get("is_multivalued", False)),
+                    possible_values=list(raw.get("possible_values", [])),
+                )
+            )
+        return props
+
+    async def update_listing_property(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        property_id: int,
+        value_ids: list[int] | None = None,
+        values: list[str] | None = None,
+    ) -> bool:
+        self.call_count += 1
+        self.updated_properties.append(
+            {
+                "shop_id": shop_id,
+                "listing_id": listing_id,
+                "property_id": property_id,
+                "value_ids": list(value_ids or []),
+                "values": list(values or []),
+            }
+        )
+        return True
+
+    async def update_listing_inventory(
+        self,
+        *,
+        access_token: str,
+        listing_id: str,
+        sku: str,
+        price_cents: int,
+        quantity: int,
+    ) -> bool:
+        self.call_count += 1
+        self.updated_inventory.append(
+            {
+                "listing_id": listing_id,
+                "sku": sku,
+                "price_cents": price_cents,
+                "quantity": quantity,
+            }
+        )
+        return True
 

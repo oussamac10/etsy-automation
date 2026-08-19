@@ -58,8 +58,8 @@ def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None
     risk_str = draft.ip_risk_level.value if hasattr(draft.ip_risk_level, "value") else str(draft.ip_risk_level)
 
     # Check if this exact content already exists in history
-    draft_tags_sorted = tuple(sorted(str(t).strip().lower() for t in draft.tags))
-    draft_key = f"{str(draft.title).strip().lower()}||{str(draft.description).strip().lower()}||{','.join(draft_tags_sorted)}"
+    draft_tags_sorted = tuple(sorted(t.strip().lower() for t in draft.tags))
+    draft_key = f"{draft.title.strip().lower()}||{draft.description.strip().lower()}||{','.join(draft_tags_sorted)}"
 
     for existing in history:
         ext_tags_sorted = tuple(sorted(str(t).strip().lower() for t in existing.get("tags", [])))
@@ -89,7 +89,7 @@ def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None
     tag_history: list[str] = list(raw_tag_history) if isinstance(raw_tag_history, list) else []
     seen_tags = set(tag_history)
     for t in draft.tags:
-        clean = str(t).strip().lower()
+        clean = t.strip().lower()
         if clean and clean not in seen_tags:
             seen_tags.add(clean)
             tag_history.append(clean)
@@ -155,14 +155,52 @@ class ListingDraftService:
             if len(initial_tags) == 13:
                 break
 
+        from app.application.brand_resolver import resolve_connected_shop_name
+        from app.domain.pricing import calculate_price_recommendation
+        from app.domain.shop_section_resolver import suggest_shop_section_title
+        from app.domain.sku_generator import generate_sku
+        from app.domain.taxonomy_properties import suggest_taxonomy_properties
         from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
+
         tax_res = EtsyTaxonomyResolver().resolve(title=initial_title, tags=initial_tags)
+
+        # 1. Resolve shop & currency
+        shop_name = await resolve_connected_shop_name(uow, workflow.owner_id)
+        owner_settings = await uow.owner_settings.get_for_user(workflow.owner_id)
+
+        currency = "USD"
+        default_price = 499
+        default_quantity = 999
+        default_renew = False
+        if owner_settings:
+            currency = owner_settings.currency or "USD"
+            default_price = owner_settings.default_digital_price_minor or 499
+            default_quantity = owner_settings.default_digital_quantity or 999
+            default_renew = owner_settings.default_auto_renew
+
+        # 2. Generate SKU
+        initial_sku = generate_sku(shop_name, initial_title, workflow_id)
+
+        # 3. Suggest shop section
+        suggested_sec_name, suggested_sec_id = suggest_shop_section_title(initial_title, initial_tags)
+
+        # 4. Suggest taxonomy properties
+        initial_desc = "High-resolution digital PNG download (4500x5400 px @ 300 DPI, transparent background)."
+        suggested_props = suggest_taxonomy_properties(initial_title, initial_desc, initial_tags)
 
         draft = ListingDraft(
             workflow_id=workflow_id,
             title=initial_title,
-            description="High-resolution digital PNG download (4500x5400 px @ 300 DPI, transparent background).",
+            description=initial_desc,
             tags=initial_tags,
+            price_minor_units=default_price,
+            currency=currency,
+            quantity=default_quantity,
+            sku=initial_sku,
+            shop_section_id=suggested_sec_id,
+            shop_section_name=suggested_sec_name,
+            should_auto_renew=default_renew,
+            etsy_properties=suggested_props,
             taxonomy_id=tax_res.taxonomy_id,
             taxonomy_path=tax_res.taxonomy_path,
             ip_risk_level=RiskLevel.UNKNOWN,
@@ -182,12 +220,22 @@ class ListingDraftService:
         tags: list[str],
         taxonomy_id: int | None = None,
         taxonomy_path: str | None = None,
+        price_minor_units: int | None = None,
+        currency: str | None = None,
+        quantity: int | None = None,
+        sku: str | None = None,
+        shop_section_id: str | None = None,
+        shop_section_name: str | None = None,
+        should_auto_renew: bool | None = None,
+        etsy_properties: dict[str, object] | None = None,
+        primary_mockup_asset_id: uuid.UUID | None = None,
+        shopping_cart_summary: str | None = None,
         expected_version: int | None,
         uow: UnitOfWork,
         actor_email: str,
         trademark_service: TrademarkScreeningService | None = None,
     ) -> ListingDraft:
-        """Update listing title, description, tags, and category with strict validation and optimistic concurrency."""
+        """Update listing title, description, tags, category, pricing, and metadata with strict validation."""
         draft = await uow.listing_drafts.get_by_workflow(workflow_id)
         if draft is None:
             raise EntityNotFoundError("ListingDraft", workflow_id)
@@ -202,6 +250,13 @@ class ListingDraftService:
         if not is_tags_valid:
             raise DomainError(f"Tag validation failed: {'; '.join(tag_errors)}")
 
+        # Validate price if provided
+        if price_minor_units is not None:
+            from app.domain.pricing import validate_price_minor_units
+            p_valid, p_err = validate_price_minor_units(price_minor_units, currency or draft.currency or "USD")
+            if not p_valid:
+                raise DomainError(p_err or "Invalid listing price.")
+
         updated_draft = await uow.listing_drafts.update(
             draft.id,
             title=title.strip(),
@@ -209,6 +264,16 @@ class ListingDraftService:
             tags=accepted_tags,
             taxonomy_id=taxonomy_id,
             taxonomy_path=taxonomy_path,
+            price_minor_units=price_minor_units,
+            currency=currency,
+            quantity=quantity,
+            sku=sku,
+            shop_section_id=shop_section_id,
+            shop_section_name=shop_section_name,
+            should_auto_renew=should_auto_renew,
+            etsy_properties=etsy_properties,
+            primary_mockup_asset_id=primary_mockup_asset_id,
+            shopping_cart_summary=shopping_cart_summary,
             expected_version=expected_version,
         )
 

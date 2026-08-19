@@ -43,6 +43,12 @@ MAX_AVOID_TERMS = 50
 MAX_PRODUCT_USES = 20
 MAX_NOTES_LENGTH = 2000
 
+#: Default Etsy listing settings.
+DEFAULT_DIGITAL_PRICE_MINOR = 499
+DEFAULT_DIGITAL_QUANTITY = 999
+DEFAULT_AUTO_RENEW = False
+DEFAULT_SHOP_SECTION_STRATEGY = "auto"
+
 
 class BudgetRelationError(ValueError):
     """A daily ceiling above the monthly ceiling is always a mistake."""

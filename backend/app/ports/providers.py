@@ -183,6 +183,27 @@ class EtsyListingDraftInput:
     item_type: str = "download"
     is_supply: bool = False
     quantity: int = 999
+    sku: str | None = None
+    shop_section_id: str | None = None
+    should_auto_renew: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class EtsyShopSection:
+    shop_section_id: str
+    title: str
+    rank: int = 0
+    active_listing_count: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class EtsyTaxonomyProperty:
+    property_id: int
+    name: str
+    is_required: bool = False
+    supports_attributes: bool = False
+    is_multivalued: bool = False
+    possible_values: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,6 +340,39 @@ class EtsyGateway(Protocol):
     ) -> EtsyListingResponse | None: ...
 
     async def get_seller_taxonomy_nodes(self) -> list[EtsyTaxonomyNode]: ...
+
+    async def get_shop_sections(
+        self, *, access_token: str, shop_id: str
+    ) -> list[EtsyShopSection]: ...
+
+    async def create_shop_section(
+        self, *, access_token: str, shop_id: str, title: str
+    ) -> EtsyShopSection: ...
+
+    async def get_taxonomy_properties(
+        self, *, taxonomy_id: int
+    ) -> list[EtsyTaxonomyProperty]: ...
+
+    async def update_listing_property(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        property_id: int,
+        value_ids: list[int] | None = None,
+        values: list[str] | None = None,
+    ) -> bool: ...
+
+    async def update_listing_inventory(
+        self,
+        *,
+        access_token: str,
+        listing_id: str,
+        sku: str,
+        price_cents: int,
+        quantity: int,
+    ) -> bool: ...
 
 
 @runtime_checkable

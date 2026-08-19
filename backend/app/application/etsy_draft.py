@@ -30,6 +30,7 @@ from app.domain.etsy_delivery_planner import (
     EtsyDigitalDeliveryPlanner,
     MAX_ETSY_DIGITAL_FILES_COUNT,
 )
+from app.domain.media_selector import order_listing_mockup_assets
 from app.domain.package_builder import (
     build_zip_archive,
     create_print_ready_pdf,
@@ -123,6 +124,10 @@ async def validate_pre_dispatch(
     if not tags_valid:
         raise DomainError(f"Invalid Etsy listing tags: {', '.join(tags_err)}")
 
+    # Validate Price
+    if listing.price_minor_units is None or listing.price_minor_units <= 0:
+        raise DomainError("Etsy listing price must be configured and greater than zero before dispatch.")
+
     # Validate / Resolve Master PNG
     master_asset = await get_production_master_asset(uow, workflow_id)
     if master_asset is None:
@@ -187,6 +192,21 @@ async def execute_etsy_draft_pipeline(
     )
 
     try:
+        raw_price = getattr(listing, "price_minor_units", None)
+        price_cents = raw_price if isinstance(raw_price, int) and raw_price > 0 else 499
+
+        raw_qty = getattr(listing, "quantity", None)
+        quantity = raw_qty if isinstance(raw_qty, int) and raw_qty > 0 else 999
+
+        raw_sku = getattr(listing, "sku", None)
+        sku = raw_sku if isinstance(raw_sku, str) and raw_sku.strip() else None
+
+        raw_sec_id = getattr(listing, "shop_section_id", None)
+        shop_section_id = raw_sec_id if isinstance(raw_sec_id, str) and raw_sec_id.strip() else None
+
+        raw_renew = getattr(listing, "should_auto_renew", False)
+        should_auto_renew = raw_renew if isinstance(raw_renew, bool) else False
+
         # Step 1: Create Etsy Draft Listing (Idempotent)
         listing_id = listing.etsy_listing_id
         if not listing_id:
@@ -194,8 +214,6 @@ async def execute_etsy_draft_pipeline(
                 listing.id, status="creating_listing"
             )
             await uow.commit()
-
-            price_cents = listing.price_minor_units if listing.price_minor_units is not None else 499
 
             if not listing.taxonomy_id:
                 raise DomainError("A valid Etsy seller taxonomy category ID is required.")
@@ -211,7 +229,10 @@ async def execute_etsy_draft_pipeline(
                 when_made="2020_2026",
                 item_type="download",
                 is_supply=False,
-                quantity=999,
+                quantity=quantity,
+                sku=sku,
+                shop_section_id=shop_section_id,
+                should_auto_renew=should_auto_renew,
             )
 
             create_resp = await etsy_gateway.create_draft_listing(
@@ -241,9 +262,11 @@ async def execute_etsy_draft_pipeline(
                 shop_id=conn.etsy_shop_id,
                 taxonomy_id=listing.taxonomy_id,
                 taxonomy_path=listing.taxonomy_path,
+                sku=sku,
+                shop_section_id=shop_section_id,
             )
 
-        # Step 2: Upload Preview Images in Deterministic Order
+        # Step 2: Upload Preview Images in Deterministic Order (Primary Mockup at Rank 1)
         await uow.listing_drafts.update_etsy_dispatch_status(
             listing.id, status="uploading_images"
         )
@@ -251,9 +274,14 @@ async def execute_etsy_draft_pipeline(
 
         assets = await uow.assets.list_for_workflow(workflow_id)
         mockups = filter_active_user_mockups(assets, master_asset.id)
-
-        # If no active user mockups, use master preview image as fallback preview
-        preview_assets = mockups if mockups else [master_asset]
+        raw_prim = getattr(listing, "primary_mockup_asset_id", None)
+        prim_mockup_id = raw_prim if isinstance(raw_prim, uuid.UUID) else None
+        preview_assets = order_listing_mockup_assets(
+            mockups=mockups,
+            master_asset=master_asset,
+            primary_mockup_asset_id=prim_mockup_id,
+            max_images=10,
+        )
 
         current_image_ids = list(listing.etsy_image_ids or [])
 
@@ -361,7 +389,65 @@ async def execute_etsy_draft_pipeline(
         if not current_file_ids:
             raise DomainError("No digital product files were uploaded to Etsy.")
 
-        # Step 4: Finalize Workflow & Audit
+        # Step 4: Update Listing Inventory SKU (if configured)
+        active_sku = sku or (listing.sku if isinstance(getattr(listing, "sku", None), str) else None)
+        if active_sku:
+            try:
+                await etsy_gateway.update_listing_inventory(
+                    access_token=access_token,
+                    listing_id=listing_id,
+                    sku=active_sku,
+                    price_cents=price_cents,
+                    quantity=quantity,
+                )
+                logger.info(
+                    "etsy_listing_inventory_updated",
+                    workflow_id=str(workflow_id),
+                    listing_id=listing_id,
+                    sku=active_sku,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "etsy_listing_inventory_update_skipped",
+                    workflow_id=str(workflow_id),
+                    listing_id=listing_id,
+                    error=str(exc),
+                )
+
+        # Step 5: Update Taxonomy Properties/Attributes (if configured)
+        raw_props = getattr(listing, "etsy_properties", None)
+        active_props = raw_props if isinstance(raw_props, dict) else {}
+        if active_props:
+            for prop_id_str, prop_data in active_props.items():
+                if isinstance(prop_data, dict):
+                    pid = prop_data.get("property_id") or int(prop_id_str)
+                    v_ids = prop_data.get("value_ids")
+                    v_names = prop_data.get("values")
+                    try:
+                        await etsy_gateway.update_listing_property(
+                            access_token=access_token,
+                            shop_id=conn.etsy_shop_id,
+                            listing_id=listing_id,
+                            property_id=int(pid),
+                            value_ids=v_ids,
+                            values=v_names,
+                        )
+                        logger.info(
+                            "etsy_listing_property_updated",
+                            workflow_id=str(workflow_id),
+                            listing_id=listing_id,
+                            property_id=pid,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "etsy_listing_property_update_skipped",
+                            workflow_id=str(workflow_id),
+                            listing_id=listing_id,
+                            property_id=pid,
+                            error=str(exc),
+                        )
+
+        # Step 6: Finalize Workflow & Audit
         now = datetime.now(UTC)
         if workflow.state == RunStatus.READY_FOR_ETSY_DRAFT:
             await uow.workflows.transition(

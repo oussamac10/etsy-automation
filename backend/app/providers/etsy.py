@@ -18,6 +18,7 @@ import httpx
 import structlog
 
 from app.ports.errors import ProviderError, ProviderErrorKind
+from app.domain.etsy_payload_builder import build_etsy_listing_payload
 from app.ports.providers import (
     EtsyFileResponse,
     EtsyGateway,
@@ -25,7 +26,9 @@ from app.ports.providers import (
     EtsyListingDraftInput,
     EtsyListingResponse,
     EtsyShop,
+    EtsyShopSection,
     EtsyTaxonomyNode,
+    EtsyTaxonomyProperty,
     EtsyTokenResponse,
     EtsyUser,
 )
@@ -311,25 +314,19 @@ class EtsyProvider(EtsyGateway):
         headers = self._default_headers(access_token)
         headers["Content-Type"] = "application/x-www-form-urlencoded"
 
-        price_decimal = round(listing.price_cents / 100.0, 2)
-
-        data: dict[str, Any] = {
-            "title": listing.title[:140],
-            "description": listing.description,
-            "quantity": listing.quantity,
-            "price": price_decimal,
-            "who_made": listing.who_made,
-            "when_made": listing.when_made,
-            "type": "download",  # Digital product specification
-            "is_supply": "false",
-            "state": "draft",  # STRICT SAFETY RULE: Forced Draft State
-        }
-        if listing.taxonomy_id:
-            data["taxonomy_id"] = str(listing.taxonomy_id)
-
-        # Tags as list or comma-separated string
-        if listing.tags:
-            data["tags"] = ",".join(listing.tags[:13])
+        data: dict[str, Any] = build_etsy_listing_payload(
+            title=listing.title,
+            description=listing.description,
+            tags=listing.tags,
+            price_minor_units=listing.price_cents,
+            currency=listing.currency,
+            taxonomy_id=listing.taxonomy_id,
+            quantity=listing.quantity,
+            shop_section_id=listing.shop_section_id,
+            should_auto_renew=listing.should_auto_renew,
+            who_made=listing.who_made,
+            when_made=listing.when_made,
+        )
 
         response = await self._execute_with_retry("POST", url, headers=headers, data=data, operation="create_draft_listing")
         payload = response.json()
@@ -482,3 +479,138 @@ class EtsyProvider(EtsyGateway):
         self._taxonomy_cache = parsed_nodes
         self._taxonomy_cache_time = now
         return parsed_nodes
+
+    async def get_shop_sections(self, *, access_token: str, shop_id: str) -> list[EtsyShopSection]:
+        """Fetch all active shop sections for an Etsy shop."""
+        url = f"{self._base_url}/application/shops/{shop_id}/sections"
+        headers = self._default_headers(access_token)
+        try:
+            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_shop_sections")
+            payload = response.json()
+            results = payload.get("results", [])
+            sections: list[EtsyShopSection] = []
+            for item in results:
+                sections.append(
+                    EtsyShopSection(
+                        shop_section_id=str(item.get("shop_section_id", "")),
+                        title=str(item.get("title", "")),
+                        rank=int(item.get("rank", 0)),
+                        active_listing_count=int(item.get("active_listing_count", 0)),
+                    )
+                )
+            return sections
+        except Exception as exc:
+            logger.warning("etsy_get_shop_sections_failed", shop_id=shop_id, error=str(exc))
+            return []
+
+    async def create_shop_section(self, *, access_token: str, shop_id: str, title: str) -> EtsyShopSection:
+        """Create a new shop section on Etsy."""
+        url = f"{self._base_url}/application/shops/{shop_id}/sections"
+        headers = self._default_headers(access_token)
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        data = {"title": title.strip()}
+
+        response = await self._execute_with_retry("POST", url, headers=headers, data=data, operation="create_shop_section")
+        payload = response.json()
+        return EtsyShopSection(
+            shop_section_id=str(payload.get("shop_section_id", "")),
+            title=str(payload.get("title", title)),
+            rank=int(payload.get("rank", 0)),
+            active_listing_count=0,
+        )
+
+    async def get_taxonomy_properties(self, *, taxonomy_id: int) -> list[EtsyTaxonomyProperty]:
+        """Fetch official Etsy taxonomy properties/attributes for a category node."""
+        url = f"{self._base_url}/application/seller-taxonomy/nodes/{taxonomy_id}/properties"
+        headers = self._default_headers()
+        try:
+            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_taxonomy_properties")
+            payload = response.json()
+            results = payload.get("results", [])
+            properties: list[EtsyTaxonomyProperty] = []
+            for item in results:
+                raw_values = item.get("possible_values", [])
+                parsed_values = [
+                    {"value_id": int(v.get("value_id", 0)), "name": str(v.get("name", ""))}
+                    for v in raw_values
+                    if v.get("value_id") is not None
+                ]
+                properties.append(
+                    EtsyTaxonomyProperty(
+                        property_id=int(item.get("property_id", 0)),
+                        name=str(item.get("name", "")),
+                        is_required=bool(item.get("is_required", False)),
+                        supports_attributes=bool(item.get("supports_attributes", False)),
+                        is_multivalued=bool(item.get("is_multivalued", False)),
+                        possible_values=parsed_values,
+                    )
+                )
+            return properties
+        except Exception as exc:
+            logger.warning("etsy_get_taxonomy_properties_failed", taxonomy_id=taxonomy_id, error=str(exc))
+            return []
+
+    async def update_listing_property(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        property_id: int,
+        value_ids: list[int] | None = None,
+        values: list[str] | None = None,
+    ) -> bool:
+        """Update a specific listing property attribute on Etsy."""
+        url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}/properties/{property_id}"
+        headers = self._default_headers(access_token)
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+        data: dict[str, Any] = {}
+        if value_ids:
+            data["value_ids"] = ",".join(str(vid) for vid in value_ids)
+        if values:
+            data["values"] = ",".join(values)
+
+        try:
+            await self._execute_with_retry("PUT", url, headers=headers, data=data, operation="update_listing_property")
+            return True
+        except Exception as exc:
+            logger.warning("etsy_update_listing_property_failed", listing_id=listing_id, property_id=property_id, error=str(exc))
+            return False
+
+    async def update_listing_inventory(
+        self,
+        *,
+        access_token: str,
+        listing_id: str,
+        sku: str,
+        price_cents: int,
+        quantity: int,
+    ) -> bool:
+        """Update listing inventory SKU, price, and quantity."""
+        url = f"{self._base_url}/application/listings/{listing_id}/inventory"
+        headers = self._default_headers(access_token)
+        headers["Content-Type"] = "application/json"
+
+        price_decimal = round(price_cents / 100.0, 2)
+        json_body = {
+            "products": [
+                {
+                    "sku": sku,
+                    "offerings": [
+                        {
+                            "price": price_decimal,
+                            "quantity": quantity,
+                            "is_enabled": True,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        try:
+            await self._execute_with_retry("PUT", url, headers=headers, json_body=json_body, operation="update_listing_inventory")
+            return True
+        except Exception as exc:
+            logger.warning("etsy_update_listing_inventory_failed", listing_id=listing_id, sku=sku, error=str(exc))
+            return False
