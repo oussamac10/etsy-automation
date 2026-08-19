@@ -141,6 +141,26 @@ class GateDecisionRequest(BaseModel):
     target_id: uuid.UUID | None = None
     target_version: int | None = None
 
+    @field_validator("gate", mode="before")
+    @classmethod
+    def normalize_gate(cls, v: object) -> object:
+        if isinstance(v, str):
+            v_upper = v.upper()
+            for member in ApprovalGate:
+                if member.value == v_upper or member.name == v_upper:
+                    return member
+        return v
+
+    @field_validator("decision", mode="before")
+    @classmethod
+    def normalize_decision(cls, v: object) -> object:
+        if isinstance(v, str):
+            v_upper = v.upper()
+            for member in ApprovalDecision:
+                if member.value == v_upper or member.name == v_upper:
+                    return member
+        return v
+
 
 class ApprovalResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -376,6 +396,16 @@ class Gate3DecisionRequest(BaseModel):
 
     decision: ApprovalDecision
     acknowledged: bool = False
+
+    @field_validator("decision", mode="before")
+    @classmethod
+    def normalize_decision(cls, v: object) -> object:
+        if isinstance(v, str):
+            v_upper = v.upper()
+            for member in ApprovalDecision:
+                if member.value == v_upper or member.name == v_upper:
+                    return member
+        return v
 
 
 class ListingDraftResponse(BaseModel):

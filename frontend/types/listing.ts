@@ -99,6 +99,6 @@ export interface UpdateListingPayload {
 }
 
 export interface Gate3DecisionPayload {
-  decision: 'approved' | 'rejected';
+  decision: 'approved' | 'rejected' | 'APPROVED' | 'REJECTED';
   acknowledged?: boolean;
 }

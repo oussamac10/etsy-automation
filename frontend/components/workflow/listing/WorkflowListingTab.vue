@@ -181,7 +181,7 @@ async function handleBuildPackage() {
 async function handleApprove() {
   successMessage.value = null;
   const draft = await decideGate3(props.workflowId, {
-    decision: 'approved',
+    decision: 'APPROVED',
     acknowledged: warningAcknowledged.value,
   });
   if (draft) {
@@ -192,7 +192,7 @@ async function handleApprove() {
 async function handleReject() {
   successMessage.value = null;
   const draft = await decideGate3(props.workflowId, {
-    decision: 'rejected',
+    decision: 'REJECTED',
     acknowledged: false,
   });
   if (draft) {
