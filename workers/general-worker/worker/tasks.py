@@ -1579,3 +1579,23 @@ def create_etsy_draft_task(workflow_id: str) -> None:
     asyncio.run(run_etsy_draft_pipeline_async(uuid.UUID(workflow_id)))
 
 
+@dramatiq.actor(actor_name="listing.gate3_decided", queue_name="default", max_retries=0)
+def listing_gate3_decided(
+    workflow_id: str,
+    gate: str,
+    decision: str,
+    state: str,
+    actor: str | None = None,
+) -> None:
+    """Handle Gate 3 approval/rejection events published through the transactional outbox."""
+    logger.info(
+        "listing_gate3_decided_event_received",
+        workflow_id=workflow_id,
+        gate=gate,
+        decision=decision,
+        state=state,
+        actor=actor,
+    )
+
+
+
