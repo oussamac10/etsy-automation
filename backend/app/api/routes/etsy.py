@@ -45,6 +45,20 @@ async def connect_etsy(
     settings: SettingsDep,
 ) -> EtsyConnectResponse:
     """Generate Etsy PKCE consent authorization URL with server-persisted state."""
+    # In offline/fake mode, redirect directly to callback for instant simulated connection
+    if settings.provider_mode == "fake":
+        import json
+        import secrets
+
+        state = secrets.token_urlsafe(32)
+        await redis.set(
+            f"etsy:oauth_state:{state}",
+            json.dumps({"owner_id": str(user.id), "code_verifier": "fake_code_verifier"}),
+            ex=600,
+        )
+        callback_url = f"{settings.etsy_redirect_uri}?code=fake_auth_code_123&state={state}"
+        return EtsyConnectResponse(authorization_url=callback_url)
+
     try:
         url = await etsy_auth.create_oauth_connect_url(redis, user.id, settings)
         return EtsyConnectResponse(authorization_url=url)

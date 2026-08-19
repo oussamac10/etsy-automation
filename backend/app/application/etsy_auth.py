@@ -53,6 +53,8 @@ async def create_oauth_connect_url(
     if not api_key:
         if settings.provider_mode == "fake":
             api_key = "fake_etsy_api_key_123"
+        elif settings.is_local:
+            api_key = "development_etsy_keystring"
         else:
             raise ValueError(
                 "Etsy API Key is not configured on the server. "

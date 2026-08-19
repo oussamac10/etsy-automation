@@ -128,6 +128,20 @@ class Settings(BaseSettings):
         default="listings_r listings_w shops_r", alias="ETSY_SCOPES"
     )
 
+    @field_validator("etsy_redirect_uri", mode="before")
+    @classmethod
+    def _default_redirect_uri(cls, value: object) -> str:
+        if not value or not str(value).strip():
+            return "http://localhost:8800/api/v1/auth/etsy/callback"
+        return str(value).strip()
+
+    @field_validator("etsy_frontend_redirect_url", mode="before")
+    @classmethod
+    def _default_frontend_redirect_url(cls, value: object) -> str:
+        if not value or not str(value).strip():
+            return "http://localhost:3300/settings"
+        return str(value).strip()
+
     @field_validator("log_level")
     @classmethod
     def _normalise_log_level(cls, value: str) -> str:
@@ -200,12 +214,18 @@ class Settings(BaseSettings):
     @property
     def resolved_etsy_api_key(self) -> str | None:
         key = self.etsy_api_key or self.etsy_client_id
-        return key.get_secret_value() if key is not None else None
+        if key is not None:
+            val = key.get_secret_value().strip()
+            return val if val else None
+        return None
 
     @property
     def resolved_etsy_shared_secret(self) -> str | None:
         secret = self.etsy_shared_secret or self.etsy_client_secret
-        return secret.get_secret_value() if secret is not None else None
+        if secret is not None:
+            val = secret.get_secret_value().strip()
+            return val if val else None
+        return None
 
 
 @lru_cache(maxsize=1)
