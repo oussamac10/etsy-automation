@@ -21,6 +21,9 @@ import struct
 from typing import Final
 import zipfile
 import zlib
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 DEFAULT_WIDTH_PX: Final[int] = 4500
 DEFAULT_HEIGHT_PX: Final[int] = 5400
@@ -199,78 +202,51 @@ def create_print_ready_pdf(
     height_px: int = DEFAULT_HEIGHT_PX,
     dpi: int = DEFAULT_DPI,
 ) -> bytes:
-    """Create a minimal, conforming PDF 1.4 embedding the master PNG.
+    """Create a high-fidelity, conforming PDF 1.4 embedding the artwork flattened on white.
 
-    Computes exact page dimensions in points (72 pt / inch) for the 300 DPI image.
+    1. Decode source PNG using Pillow.
+    2. Preserve original RGB colors (sRGB).
+    3. Composite transparent RGBA pixels over a solid white background (#FFFFFF).
+    4. Flatten transparency before PDF embedding (no /SMask transparency layer).
+    5. Set exact page MediaBox in PDF points (72 pt / inch) for the 300 DPI image
+       (e.g., 4500x5400 px @ 300 DPI = 15x18 inches = 1080x1296 points).
+    6. Embed as pure 24-bit /DeviceRGB FlateDecode image object.
     """
-    detected_w, detected_h, color_type = _parse_png_dimensions_and_channels(png_bytes)
-    w_px = detected_w or width_px
-    h_px = detected_h or height_px
+    try:
+        from PIL import Image
 
-    # Calculate dimensions in points (72 points = 1 inch)
+        img = Image.open(io.BytesIO(png_bytes))
+        w_px, h_px = img.size
+
+        # Composite over solid white background if image has alpha/transparency
+        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+            rgba_img = img.convert("RGBA")
+            bg = Image.new("RGBA", rgba_img.size, (255, 255, 255, 255))
+            flattened = Image.alpha_composite(bg, rgba_img).convert("RGB")
+        else:
+            flattened = img.convert("RGB")
+
+        rgb_bytes = flattened.tobytes()
+        rgb_stream = zlib.compress(rgb_bytes, level=6)
+    except Exception as exc:
+        logger.warning("pillow_pdf_flattening_failed", error=str(exc))
+        detected_w, detected_h, _ = _parse_png_dimensions_and_channels(png_bytes)
+        w_px = detected_w or width_px
+        h_px = detected_h or height_px
+        rgb_stream = png_bytes
+
+    # Calculate page dimensions in points (72 points = 1 inch)
     width_pt = (w_px * 72.0) / dpi
     height_pt = (h_px * 72.0) / dpi
 
-    # Extract raw IDAT chunks from PNG
-    idat_data = bytearray()
-    offset = 8
-    while offset < len(png_bytes):
-        if offset + 8 > len(png_bytes):
-            break
-        length = struct.unpack(">I", png_bytes[offset : offset + 4])[0]
-        chunk_type = png_bytes[offset + 4 : offset + 8]
-        if chunk_type == b"IDAT":
-            idat_data.extend(png_bytes[offset + 8 : offset + 8 + length])
-        elif chunk_type == b"IEND":
-            break
-        offset += 12 + length
-
-    # If IDAT extraction succeeded, process scanlines for PDF
-    # Otherwise fallback to a clean wrapper
     pdf_buffer = io.BytesIO()
 
     # Objects:
-    # 1 0: Catalog
-    # 2 0: Outlines
-    # 3 0: Pages
-    # 4 0: Page
-    # 5 0: Page contents (stream)
-    # 6 0: Image XObject (stream)
-    # 7 0: SMask XObject (if RGBA)
-
-    # Decode PNG raster to separate RGB and Alpha if RGBA (color_type 6)
-    rgb_stream = b""
-    alpha_stream = b""
-    has_smask = False
-
-    try:
-        if idat_data:
-            decompressed = zlib.decompress(bytes(idat_data))
-            bpp = 4 if color_type == 6 else (3 if color_type == 2 else 4)
-            expected_stride = 1 + w_px * bpp
-
-            if len(decompressed) >= expected_stride * h_px:
-                rgb_raw = bytearray()
-                alpha_raw = bytearray()
-                for y in range(h_px):
-                    row_start = y * expected_stride
-                    filter_byte = decompressed[row_start]
-                    # Simple unfiltering for filter 0 (none) or direct channel extraction
-                    row_pixels = decompressed[row_start + 1 : row_start + expected_stride]
-                    for x in range(w_px):
-                        px_idx = x * bpp
-                        rgb_raw.extend(row_pixels[px_idx : px_idx + 3])
-                        if bpp == 4:
-                            alpha_raw.append(row_pixels[px_idx + 3])
-
-                rgb_stream = zlib.compress(bytes(rgb_raw))
-                if bpp == 4:
-                    alpha_stream = zlib.compress(bytes(alpha_raw))
-                    has_smask = True
-    except Exception:
-        # If raw IDAT decomposition fails, use full PNG IDAT
-        rgb_stream = bytes(idat_data) if idat_data else png_bytes
-
+    # 1: Catalog
+    # 2: Pages
+    # 3: Page (MediaBox = [0 0 width_pt height_pt])
+    # 4: Contents (q width_pt 0 0 height_pt 0 0 cm /Im1 Do Q)
+    # 5: Image XObject (/DeviceRGB, 8 bits/channel, FlateDecode)
     objects: list[bytes] = []
 
     # 1: Catalog
@@ -296,29 +272,13 @@ def create_print_ready_pdf(
         + b"\nendstream"
     )
 
-    # 5: Image XObject
-    if has_smask and alpha_stream:
-        img_dict = (
-            f"<< /Type /XObject /Subtype /Image /Width {w_px} /Height {h_px} "
-            f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode "
-            f"/SMask 6 0 R /Length {len(rgb_stream)} >>\nstream\n"
-        ).encode("ascii") + rgb_stream + b"\nendstream"
-        objects.append(img_dict)
-
-        # 6: SMask XObject
-        smask_dict = (
-            f"<< /Type /XObject /Subtype /Image /Width {w_px} /Height {h_px} "
-            f"/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode "
-            f"/Length {len(alpha_stream)} >>\nstream\n"
-        ).encode("ascii") + alpha_stream + b"\nendstream"
-        objects.append(smask_dict)
-    else:
-        img_dict = (
-            f"<< /Type /XObject /Subtype /Image /Width {w_px} /Height {h_px} "
-            f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode "
-            f"/Length {len(rgb_stream)} >>\nstream\n"
-        ).encode("ascii") + rgb_stream + b"\nendstream"
-        objects.append(img_dict)
+    # 5: Image XObject (DeviceRGB, FlateDecode, 8 bits/channel, no /SMask)
+    img_dict = (
+        f"<< /Type /XObject /Subtype /Image /Width {w_px} /Height {h_px} "
+        f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode "
+        f"/Length {len(rgb_stream)} >>\nstream\n"
+    ).encode("ascii") + rgb_stream + b"\nendstream"
+    objects.append(img_dict)
 
     # Build PDF binary
     pdf_buffer.write(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
