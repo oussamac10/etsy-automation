@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import type { ShopSection } from '~/types/listing';
+import Card from '~/components/ui/Card.vue';
+import CardHeader from '~/components/ui/CardHeader.vue';
+import CardTitle from '~/components/ui/CardTitle.vue';
+import CardDescription from '~/components/ui/CardDescription.vue';
+import CardContent from '~/components/ui/CardContent.vue';
 import Button from '~/components/ui/Button.vue';
 import Input from '~/components/ui/Input.vue';
 import Label from '~/components/ui/Label.vue';
@@ -142,125 +147,147 @@ const isDirty = computed(() => {
 </script>
 
 <template>
-  <div class="rounded-xl border border-border bg-card text-card-foreground shadow-xs p-5 space-y-5" data-testid="shop-organization-card">
-    <div class="flex items-center justify-between border-b border-border/60 pb-3">
-      <div class="flex items-center gap-2.5">
-        <div class="flex size-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200">
-          <Icon name="lucide:folder-tree" class="size-4" aria-hidden="true" />
-        </div>
-        <div>
-          <h3 class="text-sm font-semibold text-foreground">Shop Organization &amp; Renewal</h3>
-          <p class="text-2xs text-muted-foreground">Etsy shop section and automatic renewal preferences</p>
-        </div>
-      </div>
-
-      <Button
-        v-if="isDirty"
-        type="button"
-        size="sm"
-        variant="default"
-        :disabled="isSaving"
-        class="text-xs h-7 px-2.5 gap-1.5 cursor-pointer"
-        @click="emit('save')"
-      >
-        <Icon v-if="isSaving" name="lucide:loader-2" class="size-3 animate-spin" aria-hidden="true" />
-        <Icon v-else name="lucide:check" class="size-3" aria-hidden="true" />
-        <span>Save</span>
-      </Button>
-    </div>
-
-    <!-- Shop Section Selector -->
-    <div class="space-y-2">
+  <Card
+    class="shadow-xs border border-border bg-card transition-all duration-200"
+    data-testid="shop-organization-card"
+  >
+    <CardHeader class="pb-3 border-b border-border/40">
       <div class="flex items-center justify-between">
-        <Label for="shop-section" class="text-xs font-medium flex items-center gap-1.5">
-          <Icon name="lucide:layers" class="size-3.5 text-muted-foreground" aria-hidden="true" />
-          <span>Etsy Shop Section</span>
-        </Label>
-        <button
-          type="button"
-          class="text-2xs text-primary hover:underline flex items-center gap-1 cursor-pointer"
-          @click="showNewSectionInput = !showNewSectionInput"
-        >
-          <Icon name="lucide:plus" class="size-3" aria-hidden="true" />
-          <span>{{ showNewSectionInput ? 'Cancel' : '+ New Section' }}</span>
-        </button>
-      </div>
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 shadow-2xs">
+            <Icon name="lucide:folder-tree" class="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <CardTitle class="text-base font-semibold">Shop Organization &amp; Renewal</CardTitle>
+            <CardDescription class="text-xs text-muted-foreground mt-0.5">
+              Etsy shop section discovery, section creation, and renewal settings
+            </CardDescription>
+          </div>
+        </div>
 
-      <!-- Existing Sections Dropdown -->
-      <select
-        id="shop-section"
-        :value="localSectionId || ''"
-        class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-        @change="onSelectSection"
-      >
-        <option value="">-- No Section (General Storefront) --</option>
-        <option v-for="sec in sections" :key="sec.shop_section_id" :value="sec.shop_section_id">
-          {{ sec.title }} ({{ sec.active_listing_count }} active)
-        </option>
-      </select>
-
-      <div v-if="localSectionName && !localSectionId" class="text-2xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
-        Suggested section: <strong>{{ localSectionName }}</strong> (Will be assigned upon creation)
-      </div>
-
-      <!-- New Section Inline Input Form -->
-      <div v-if="showNewSectionInput" class="flex items-center gap-2 pt-1">
-        <Input
-          v-model="newSectionTitle"
-          type="text"
-          placeholder="e.g. Christmas PNGs, Sublimation Bundles"
-          maxlength="120"
-          class="h-8 text-xs flex-1"
-          @keyup.enter="handleCreateSection"
-        />
         <Button
+          v-if="isDirty"
           type="button"
           size="sm"
-          variant="secondary"
-          :disabled="isCreatingSection || !newSectionTitle.trim()"
-          class="h-8 px-2.5 text-xs gap-1 cursor-pointer"
-          @click="handleCreateSection"
+          variant="default"
+          :disabled="isSaving"
+          class="text-xs h-8 px-3 gap-1.5 cursor-pointer shadow-2xs font-medium"
+          @click="emit('save')"
         >
-          <Icon v-if="isCreatingSection" name="lucide:loader-2" class="size-3 animate-spin" aria-hidden="true" />
-          <span>Create</span>
+          <Icon v-if="isSaving" name="lucide:loader-2" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:check" class="size-3.5" aria-hidden="true" />
+          <span>Save Changes</span>
         </Button>
       </div>
-    </div>
+    </CardHeader>
 
-    <!-- Renewal Mode Option -->
-    <div class="space-y-2 pt-1 border-t border-border/40">
-      <Label class="text-xs font-medium flex items-center gap-1.5">
-        <Icon name="lucide:refresh-cw" class="size-3.5 text-muted-foreground" aria-hidden="true" />
-        <span>Etsy Renewal Preference</span>
-      </Label>
+    <CardContent class="pt-4 space-y-5">
+      <!-- Shop Section Selector -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <Label for="shop-section" class="text-xs font-medium flex items-center gap-1.5 text-foreground">
+            <Icon name="lucide:layers" class="size-3.5 text-indigo-500" aria-hidden="true" />
+            <span>Etsy Shop Section</span>
+          </Label>
+          <button
+            type="button"
+            class="text-2xs text-primary hover:underline flex items-center gap-1 cursor-pointer font-medium"
+            @click="showNewSectionInput = !showNewSectionInput"
+          >
+            <Icon :name="showNewSectionInput ? 'lucide:x' : 'lucide:plus'" class="size-3" aria-hidden="true" />
+            <span>{{ showNewSectionInput ? 'Cancel' : '+ Create Section' }}</span>
+          </button>
+        </div>
 
-      <div class="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          class="flex flex-col text-left p-2.5 rounded-lg border text-xs transition-all cursor-pointer"
-          :class="!localAutoRenew ? 'border-primary bg-primary/5 text-foreground ring-1 ring-primary' : 'border-border bg-card text-muted-foreground hover:border-slate-300'"
-          @click="onAutoRenewToggle(false)"
+        <!-- Inline Section Creator -->
+        <div v-if="showNewSectionInput" class="flex gap-2 p-2 rounded-lg bg-indigo-500/5 border border-indigo-500/20">
+          <Input
+            v-model="newSectionTitle"
+            type="text"
+            placeholder="e.g., Christmas PNGs or Sublimation Bundles"
+            class="h-8 text-xs bg-background"
+            @keydown.enter.prevent="handleCreateSection"
+          />
+          <Button
+            type="button"
+            size="sm"
+            class="h-8 px-3 text-xs shrink-0 cursor-pointer font-medium"
+            :disabled="isCreatingSection || !newSectionTitle.trim()"
+            @click="handleCreateSection"
+          >
+            <Icon v-if="isCreatingSection" name="lucide:loader-2" class="size-3 animate-spin" aria-hidden="true" />
+            <span v-else>Create</span>
+          </Button>
+        </div>
+
+        <!-- Existing Sections Dropdown -->
+        <select
+          id="shop-section"
+          :value="localSectionId || ''"
+          class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          @change="onSelectSection"
         >
-          <span class="font-semibold text-xs flex items-center gap-1.5">
-            <Icon name="lucide:pause-circle" class="size-3.5 text-slate-500" aria-hidden="true" />
-            Manual Renewal
-          </span>
-          <span class="text-2xs text-muted-foreground mt-0.5">Expires after 4 months unless renewed</span>
-        </button>
-
-        <button
-          type="button"
-          class="flex flex-col text-left p-2.5 rounded-lg border text-xs transition-all cursor-pointer"
-          :class="localAutoRenew ? 'border-primary bg-primary/5 text-foreground ring-1 ring-primary' : 'border-border bg-card text-muted-foreground hover:border-slate-300'"
-          @click="onAutoRenewToggle(true)"
-        >
-          <span class="font-semibold text-xs flex items-center gap-1.5">
-            <Icon name="lucide:repeat" class="size-3.5 text-emerald-600" aria-hidden="true" />
-            Automatic Renewal
-          </span>
-          <span class="text-2xs text-muted-foreground mt-0.5">Renews automatically when expired ($0.20 fee)</span>
-        </button>
+          <option value="">-- No Section (General Storefront) --</option>
+          <option v-for="sec in sections" :key="sec.shop_section_id" :value="sec.shop_section_id">
+            {{ sec.title }} ({{ sec.active_listing_count }} active)
+          </option>
+        </select>
+        <p class="text-2xs text-muted-foreground">
+          Assigned to the listing draft so buyers can easily browse themed collections in your shop.
+        </p>
       </div>
-    </div>
-  </div>
+
+      <!-- Renewal Options Cards -->
+      <div class="space-y-2 pt-1 border-t border-border/40">
+        <Label class="text-xs font-medium flex items-center gap-1.5 text-foreground">
+          <Icon name="lucide:rotate-cw" class="size-3.5 text-indigo-500" aria-hidden="true" />
+          <span>Listing Renewal Mode</span>
+        </Label>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Manual Renewal Card -->
+          <button
+            type="button"
+            class="flex items-start gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs"
+            :class="!localAutoRenew ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-muted/20 hover:bg-muted/40'"
+            @click="onAutoRenewToggle(false)"
+          >
+            <div class="flex size-7 shrink-0 items-center justify-center rounded-lg" :class="!localAutoRenew ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'">
+              <Icon name="lucide:pause-circle" class="size-4" aria-hidden="true" />
+            </div>
+            <div>
+              <div class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <span>Manual Renewal</span>
+                <span v-if="!localAutoRenew" class="text-2xs bg-primary/20 text-primary px-1.5 py-0.2 rounded font-mono">Selected</span>
+              </div>
+              <p class="text-2xs text-muted-foreground mt-0.5 leading-tight">
+                Expires after 4 months unless manually renewed. Gives full control over expired items.
+              </p>
+            </div>
+          </button>
+
+          <!-- Automatic Renewal Card -->
+          <button
+            type="button"
+            class="flex items-start gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs"
+            :class="localAutoRenew ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-muted/20 hover:bg-muted/40'"
+            @click="onAutoRenewToggle(true)"
+          >
+            <div class="flex size-7 shrink-0 items-center justify-center rounded-lg" :class="localAutoRenew ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'">
+              <Icon name="lucide:repeat" class="size-4" aria-hidden="true" />
+            </div>
+            <div>
+              <div class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <span>Automatic Renewal</span>
+                <span v-if="localAutoRenew" class="text-2xs bg-primary/20 text-primary px-1.5 py-0.2 rounded font-mono">Selected</span>
+              </div>
+              <p class="text-2xs text-muted-foreground mt-0.5 leading-tight">
+                Automatically renews every 4 months ($0.20 fee) to keep the listing live seamlessly.
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
 </template>

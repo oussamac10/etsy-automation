@@ -59,7 +59,7 @@ describe('Phase 9 Listing Automation Components', () => {
       expect((skuInput.element as HTMLInputElement).value).toBe('NCP-RETRO-XMAS-001');
 
       // Verify recommendation banner is displayed
-      expect(wrapper.text()).toContain('Recommended: $5.49');
+      expect(wrapper.text()).toContain('AI Recommendation: $5.49');
       expect(wrapper.text()).toContain('High seasonal holiday demand');
     });
 
