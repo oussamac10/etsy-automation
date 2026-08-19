@@ -9,6 +9,7 @@ import CardContent from '~/components/ui/CardContent.vue';
 import Button from '~/components/ui/Button.vue';
 import Input from '~/components/ui/Input.vue';
 import Label from '~/components/ui/Label.vue';
+import Badge from '~/components/ui/Badge.vue';
 
 const props = defineProps<{
   workflowId: string;
@@ -36,8 +37,8 @@ const SUPPORTED_CURRENCIES = [
   { code: 'USD', symbol: '$' },
   { code: 'EUR', symbol: '€' },
   { code: 'GBP', symbol: '£' },
-  { code: 'CAD', symbol: '$' },
-  { code: 'AUD', symbol: '$' },
+  { code: 'CAD', symbol: 'CA$' },
+  { code: 'AUD', symbol: 'AU$' },
 ];
 
 const localPriceDecimal = ref(
@@ -173,20 +174,17 @@ const isDirty = computed(() => {
 </script>
 
 <template>
-  <Card
-    class="shadow-xs border border-border/80 bg-card transition-all duration-200"
-    data-testid="pricing-inventory-card"
-  >
-    <CardHeader class="pb-3 border-b border-border/40">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-foreground border border-border/60">
-            <Icon name="lucide:tag" class="size-4 text-muted-foreground" aria-hidden="true" />
+  <Card class="border-border bg-card shadow-xs" data-testid="pricing-inventory-card">
+    <CardHeader class="p-4 sm:p-5 pb-3">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+            <Icon name="lucide:tag" class="size-4" aria-hidden="true" />
           </div>
-          <div>
-            <CardTitle class="text-sm font-semibold">Pricing &amp; Inventory</CardTitle>
-            <CardDescription class="text-xs text-muted-foreground mt-0.5">
-              Digital listing price, stock quantity, and internal SKU
+          <div class="min-w-0">
+            <CardTitle class="text-sm font-semibold tracking-tight">Pricing &amp; Inventory</CardTitle>
+            <CardDescription class="text-xs text-muted-foreground truncate">
+              Digital listing price, quantity, currency, and internal SKU.
             </CardDescription>
           </div>
         </div>
@@ -194,34 +192,35 @@ const isDirty = computed(() => {
         <Button
           v-if="isDirty"
           type="button"
-          size="sm"
           variant="default"
+          size="sm"
           :disabled="isSaving"
-          class="text-xs h-7 px-2.5 gap-1.5 cursor-pointer shadow-2xs font-medium"
+          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
           @click="emit('save')"
         >
-          <Icon v-if="isSaving" name="lucide:loader-2" class="size-3 animate-spin" aria-hidden="true" />
-          <Icon v-else name="lucide:check" class="size-3" aria-hidden="true" />
+          <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
           <span>Save</span>
         </Button>
       </div>
     </CardHeader>
 
-    <CardContent class="pt-4 space-y-4">
-      <!-- Pricing Row & Currency Selector -->
+    <CardContent class="p-4 sm:p-5 pt-0 space-y-4">
+      <!-- Price & Quantity Inputs -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-        <!-- Listing Price Input -->
+        <!-- Price Input -->
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
-            <Label for="listing-price" class="text-xs font-medium text-foreground/90">Price</Label>
-            <!-- Currency pills -->
-            <div class="flex items-center gap-0.5">
+            <Label for="listing-price" class="text-xs font-semibold text-foreground">
+              Digital Listing Price
+            </Label>
+            <div class="flex items-center gap-1">
               <button
                 v-for="curr in SUPPORTED_CURRENCIES"
                 :key="curr.code"
                 type="button"
-                class="px-1.5 py-0.5 text-2xs rounded font-mono transition-colors cursor-pointer"
-                :class="localCurrency === curr.code ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground hover:bg-muted/70'"
+                class="px-1.5 py-0.5 text-[11px] rounded font-mono transition-colors cursor-pointer"
+                :class="localCurrency === curr.code ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground hover:bg-muted'"
                 @click="onCurrencySelect(curr.code)"
               >
                 {{ curr.code }}
@@ -230,7 +229,7 @@ const isDirty = computed(() => {
           </div>
 
           <div class="relative flex items-center">
-            <span class="absolute left-3 text-xs font-semibold text-muted-foreground">{{ currencySymbol }}</span>
+            <span class="absolute left-3 text-xs font-medium text-muted-foreground">{{ currencySymbol }}</span>
             <Input
               id="listing-price"
               v-model="localPriceDecimal"
@@ -239,7 +238,7 @@ const isDirty = computed(() => {
               min="0.20"
               max="1000"
               placeholder="4.99"
-              class="pl-7 pr-3 h-8 text-xs font-mono font-medium"
+              class="pl-7 pr-3 h-9 text-sm font-mono font-medium"
               @change="onPriceChange"
               @blur="onPriceChange"
             />
@@ -248,9 +247,9 @@ const isDirty = computed(() => {
 
         <!-- Quantity Input -->
         <div class="space-y-1.5">
-          <Label for="listing-quantity" class="text-xs font-medium flex items-center justify-between text-foreground/90">
+          <Label for="listing-quantity" class="text-xs font-semibold text-foreground flex items-center justify-between">
             <span>Stock Quantity</span>
-            <span class="text-2xs text-muted-foreground font-normal">Instant digital download</span>
+            <span class="text-[11px] text-muted-foreground font-normal">Digital Instant</span>
           </Label>
           <Input
             id="listing-quantity"
@@ -260,18 +259,18 @@ const isDirty = computed(() => {
             min="1"
             max="9999"
             placeholder="999"
-            class="h-8 text-xs font-mono"
+            class="h-9 text-sm font-mono"
             @change="onQuantityChange"
             @blur="onQuantityChange"
           />
         </div>
       </div>
 
-      <!-- Pricing Recommendation Box -->
-      <div v-if="recommendation" class="bg-muted/30 border border-border/60 rounded-lg p-3 space-y-2">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <Icon name="lucide:sparkles" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+      <!-- Pricing Recommendation Callout -->
+      <div v-if="recommendation" class="bg-muted/40 border border-border rounded-lg p-3 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5">
+            <Icon name="lucide:sparkles" class="size-3.5 text-primary" aria-hidden="true" />
             <span class="text-xs font-semibold text-foreground">
               AI Recommendation: {{ recommendation.formatted_price }}
             </span>
@@ -281,34 +280,35 @@ const isDirty = computed(() => {
             type="button"
             variant="outline"
             size="sm"
-            class="h-6 px-2 text-2xs font-medium text-foreground cursor-pointer shadow-2xs"
+            class="h-7 px-2 text-xs font-medium shrink-0 cursor-pointer"
             @click="applyRecommendation"
           >
-            <Icon name="lucide:check" class="size-3" aria-hidden="true" />
+            <Icon name="lucide:check" class="size-3 text-primary" aria-hidden="true" />
             <span>Use recommended</span>
           </Button>
         </div>
 
-        <p class="text-2xs text-muted-foreground leading-relaxed">
+        <p class="text-xs text-muted-foreground leading-normal">
           {{ recommendation.rationale }}
         </p>
 
         <div v-if="recommendation?.factors && recommendation.factors.length" class="flex flex-wrap gap-1">
-          <span
+          <Badge
             v-for="factor in recommendation.factors"
             :key="factor"
-            class="inline-flex items-center text-2xs bg-background text-muted-foreground px-1.5 py-0.5 rounded border border-border/60 font-mono"
+            variant="outline"
+            class="text-[10px] font-normal text-muted-foreground bg-background"
           >
             {{ factor }}
-          </span>
+          </Badge>
         </div>
       </div>
 
-      <!-- Internal SKU Row -->
+      <!-- SKU Input -->
       <div class="space-y-1.5 pt-1 border-t border-border/40">
-        <Label for="listing-sku" class="text-xs font-medium flex items-center justify-between text-foreground/90">
+        <Label for="listing-sku" class="text-xs font-semibold text-foreground flex items-center justify-between">
           <span>Internal SKU</span>
-          <span class="text-2xs text-muted-foreground font-normal">Deterministic identifier</span>
+          <span class="text-[11px] text-muted-foreground font-normal">Auto-generated</span>
         </Label>
         <div class="relative flex items-center">
           <Input
@@ -317,13 +317,13 @@ const isDirty = computed(() => {
             type="text"
             placeholder="NCP-RETRO-CHRISTMAS-A1B2"
             maxlength="64"
-            class="h-8 pr-16 text-xs font-mono tracking-wide"
+            class="h-9 pr-16 text-xs font-mono tracking-wide"
             @change="onSkuChange"
             @blur="onSkuChange"
           />
           <button
             type="button"
-            class="absolute right-2 px-1.5 py-0.5 text-2xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded transition-colors cursor-pointer flex items-center gap-1"
+            class="absolute right-2 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors cursor-pointer flex items-center gap-1"
             @click="copySku"
           >
             <Icon :name="skuCopied ? 'lucide:check' : 'lucide:copy'" class="size-3" aria-hidden="true" />

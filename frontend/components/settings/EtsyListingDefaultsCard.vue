@@ -120,17 +120,17 @@ onMounted(() => {
 </script>
 
 <template>
-  <Card class="shadow-xs border border-border/80 bg-card transition-all duration-200" data-testid="etsy-listing-defaults-card">
-    <CardHeader class="pb-3 border-b border-border/40">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-foreground border border-border/60">
-            <Icon name="lucide:settings-2" class="size-4 text-muted-foreground" aria-hidden="true" />
+  <Card class="border-border bg-card shadow-xs" data-testid="etsy-listing-defaults-card">
+    <CardHeader class="p-4 sm:p-5 pb-3">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+            <Icon name="lucide:settings-2" class="size-4" aria-hidden="true" />
           </div>
-          <div>
-            <CardTitle class="text-sm font-semibold">Etsy Listing Defaults</CardTitle>
-            <CardDescription class="text-xs text-muted-foreground mt-0.5">
-              Default pricing, stock quantity, and renewal mode for new listings
+          <div class="min-w-0">
+            <CardTitle class="text-sm font-semibold tracking-tight">Etsy Listing Defaults</CardTitle>
+            <CardDescription class="text-xs text-muted-foreground truncate">
+              Default pricing, quantity, and renewal preference for new listing drafts.
             </CardDescription>
           </div>
         </div>
@@ -138,20 +138,20 @@ onMounted(() => {
         <Button
           v-if="isDirty"
           type="button"
-          size="sm"
           variant="default"
+          size="sm"
           :disabled="isSaving"
-          class="text-xs h-7 px-2.5 gap-1.5 cursor-pointer shadow-2xs font-medium"
+          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
           @click="saveDefaults"
         >
-          <Icon v-if="isSaving" name="lucide:loader-2" class="size-3 animate-spin" aria-hidden="true" />
-          <Icon v-else name="lucide:check" class="size-3" aria-hidden="true" />
+          <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
           <span>Save Defaults</span>
         </Button>
       </div>
     </CardHeader>
 
-    <CardContent class="pt-4 space-y-4">
+    <CardContent class="p-4 sm:p-5 pt-0 space-y-4">
       <Alert v-if="errorMessage" variant="destructive" dismissible @dismiss="errorMessage = null">
         <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
         <AlertTitle>Error</AlertTitle>
@@ -173,9 +173,9 @@ onMounted(() => {
         <!-- Price & Quantity Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="space-y-1.5">
-            <Label for="default-price" class="text-xs font-medium text-foreground/90">Default Price</Label>
+            <Label for="default-price" class="text-xs font-semibold text-foreground">Default Digital Price</Label>
             <div class="relative flex items-center">
-              <span class="absolute left-3 text-xs font-semibold text-muted-foreground">$</span>
+              <span class="absolute left-3 text-xs font-medium text-muted-foreground">$</span>
               <Input
                 id="default-price"
                 v-model="defaultPriceDecimal"
@@ -183,56 +183,56 @@ onMounted(() => {
                 step="0.01"
                 min="0.20"
                 max="1000"
-                class="pl-7 h-8 text-xs font-mono font-medium"
+                class="pl-7 h-9 text-xs font-mono"
               />
             </div>
-            <p class="text-2xs text-muted-foreground">Pre-populates new listing drafts.</p>
+            <p class="text-[11px] text-muted-foreground">Pre-populates new listing drafts.</p>
           </div>
 
           <div class="space-y-1.5">
-            <Label for="default-quantity" class="text-xs font-medium text-foreground/90">Default Stock Quantity</Label>
+            <Label for="default-quantity" class="text-xs font-semibold text-foreground">Default Stock Quantity</Label>
             <Input
               id="default-quantity"
               v-model.number="defaultQuantity"
               type="number"
               min="1"
               max="9999"
-              class="h-8 text-xs font-mono font-medium"
+              class="h-9 text-xs font-mono"
             />
-            <p class="text-2xs text-muted-foreground">Stock quantity for new listing drafts (default 999).</p>
+            <p class="text-[11px] text-muted-foreground">Digital quantity for new listing drafts (default 999).</p>
           </div>
         </div>
 
         <!-- Renewal Mode Options -->
         <div class="space-y-1.5 pt-1 border-t border-border/40">
-          <Label class="text-xs font-medium text-foreground/90">
+          <Label class="text-xs font-semibold text-foreground">
             Default Renewal Mode
           </Label>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               type="button"
-              class="flex flex-col text-left p-2.5 rounded-lg border text-xs transition-colors cursor-pointer"
-              :class="!defaultAutoRenew ? 'border-primary/60 bg-primary/5 text-foreground' : 'border-border/60 bg-card text-muted-foreground hover:bg-muted/40'"
+              class="flex flex-col text-left p-3 rounded-lg border text-xs transition-colors cursor-pointer"
+              :class="!defaultAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-slate-300'"
               @click="defaultAutoRenew = false"
             >
-              <span class="font-medium text-xs flex items-center gap-1.5 text-foreground">
-                <Icon name="lucide:pause-circle" class="size-3.5 text-muted-foreground" aria-hidden="true" />
+              <span class="font-semibold text-xs flex items-center gap-1.5 text-foreground">
+                <Icon name="lucide:pause-circle" class="size-3.5 text-primary" aria-hidden="true" />
                 Manual (Default)
               </span>
-              <span class="text-2xs text-muted-foreground mt-0.5">Expires after 4 months unless manually renewed.</span>
+              <span class="text-[11px] text-muted-foreground mt-0.5 leading-normal">Expires after 4 months unless manually renewed.</span>
             </button>
 
             <button
               type="button"
-              class="flex flex-col text-left p-2.5 rounded-lg border text-xs transition-colors cursor-pointer"
-              :class="defaultAutoRenew ? 'border-primary/60 bg-primary/5 text-foreground' : 'border-border/60 bg-card text-muted-foreground hover:bg-muted/40'"
+              class="flex flex-col text-left p-3 rounded-lg border text-xs transition-colors cursor-pointer"
+              :class="defaultAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-slate-300'"
               @click="defaultAutoRenew = true"
             >
               <span class="font-semibold text-xs flex items-center gap-1.5 text-foreground">
-                <Icon name="lucide:repeat" class="size-3.5 text-muted-foreground" aria-hidden="true" />
+                <Icon name="lucide:repeat" class="size-3.5 text-primary" aria-hidden="true" />
                 Automatic Renewal
               </span>
-              <span class="text-2xs text-muted-foreground mt-0.5">Renews automatically every 4 months ($0.20 per cycle).</span>
+              <span class="text-[11px] text-muted-foreground mt-0.5 leading-normal">Renews automatically every 4 months ($0.20 per cycle).</span>
             </button>
           </div>
         </div>

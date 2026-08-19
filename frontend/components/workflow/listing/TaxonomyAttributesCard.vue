@@ -138,20 +138,17 @@ const isDirty = computed(() => {
 </script>
 
 <template>
-  <Card
-    class="shadow-xs border border-border/80 bg-card transition-all duration-200"
-    data-testid="taxonomy-attributes-card"
-  >
-    <CardHeader class="pb-3 border-b border-border/40">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-foreground border border-border/60">
-            <Icon name="lucide:sliders-horizontal" class="size-4 text-muted-foreground" aria-hidden="true" />
+  <Card class="border-border bg-card shadow-xs" data-testid="taxonomy-attributes-card">
+    <CardHeader class="p-4 sm:p-5 pb-3">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+            <Icon name="lucide:sliders-horizontal" class="size-4" aria-hidden="true" />
           </div>
-          <div>
-            <CardTitle class="text-sm font-semibold">Category Attributes</CardTitle>
-            <CardDescription class="text-xs text-muted-foreground mt-0.5">
-              Attributes for Etsy search filtering
+          <div class="min-w-0">
+            <CardTitle class="text-sm font-semibold tracking-tight">Category Attributes</CardTitle>
+            <CardDescription class="text-xs text-muted-foreground truncate">
+              Category-specific properties for Etsy search filtering.
             </CardDescription>
           </div>
         </div>
@@ -159,24 +156,24 @@ const isDirty = computed(() => {
         <Button
           v-if="isDirty"
           type="button"
-          size="sm"
           variant="default"
+          size="sm"
           :disabled="isSaving"
-          class="text-xs h-7 px-2.5 gap-1.5 cursor-pointer shadow-2xs font-medium"
+          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
           @click="emit('save')"
         >
-          <Icon v-if="isSaving" name="lucide:loader-2" class="size-3 animate-spin" aria-hidden="true" />
-          <Icon v-else name="lucide:check" class="size-3" aria-hidden="true" />
+          <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
           <span>Save</span>
         </Button>
       </div>
     </CardHeader>
 
-    <CardContent class="pt-4 space-y-4">
+    <CardContent class="p-4 sm:p-5 pt-0 space-y-4">
       <!-- Loading State Skeleton -->
       <div v-if="isLoading" class="space-y-3">
-        <div class="h-10 bg-muted/40 animate-pulse rounded-lg" />
-        <div class="h-10 bg-muted/40 animate-pulse rounded-lg" />
+        <div class="h-10 bg-slate-100 animate-pulse rounded-lg" />
+        <div class="h-10 bg-slate-100 animate-pulse rounded-lg" />
       </div>
 
       <!-- Properties List -->
@@ -187,11 +184,11 @@ const isDirty = computed(() => {
           class="space-y-1.5 pb-2.5 border-b border-border/40 last:border-0 last:pb-0"
         >
           <div class="flex items-center justify-between">
-            <Label class="text-xs font-medium text-foreground/90 flex items-center gap-1">
+            <Label class="text-xs font-semibold text-foreground flex items-center gap-1">
               <span>{{ prop.name }}</span>
               <span v-if="prop.is_required" class="text-destructive font-bold" title="Required by Etsy">*</span>
             </Label>
-            <span class="text-2xs text-muted-foreground font-mono">
+            <span class="text-[11px] text-muted-foreground">
               {{ prop.is_multivalued ? 'Multi-select' : 'Single select' }}
             </span>
           </div>
@@ -202,17 +199,17 @@ const isDirty = computed(() => {
               v-for="val in prop.possible_values"
               :key="val.value_id || val.name"
               type="button"
-              class="inline-flex items-center gap-1 px-2 py-0.5 text-2xs rounded border transition-colors cursor-pointer"
+              class="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md border transition-colors cursor-pointer"
               :class="
                 isValueSelected(prop.property_id, val.name)
-                  ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
-                  : 'bg-muted/30 text-muted-foreground border-border/80 hover:bg-muted/70 hover:text-foreground'
+                  ? 'bg-primary/10 text-primary border-primary/40 font-semibold'
+                  : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted'
               "
               @click="toggleValue(prop, val.name, val.value_id)"
             >
               <Icon
                 :name="isValueSelected(prop.property_id, val.name) ? 'lucide:check' : 'lucide:plus'"
-                class="size-2.5"
+                class="size-3"
                 aria-hidden="true"
               />
               <span>{{ val.name }}</span>
@@ -222,9 +219,9 @@ const isDirty = computed(() => {
       </div>
 
       <!-- Empty / Fallback State -->
-      <div v-else class="text-center py-4 px-3 bg-muted/20 border border-dashed border-border/60 rounded-lg space-y-1">
-        <p class="text-xs font-medium text-foreground">Standard Digital Graphic Attributes</p>
-        <p class="text-2xs text-muted-foreground">
+      <div v-else class="text-center py-4 px-3 bg-muted/40 border border-dashed border-border rounded-lg space-y-1">
+        <p class="text-xs font-semibold text-foreground">Standard Digital Graphic Attributes</p>
+        <p class="text-[11px] text-muted-foreground">
           Selected taxonomy category accepts standard digital formats (Sublimation, Printing).
         </p>
       </div>

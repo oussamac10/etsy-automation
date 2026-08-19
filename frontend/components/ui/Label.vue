@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const classes = computed(() =>
-  cn("text-xs font-medium text-foreground select-none", props.class)
+  cn("text-xs font-semibold text-foreground select-none", props.class)
 );
 </script>
 
