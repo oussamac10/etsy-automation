@@ -383,56 +383,40 @@ async function copyListingId() {
           </div>
         </div>
 
-        <!-- Etsy Guidance & Action Toolbar -->
-        <div class="bg-card border border-border rounded-xl p-4 shadow-2xs">
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-            <div class="flex items-start gap-3 text-xs">
-              <div class="p-2 rounded-lg bg-primary/10 text-primary shrink-0 mt-0.5">
-                <Icon name="lucide:info" class="size-4" aria-hidden="true" />
-              </div>
-              <div>
-                <p class="font-bold text-foreground text-sm">Where to find this in your Etsy store:</p>
-                <p class="text-muted-foreground mt-0.5 leading-relaxed">
-                  Go to <strong class="text-foreground font-semibold">Etsy Shop Manager → Listings → Drafts</strong> tab. The listing is safely in private draft mode so you can review price, shipping, and tags before publishing.
-                </p>
-              </div>
-            </div>
+        <!-- Action Toolbar -->
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <a
+            v-if="listingManagerUrl"
+            :href="listingManagerUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button
+              variant="default"
+              size="sm"
+              class="gap-2 cursor-pointer shadow-xs font-semibold"
+              data-testid="etsy-open-manager-btn"
+            >
+              <Icon name="lucide:external-link" class="size-3.5" aria-hidden="true" />
+              <span>Open in Etsy Shop Manager</span>
+            </Button>
+          </a>
 
-            <div class="flex items-center gap-2 shrink-0">
-              <a
-                v-if="listingManagerUrl"
-                :href="listingManagerUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button
-                  variant="default"
-                  size="sm"
-                  class="gap-2 cursor-pointer shadow-xs font-semibold"
-                  data-testid="etsy-open-manager-btn"
-                >
-                  <Icon name="lucide:external-link" class="size-3.5" aria-hidden="true" />
-                  <span>Open in Etsy Shop Manager</span>
-                </Button>
-              </a>
-
-              <a
-                :href="draftListingsUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="gap-1.5 cursor-pointer text-xs font-medium"
-                  title="Open all Etsy Draft Listings"
-                >
-                  <Icon name="lucide:layers" class="size-3.5 text-muted-foreground" aria-hidden="true" />
-                  <span>All Drafts</span>
-                </Button>
-              </a>
-            </div>
-          </div>
+          <a
+            :href="draftListingsUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              class="gap-1.5 cursor-pointer text-xs font-medium"
+              title="Open all Etsy Draft Listings"
+            >
+              <Icon name="lucide:layers" class="size-3.5 text-muted-foreground" aria-hidden="true" />
+              <span>All Drafts</span>
+            </Button>
+          </a>
         </div>
       </div>
 
