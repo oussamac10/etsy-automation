@@ -13,9 +13,9 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [x] **Phase 5 — Idea input, research, and Gate 1 approval:** Complete (`docs/progress/phase-5-idea-research.md`)
 - [x] **Phase 6 — Artwork generation and Gate 2 approval:** Complete (`docs/progress/phase-6-artwork-generation-approval.md`)
 - [x] **Phase 7 — PNG production pipeline:** Complete (`docs/progress/phase-7-png-production-pipeline.md`)
-- [ ] **Phase 8 — SEO, IP risk review, and download package:** Next Active Milestone
-- [ ] **Phase 9 — Etsy integration:** Planned
-- [ ] **Phase 10 — Deployment, scheduling, and monitoring:** Planned
+- [x] **Phase 8 — SEO, IP risk review, and download package:** Complete (`docs/progress/phase-8-seo-ip-download-package.md`)
+- [x] **Phase 9 — Etsy integration & draft creation:** Complete (`docs/progress/phase-9-etsy-integration.md`)
+- [ ] **Phase 10 — Deployment, scheduling, and monitoring:** Next Active Milestone
 - [ ] **Phase 11 — Post-publishing profit intelligence & winner expansion:** Future, start only after real Etsy sales data exists
 - [ ] **Phase 12 — Optional SaaS expansion:** Future
 
@@ -158,33 +158,33 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 
 ---
 
-### Phase 9 — Etsy Integration & Draft Creation ⏳
+### Phase 9 — Etsy Integration & Draft Creation ✅
 
 #### Phase 9 Backend & Workers
 
-- [ ] **Etsy Open API v3 OAuth 2.0 Integration**:
-  - [ ] PKCE authorization URL generation with secure state verification.
-  - [ ] Token exchange callback (`GET /api/v1/auth/etsy/callback`) and token refresh loop.
-  - [ ] Encrypted token storage in PostgreSQL via `ShopConnection` model.
-- [ ] **Etsy Draft Listing Dispatcher**:
-  - [ ] Create draft listing via `POST /v3/application/shops/{shop_id}/listings` with state strictly set to `draft`.
-  - [ ] Upload primary transparent image and mockup preview images.
-  - [ ] Upload digital ZIP package file to Etsy digital listing files endpoint.
-  - [ ] **Absolute Non-Negotiable Safeguard:** Never publish or activate listings; zero API calls with state `active`.
-- [ ] **Resilience & Rate Limiting**:
-  - [ ] Respect Etsy API 10 req/sec rate limits with token bucket queue.
-  - [ ] Idempotent retries and failure recovery.
-- [ ] **Telegram Completion Notification**:
-  - [ ] Send direct link to the newly created draft in the seller's Etsy Shop Manager.
+- [x] **Etsy Open API v3 OAuth 2.0 Integration**:
+  - [x] PKCE authorization URL generation with secure state verification in Redis (`etsy:oauth_state:{state}`).
+  - [x] Token exchange callback (`GET /api/v1/auth/etsy/callback`) and proactive token auto-refresh with 5-minute buffer.
+  - [x] Encrypted token storage in PostgreSQL via `ShopConnection` model with Fernet AES-128-CBC + HMAC key versioning (`0011_phase_9_etsy_shop_connection.py`).
+- [x] **Etsy Draft Listing Dispatcher**:
+  - [x] Create draft listing via `POST /v3/application/shops/{shop_id}/listings` with state strictly enforced as `draft`.
+  - [x] Upload ordered mockup preview images (`POST /v3/application/shops/{shop_id}/listings/{listing_id}/images`).
+  - [x] Upload digital download ZIP package (`POST /v3/application/shops/{shop_id}/listings/{listing_id}/files`).
+  - [x] **Absolute Non-Negotiable Safeguard:** Never publish or activate listings; zero API calls with state `active`; no publish endpoints or automated activation workers.
+- [x] **Resilience & Rate Limiting**:
+  - [x] Respect Etsy API 10 req/sec rate limits with exponential backoff on HTTP 429 (`EtsyProvider`).
+  - [x] Idempotent retries, partial crash recovery, and deduplication (`test_etsy_idempotency.py`).
+- [x] **Telegram Completion Notification**:
+  - [x] Send direct link to the newly created draft in Etsy Shop Manager (`https://www.etsy.com/your/shops/me/listing-editor/edit/{listing_id}`) with ZERO publish buttons.
 
 #### Phase 9 Frontend (Nuxt 3)
 
-- [ ] **Settings Page — Etsy Shop Connection Card (`frontend/pages/settings.vue`)**:
-  - [ ] "Connect Etsy Shop" OAuth button, shop name display, and token status badge.
-  - [ ] Disconnect / Reconnect options.
-- [ ] **Workflow Page — Send to Etsy Action**:
-  - [ ] "Create Etsy Draft" button unlocked after Gate 3 approval.
-  - [ ] Success banner showing the Etsy Listing ID with direct external link to Etsy Shop Manager.
+- [x] **Settings Page — Etsy Shop Connection Card (`frontend/pages/settings.vue`)**:
+  - [x] `EtsyConnectionCard.vue` with 1-click OAuth connect, connected shop metadata, token security indicators, and disconnect/reconnect actions.
+- [x] **Workflow Page — Send to Etsy Action**:
+  - [x] `EtsyDraftCard.vue` in `WorkflowListingTab.vue` unlocked when Gate 3 is approved.
+  - [x] Real-time step-by-step progress polling indicator (`queued`, `creating_listing`, `uploading_images`, `uploading_file`).
+  - [x] Success card displaying Etsy Listing ID, mockup preview count, digital ZIP status, and direct external link to Etsy Shop Manager.
 
 ---
 
