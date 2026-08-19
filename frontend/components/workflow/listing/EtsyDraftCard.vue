@@ -165,34 +165,30 @@ async function handleCreateDraft() {
 
     <CardContent class="pt-2 space-y-4">
       <!-- Error Alert -->
-      <Alert v-if="errorMessage || (isFailed && listing.etsy_failure_reason)" variant="destructive">
-        <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
-        <AlertTitle>Etsy Dispatch Error</AlertTitle>
-        <AlertDescription class="flex items-center justify-between">
-          <span>{{ errorMessage || listing.etsy_failure_reason }}</span>
-          <Button variant="outline" size="sm" class="h-7 text-xs cursor-pointer" @click="handleCreateDraft">
-            Retry Dispatch
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <Alert
+        v-if="errorMessage || (isFailed && listing.etsy_failure_reason)"
+        variant="destructive"
+        title="Etsy Dispatch Error"
+        :description="errorMessage || listing.etsy_failure_reason"
+        action-label="Retry Dispatch"
+        @action="handleCreateDraft"
+      />
 
       <!-- Shop Not Connected Notice -->
       <Alert
         v-if="!connectionStatus?.connected && !isLoading"
         variant="warning"
-        class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+        title="Etsy Shop Connection Required"
+        description="You must connect your Etsy shop in Settings before creating draft listings."
       >
-        <Icon name="lucide:triangle-alert" class="size-4" aria-hidden="true" />
-        <div class="flex-1">
-          <AlertTitle>Etsy Shop Connection Required</AlertTitle>
-          <AlertDescription>You must connect your Etsy shop in Settings before creating draft listings.</AlertDescription>
-        </div>
-        <NuxtLink to="/settings" class="shrink-0">
-          <Button variant="outline" size="sm" class="text-xs h-8 gap-1.5 cursor-pointer">
-            <Icon name="lucide:settings" class="size-3.5" aria-hidden="true" />
-            <span>Open Settings</span>
-          </Button>
-        </NuxtLink>
+        <template #action>
+          <NuxtLink to="/settings">
+            <Button variant="outline" size="sm" class="text-xs h-8 gap-1.5 cursor-pointer">
+              <Icon name="lucide:settings" class="size-3.5" aria-hidden="true" />
+              <span>Open Settings</span>
+            </Button>
+          </NuxtLink>
+        </template>
       </Alert>
 
       <!-- In-Progress Steps Indicator -->

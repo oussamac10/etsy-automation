@@ -136,42 +136,25 @@ async function handleConnect(): Promise<void> {
 
       <!-- Feedback Alerts -->
       <div v-else class="space-y-4">
-        <Alert v-if="successFeedback && connectionStatus?.connected" variant="success" class="flex items-center justify-between">
-          <div>
-            <Icon name="lucide:circle-check" class="size-4" aria-hidden="true" />
-            <AlertTitle>Connection Successful</AlertTitle>
-            <AlertDescription>{{ successFeedback }}</AlertDescription>
-          </div>
-          <button
-            type="button"
-            class="text-emerald-700 hover:text-emerald-900 p-1 cursor-pointer rounded-lg hover:bg-emerald-100/50"
-            aria-label="Dismiss"
-            @click="successFeedback = null"
-          >
-            <Icon name="lucide:x" class="size-4" aria-hidden="true" />
-          </button>
-        </Alert>
+        <Alert
+          v-if="successFeedback && connectionStatus?.connected"
+          variant="success"
+          title="Connection Successful"
+          :description="successFeedback"
+          dismissible
+          @dismiss="successFeedback = null"
+        />
 
-        <Alert v-if="oauthError || errorMessage" variant="destructive">
-          <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
-          <AlertTitle>Etsy Connection Notice</AlertTitle>
-          <AlertDescription class="flex items-center justify-between">
-            <span>{{ oauthError || errorMessage }}</span>
-            <div class="flex items-center gap-2">
-              <Button variant="outline" size="sm" class="h-7 text-xs cursor-pointer" @click="fetchConnectionStatus">
-                Retry
-              </Button>
-              <button
-                type="button"
-                class="text-red-700 hover:text-red-900 p-1 cursor-pointer rounded-lg hover:bg-red-100/50"
-                aria-label="Dismiss"
-                @click="() => { oauthError = null; errorMessage = null; }"
-              >
-                <Icon name="lucide:x" class="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          </AlertDescription>
-        </Alert>
+        <Alert
+          v-if="oauthError || errorMessage"
+          variant="destructive"
+          title="Etsy Connection Notice"
+          :description="oauthError || errorMessage"
+          action-label="Retry"
+          dismissible
+          @action="fetchConnectionStatus"
+          @dismiss="() => { oauthError = null; errorMessage = null; }"
+        />
 
         <!-- Connected View -->
         <div v-if="connectionStatus?.connected" class="space-y-4" data-testid="etsy-connected-panel">
