@@ -27,6 +27,14 @@ function stubFetch(telegramMock: (url: string, options?: unknown) => Promise<unk
     if (url.includes("/settings/credentials")) {
       return Promise.resolve({ items: [] });
     }
+    if (url.includes("/integrations/etsy")) {
+      return Promise.resolve({
+        connected: false,
+        connection_status: "disconnected",
+        granted_scopes: [],
+        token_health: "disconnected",
+      });
+    }
     return telegramMock(url, options);
   });
   vi.stubGlobal("$fetch", fetchMock);
