@@ -33,6 +33,7 @@ DOMAINS: dict[str, list[str]] = {
         "owner_settings",
         "provider_credentials",
         "telegram_connections",
+        "shop_connections",
     ],
     "Workflow & State Machine Core": [
         "product_workflows",
@@ -55,10 +56,11 @@ DOMAINS: dict[str, list[str]] = {
         "artwork_jobs",
         "provider_usage",
     ],
-    "Phase 7: Production, Mockups & Publishing": [
+    "Phase 7 & Phase 8: Production, Mockups, IP & Publishing": [
         "assets",
         "production_jobs",
         "listing_drafts",
+        "trademark_records",
     ],
 }
 
@@ -108,6 +110,12 @@ TABLE_DESCRIPTIONS: dict[str, str] = {
         "Print-ready 4500x5400 @ 300 DPI master PNG processing & QA check pipeline."
     ),
     "listing_drafts": "Finalized Etsy product listing copy, tags, pricing, and draft assets.",
+    "shop_connections": (
+        "Etsy OAuth 2.0 shop connections, encrypted tokens at rest, scopes, and connection status."
+    ),
+    "trademark_records": (
+        "PostgreSQL USPTO Trademark Registry mirror with trigram fuzzy search and TSDR status."
+    ),
 }
 
 

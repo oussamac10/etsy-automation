@@ -33,6 +33,7 @@ from app.infrastructure.models.research import (
     ResearchEvidence,
     ResearchRun,
 )
+from app.infrastructure.models.shop_connection import ShopConnection
 from app.infrastructure.models.telegram import TelegramConnection
 from app.infrastructure.models.trademark import TrademarkRecord
 from app.infrastructure.models.user import User
@@ -58,6 +59,7 @@ __all__ = [
     "ProviderUsage",
     "ResearchEvidence",
     "ResearchRun",
+    "ShopConnection",
     "TelegramConnection",
     "TimestampMixin",
     "TrademarkRecord",

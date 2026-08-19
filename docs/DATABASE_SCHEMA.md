@@ -34,6 +34,7 @@ erDiagram
     product_workflows ||--o{ provider_usage : "workflow_id -> id"
     research_runs ||--o{ research_evidence : "run_id -> id"
     product_workflows ||--o{ research_runs : "workflow_id -> id"
+    users ||--o{ shop_connections : "user_id -> id"
     users ||--o{ telegram_connections : "user_id -> id"
     users ||--o{ user_sessions : "user_id -> id"
     product_workflows ||--o{ workflow_failures : "workflow_id -> id"
@@ -159,6 +160,32 @@ erDiagram
 
 - **Check Constraints**: `ck_telegram_connections_non_negative_failed_attempts` (`failed_pairing_attempts >= 0`)
 - **Indexes**: `ix_telegram_connections_pairing_code_hash` on `pairing_code_hash`
+
+#### `shop_connections`
+
+*Etsy OAuth 2.0 shop connections, encrypted tokens at rest, scopes, and connection status.*
+
+| Column | Type | Nullable | Default | PK | FK / References |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `id` | `CHAR(32)` | NO | `dynamic` | ✅ | - |
+| `user_id` | `CHAR(32)` | NO | - | - | `users.id` |
+| `provider` | `VARCHAR(30)` | NO | `etsy` | - | - |
+| `etsy_user_id` | `VARCHAR(60)` | NO | - | - | - |
+| `etsy_shop_id` | `VARCHAR(60)` | NO | - | - | - |
+| `etsy_shop_name` | `VARCHAR(120)` | NO | - | - | - |
+| `ciphertext_access_token` | `BLOB` | NO | - | - | - |
+| `ciphertext_refresh_token` | `BLOB` | NO | - | - | - |
+| `key_version` | `INTEGER` | NO | - | - | - |
+| `token_expires_at` | `DATETIME` | NO | - | - | - |
+| `granted_scopes` | `ARRAY` | NO | `dynamic` | - | - |
+| `connection_status` | `VARCHAR(40)` | NO | `connected` | - | - |
+| `last_refreshed_at` | `DATETIME` | YES | - | - | - |
+| `created_at` | `DATETIME` | NO | `dynamic` | - | - |
+| `updated_at` | `DATETIME` | NO | `dynamic` | - | - |
+
+- **Unique Constraints**: `user_id, provider`
+- **Check Constraints**: `ck_shop_connections_access_token_not_empty` (`octet_length(ciphertext_access_token) > 0`), `ck_shop_connections_refresh_token_not_empty` (`octet_length(ciphertext_refresh_token) > 0`), `ck_shop_connections_shop_connection_key_version_positive` (`key_version >= 1`)
+- **Indexes**: `ix_shop_connections_etsy_shop_id` on `etsy_shop_id`
 
 ### Workflow & State Machine Core
 
@@ -517,7 +544,7 @@ erDiagram
 - **Check Constraints**: `ck_provider_usage_actual_cost_non_negative` (`actual_cost_minor IS NULL OR actual_cost_minor >= 0`), `ck_provider_usage_estimated_cost_non_negative` (`estimated_cost_minor >= 0`), `ck_provider_usage_input_units_non_negative` (`input_units >= 0`), `ck_provider_usage_output_units_non_negative` (`output_units >= 0`), `ck_provider_usage_reconciled_requires_actual_cost` (`(status <> 'reconciled') OR (actual_cost_minor IS NOT NULL)`)
 - **Indexes**: `ix_provider_usage_idempotency_key` on `idempotency_key`, `ix_provider_usage_provider_created` on `provider, created_at`, `ix_provider_usage_workflow_created` on `workflow_id, created_at`, `ix_provider_usage_workflow_id` on `workflow_id`
 
-### Phase 7: Production, Mockups & Publishing
+### Phase 7 & Phase 8: Production, Mockups, IP & Publishing
 
 #### `assets`
 
@@ -595,7 +622,15 @@ erDiagram
 | `ip_findings` | `JSONB` | NO | `dynamic` | - | - |
 | `ip_acknowledged_at` | `DATETIME` | YES | - | - | - |
 | `ip_acknowledged_by` | `VARCHAR(200)` | YES | - | - | - |
+| `etsy_shop_id` | `VARCHAR(60)` | YES | - | - | - |
 | `etsy_listing_id` | `VARCHAR(60)` | YES | - | - | - |
+| `etsy_listing_url` | `VARCHAR(500)` | YES | - | - | - |
+| `etsy_state` | `VARCHAR(30)` | YES | `draft` | - | - |
+| `etsy_image_ids` | `ARRAY` | NO | `dynamic` | - | - |
+| `etsy_file_id` | `VARCHAR(60)` | YES | - | - | - |
+| `etsy_dispatch_status` | `VARCHAR(40)` | NO | `not_started` | - | - |
+| `etsy_last_synced_at` | `DATETIME` | YES | - | - | - |
+| `etsy_failure_reason` | `TEXT` | YES | - | - | - |
 | `etsy_draft_created_at` | `DATETIME` | YES | - | - | - |
 | `version` | `INTEGER` | NO | `1` | - | - |
 | `created_at` | `DATETIME` | NO | `dynamic` | - | - |
@@ -604,30 +639,32 @@ erDiagram
 - **Unique Constraints**: `etsy_listing_id`, `workflow_id`
 - **Check Constraints**: `ck_listing_drafts_listing_price_non_negative` (`price_minor_units IS NULL OR price_minor_units >= 0`), `ck_listing_drafts_listing_tag_limit` (`cardinality(tags) <= 13`), `ck_listing_drafts_listing_version_positive` (`version >= 1`)
 
-### Other Tables
-
 #### `trademark_records`
 
-| Column | Type | Nullable | Default | PK | FK |
+*PostgreSQL USPTO Trademark Registry mirror with trigram fuzzy search and TSDR status.*
+
+| Column | Type | Nullable | Default | PK | FK / References |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `id` | `CHAR(32)` | NO | `dynamic` | ✅ | - |
-| `mark_text` | `VARCHAR(512)` | NO | `-` | - | - |
-| `normalized_mark_text` | `VARCHAR(512)` | NO | `-` | - | - |
-| `serial_number` | `VARCHAR(64)` | YES | `-` | - | - |
-| `registration_number` | `VARCHAR(64)` | YES | `-` | - | - |
-| `status_code` | `VARCHAR(32)` | YES | `-` | - | - |
+| `mark_text` | `VARCHAR(512)` | NO | - | - | - |
+| `normalized_mark_text` | `VARCHAR(512)` | NO | - | - | - |
+| `serial_number` | `VARCHAR(64)` | YES | - | - | - |
+| `registration_number` | `VARCHAR(64)` | YES | - | - | - |
+| `status_code` | `VARCHAR(32)` | YES | - | - | - |
 | `status_text` | `VARCHAR(64)` | NO | `REGISTERED` | - | - |
 | `is_live` | `BOOLEAN` | NO | `True` | - | - |
 | `classes` | `JSONB` | NO | `dynamic` | - | - |
-| `goods_services` | `TEXT` | YES | `-` | - | - |
-| `owner_name` | `VARCHAR(512)` | YES | `-` | - | - |
-| `filing_date` | `VARCHAR(32)` | YES | `-` | - | - |
-| `registration_date` | `VARCHAR(32)` | YES | `-` | - | - |
-| `source_file` | `VARCHAR(512)` | YES | `-` | - | - |
-| `source_updated_at` | `DATETIME` | YES | `-` | - | - |
+| `goods_services` | `TEXT` | YES | - | - | - |
+| `owner_name` | `VARCHAR(512)` | YES | - | - | - |
+| `filing_date` | `VARCHAR(32)` | YES | - | - | - |
+| `registration_date` | `VARCHAR(32)` | YES | - | - | - |
+| `source_file` | `VARCHAR(512)` | YES | - | - | - |
+| `source_updated_at` | `DATETIME` | YES | - | - | - |
 | `imported_at` | `DATETIME` | NO | `now()` | - | - |
 | `created_at` | `DATETIME` | NO | `dynamic` | - | - |
 | `updated_at` | `DATETIME` | NO | `dynamic` | - | - |
+
+- **Indexes**: `ix_trademark_records_is_live` on `is_live`, `ix_trademark_records_mark_text` on `mark_text`, `ix_trademark_records_norm_live` on `normalized_mark_text, is_live`, `ix_trademark_records_normalized_mark_text` on `normalized_mark_text`, `ix_trademark_records_registration_number` on `registration_number`, `ix_trademark_records_trgm` on `normalized_mark_text`
 
 ---
 

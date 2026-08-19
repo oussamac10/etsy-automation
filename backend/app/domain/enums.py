@@ -173,6 +173,11 @@ class AuditAction(StrEnum):
     FAILURE_RECORDED = "failure_recorded"
     RETRY_SCHEDULED = "retry_scheduled"
     ARCHIVED = "archived"
+    ETSY_CONNECTED = "etsy_connected"
+    ETSY_DISCONNECTED = "etsy_disconnected"
+    ETSY_TOKEN_REFRESHED = "etsy_token_refreshed"
+    ETSY_DRAFT_CREATED = "etsy_draft_created"
+    ETSY_DRAFT_FAILED = "etsy_draft_failed"
 
 
 class ProductUse(StrEnum):
