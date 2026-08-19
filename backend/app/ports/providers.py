@@ -211,6 +211,16 @@ class EtsyFileResponse:
     filesize: int | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class EtsyTaxonomyNode:
+    id: int
+    level: int
+    name: str
+    parent_id: int | None = None
+    children: tuple[EtsyTaxonomyNode, ...] = ()
+    full_path: str = ""
+
+
 # --------------------------------------------------------------------------
 # Ports
 # --------------------------------------------------------------------------
@@ -307,6 +317,8 @@ class EtsyGateway(Protocol):
     async def get_listing(
         self, *, access_token: str, shop_id: str, listing_id: str
     ) -> EtsyListingResponse: ...
+
+    async def get_seller_taxonomy_nodes(self) -> list[EtsyTaxonomyNode]: ...
 
 
 @runtime_checkable

@@ -21,6 +21,7 @@ from app.ports.providers import (
     EtsyListingDraftInput,
     EtsyListingResponse,
     EtsyShop,
+    EtsyTaxonomyNode,
     EtsyTokenResponse,
     EtsyUser,
     ImageCandidate,
@@ -965,4 +966,106 @@ class FakeEtsyProvider(EtsyGateway):
             state="draft",
             url=f"https://www.etsy.com/listing/{listing_id}",
         )
+
+    async def get_seller_taxonomy_nodes(self) -> list[EtsyTaxonomyNode]:
+        self.call_count += 1
+        return [
+            EtsyTaxonomyNode(
+                id=66,
+                level=0,
+                name="Art & Collectibles",
+                full_path="Art & Collectibles",
+                children=(
+                    EtsyTaxonomyNode(
+                        id=70,
+                        level=1,
+                        name="Drawing & Illustration",
+                        parent_id=66,
+                        full_path="Art & Collectibles > Drawing & Illustration",
+                        children=(
+                            EtsyTaxonomyNode(
+                                id=77,
+                                level=2,
+                                name="Digital",
+                                parent_id=70,
+                                full_path="Art & Collectibles > Drawing & Illustration > Digital",
+                            ),
+                        ),
+                    ),
+                    EtsyTaxonomyNode(
+                        id=2077,
+                        level=1,
+                        name="Prints",
+                        parent_id=66,
+                        full_path="Art & Collectibles > Prints",
+                        children=(
+                            EtsyTaxonomyNode(
+                                id=2078,
+                                level=2,
+                                name="Digital Prints",
+                                parent_id=2077,
+                                full_path="Art & Collectibles > Prints > Digital Prints",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            EtsyTaxonomyNode(
+                id=562,
+                level=0,
+                name="Craft Supplies & Tools",
+                full_path="Craft Supplies & Tools",
+                children=(
+                    EtsyTaxonomyNode(
+                        id=563,
+                        level=1,
+                        name="Canvas & Surfaces",
+                        parent_id=562,
+                        full_path="Craft Supplies & Tools > Canvas & Surfaces",
+                        children=(
+                            EtsyTaxonomyNode(
+                                id=564,
+                                level=2,
+                                name="Stencils, Templates & Transfers",
+                                parent_id=563,
+                                full_path="Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers",
+                                children=(
+                                    EtsyTaxonomyNode(
+                                        id=6844,
+                                        level=3,
+                                        name="Clip Art & Image Files",
+                                        parent_id=564,
+                                        full_path="Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files",
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            EtsyTaxonomyNode(
+                id=891,
+                level=0,
+                name="Home & Living",
+                full_path="Home & Living",
+                children=(
+                    EtsyTaxonomyNode(
+                        id=892,
+                        level=1,
+                        name="Kitchen & Dining",
+                        parent_id=891,
+                        full_path="Home & Living > Kitchen & Dining",
+                        children=(
+                            EtsyTaxonomyNode(
+                                id=1049,
+                                level=2,
+                                name="Plates",
+                                parent_id=892,
+                                full_path="Home & Living > Kitchen & Dining > Plates",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ]
 

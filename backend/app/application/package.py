@@ -36,8 +36,10 @@ class CustomerPackageService:
         self,
         workflow_id: uuid.UUID,
         uow: UnitOfWork,
+        *,
+        include_mockups: bool = True,
     ) -> Asset:
-        """Assemble customer ZIP package from master artwork, mockups, and legal documents."""
+        """Assemble customer ZIP package from master artwork, optional mockups, and legal documents."""
         workflow: ProductWorkflow | None = await uow.workflows.get(workflow_id)
         if workflow is None:
             raise EntityNotFoundError("ProductWorkflow", workflow_id)
@@ -66,7 +68,7 @@ class CustomerPackageService:
         if master_asset is None:
             raise EntityNotFoundError("Master PNG Asset", workflow_id)
 
-        logger.info("building_customer_package", workflow_id=str(workflow_id), master_id=str(master_asset.id))
+        logger.info("building_customer_package", workflow_id=str(workflow_id), master_id=str(master_asset.id), include_mockups=include_mockups)
         master_bytes = await self._storage.get(master_asset.storage_key)
 
         files_to_zip: dict[str, bytes] = {}
@@ -86,19 +88,31 @@ class CustomerPackageService:
             except Exception as exc:
                 logger.warning("pdf_generation_failed", error=str(exc))
 
-        # Mockups
-        active_mockups = filter_active_user_mockups(assets, master_asset.id)
-        for idx, mockup_asset in enumerate(active_mockups[:5], start=1):
-            try:
-                mockup_bytes = await self._storage.get(mockup_asset.storage_key)
-                raw_prod = mockup_asset.provenance.get("product_type", f"preview-{idx}")
-                clean_prod = re.sub(r"[^a-zA-Z0-9_-]", "_", str(raw_prod))
-                files_to_zip[f"mockup-{idx}-{clean_prod}.png"] = mockup_bytes
-            except Exception as exc:
-                logger.warning("mockup_fetch_failed", asset_id=str(mockup_asset.id), error=str(exc))
+        # Mockups (only for general downloads if requested, never for Etsy buyer delivery)
+        if include_mockups:
+            active_mockups = filter_active_user_mockups(assets, master_asset.id)
+            for idx, mockup_asset in enumerate(active_mockups[:5], start=1):
+                try:
+                    mockup_bytes = await self._storage.get(mockup_asset.storage_key)
+                    raw_prod = mockup_asset.provenance.get("product_type", f"preview-{idx}")
+                    clean_prod = re.sub(r"[^a-zA-Z0-9_-]", "_", str(raw_prod))
+                    files_to_zip[f"mockup-{idx}-{clean_prod}.png"] = mockup_bytes
+                except Exception as exc:
+                    logger.warning("mockup_fetch_failed", asset_id=str(mockup_asset.id), error=str(exc))
 
         # License and Instructions text
-        owner_settings = await uow.owner_settings.get_for_user(workflow.owner_id) if hasattr(workflow, "owner_id") and workflow.owner_id else None
+        owner_settings = None
+        if hasattr(uow, "owner_settings") and uow.owner_settings and hasattr(workflow, "owner_id") and workflow.owner_id:
+            try:
+                import inspect
+                res = uow.owner_settings.get_for_user(workflow.owner_id)
+                if inspect.isawaitable(res):
+                    owner_settings = await res
+                elif hasattr(res, "shop_name"):
+                    owner_settings = res
+            except Exception:
+                owner_settings = None
+
         shop_name = getattr(owner_settings, "shop_name", "Digital Art Studio") if owner_settings else "Digital Art Studio"
 
         license_doc = generate_license_text(shop_name, listing_title)
@@ -114,7 +128,8 @@ class CustomerPackageService:
         # Build ZIP
         zip_bytes = build_zip_archive(files_to_zip)
         zip_sha256 = hashlib.sha256(zip_bytes).hexdigest()
-        storage_key = f"workflows/{workflow_id}/packages/customer-package-v{listing_version}.zip"
+        package_prefix = "customer-package" if include_mockups else "etsy-delivery"
+        storage_key = f"workflows/{workflow_id}/packages/{package_prefix}-v{listing_version}.zip"
 
         # Put to S3 / MinIO
         stored_obj = await self._storage.put(storage_key, zip_bytes, "application/zip")
@@ -131,11 +146,11 @@ class CustomerPackageService:
             byte_size=len(zip_bytes),
             checksum_sha256=zip_sha256,
             provenance={
-                "kind": "customer_package",
+                "kind": "customer_package" if include_mockups else "etsy_delivery_package",
                 "version": listing_version,
                 "file_count": len(files_to_zip),
                 "has_pdf": "print-ready.pdf" in files_to_zip,
-                "mockup_count": len(files_to_zip) - 4,
+                "mockup_count": len(files_to_zip) - 4 if include_mockups else 0,
             },
         )
         await uow.assets.add(package_asset)
@@ -155,3 +170,11 @@ class CustomerPackageService:
             size=len(zip_bytes),
         )
         return package_asset
+
+    async def build_etsy_delivery_package(
+        self,
+        workflow_id: uuid.UUID,
+        uow: UnitOfWork,
+    ) -> Asset:
+        """Build customer delivery package strictly for Etsy without marketing mockups."""
+        return await self.build_customer_package(workflow_id, uow, include_mockups=False)

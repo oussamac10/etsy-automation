@@ -25,6 +25,7 @@ from app.ports.providers import (
     EtsyListingDraftInput,
     EtsyListingResponse,
     EtsyShop,
+    EtsyTaxonomyNode,
     EtsyTokenResponse,
     EtsyUser,
 )
@@ -55,6 +56,8 @@ class EtsyProvider(EtsyGateway):
         self._token_url = token_url
         self._timeout = timeout
         self._client = client
+        self._taxonomy_cache: list[EtsyTaxonomyNode] | None = None
+        self._taxonomy_cache_time: float = 0.0
 
     def _default_headers(self, access_token: str | None = None) -> dict[str, str]:
         api_header_value = (
@@ -381,8 +384,19 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}/files"
         headers = self._default_headers(access_token)
 
+        mime_type = "application/zip"
+        lower_fn = filename.lower()
+        if lower_fn.endswith(".png"):
+            mime_type = "image/png"
+        elif lower_fn.endswith(".pdf"):
+            mime_type = "application/pdf"
+        elif lower_fn.endswith(".jpg") or lower_fn.endswith(".jpeg"):
+            mime_type = "image/jpeg"
+        elif lower_fn.endswith(".txt"):
+            mime_type = "text/plain"
+
         files = {
-            "file": (filename, file_bytes, "application/zip"),
+            "file": (filename, file_bytes, mime_type),
         }
         data = {
             "name": filename,
@@ -416,3 +430,38 @@ class EtsyProvider(EtsyGateway):
             state=str(payload.get("state", "draft")),
             url=payload.get("url") or f"https://www.etsy.com/listing/{listing_id}",
         )
+
+    async def get_seller_taxonomy_nodes(self) -> list[EtsyTaxonomyNode]:
+        """Fetch all official Etsy seller taxonomy nodes with 24h caching."""
+        import time
+
+        now = time.time()
+        if self._taxonomy_cache is not None and (now - self._taxonomy_cache_time) < 86400:
+            return self._taxonomy_cache
+
+        url = f"{self._base_url}/application/seller-taxonomy/nodes"
+        headers = self._default_headers()
+        response = await self._execute_with_retry(
+            "GET", url, headers=headers, operation="get_seller_taxonomy_nodes"
+        )
+        payload = response.json()
+        raw_results = payload.get("results", [])
+
+        def parse_node(raw: dict[str, Any], parent_path: str = "") -> EtsyTaxonomyNode:
+            name = str(raw.get("name", ""))
+            current_path = f"{parent_path} > {name}" if parent_path else name
+            raw_children = raw.get("children") or []
+            parsed_children = tuple(parse_node(c, current_path) for c in raw_children)
+            return EtsyTaxonomyNode(
+                id=int(raw.get("id", 0)),
+                level=int(raw.get("level", 0)),
+                name=name,
+                parent_id=raw.get("parent_id"),
+                children=parsed_children,
+                full_path=current_path,
+            )
+
+        parsed_nodes = [parse_node(r, "") for r in raw_results]
+        self._taxonomy_cache = parsed_nodes
+        self._taxonomy_cache_time = now
+        return parsed_nodes
