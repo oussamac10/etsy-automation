@@ -46,6 +46,10 @@ const isDraftRemoved = computed(() => {
   return currentStatus.value === 'draft_removed';
 });
 
+const isGate3Approved = computed(() => {
+  return ['READY_FOR_ETSY_DRAFT', 'ETSY_DRAFT_CREATED', 'PUBLISHED'].includes(props.workflowState);
+});
+
 const isCompleted = computed(() => {
   if (isDraftRemoved.value) return false;
   return (
@@ -282,6 +286,15 @@ async function copyListingId() {
           <span>Dispatch Failed</span>
         </Badge>
         <Badge
+          v-else-if="!isGate3Approved"
+          variant="outline"
+          class="gap-1 px-2.5 py-0.5 text-xs font-medium shrink-0 text-muted-foreground bg-muted/30 border-border"
+          data-testid="etsy-badge-pending-gate"
+        >
+          <Icon name="lucide:clock-3" class="size-3 text-muted-foreground" aria-hidden="true" />
+          <span>Awaiting Gate 3</span>
+        </Badge>
+        <Badge
           v-else
           variant="secondary"
           class="gap-1 px-2.5 py-0.5 text-xs font-medium shrink-0"
@@ -514,10 +527,10 @@ async function copyListingId() {
       >
         <div class="text-xs text-muted-foreground space-y-0.5">
           <div class="font-semibold text-foreground">
-            {{ isDraftRemoved ? 'Create New Etsy Draft' : 'Ready for Draft Creation' }}
+            {{ isDraftRemoved ? 'Create New Etsy Draft' : isGate3Approved ? 'Ready for Draft Creation' : 'Gate 3 Approval Required' }}
           </div>
           <div>
-            {{ isDraftRemoved ? 'Generate a new official Etsy draft listing with the approved campaign files.' : 'Creates an official draft listing on your connected Etsy shop with all approved assets.' }}
+            {{ isDraftRemoved ? 'Generate a new official Etsy draft listing with the approved campaign files.' : isGate3Approved ? 'Creates an official draft listing on your connected Etsy shop with all approved assets.' : 'Approve Gate 3 below to authorize and create draft listing on Etsy.' }}
           </div>
         </div>
 
@@ -525,13 +538,13 @@ async function copyListingId() {
           variant="default"
           size="sm"
           class="gap-2 cursor-pointer shrink-0 font-semibold"
-          :disabled="!connectionStatus?.connected || isDispatching"
+          :disabled="!connectionStatus?.connected || isDispatching || !isGate3Approved"
           data-testid="etsy-create-draft-btn"
           @click="handleCreateDraft"
         >
           <Icon v-if="isDispatching" name="lucide:loader-circle" class="size-4 animate-spin" aria-hidden="true" />
           <Icon v-else name="lucide:store" class="size-4" aria-hidden="true" />
-          <span>Create Etsy Draft</span>
+          <span>{{ !isGate3Approved ? 'Awaiting Approval' : 'Create Etsy Draft' }}</span>
         </Button>
       </div>
     </CardContent>

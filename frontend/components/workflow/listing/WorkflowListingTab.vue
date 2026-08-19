@@ -282,6 +282,25 @@ const isApproved = computed(() => {
 
     <!-- Main Content Grid -->
     <div v-else-if="listingDraft" class="space-y-6">
+      <!-- Top Row: Etsy Seller Category & Etsy Listing Dispatch in same line -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        <CategorySelectorCard
+          :workflow-id="workflowId"
+          :taxonomy-id="listingDraft.taxonomy_id"
+          :taxonomy-path="listingDraft.taxonomy_path"
+          :is-updating="isUpdatingTaxonomy"
+          @update-category="handleUpdateCategory"
+        />
+
+        <EtsyDraftCard
+          :workflow-id="workflowId"
+          :workflow-state="workflowState"
+          :listing="listingDraft"
+          @draft-created="loadListingData"
+        />
+      </div>
+
+      <!-- Core Content Grid: Left (Copy & Tags) vs Right (IP Risk & Customer ZIP Package) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <!-- Left Column: Copy & Tags -->
         <div class="space-y-6">
@@ -316,16 +335,8 @@ const isApproved = computed(() => {
           />
         </div>
 
-        <!-- Right Column: Category, IP Risk, & Customer ZIP Package -->
+        <!-- Right Column: IP Risk & Customer ZIP Package -->
         <div class="space-y-6">
-          <CategorySelectorCard
-            :workflow-id="workflowId"
-            :taxonomy-id="listingDraft.taxonomy_id"
-            :taxonomy-path="listingDraft.taxonomy_path"
-            :is-updating="isUpdatingTaxonomy"
-            @update-category="handleUpdateCategory"
-          />
-
           <IpRiskCard
             :risk-level="riskLevel"
             :findings="listingDraft.ip_findings"
@@ -343,15 +354,6 @@ const isApproved = computed(() => {
             :version="listingDraft.version"
             :is-building="isBuildingPackage"
             @build-package="handleBuildPackage"
-          />
-
-          <!-- Phase 9 Etsy Draft Creation Card (Visible when Gate 3 is Approved or in Draft Dispatch) -->
-          <EtsyDraftCard
-            v-if="isApproved || ['READY_FOR_ETSY_DRAFT', 'ETSY_DRAFT_CREATED'].includes(workflowState)"
-            :workflow-id="workflowId"
-            :workflow-state="workflowState"
-            :listing="listingDraft"
-            @draft-created="loadListingData"
           />
         </div>
       </div>
