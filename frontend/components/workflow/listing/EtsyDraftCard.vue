@@ -26,6 +26,7 @@ const {
   draftStatus,
   isLoading,
   isDispatching,
+  isReconciling,
   errorMessage,
   fetchConnectionStatus,
   triggerCreateEtsyDraft,
@@ -33,17 +34,23 @@ const {
 } = useEtsy();
 
 let pollInterval: ReturnType<typeof setInterval> | null = null;
+let reconciliationInterval: ReturnType<typeof setInterval> | null = null;
+let isReconcilingInProgress = false;
 const copied = ref(false);
 
 const currentStatus = computed(() => {
   return draftStatus.value?.dispatch_status || props.listing.etsy_dispatch_status || 'not_started';
 });
 
+const isDraftRemoved = computed(() => {
+  return currentStatus.value === 'draft_removed';
+});
+
 const isCompleted = computed(() => {
+  if (isDraftRemoved.value) return false;
   return (
     currentStatus.value === 'completed' ||
-    props.workflowState === 'ETSY_DRAFT_CREATED' ||
-    Boolean(listingId.value)
+    (props.workflowState === 'ETSY_DRAFT_CREATED' && Boolean(listingId.value))
   );
 });
 
@@ -68,6 +75,7 @@ const failureReason = computed(() => {
 });
 
 const listingId = computed(() => {
+  if (isDraftRemoved.value) return null;
   return draftStatus.value?.etsy_listing_id || props.listing.etsy_listing_id || null;
 });
 
@@ -92,11 +100,20 @@ onMounted(async () => {
   await fetchConnectionStatus();
   if (isInProgress.value) {
     startPolling();
+  } else if (props.workflowState === 'ETSY_DRAFT_CREATED' || isCompleted.value || Boolean(listingId.value)) {
+    // Reconcile on page load
+    const updated = await fetchDraftStatus(props.workflowId);
+    if (updated?.dispatch_status === 'draft_removed') {
+      emit('draft-created');
+    } else if (props.workflowState === 'ETSY_DRAFT_CREATED' || updated?.dispatch_status === 'completed') {
+      startReconciliationPolling();
+    }
   }
 });
 
 onBeforeUnmount(() => {
   stopPolling();
+  stopReconciliationPolling();
 });
 
 watch(currentStatus, (newStatus) => {
@@ -104,6 +121,11 @@ watch(currentStatus, (newStatus) => {
     startPolling();
   } else if (newStatus === 'completed') {
     stopPolling();
+    startReconciliationPolling();
+    emit('draft-created');
+  } else if (newStatus === 'draft_removed') {
+    stopPolling();
+    stopReconciliationPolling();
     emit('draft-created');
   } else if (newStatus === 'failed') {
     stopPolling();
@@ -116,9 +138,14 @@ function startPolling() {
     const updated = await fetchDraftStatus(props.workflowId);
     if (updated?.dispatch_status === 'completed') {
       stopPolling();
+      startReconciliationPolling();
       emit('draft-created');
     } else if (updated?.dispatch_status === 'failed') {
       stopPolling();
+    } else if (updated?.dispatch_status === 'draft_removed') {
+      stopPolling();
+      stopReconciliationPolling();
+      emit('draft-created');
     }
   }, 2000);
 }
@@ -127,6 +154,34 @@ function stopPolling() {
   if (pollInterval) {
     clearInterval(pollInterval);
     pollInterval = null;
+  }
+}
+
+function startReconciliationPolling() {
+  if (reconciliationInterval) return;
+  reconciliationInterval = setInterval(async () => {
+    if (isReconcilingInProgress || isDispatching.value) return;
+    if (props.workflowState !== 'ETSY_DRAFT_CREATED' && !isCompleted.value) {
+      stopReconciliationPolling();
+      return;
+    }
+    isReconcilingInProgress = true;
+    try {
+      const updated = await fetchDraftStatus(props.workflowId);
+      if (updated?.dispatch_status === 'draft_removed') {
+        stopReconciliationPolling();
+        emit('draft-created');
+      }
+    } finally {
+      isReconcilingInProgress = false;
+    }
+  }, 15000);
+}
+
+function stopReconciliationPolling() {
+  if (reconciliationInterval) {
+    clearInterval(reconciliationInterval);
+    reconciliationInterval = null;
   }
 }
 
@@ -182,13 +237,31 @@ async function copyListingId() {
         </div>
 
         <Badge
-          v-if="isCompleted"
+          v-if="isReconciling"
+          variant="outline"
+          class="gap-1 px-2.5 py-0.5 text-xs font-medium shrink-0 text-muted-foreground bg-muted/40 border-border animate-pulse"
+          data-testid="etsy-badge-checking"
+        >
+          <Icon name="lucide:loader-circle" class="size-3 animate-spin" aria-hidden="true" />
+          <span>Checking Etsy draft…</span>
+        </Badge>
+        <Badge
+          v-else-if="isCompleted"
           variant="outline"
           class="gap-1 px-2.5 py-0.5 text-xs font-medium shrink-0 text-foreground bg-muted/50 border-border"
           data-testid="etsy-badge-completed"
         >
           <Icon name="lucide:circle-check" class="size-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
           <span>Draft Created</span>
+        </Badge>
+        <Badge
+          v-else-if="isDraftRemoved"
+          variant="outline"
+          class="gap-1 px-2.5 py-0.5 text-xs font-medium shrink-0 text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20"
+          data-testid="etsy-badge-removed"
+        >
+          <Icon name="lucide:info" class="size-3" aria-hidden="true" />
+          <span>Etsy Draft Removed</span>
         </Badge>
         <Badge
           v-else-if="isInProgress"
@@ -229,6 +302,15 @@ async function copyListingId() {
         :description="failureReason"
         action-label="Retry Dispatch"
         @action="handleCreateDraft"
+      />
+
+      <!-- Draft Removed Alert -->
+      <Alert
+        v-if="isDraftRemoved"
+        variant="info"
+        title="Etsy draft removed"
+        description="This draft no longer exists in Etsy. Your campaign and digital files are still available locally."
+        data-testid="etsy-draft-removed-alert"
       />
 
       <!-- Shop Not Connected Alert -->
@@ -428,10 +510,15 @@ async function copyListingId() {
       <div
         v-else-if="!isInProgress"
         class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1"
+        data-testid="etsy-ready-dispatch-section"
       >
         <div class="text-xs text-muted-foreground space-y-0.5">
-          <div class="font-semibold text-foreground">Ready for Draft Creation</div>
-          <div>Creates an official draft listing on your connected Etsy shop with all approved assets.</div>
+          <div class="font-semibold text-foreground">
+            {{ isDraftRemoved ? 'Create New Etsy Draft' : 'Ready for Draft Creation' }}
+          </div>
+          <div>
+            {{ isDraftRemoved ? 'Generate a new official Etsy draft listing with the approved campaign files.' : 'Creates an official draft listing on your connected Etsy shop with all approved assets.' }}
+          </div>
         </div>
 
         <Button

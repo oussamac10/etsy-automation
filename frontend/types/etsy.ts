@@ -9,6 +9,7 @@ export type EtsyDispatchStatus =
   | 'uploading_images'
   | 'uploading_file'
   | 'completed'
+  | 'draft_removed'
   | 'failed';
 
 export interface EtsyConnectionStatus {

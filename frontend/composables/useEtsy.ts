@@ -16,6 +16,7 @@ export function useEtsy() {
   const isConnecting = ref(false);
   const isDisconnecting = ref(false);
   const isDispatching = ref(false);
+  const isReconciling = ref(false);
   const errorMessage = ref<string | null>(null);
 
   async function fetchConnectionStatus(): Promise<EtsyConnectionStatus | null> {
@@ -132,6 +133,34 @@ export function useEtsy() {
     }
   }
 
+  async function reconcileEtsyDraft(
+    workflowId: string
+  ): Promise<EtsyDraftDispatchResponse | null> {
+    if (!workflowId) return null;
+    isReconciling.value = true;
+    errorMessage.value = null;
+    try {
+      const data = await $fetch<EtsyDraftDispatchResponse>(
+        `${apiBase}/api/v1/workflows/${workflowId}/etsy/reconcile`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            ...getCsrfHeaders(),
+          },
+          credentials: 'include',
+        }
+      );
+      draftStatus.value = data;
+      return data;
+    } catch (err: unknown) {
+      errorMessage.value = getApiErrorMessage(err, 'Failed to reconcile Etsy draft.');
+      return null;
+    } finally {
+      isReconciling.value = false;
+    }
+  }
+
   return {
     connectionStatus,
     draftStatus,
@@ -139,11 +168,13 @@ export function useEtsy() {
     isConnecting,
     isDisconnecting,
     isDispatching,
+    isReconciling,
     errorMessage,
     fetchConnectionStatus,
     initiateOAuthConnect,
     disconnectShop,
     triggerCreateEtsyDraft,
     fetchDraftStatus,
+    reconcileEtsyDraft,
   };
 }
