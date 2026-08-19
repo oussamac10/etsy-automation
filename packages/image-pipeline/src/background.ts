@@ -350,7 +350,10 @@ export async function removeEdgeConnectedBackground(
       const offset = pIdx * 4;
 
       if (isBg[pIdx]) {
-        data[offset + 3] = 0; // Fully transparent
+        data[offset] = 0;
+        data[offset + 1] = 0;
+        data[offset + 2] = 0;
+        data[offset + 3] = 0; // Fully transparent & zeroed RGB for optimal deflate ratio
       } else {
         // Check if this is an edge boundary pixel adjacent to background
         let adjacentBgCount = 0;
@@ -379,7 +382,7 @@ export async function removeEdgeConnectedBackground(
   const resultPng = await sharp(data, {
     raw: { width, height, channels: 4 },
   })
-    .png({ compressionLevel: 9 })
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
     .toBuffer();
 
   return {
@@ -410,7 +413,7 @@ export async function ensureTransparentBackground(
   const limits = options.limits ?? DEFAULT_DECODE_LIMITS;
   const rawPng = await sharp(bytes, { limitInputPixels: limits.maxPixels })
     .ensureAlpha()
-    .png({ compressionLevel: 9 })
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
     .toBuffer();
 
   return {

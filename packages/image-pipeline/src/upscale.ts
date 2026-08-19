@@ -42,7 +42,7 @@ export async function upscaleToPrint(
       kernel: sharp.kernel.lanczos3,
     })
     .toColorspace("srgb")
-    .png({ compressionLevel: 8 })
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
     .withMetadata({ density: profile.densityDpi })
     .toBuffer();
 
