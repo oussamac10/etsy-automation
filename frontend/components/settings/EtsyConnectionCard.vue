@@ -12,6 +12,11 @@ import Badge from '~/components/ui/Badge.vue';
 import Alert from '~/components/ui/Alert.vue';
 import AlertTitle from '~/components/ui/AlertTitle.vue';
 import AlertDescription from '~/components/ui/AlertDescription.vue';
+import Dialog from '~/components/ui/Dialog.vue';
+import DialogHeader from '~/components/ui/DialogHeader.vue';
+import DialogTitle from '~/components/ui/DialogTitle.vue';
+import DialogDescription from '~/components/ui/DialogDescription.vue';
+import DialogFooter from '~/components/ui/DialogFooter.vue';
 
 let route: any = null;
 let router: any = null;
@@ -41,6 +46,7 @@ const {
 
 const successFeedback = ref<string | null>(null);
 const oauthError = ref<string | null>(null);
+const showDisconnectModal = ref(false);
 
 onMounted(async () => {
   if (route?.query?.etsy === 'connected') {
@@ -55,10 +61,15 @@ onMounted(async () => {
   await fetchConnectionStatus();
 });
 
-async function handleDisconnect(): Promise<void> {
-  const confirmed = window.confirm('Are you sure you want to disconnect your Etsy shop?');
-  if (!confirmed) return;
-  await disconnectShop();
+function openDisconnectModal(): void {
+  showDisconnectModal.value = true;
+}
+
+async function confirmDisconnect(): Promise<void> {
+  const success = await disconnectShop();
+  if (success) {
+    showDisconnectModal.value = false;
+  }
 }
 </script>
 
@@ -197,7 +208,7 @@ async function handleDisconnect(): Promise<void> {
               class="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 gap-1.5 cursor-pointer"
               :disabled="isDisconnecting"
               data-testid="etsy-disconnect-button"
-              @click="handleDisconnect"
+              @click="openDisconnectModal"
             >
               <Icon v-if="isDisconnecting" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
               <Icon v-else name="lucide:unplug" class="size-3.5" aria-hidden="true" />
@@ -235,5 +246,46 @@ async function handleDisconnect(): Promise<void> {
         </div>
       </div>
     </CardContent>
+
+    <!-- Disconnect Confirmation Dialog Modal -->
+    <Dialog :open="showDisconnectModal" max-width="md" @close="showDisconnectModal = false">
+      <DialogHeader>
+        <div class="flex items-center gap-3 text-destructive">
+          <div class="h-10 w-10 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
+            <Icon name="lucide:unplug" class="size-5 text-destructive" aria-hidden="true" />
+          </div>
+          <div>
+            <DialogTitle>Disconnect Etsy Shop</DialogTitle>
+            <DialogDescription class="mt-1">
+              Are you sure you want to disconnect <strong>{{ connectionStatus?.shop_name || 'your Etsy shop' }}</strong>?
+            </DialogDescription>
+          </div>
+        </div>
+      </DialogHeader>
+
+      <div class="py-2 text-xs text-muted-foreground space-y-2">
+        <p>
+          Disconnecting will remove all stored OAuth tokens from the secure server database. You can reconnect your shop at any time.
+        </p>
+      </div>
+
+      <DialogFooter class="gap-2 sm:gap-0">
+        <Button variant="outline" size="sm" :disabled="isDisconnecting" @click="showDisconnectModal = false">
+          Cancel
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          class="gap-1.5 cursor-pointer"
+          :disabled="isDisconnecting"
+          data-testid="confirm-disconnect-button"
+          @click="confirmDisconnect"
+        >
+          <Icon v-if="isDisconnecting" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:unplug" class="size-3.5" aria-hidden="true" />
+          <span>{{ isDisconnecting ? 'Disconnecting...' : 'Disconnect Shop' }}</span>
+        </Button>
+      </DialogFooter>
+    </Dialog>
   </Card>
 </template>
