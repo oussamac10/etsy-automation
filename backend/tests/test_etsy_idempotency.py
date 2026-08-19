@@ -90,6 +90,7 @@ async def test_idempotent_retry_reuses_existing_listing_id(
     listing.etsy_dispatch_status = "uploading_images"
 
     uow.listing_drafts.get_by_workflow = AsyncMock(return_value=listing)
+    uow.listing_drafts.update = AsyncMock(return_value=listing)
     uow.listing_drafts.update_etsy_draft = AsyncMock(return_value=listing)
     uow.listing_drafts.update_etsy_dispatch_status = AsyncMock(return_value=listing)
     uow.listing_drafts.record_etsy_image_upload = AsyncMock(return_value=listing)
@@ -143,6 +144,8 @@ async def test_idempotent_retry_reuses_existing_listing_id(
     zip_asset.provenance = {"kind": "customer_package"}
 
     uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset, mockup_1, mockup_2, zip_asset])
+    uow.assets.get_by_checksum_sha256 = AsyncMock(return_value=None)
+    uow.assets.add = AsyncMock()
     uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
 
     fake_etsy = FakeEtsyProvider()

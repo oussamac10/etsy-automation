@@ -155,11 +155,16 @@ class ListingDraftService:
             if len(initial_tags) == 13:
                 break
 
+        from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
+        tax_res = EtsyTaxonomyResolver().resolve(title=initial_title, tags=initial_tags)
+
         draft = ListingDraft(
             workflow_id=workflow_id,
             title=initial_title,
             description="High-resolution digital PNG download (4500x5400 px @ 300 DPI, transparent background).",
             tags=initial_tags,
+            taxonomy_id=tax_res.taxonomy_id,
+            taxonomy_path=tax_res.taxonomy_path,
             ip_risk_level=RiskLevel.UNKNOWN,
             ip_findings={},
             version=1,
@@ -175,12 +180,14 @@ class ListingDraftService:
         title: str,
         description: str,
         tags: list[str],
+        taxonomy_id: int | None = None,
+        taxonomy_path: str | None = None,
         expected_version: int | None,
         uow: UnitOfWork,
         actor_email: str,
         trademark_service: TrademarkScreeningService | None = None,
     ) -> ListingDraft:
-        """Update listing title, description, and tags with strict validation and optimistic concurrency."""
+        """Update listing title, description, tags, and category with strict validation and optimistic concurrency."""
         draft = await uow.listing_drafts.get_by_workflow(workflow_id)
         if draft is None:
             raise EntityNotFoundError("ListingDraft", workflow_id)
@@ -200,6 +207,8 @@ class ListingDraftService:
             title=title.strip(),
             description=description.strip(),
             tags=accepted_tags,
+            taxonomy_id=taxonomy_id,
+            taxonomy_path=taxonomy_path,
             expected_version=expected_version,
         )
 

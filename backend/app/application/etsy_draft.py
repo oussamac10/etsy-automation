@@ -3,12 +3,15 @@
 Guarantees:
 - CRITICAL SAFETY: Strictly forces draft state (`state="draft"`). Zero publish or activation capability.
 - Full Idempotency: Reconciles existing Etsy listings and uploaded assets across worker retries and partial failures.
-- Deterministic asset ordering: Primary mockup -> additional mockups -> customer digital ZIP package.
+- Deterministic asset ordering: Primary mockup -> additional mockups -> customer digital deliverables.
+- Real Product Delivery: Never uses expiring external link PDFs. Uploads real buyer deliverables directly to Etsy (up to 5 digital files).
+- Deterministic Seller Taxonomy: Resolves official Etsy digital category; no hardcoded physical fallbacks.
 - State Machine integration: Transitions workflow from `READY_FOR_ETSY_DRAFT` to `ETSY_DRAFT_CREATED`.
 """
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -20,12 +23,19 @@ from app.application.telegram import send_telegram_notification
 from app.application.unit_of_work import UnitOfWork
 from app.domain.enums import AuditAction
 from app.domain.errors import DomainError, EntityNotFoundError
-from app.domain.package_builder import create_access_delivery_pdf
+from app.domain.package_builder import (
+    build_zip_archive,
+    create_print_ready_pdf,
+    generate_checksum_manifest,
+    generate_instructions_text,
+    generate_license_text,
+)
 from app.domain.production_resolver import (
     filter_active_user_mockups,
     get_production_master_asset,
 )
 from app.domain.tags import validate_listing_title, validate_tags
+from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
 from app.domain.workflow import RunStatus
 from app.infrastructure.models import (
     Asset,
@@ -45,6 +55,9 @@ from app.providers.telegram import escape_html
 
 logger = structlog.get_logger(__name__)
 
+# Etsy Open API v3 maximum allowed bytes per uploaded digital file (20MB)
+MAX_ETSY_DIGITAL_FILE_BYTES = 20 * 1024 * 1024
+
 
 def build_etsy_shop_manager_url(listing_id: str) -> str:
     """Generate safe official Etsy Shop Manager listing editor URL."""
@@ -56,6 +69,7 @@ async def validate_pre_dispatch(
     owner_id: uuid.UUID,
     uow: UnitOfWork,
     storage: ObjectStorage,
+    etsy_gateway: EtsyGateway,
 ) -> tuple[ProductWorkflow, ListingDraft, ShopConnection, Asset, Asset]:
     """Validate all requirements before creating an Etsy draft listing.
 
@@ -64,7 +78,8 @@ async def validate_pre_dispatch(
     - Active Etsy shop connection
     - Listing draft title, description, and exactly 13 tags
     - Production master PNG asset existence
-    - Customer download ZIP package existence (or builds it)
+    - Etsy seller taxonomy category resolution
+    - Customer download delivery ZIP package existence (or builds it without mockups)
     """
     workflow = await uow.workflows.get(workflow_id)
     if workflow is None:
@@ -105,22 +120,33 @@ async def validate_pre_dispatch(
     if master_asset is None:
         raise DomainError("Master print-ready PNG asset is missing. Complete asset production before dispatching to Etsy.")
 
-    # Validate / Resolve Customer Package ZIP
-    assets = await uow.assets.list_for_workflow(workflow_id)
-    zip_asset = next(
-        (
-            a
-            for a in assets
-            if a.mime_type == "application/zip"
-            or (a.provenance and a.provenance.get("kind") == "customer_package")
-            or a.storage_key.endswith(".zip")
-        ),
-        None,
-    )
-    if zip_asset is None:
-        # Build customer download package if not already assembled
-        package_service = CustomerPackageService(storage)
-        zip_asset = await package_service.build_customer_package(workflow_id, uow)
+    # Validate / Resolve Taxonomy Category
+    if not listing.taxonomy_id:
+        try:
+            taxonomy_nodes = await etsy_gateway.get_seller_taxonomy_nodes()
+        except Exception as exc:
+            logger.warning("failed_to_fetch_taxonomy_nodes", error=str(exc))
+            taxonomy_nodes = []
+
+        resolver = EtsyTaxonomyResolver()
+        resolution = resolver.resolve(
+            title=listing.title,
+            tags=listing.tags,
+            nodes=taxonomy_nodes,
+        )
+        listing = await uow.listing_drafts.update(
+            listing.id,
+            taxonomy_id=resolution.taxonomy_id,
+            taxonomy_path=resolution.taxonomy_path,
+        )
+        await uow.commit()
+
+    if not listing.taxonomy_id:
+        raise DomainError("Could not resolve a valid Etsy seller taxonomy category for digital artwork.")
+
+    # Validate / Build Etsy Delivery Package (without marketing mockups)
+    package_service = CustomerPackageService(storage)
+    zip_asset = await package_service.build_etsy_delivery_package(workflow_id, uow)
 
     return workflow, listing, conn, master_asset, zip_asset
 
@@ -135,12 +161,13 @@ async def execute_etsy_draft_pipeline(
     telegram_gateway: TelegramGateway | None = None,
     web_dashboard_url: str = "http://localhost:3000",
 ) -> ListingDraft:
-    """Orchestrate idempotent draft listing creation and asset upload to Etsy Open API v3."""
+    """Orchestrate idempotent draft listing creation and real asset upload to Etsy Open API v3."""
     workflow, listing, conn, master_asset, zip_asset = await validate_pre_dispatch(
         workflow_id=workflow_id,
         owner_id=owner_id,
         uow=uow,
         storage=storage,
+        etsy_gateway=etsy_gateway,
     )
 
     # Get decrypted OAuth access token (auto-refreshes if within buffer)
@@ -162,13 +189,16 @@ async def execute_etsy_draft_pipeline(
 
             price_cents = listing.price_minor_units if listing.price_minor_units is not None else 499
 
+            if not listing.taxonomy_id:
+                raise DomainError("A valid Etsy seller taxonomy category ID is required.")
+
             payload = EtsyListingDraftInput(
                 title=listing.title,
                 description=listing.description,
                 tags=list(listing.tags),
                 price_cents=price_cents,
                 currency=listing.currency or "USD",
-                taxonomy_id=listing.taxonomy_id or 1049,  # Default Digital Prints
+                taxonomy_id=listing.taxonomy_id,
                 who_made="i_did",
                 when_made="2020_2026",
                 item_type="download",
@@ -201,6 +231,8 @@ async def execute_etsy_draft_pipeline(
                 workflow_id=str(workflow_id),
                 listing_id=listing_id,
                 shop_id=conn.etsy_shop_id,
+                taxonomy_id=listing.taxonomy_id,
+                taxonomy_path=listing.taxonomy_path,
             )
 
         # Step 2: Upload Preview Images in Deterministic Order
@@ -255,57 +287,109 @@ async def execute_etsy_draft_pipeline(
                 )
                 raise
 
-        # Step 3: Upload Customer Digital Download ZIP Package
+        # Step 3: Upload Real Customer Digital Download Files (Up to 5 files, <= 20MB each)
         await uow.listing_drafts.update_etsy_dispatch_status(
             listing.id, status="uploading_file"
         )
         await uow.commit()
 
-        if not listing.etsy_file_id:
-            zip_bytes = await storage.get(zip_asset.storage_key)
-            max_etsy_bytes = 20 * 1024 * 1024  # 20MB Etsy Open API v3 limit
+        zip_bytes = await storage.get(zip_asset.storage_key)
+        clean_slug = re.sub(r"[^a-zA-Z0-9_-]", "_", listing.title[:35]).strip("_") or "artwork"
 
-            if len(zip_bytes) <= max_etsy_bytes:
-                file_resp = await etsy_gateway.upload_listing_file(
-                    access_token=access_token,
-                    shop_id=conn.etsy_shop_id,
-                    listing_id=listing_id,
-                    file_bytes=zip_bytes,
-                    filename="digital-package.zip",
-                    rank=1,
-                )
-            else:
-                logger.info(
-                    "package_exceeds_etsy_limit_generating_access_pdf",
-                    workflow_id=str(workflow_id),
-                    size_bytes=len(zip_bytes),
-                )
-                download_url = await storage.signed_url(zip_asset.storage_key, expires_in_seconds=604800)
-                shop_name = conn.etsy_shop_name or "Digital Art Studio"
-                access_pdf_bytes = create_access_delivery_pdf(
-                    listing_title=listing.title or "High-Resolution Digital Artwork",
-                    shop_name=shop_name,
-                    download_url=download_url,
-                )
-                file_resp = await etsy_gateway.upload_listing_file(
-                    access_token=access_token,
-                    shop_id=conn.etsy_shop_id,
-                    listing_id=listing_id,
-                    file_bytes=access_pdf_bytes,
-                    filename="Digital_Download_Access_Instructions.pdf",
-                    rank=1,
+        files_to_upload: list[tuple[str, bytes]] = []
+
+        if len(zip_bytes) <= MAX_ETSY_DIGITAL_FILE_BYTES:
+            # Single complete customer package ZIP fits safely
+            files_to_upload.append((f"{clean_slug}-package.zip", zip_bytes))
+        else:
+            # Package exceeds 20MB: split into real deliverables (master PNG, print-ready PDF, documentation ZIP)
+            logger.info(
+                "etsy_package_exceeds_limit_splitting_deliverables",
+                workflow_id=str(workflow_id),
+                zip_size=len(zip_bytes),
+            )
+            master_bytes = await storage.get(master_asset.storage_key)
+            if len(master_bytes) > MAX_ETSY_DIGITAL_FILE_BYTES:
+                raise DomainError(
+                    f"Master PNG artwork ({len(master_bytes)} bytes) exceeds Etsy's maximum allowed digital file limit of 20MB."
                 )
 
+            # 1. Master high-res transparent PNG
+            files_to_upload.append((f"{clean_slug}-master.png", master_bytes))
+
+            # 2. Print-ready PDF if generated and fits within 20MB
+            if len(master_bytes) < 10 * 1024 * 1024:
+                try:
+                    pdf_bytes = create_print_ready_pdf(
+                        master_bytes,
+                        width_px=master_asset.width or 4500,
+                        height_px=master_asset.height or 5400,
+                    )
+                    if len(pdf_bytes) <= MAX_ETSY_DIGITAL_FILE_BYTES:
+                        files_to_upload.append((f"{clean_slug}-print-ready.pdf", pdf_bytes))
+                except Exception as exc:
+                    logger.warning("print_pdf_generation_skipped", error=str(exc))
+
+            # 3. Documentation bundle ZIP (License, Instructions, Checksum manifest)
+            owner_settings = None
+            if hasattr(uow, "owner_settings") and uow.owner_settings and hasattr(workflow, "owner_id") and workflow.owner_id:
+                try:
+                    import inspect
+                    res = uow.owner_settings.get_for_user(workflow.owner_id)
+                    if inspect.isawaitable(res):
+                        owner_settings = await res
+                    elif hasattr(res, "shop_name"):
+                        owner_settings = res
+                except Exception:
+                    owner_settings = None
+
+            shop_name = getattr(owner_settings, "shop_name", "Digital Art Studio") if owner_settings else "Digital Art Studio"
+            license_doc = generate_license_text(shop_name, listing.title)
+            instructions_doc = generate_instructions_text(listing.title)
+
+            doc_files = {
+                "LICENSE.txt": license_doc.encode("utf-8"),
+                "INSTRUCTIONS.txt": instructions_doc.encode("utf-8"),
+                "master_artwork_checksum.sha256": f"{master_asset.checksum_sha256}  {clean_slug}-master.png\n".encode("utf-8"),
+            }
+            doc_manifest = generate_checksum_manifest(doc_files)
+            doc_files["manifest.sha256"] = doc_manifest.encode("utf-8")
+            doc_zip_bytes = build_zip_archive(doc_files)
+            files_to_upload.append((f"{clean_slug}-license-and-info.zip", doc_zip_bytes))
+
+        # Idempotent upload loop across all deliverables
+        current_file_ids = list(
+            listing.etsy_file_ids or ([listing.etsy_file_id] if listing.etsy_file_id else [])
+        )
+
+        for rank, (filename, file_content) in enumerate(files_to_upload, start=1):
+            if len(current_file_ids) >= rank:
+                continue
+
+            file_resp = await etsy_gateway.upload_listing_file(
+                access_token=access_token,
+                shop_id=conn.etsy_shop_id,
+                listing_id=listing_id,
+                file_bytes=file_content,
+                filename=filename,
+                rank=rank,
+            )
             listing = await uow.listing_drafts.record_etsy_file_upload(
                 listing.id, file_id=file_resp.listing_file_id
             )
+            current_file_ids.append(file_resp.listing_file_id)
             await uow.commit()
             logger.info(
                 "etsy_digital_file_uploaded",
                 workflow_id=str(workflow_id),
                 listing_id=listing_id,
                 file_id=file_resp.listing_file_id,
+                filename=filename,
+                rank=rank,
             )
+
+        if not current_file_ids:
+            raise DomainError("No digital product files were uploaded to Etsy.")
 
         # Step 4: Finalize Workflow & Audit
         now = datetime.now(UTC)
@@ -314,7 +398,7 @@ async def execute_etsy_draft_pipeline(
                 workflow,
                 to_state=RunStatus.ETSY_DRAFT_CREATED,
                 expected_version=workflow.version,
-                reason="Etsy draft listing created successfully with mockups and customer ZIP bundle.",
+                reason="Etsy draft listing created successfully with mockups and real digital deliverables.",
                 actor="system",
             )
 
@@ -335,8 +419,10 @@ async def execute_etsy_draft_pipeline(
                 "etsy_listing_id": listing_id,
                 "etsy_shop_id": conn.etsy_shop_id,
                 "etsy_shop_name": conn.etsy_shop_name,
+                "taxonomy_id": listing.taxonomy_id,
+                "taxonomy_path": listing.taxonomy_path,
                 "image_count": len(listing.etsy_image_ids or []),
-                "file_uploaded": bool(listing.etsy_file_id),
+                "file_count": len(listing.etsy_file_ids or ([listing.etsy_file_id] if listing.etsy_file_id else [])),
                 "etsy_management_url": build_etsy_shop_manager_url(listing_id),
             },
         )
@@ -349,36 +435,52 @@ async def execute_etsy_draft_pipeline(
                 telegram_gateway=telegram_gateway,
                 owner_id=owner_id,
                 workflow_id=workflow_id,
-                title=listing.title,
-                shop_name=conn.etsy_shop_name,
                 listing_id=listing_id,
-                images_count=len(listing.etsy_image_ids or []),
-                has_zip=bool(listing.etsy_file_id),
+                listing_title=listing.title,
+                shop_name=conn.etsy_shop_name or "Etsy Shop",
+                web_dashboard_url=web_dashboard_url,
             )
 
+        logger.info(
+            "etsy_draft_pipeline_completed",
+            workflow_id=str(workflow_id),
+            listing_id=listing_id,
+            taxonomy_id=listing.taxonomy_id,
+            taxonomy_path=listing.taxonomy_path,
+            image_count=len(listing.etsy_image_ids or []),
+            file_count=len(listing.etsy_file_ids or []),
+        )
         return listing
 
     except Exception as exc:
-        logger.exception("etsy_draft_dispatch_failed", workflow_id=str(workflow_id), error=str(exc))
+        error_msg = str(exc)
+        logger.error(
+            "etsy_draft_pipeline_failed",
+            workflow_id=str(workflow_id),
+            error=error_msg,
+            exc_info=True,
+        )
         try:
-            await uow.listing_drafts.update_etsy_dispatch_status(
+            listing = await uow.listing_drafts.update_etsy_dispatch_status(
                 listing.id,
                 status="failed",
-                failure_reason=str(exc),
+                failure_reason=error_msg,
                 last_synced_at=datetime.now(UTC),
-            )
-            await uow.audit.record(
-                action=AuditAction.ETSY_DRAFT_FAILED,
-                entity_type="ListingDraft",
-                entity_id=listing.id,
-                workflow_id=workflow_id,
-                actor=str(owner_id),
-                summary="Etsy draft creation failed.",
-                metadata={"error": str(exc)},
             )
             await uow.commit()
         except Exception:
-            pass
+            logger.warning("failed_to_persist_etsy_draft_error", workflow_id=str(workflow_id))
+
+        if telegram_gateway is not None:
+            await send_etsy_draft_failed_notification(
+                uow=uow,
+                telegram_gateway=telegram_gateway,
+                owner_id=owner_id,
+                workflow_id=workflow_id,
+                listing_title=listing.title if listing else "Listing",
+                error_message=error_msg,
+                web_dashboard_url=web_dashboard_url,
+            )
         raise
 
 
@@ -387,35 +489,77 @@ async def send_etsy_draft_created_notification(
     telegram_gateway: TelegramGateway,
     owner_id: uuid.UUID,
     workflow_id: uuid.UUID,
-    title: str,
-    shop_name: str,
     listing_id: str,
-    images_count: int,
-    has_zip: bool,
+    listing_title: str,
+    shop_name: str,
+    web_dashboard_url: str = "http://localhost:3000",
 ) -> None:
-    """Send structured completion notification with link to Etsy Shop Manager (ZERO publish action)."""
-    manager_url = build_etsy_shop_manager_url(listing_id)
+    """Send Telegram notification on successful Etsy draft listing creation."""
+    try:
+        etsy_edit_url = build_etsy_shop_manager_url(listing_id)
+        app_url = f"{web_dashboard_url.rstrip('/')}/workflow/{workflow_id}?tab=listing"
 
-    msg_lines = [
-        "<b>📦 Etsy Draft Created ✅</b>",
-        "",
-        f"<b>Shop:</b> {escape_html(shop_name)}",
-        f"<b>Listing ID:</b> <code>{listing_id}</code>",
-        f"<b>Title:</b> {escape_html(title)}",
-        f"<b>Images:</b> {images_count} preview mockups uploaded",
-        f"<b>Digital Package:</b> {'Attached ✅' if has_zip else 'Pending'}",
-        "",
-        "<i>This listing is in <b>draft</b> state. Publish manually inside Etsy Shop Manager when ready.</i>",
-    ]
+        safe_title = escape_html(listing_title)
+        safe_shop = escape_html(shop_name)
 
-    inline_keyboard = [
-        [{"text": "🛒 Open in Etsy Shop Manager", "url": manager_url}]
-    ]
+        text = (
+            f"<b>Etsy Draft Created!</b>\n\n"
+            f"Your listing draft for <b>{safe_title}</b> has been created on <b>{safe_shop}</b>.\n\n"
+            f"<b>Listing ID:</b> <code>{listing_id}</code>\n"
+            f"<b>State:</b> Draft (Private & Safe)\n\n"
+            f"All mockups and digital download files have been attached.\n\n"
+            f"<a href=\"{etsy_edit_url}\">Open in Etsy Shop Manager</a> | "
+            f"<a href=\"{app_url}\">View in Dashboard</a>"
+        )
 
-    await send_telegram_notification(
-        uow=uow,
-        telegram_gateway=telegram_gateway,
-        owner_id=owner_id,
-        text="\n".join(msg_lines),
-        reply_markup={"inline_keyboard": inline_keyboard},
-    )
+        await send_telegram_notification(
+            uow=uow,
+            telegram_gateway=telegram_gateway,
+            owner_id=owner_id,
+            text=text,
+        )
+    except Exception as exc:
+        logger.warning(
+            "telegram_etsy_draft_created_notification_failed",
+            owner_id=str(owner_id),
+            workflow_id=str(workflow_id),
+            error=str(exc),
+        )
+
+
+async def send_etsy_draft_failed_notification(
+    uow: UnitOfWork,
+    telegram_gateway: TelegramGateway,
+    owner_id: uuid.UUID,
+    workflow_id: uuid.UUID,
+    listing_title: str,
+    error_message: str,
+    web_dashboard_url: str = "http://localhost:3000",
+) -> None:
+    """Send Telegram notification on Etsy draft creation failure."""
+    try:
+        app_url = f"{web_dashboard_url.rstrip('/')}/workflow/{workflow_id}?tab=listing"
+
+        safe_title = escape_html(listing_title)
+        safe_error = escape_html(error_message[:300])
+
+        text = (
+            f"<b>Etsy Dispatch Failed</b>\n\n"
+            f"Draft creation for <b>{safe_title}</b> encountered an error:\n"
+            f"<code>{safe_error}</code>\n\n"
+            f"<a href=\"{app_url}\">Review & Retry in Dashboard</a>"
+        )
+
+        await send_telegram_notification(
+            uow=uow,
+            telegram_gateway=telegram_gateway,
+            owner_id=owner_id,
+            text=text,
+        )
+    except Exception as exc:
+        logger.warning(
+            "telegram_etsy_draft_failed_notification_failed",
+            owner_id=str(owner_id),
+            workflow_id=str(workflow_id),
+            error=str(exc),
+        )
