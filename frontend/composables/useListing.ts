@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import type { ListingDraft, UpdateListingPayload, Gate3DecisionPayload } from '~/types/listing';
+import type { ListingDraft, UpdateListingPayload, Gate3DecisionPayload, TaxonomyCategory } from '~/types/listing';
 import { getApiErrorMessage, getCsrfHeaders } from '~/utils/api';
 
 export function useListing() {
@@ -267,6 +267,59 @@ export function useListing() {
     }
   }
 
+  const isUpdatingTaxonomy = ref(false);
+  const isLoadingTaxonomy = ref(false);
+
+  async function fetchTaxonomyCategories(workflowId: string, q?: string): Promise<TaxonomyCategory[]> {
+    if (!workflowId) return [];
+    isLoadingTaxonomy.value = true;
+    try {
+      const url = q
+        ? `${apiBase}/api/v1/workflows/${workflowId}/listing/taxonomy/categories?q=${encodeURIComponent(q)}`
+        : `${apiBase}/api/v1/workflows/${workflowId}/listing/taxonomy/categories`;
+      const data = await $fetch<TaxonomyCategory[]>(url, {
+        headers: { Accept: 'application/json' },
+        credentials: 'include',
+      });
+      return data || [];
+    } catch {
+      return [];
+    } finally {
+      isLoadingTaxonomy.value = false;
+    }
+  }
+
+  async function updateTaxonomy(workflowId: string, taxonomyId: number, taxonomyPath?: string): Promise<ListingDraft | null> {
+    if (!workflowId) return null;
+    isUpdatingTaxonomy.value = true;
+    errorMessage.value = null;
+    try {
+      const data = await $fetch<ListingDraft>(
+        `${apiBase}/api/v1/workflows/${workflowId}/listing/taxonomy`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            ...getCsrfHeaders(),
+          },
+          body: {
+            taxonomy_id: taxonomyId,
+            taxonomy_path: taxonomyPath,
+          },
+          credentials: 'include',
+        }
+      );
+      listingDraft.value = data;
+      return data;
+    } catch (err: unknown) {
+      errorMessage.value = getApiErrorMessage(err, 'Failed to update taxonomy category.');
+      throw err;
+    } finally {
+      isUpdatingTaxonomy.value = false;
+    }
+  }
+
   return {
     listingDraft,
     isLoading,
@@ -278,6 +331,8 @@ export function useListing() {
     isDeletingVersion,
     isDeletingTagHistory,
     isDecidingGate,
+    isUpdatingTaxonomy,
+    isLoadingTaxonomy,
     errorMessage,
     loadListing,
     updateListing,
@@ -288,5 +343,7 @@ export function useListing() {
     deleteVersion,
     deleteTagFromHistory,
     decideGate3,
+    fetchTaxonomyCategories,
+    updateTaxonomy,
   };
 }

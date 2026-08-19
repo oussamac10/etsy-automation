@@ -75,6 +75,10 @@ const mockupCount = computed(() => {
   return props.listing.etsy_image_ids?.length || draftStatus.value?.etsy_image_ids?.length || 0;
 });
 
+const digitalFilesCount = computed(() => {
+  return props.listing.etsy_file_ids?.length || draftStatus.value?.etsy_file_ids?.length || (props.listing.etsy_file_id || draftStatus.value?.etsy_file_id ? 1 : 0);
+});
+
 const listingManagerUrl = computed(() => {
   if (!listingId.value) return null;
   return `https://www.etsy.com/your/shops/me/listing-editor/edit/${listingId.value}`;
@@ -377,8 +381,8 @@ async function copyListingId() {
           <div>
             <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">Customer Download</span>
             <span class="text-xs font-semibold text-foreground flex items-center gap-1 mt-1">
-              <Icon name="lucide:file-archive" class="size-3.5 text-primary" aria-hidden="true" />
-              <span>Digital ZIP Attached</span>
+              <Icon name="lucide:file-check" class="size-3.5 text-primary" aria-hidden="true" />
+              <span>{{ digitalFilesCount > 1 ? `${digitalFilesCount} Real Product Files` : 'Digital Product Attached' }}</span>
             </span>
           </div>
         </div>

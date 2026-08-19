@@ -62,6 +62,8 @@ export interface ListingDraft {
   title: string;
   description: string;
   tags: string[];
+  taxonomy_id?: number | null;
+  taxonomy_path?: string | null;
   price_minor_units?: number | null;
   currency?: string | null;
   ai_disclosure?: string | null;
@@ -83,6 +85,7 @@ export interface ListingDraft {
   etsy_state?: string | null;
   etsy_image_ids?: string[];
   etsy_file_id?: string | null;
+  etsy_file_ids?: string[];
   etsy_dispatch_status?: string | null;
   etsy_draft_created_at?: string | null;
   etsy_last_synced_at?: string | null;
@@ -95,7 +98,16 @@ export interface UpdateListingPayload {
   title: string;
   description: string;
   tags: string[];
+  taxonomy_id?: number | null;
+  taxonomy_path?: string | null;
   expected_version?: number;
+}
+
+export interface TaxonomyCategory {
+  id: number;
+  name: string;
+  full_path: string;
+  level: number;
 }
 
 export interface Gate3DecisionPayload {

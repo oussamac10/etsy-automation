@@ -35,6 +35,7 @@ export interface EtsyDraftDispatchResponse {
   etsy_shop_id?: string | null;
   etsy_image_ids?: string[];
   etsy_file_id?: string | null;
+  etsy_file_ids?: string[];
   error_message?: string | null;
   last_synced_at?: string | null;
 }

@@ -4,6 +4,7 @@ import { useListing } from '~/composables/useListing';
 import ListingEditorCard from './ListingEditorCard.vue';
 import TagEditorCard from './TagEditorCard.vue';
 import IpRiskCard from './IpRiskCard.vue';
+import CategorySelectorCard from './CategorySelectorCard.vue';
 import CustomerPackageCard from './CustomerPackageCard.vue';
 import EtsyDraftCard from './EtsyDraftCard.vue';
 import Button from '~/components/ui/Button.vue';
@@ -33,6 +34,7 @@ const {
   isDeletingVersion,
   isDeletingTagHistory,
   isDecidingGate,
+  isUpdatingTaxonomy,
   errorMessage,
   loadListing,
   updateListing,
@@ -43,6 +45,7 @@ const {
   deleteVersion,
   deleteTagFromHistory,
   decideGate3,
+  updateTaxonomy,
 } = useListing();
 
 const localTitle = ref('');
@@ -178,6 +181,21 @@ async function handleBuildPackage() {
   }
 }
 
+async function handleUpdateCategory(payload: { id: number; path: string }) {
+  successMessage.value = null;
+  try {
+    const updated = await updateTaxonomy(props.workflowId, payload.id, payload.path);
+    if (updated) {
+      successMessage.value = 'Etsy seller category updated successfully.';
+      setTimeout(() => {
+        successMessage.value = null;
+      }, 4000);
+    }
+  } catch {
+    // Error set in composable
+  }
+}
+
 async function handleApprove() {
   successMessage.value = null;
   const draft = await decideGate3(props.workflowId, {
@@ -298,8 +316,16 @@ const isApproved = computed(() => {
           />
         </div>
 
-        <!-- Right Column: IP Risk & Customer ZIP Package -->
+        <!-- Right Column: Category, IP Risk, & Customer ZIP Package -->
         <div class="space-y-6">
+          <CategorySelectorCard
+            :workflow-id="workflowId"
+            :taxonomy-id="listingDraft.taxonomy_id"
+            :taxonomy-path="listingDraft.taxonomy_path"
+            :is-updating="isUpdatingTaxonomy"
+            @update-category="handleUpdateCategory"
+          />
+
           <IpRiskCard
             :risk-level="riskLevel"
             :findings="listingDraft.ip_findings"
