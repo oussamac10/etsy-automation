@@ -83,6 +83,18 @@ def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None
     }
     history.append(snapshot)
     findings["history"] = deduplicate_history(history)
+
+    # Accumulate all historical tags for this draft into tag_history
+    raw_tag_history = findings.get("tag_history")
+    tag_history: list[str] = list(raw_tag_history) if isinstance(raw_tag_history, list) else []
+    seen_tags = set(tag_history)
+    for t in draft.tags:
+        clean = str(t).strip().lower()
+        if clean and clean not in seen_tags:
+            seen_tags.add(clean)
+            tag_history.append(clean)
+    findings["tag_history"] = tag_history
+
     draft.ip_findings = findings
 
 
@@ -319,6 +331,43 @@ class ListingDraftService:
             entity_id=draft.id,
             actor=actor_email,
             metadata={"deleted_version": target_version},
+        )
+        return draft
+
+    async def remove_tag_from_history(
+        self,
+        workflow_id: uuid.UUID,
+        tag: str,
+        uow: UnitOfWork,
+        actor_email: str,
+    ) -> ListingDraft:
+        """Permanently remove a tag from this campaign's historical tag list."""
+        draft = await uow.listing_drafts.get_by_workflow(workflow_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", workflow_id)
+
+        findings = dict(draft.ip_findings or {})
+        target_tag = tag.strip().lower()
+        raw_th = findings.get("tag_history", [])
+        if isinstance(raw_th, list):
+            findings["tag_history"] = [t for t in raw_th if str(t).strip().lower() != target_tag]
+        draft.ip_findings = findings
+
+        await uow.listing_drafts.update_ip_review(
+            draft.id,
+            ip_reviewed_phrase=draft.ip_reviewed_phrase,
+            ip_risk_level=draft.ip_risk_level,
+            ip_findings=findings,
+        )
+
+        await uow.audit.record(
+            action=AuditAction.SETTINGS_UPDATED,
+            entity_type="ListingDraft",
+            summary=f"Removed tag '{tag}' from campaign tag history",
+            workflow_id=workflow_id,
+            entity_id=draft.id,
+            actor=actor_email,
+            metadata={"removed_tag": tag},
         )
         return draft
 

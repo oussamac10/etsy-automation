@@ -43,7 +43,34 @@ def test_record_version_snapshot_deduplication():
 
     # Third call with different title should add new snapshot
     draft.title = "Floral PNG Bundle"
+    draft.tags = ["floral", "botanical", "vintage flower"]
     draft.version = 2
     record_version_snapshot(draft, source="manual")
     assert len(draft.ip_findings["history"]) == 2
     assert draft.ip_findings["history"][1]["version"] == 2
+    assert "vintage flower" in draft.ip_findings["tag_history"]
+    assert "floral" in draft.ip_findings["tag_history"]
+
+
+def test_tag_history_accumulation():
+    draft = ListingDraft(
+        id=uuid.uuid4(),
+        workflow_id=uuid.uuid4(),
+        title="Cat PNG",
+        description="Cute cat graphic",
+        tags=["cat", "kitten", "feline"],
+        ip_risk_level=RiskLevel.LOW,
+        ip_findings={},
+        version=1,
+    )
+    record_version_snapshot(draft, source="initial")
+    assert set(draft.ip_findings["tag_history"]) == {"cat", "kitten", "feline"}
+
+    # User replaces tags with new ones
+    draft.tags = ["cat", "meow", "sublimation"]
+    draft.version = 2
+    record_version_snapshot(draft, source="manual")
+
+    # All 5 historical tags are retained
+    assert set(draft.ip_findings["tag_history"]) == {"cat", "kitten", "feline", "meow", "sublimation"}
+

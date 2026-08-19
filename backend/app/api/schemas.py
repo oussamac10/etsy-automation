@@ -398,6 +398,7 @@ class ListingDraftResponse(BaseModel):
     package_asset: AssetResponse | None = None
     package_download_url: str | None = None
     history: list[dict[str, object]] = []
+    tag_history: list[str] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

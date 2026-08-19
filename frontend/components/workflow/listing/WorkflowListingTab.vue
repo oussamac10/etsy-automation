@@ -30,6 +30,7 @@ const {
   isBuildingPackage,
   isRestoringVersion,
   isDeletingVersion,
+  isDeletingTagHistory,
   isDecidingGate,
   errorMessage,
   loadListing,
@@ -39,6 +40,7 @@ const {
   buildPackage,
   restoreVersion,
   deleteVersion,
+  deleteTagFromHistory,
   decideGate3,
 } = useListing();
 
@@ -120,6 +122,17 @@ async function handleDeleteVersion(versionNumber: number) {
   const draft = await deleteVersion(props.workflowId, versionNumber);
   if (draft) {
     successMessage.value = `Version ${versionNumber} removed from history.`;
+    setTimeout(() => {
+      successMessage.value = null;
+    }, 4000);
+  }
+}
+
+async function handleDeleteHistoryTag(tag: string) {
+  successMessage.value = null;
+  const draft = await deleteTagFromHistory(props.workflowId, tag);
+  if (draft) {
+    successMessage.value = `Tag "${tag}" removed from campaign history.`;
     setTimeout(() => {
       successMessage.value = null;
     }, 4000);
@@ -268,10 +281,13 @@ const isApproved = computed(() => {
 
           <TagEditorCard
             :tags="localTags"
+            :tag-history="listingDraft?.tag_history || []"
             :is-saving="isSaving"
+            :is-deleting-tag-history="isDeletingTagHistory"
             :has-unsaved-changes="isTagsDirty"
             @update:tags="localTags = $event"
             @save="handleSave"
+            @delete-history-tag="handleDeleteHistoryTag"
           />
         </div>
 

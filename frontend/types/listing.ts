@@ -76,6 +76,7 @@ export interface ListingDraft {
   package_asset?: Asset | null;
   package_download_url?: string | null;
   history?: ListingVersionSnapshot[];
+  tag_history?: string[];
   created_at?: string | null;
   updated_at?: string | null;
 }

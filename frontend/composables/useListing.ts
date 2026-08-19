@@ -238,6 +238,35 @@ export function useListing() {
     }
   }
 
+  const isDeletingTagHistory = ref(false);
+
+  async function deleteTagFromHistory(workflowId: string, tag: string): Promise<ListingDraft | null> {
+    if (!workflowId || !tag) return null;
+    isDeletingTagHistory.value = true;
+    errorMessage.value = null;
+
+    try {
+      const data = await $fetch<ListingDraft>(
+        `${apiBase}/api/v1/workflows/${workflowId}/listing/tags/history/${encodeURIComponent(tag)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Accept: 'application/json',
+            ...getCsrfHeaders(),
+          },
+          credentials: 'include',
+        }
+      );
+      listingDraft.value = data;
+      return data;
+    } catch (err: unknown) {
+      errorMessage.value = getApiErrorMessage(err, `Failed to delete tag '${tag}' from history.`);
+      throw err;
+    } finally {
+      isDeletingTagHistory.value = false;
+    }
+  }
+
   return {
     listingDraft,
     isLoading,
@@ -247,6 +276,7 @@ export function useListing() {
     isBuildingPackage,
     isRestoringVersion,
     isDeletingVersion,
+    isDeletingTagHistory,
     isDecidingGate,
     errorMessage,
     loadListing,
@@ -256,6 +286,7 @@ export function useListing() {
     buildPackage,
     restoreVersion,
     deleteVersion,
+    deleteTagFromHistory,
     decideGate3,
   };
 }

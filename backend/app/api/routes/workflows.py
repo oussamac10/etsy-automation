@@ -1726,6 +1726,25 @@ async def _build_listing_response(
     raw_history = (draft.ip_findings or {}).get("history")
     history_list = list(raw_history) if isinstance(raw_history, list) else []
 
+    raw_tag_history = (draft.ip_findings or {}).get("tag_history")
+    tag_history_list: list[str] = (
+        [str(t) for t in raw_tag_history if t]
+        if isinstance(raw_tag_history, list)
+        else []
+    )
+    seen_tags = set(tag_history_list)
+    for t in draft.tags or []:
+        clean = str(t).strip().lower()
+        if clean and clean not in seen_tags:
+            seen_tags.add(clean)
+            tag_history_list.append(clean)
+    for snap in history_list:
+        for t in snap.get("tags", []):
+            clean = str(t).strip().lower()
+            if clean and clean not in seen_tags:
+                seen_tags.add(clean)
+                tag_history_list.append(clean)
+
     return ListingDraftResponse(
         id=draft.id,
         workflow_id=draft.workflow_id,
@@ -1744,6 +1763,7 @@ async def _build_listing_response(
         package_asset=pkg_resp,
         package_download_url=pkg_url,
         history=history_list,
+        tag_history=tag_history_list,
         created_at=draft.created_at,
         updated_at=draft.updated_at,
     )
@@ -1940,6 +1960,45 @@ async def delete_listing_version_endpoint(
         updated_draft = await listing_service.delete_version(
             workflow_id=workflow_id,
             target_version=version_number,
+            uow=uow,
+            actor_email=user.email,
+        )
+        await uow.commit()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return await _build_listing_response(updated_draft, workflow_id, uow, storage)
+
+
+@router.delete(
+    "/{workflow_id}/listing/tags/history/{tag}",
+    response_model=ListingDraftResponse,
+    summary="Delete a tag from campaign tag history",
+)
+async def delete_tag_from_history_endpoint(
+    workflow_id: uuid.UUID,
+    tag: str,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing_service = ListingDraftService()
+    try:
+        updated_draft = await listing_service.remove_tag_from_history(
+            workflow_id=workflow_id,
+            tag=tag,
             uow=uow,
             actor_email=user.email,
         )
