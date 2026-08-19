@@ -161,18 +161,18 @@ async function copyListingId() {
             <Icon name="lucide:store" class="size-5" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle class="text-base sm:text-lg flex items-center gap-2 flex-wrap">
-              <span class="font-bold text-foreground">Etsy Listing Dispatch</span>
+            <CardTitle class="text-base font-semibold flex items-center gap-2">
+              <span>Etsy Listing Dispatch</span>
               <span
                 v-if="connectionStatus?.connected && (connectionStatus.shop_name || props.listing.etsy_shop_id)"
-                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground border border-border"
+                class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-normal rounded-md bg-muted text-foreground border border-border"
               >
-                <span class="size-2 rounded-full bg-emerald-500" />
+                <span class="size-1.5 rounded-full bg-emerald-500" />
                 {{ connectionStatus.shop_name || 'Connected Shop' }}
               </span>
             </CardTitle>
-            <CardDescription class="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Uploads your print-ready master artwork, mockups, and customer bundle as a private draft.
+            <CardDescription class="text-xs text-muted-foreground mt-0.5">
+              Uploads print-ready master artwork, mockups, and customer bundle as a private draft.
             </CardDescription>
           </div>
         </div>
@@ -180,37 +180,37 @@ async function copyListingId() {
         <Badge
           v-if="isCompleted"
           variant="outline"
-          class="gap-1.5 px-3 py-1 shrink-0 font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+          class="gap-1 px-2.5 py-0.5 text-xs font-medium shrink-0 text-foreground bg-muted/50 border-border"
           data-testid="etsy-badge-completed"
         >
-          <Icon name="lucide:circle-check" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+          <Icon name="lucide:circle-check" class="size-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
           <span>Draft Created</span>
         </Badge>
         <Badge
           v-else-if="isInProgress"
           variant="warning"
-          class="gap-1.5 px-3 py-1 shrink-0 font-semibold animate-pulse"
+          class="gap-1 px-2.5 py-0.5 text-xs font-medium shrink-0 animate-pulse"
           data-testid="etsy-badge-progress"
         >
-          <Icon name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon name="lucide:loader-circle" class="size-3 animate-spin" aria-hidden="true" />
           <span>Dispatching...</span>
         </Badge>
         <Badge
           v-else-if="isFailed"
           variant="destructive"
-          class="gap-1.5 px-3 py-1 shrink-0 font-semibold"
+          class="gap-1 px-2.5 py-0.5 text-xs font-medium shrink-0"
           data-testid="etsy-badge-failed"
         >
-          <Icon name="lucide:circle-alert" class="size-3.5" aria-hidden="true" />
+          <Icon name="lucide:circle-alert" class="size-3" aria-hidden="true" />
           <span>Dispatch Failed</span>
         </Badge>
         <Badge
           v-else
           variant="secondary"
-          class="gap-1.5 px-3 py-1 shrink-0 font-semibold"
+          class="gap-1 px-2.5 py-0.5 text-xs font-medium shrink-0"
           data-testid="etsy-badge-ready"
         >
-          <Icon name="lucide:clock-3" class="size-3.5 text-muted-foreground" aria-hidden="true" />
+          <Icon name="lucide:clock-3" class="size-3 text-muted-foreground" aria-hidden="true" />
           <span>Ready for Dispatch</span>
         </Badge>
       </div>
