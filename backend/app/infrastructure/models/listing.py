@@ -110,6 +110,7 @@ class ListingDraft(UuidMixin, TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
 
     taxonomy_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    taxonomy_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     #: Required by Etsy when a listing uses AI-generated imagery.
     ai_disclosure: Mapped[str | None] = mapped_column(Text, nullable=True)
     licence_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -136,6 +137,7 @@ class ListingDraft(UuidMixin, TimestampMixin, Base):
     etsy_state: Mapped[str | None] = mapped_column(String(30), nullable=True, default="draft")
     etsy_image_ids: Mapped[list[str]] = mapped_column(ARRAY(String(60)), nullable=False, default=list)
     etsy_file_id: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    etsy_file_ids: Mapped[list[str]] = mapped_column(ARRAY(String(60)), nullable=False, default=list)
     etsy_dispatch_status: Mapped[str] = mapped_column(String(40), nullable=False, default="not_started")
     etsy_last_synced_at: Mapped[datetime | None] = timestamp_column(nullable=True)
     etsy_failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

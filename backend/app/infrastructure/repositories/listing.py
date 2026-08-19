@@ -40,6 +40,7 @@ class SqlListingDraftRepository:
         price_minor_units: int | None = None,
         currency: str | None = None,
         taxonomy_id: int | None = None,
+        taxonomy_path: str | None = None,
         ai_disclosure: str | None = None,
         licence_text: str | None = None,
         customer_instructions: str | None = None,
@@ -72,6 +73,9 @@ class SqlListingDraftRepository:
             has_changes = True
         if taxonomy_id is not None and draft.taxonomy_id != taxonomy_id:
             draft.taxonomy_id = taxonomy_id
+            has_changes = True
+        if taxonomy_path is not None and draft.taxonomy_path != taxonomy_path:
+            draft.taxonomy_path = taxonomy_path
             has_changes = True
         if ai_disclosure is not None and draft.ai_disclosure != ai_disclosure:
             draft.ai_disclosure = ai_disclosure
@@ -175,6 +179,10 @@ class SqlListingDraftRepository:
             raise EntityNotFoundError("ListingDraft", draft_id)
 
         draft.etsy_file_id = file_id
+        current_files = list(draft.etsy_file_ids or [])
+        if file_id not in current_files:
+            current_files.append(file_id)
+            draft.etsy_file_ids = current_files
         await self._session.flush()
         return draft
 

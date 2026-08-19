@@ -613,6 +613,7 @@ class ListingDraftRepository(Protocol):
         price_minor_units: int | None = None,
         currency: str | None = None,
         taxonomy_id: int | None = None,
+        taxonomy_path: str | None = None,
         ai_disclosure: str | None = None,
         licence_text: str | None = None,
         customer_instructions: str | None = None,

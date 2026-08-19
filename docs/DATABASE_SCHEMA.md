@@ -614,6 +614,7 @@ erDiagram
 | `price_minor_units` | `BIGINT` | YES | - | - | - |
 | `currency` | `VARCHAR(3)` | NO | `USD` | - | - |
 | `taxonomy_id` | `INTEGER` | YES | - | - | - |
+| `taxonomy_path` | `VARCHAR(500)` | YES | - | - | - |
 | `ai_disclosure` | `TEXT` | YES | - | - | - |
 | `licence_text` | `TEXT` | YES | - | - | - |
 | `customer_instructions` | `TEXT` | YES | - | - | - |
@@ -628,6 +629,7 @@ erDiagram
 | `etsy_state` | `VARCHAR(30)` | YES | `draft` | - | - |
 | `etsy_image_ids` | `ARRAY` | NO | `dynamic` | - | - |
 | `etsy_file_id` | `VARCHAR(60)` | YES | - | - | - |
+| `etsy_file_ids` | `ARRAY` | NO | `dynamic` | - | - |
 | `etsy_dispatch_status` | `VARCHAR(40)` | NO | `not_started` | - | - |
 | `etsy_last_synced_at` | `DATETIME` | YES | - | - | - |
 | `etsy_failure_reason` | `TEXT` | YES | - | - | - |
