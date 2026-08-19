@@ -237,6 +237,11 @@ def _build_allowed_transitions() -> Mapping[RunStatus, frozenset[RunStatus]]:
     # here, so a workflow can never be marked published without a draft.
     transitions[RunStatus.ETSY_DRAFT_CREATED].add(RunStatus.PUBLISHED)
 
+    # External reconciliation: when an Etsy draft is deleted in Etsy Shop Manager,
+    # the workflow returns from ETSY_DRAFT_CREATED back to READY_FOR_ETSY_DRAFT
+    # so a new Etsy draft can be created from the same approved campaign.
+    transitions[RunStatus.ETSY_DRAFT_CREATED].add(RunStatus.READY_FOR_ETSY_DRAFT)
+
     # Restarting or resuming a stopped campaign.
     # CANCELLED may transition to DRAFT (restart from scratch) or resume at
     # the furthest completed stage (IDEA_REVIEW, IDEA_APPROVED, ART_REVIEW,

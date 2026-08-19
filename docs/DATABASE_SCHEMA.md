@@ -284,7 +284,7 @@ erDiagram
 | `id` | `CHAR(32)` | NO | `dynamic` | ✅ | - |
 | `workflow_id` | `CHAR(32)` | YES | - | - | `product_workflows.id` |
 | `approval_id` | `CHAR(32)` | YES | - | - | `approvals.id` |
-| `action` | `VARCHAR(21)` | NO | - | - | - |
+| `action` | `VARCHAR(29)` | NO | - | - | - |
 | `entity_type` | `VARCHAR(80)` | NO | - | - | - |
 | `entity_id` | `CHAR(32)` | YES | - | - | - |
 | `actor` | `VARCHAR(200)` | NO | `system` | - | - |

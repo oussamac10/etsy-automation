@@ -16,6 +16,7 @@ class ProviderErrorKind(StrEnum):
     AUTHENTICATION = "authentication"
     INVALID_REQUEST = "invalid_request"
     BUDGET_EXCEEDED = "budget_exceeded"
+    NOT_FOUND = "not_found"
     PERMANENT = "permanent"
 
 

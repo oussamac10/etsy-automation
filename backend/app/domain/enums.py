@@ -178,6 +178,7 @@ class AuditAction(StrEnum):
     ETSY_TOKEN_REFRESHED = "etsy_token_refreshed"
     ETSY_DRAFT_CREATED = "etsy_draft_created"
     ETSY_DRAFT_FAILED = "etsy_draft_failed"
+    ETSY_DRAFT_REMOVED_EXTERNALLY = "etsy_draft_removed_externally"
 
 
 class ProductUse(StrEnum):

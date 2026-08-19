@@ -672,6 +672,13 @@ class ListingDraftRepository(Protocol):
         last_synced_at: datetime | None = None,
     ) -> ListingDraft: ...
 
+    async def clear_etsy_draft_state(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        last_synced_at: datetime | None = None,
+    ) -> ListingDraft: ...
+
 
 @runtime_checkable
 class TrademarkRepository(Protocol):
