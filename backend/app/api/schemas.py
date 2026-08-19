@@ -429,6 +429,12 @@ class ListingDraftResponse(BaseModel):
     package_download_url: str | None = None
     history: list[dict[str, object]] = []
     tag_history: list[str] = []
+    etsy_listing_id: str | None = None
+    etsy_listing_url: str | None = None
+    etsy_dispatch_status: str | None = None
+    etsy_image_ids: list[str] | None = None
+    etsy_file_id: str | None = None
+    etsy_failure_reason: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

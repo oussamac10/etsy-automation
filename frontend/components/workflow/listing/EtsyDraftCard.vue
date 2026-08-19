@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import type { ListingDraft } from '~/types/listing';
 import { useEtsy } from '~/composables/useEtsy';
 import Card from '~/components/ui/Card.vue';
@@ -33,17 +33,25 @@ const {
 } = useEtsy();
 
 let pollInterval: ReturnType<typeof setInterval> | null = null;
+const copied = ref(false);
 
 const currentStatus = computed(() => {
   return draftStatus.value?.dispatch_status || props.listing.etsy_dispatch_status || 'not_started';
 });
 
 const isCompleted = computed(() => {
-  return currentStatus.value === 'completed' || props.workflowState === 'ETSY_DRAFT_CREATED' || Boolean(props.listing.etsy_listing_id);
+  return (
+    currentStatus.value === 'completed' ||
+    props.workflowState === 'ETSY_DRAFT_CREATED' ||
+    Boolean(listingId.value)
+  );
 });
 
 const isInProgress = computed(() => {
-  return ['queued', 'creating_listing', 'uploading_images', 'uploading_file'].includes(currentStatus.value) || isDispatching.value;
+  return (
+    ['queued', 'creating_listing', 'uploading_images', 'uploading_file'].includes(currentStatus.value) ||
+    isDispatching.value
+  );
 });
 
 const isFailed = computed(() => {
@@ -60,12 +68,20 @@ const failureReason = computed(() => {
 });
 
 const listingId = computed(() => {
-  return draftStatus.value?.etsy_listing_id || props.listing.etsy_listing_id;
+  return draftStatus.value?.etsy_listing_id || props.listing.etsy_listing_id || null;
+});
+
+const mockupCount = computed(() => {
+  return props.listing.etsy_image_ids?.length || draftStatus.value?.etsy_image_ids?.length || 0;
 });
 
 const listingManagerUrl = computed(() => {
   if (!listingId.value) return null;
   return `https://www.etsy.com/your/shops/me/listing-editor/edit/${listingId.value}`;
+});
+
+const draftListingsUrl = computed(() => {
+  return 'https://www.etsy.com/your/shops/me/tools/listings/state:draft';
 });
 
 onMounted(async () => {
@@ -116,26 +132,39 @@ async function handleCreateDraft() {
     startPolling();
   }
 }
+
+async function copyListingId() {
+  if (!listingId.value) return;
+  try {
+    await navigator.clipboard.writeText(listingId.value);
+    copied.value = true;
+    setTimeout(() => {
+      copied.value = false;
+    }, 2000);
+  } catch {
+    // Ignore clipboard error
+  }
+}
 </script>
 
 <template>
   <Card
-    class="shadow-xs border-border transition-all duration-200"
+    class="shadow-xs border-border transition-all duration-200 overflow-hidden"
     :class="{
-      'border-emerald-500/30 bg-emerald-50/10 dark:bg-emerald-950/10': isCompleted,
+      'border-emerald-500/40 bg-linear-to-b from-emerald-50/20 to-transparent dark:from-emerald-950/20': isCompleted,
       'border-primary/40 bg-primary/5': isInProgress,
       'border-destructive/30': isFailed,
     }"
     data-testid="etsy-draft-card"
   >
-    <CardHeader class="pb-3">
+    <CardHeader class="pb-3 border-b border-border/50 bg-muted/20">
       <div class="flex items-start sm:items-center justify-between gap-3">
         <div class="flex items-center gap-3">
           <div
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors shadow-2xs"
             :class="[
               isCompleted
-                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400'
+                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-400'
                 : isFailed
                   ? 'bg-destructive/10 text-destructive border-destructive/20'
                   : 'bg-primary/10 text-primary border-primary/20',
@@ -144,18 +173,18 @@ async function handleCreateDraft() {
             <Icon name="lucide:store" class="size-5" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle class="text-base sm:text-lg flex items-center gap-2">
+            <CardTitle class="text-base sm:text-lg flex items-center gap-2 flex-wrap">
               <span>Etsy Listing Dispatch</span>
               <span
-                v-if="connectionStatus?.connected && connectionStatus.shop_name"
-                class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-medium rounded-full bg-secondary text-muted-foreground border border-border"
+                v-if="connectionStatus?.connected && (connectionStatus.shop_name || props.listing.etsy_shop_id)"
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 text-2xs font-semibold rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
               >
-                <span class="size-1.5 rounded-full bg-emerald-500" />
-                {{ connectionStatus.shop_name }}
+                <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {{ connectionStatus.shop_name || 'Connected Shop' }}
               </span>
             </CardTitle>
             <CardDescription class="text-xs sm:text-sm">
-              Creates a private draft listing with master PNG, mockups, and customer ZIP attached.
+              Creates a private draft listing with master PNG, mockups, and customer download files.
             </CardDescription>
           </div>
         </div>
@@ -163,10 +192,10 @@ async function handleCreateDraft() {
         <Badge
           v-if="isCompleted"
           variant="success"
-          class="gap-1 px-3 py-1 shrink-0 inline-flex items-center"
+          class="gap-1 px-3 py-1 shrink-0 inline-flex items-center shadow-2xs"
           data-testid="etsy-badge-completed"
         >
-          <Icon name="lucide:circle-check" class="size-3" aria-hidden="true" />
+          <Icon name="lucide:circle-check" class="size-3.5" aria-hidden="true" />
           <span>Draft Created</span>
         </Badge>
         <Badge
@@ -199,7 +228,7 @@ async function handleCreateDraft() {
       </div>
     </CardHeader>
 
-    <CardContent class="pt-2 space-y-4">
+    <CardContent class="pt-4 space-y-4">
       <!-- Error / Failure Alert -->
       <Alert
         v-if="isFailed || errorMessage"
@@ -318,58 +347,101 @@ async function handleCreateDraft() {
 
       <!-- Completed Success Panel -->
       <div v-if="isCompleted" class="space-y-4" data-testid="etsy-completed-panel">
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-xl text-xs">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-card border border-border p-4 rounded-xl text-xs shadow-2xs">
+          <!-- Listing ID -->
           <div>
             <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">Listing ID</span>
-            <span class="font-mono text-sm font-bold text-foreground">
-              {{ listingId || 'N/A' }}
-            </span>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span class="font-mono text-sm font-bold text-foreground">
+                {{ listingId || 'N/A' }}
+              </span>
+              <button
+                v-if="listingId"
+                type="button"
+                class="text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+                title="Copy Listing ID"
+                @click="copyListingId"
+              >
+                <Icon :name="copied ? 'lucide:check' : 'lucide:copy'" class="size-3.5" aria-hidden="true" />
+              </button>
+            </div>
           </div>
+
+          <!-- Listing State -->
           <div>
             <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">Listing State</span>
-            <span class="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300 mt-0.5">
-              <Icon name="lucide:shield-check" class="size-3.5" aria-hidden="true" />
+            <span class="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300 mt-1">
+              <Icon name="lucide:shield-check" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
               Draft (Safe)
             </span>
           </div>
+
+          <!-- Mockups Count -->
           <div>
             <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">Mockups Uploaded</span>
-            <span class="text-xs font-semibold text-foreground mt-0.5 block">
-              {{ (listing.etsy_image_ids?.length || draftStatus?.etsy_image_ids?.length || 0) }} Mockup Previews
+            <span class="text-xs font-semibold text-foreground mt-1 block">
+              {{ mockupCount }} Mockup Previews
             </span>
           </div>
+
+          <!-- Customer Delivery -->
           <div>
             <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">Customer Download</span>
-            <span class="text-xs font-semibold text-foreground flex items-center gap-1 mt-0.5">
-              <Icon name="lucide:file-archive" class="size-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <span class="text-xs font-semibold text-foreground flex items-center gap-1 mt-1">
+              <Icon name="lucide:file-archive" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
               <span>Digital ZIP Attached</span>
             </span>
           </div>
         </div>
 
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-          <div class="flex items-center gap-2 text-xs text-muted-foreground">
-            <Icon name="lucide:shield-check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
-            <span>Listing is safely in draft mode. Review and publish inside Etsy Shop Manager whenever you are ready.</span>
-          </div>
+        <!-- Etsy Guidance & Actions -->
+        <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 space-y-3">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div class="flex items-start gap-2.5 text-xs text-muted-foreground">
+              <Icon name="lucide:info" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <p class="font-medium text-foreground">Where to find this in your Etsy store:</p>
+                <p class="mt-0.5">
+                  Go to <strong class="text-foreground">Etsy Shop Manager → Listings → Drafts</strong> tab. It is saved in private draft mode so you can review price, shipping, and tags before publishing.
+                </p>
+              </div>
+            </div>
 
-          <a
-            v-if="listingManagerUrl"
-            :href="listingManagerUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="shrink-0"
-          >
-            <Button
-              variant="default"
-              size="sm"
-              class="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-              data-testid="etsy-open-manager-btn"
-            >
-              <Icon name="lucide:external-link" class="size-3.5" aria-hidden="true" />
-              <span>Open in Etsy Shop Manager</span>
-            </Button>
-          </a>
+            <div class="flex items-center gap-2 shrink-0">
+              <a
+                v-if="listingManagerUrl"
+                :href="listingManagerUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button
+                  variant="default"
+                  size="sm"
+                  class="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs"
+                  data-testid="etsy-open-manager-btn"
+                >
+                  <Icon name="lucide:external-link" class="size-3.5" aria-hidden="true" />
+                  <span>Open in Etsy Shop Manager</span>
+                </Button>
+              </a>
+
+              <a
+                :href="draftListingsUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="gap-1.5 cursor-pointer text-xs"
+                  title="Open all Etsy Draft Listings"
+                >
+                  <Icon name="lucide:layers" class="size-3.5" aria-hidden="true" />
+                  <span>All Drafts</span>
+                </Button>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 

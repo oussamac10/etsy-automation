@@ -1764,6 +1764,16 @@ async def _build_listing_response(
         package_download_url=pkg_url,
         history=history_list,
         tag_history=tag_history_list,
+        etsy_listing_id=draft.etsy_listing_id,
+        etsy_listing_url=(
+            f"https://www.etsy.com/your/shops/me/listing-editor/edit/{draft.etsy_listing_id}"
+            if draft.etsy_listing_id
+            else None
+        ),
+        etsy_dispatch_status=draft.etsy_dispatch_status or "not_started",
+        etsy_image_ids=draft.etsy_image_ids or [],
+        etsy_file_id=draft.etsy_file_id,
+        etsy_failure_reason=draft.etsy_failure_reason,
         created_at=draft.created_at,
         updated_at=draft.updated_at,
     )
