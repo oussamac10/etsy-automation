@@ -54,19 +54,33 @@ watch(
 
 function applyAiSuggestions() {
   if (!properties.value || properties.value.length === 0) return;
-  const initial: Record<string, any> = { ...localPropertiesMap.value };
+  const initial: Record<string, any> = {};
 
   for (const p of properties.value) {
+    let valsToSelect: string[] = [];
+    let idsToSelect: number[] = [];
+
     if (p.suggested_values && p.suggested_values.length > 0) {
+      valsToSelect = [...p.suggested_values];
+      idsToSelect = p.suggested_value_ids ? [...p.suggested_value_ids] : [];
+    } else if (p.possible_values && p.possible_values.length > 0) {
+      const firstVal = p.possible_values[0];
+      valsToSelect = [firstVal.name];
+      if (firstVal.value_id) idsToSelect = [firstVal.value_id];
+    }
+
+    if (valsToSelect.length > 0) {
       initial[String(p.property_id)] = {
         property_id: p.property_id,
-        value_ids: p.suggested_value_ids || [],
-        values: [...p.suggested_values],
+        value_ids: idsToSelect,
+        values: valsToSelect,
       };
     }
   }
-  localPropertiesMap.value = initial;
-  emit('update:etsyProperties', initial);
+
+  localPropertiesMap.value = JSON.parse(JSON.stringify(initial));
+  emit('update:etsyProperties', JSON.parse(JSON.stringify(initial)));
+  emit('save');
 }
 
 async function loadTaxonomyProperties() {

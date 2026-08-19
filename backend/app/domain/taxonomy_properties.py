@@ -122,7 +122,7 @@ def suggest_taxonomy_properties(
 
         prop_name_lower = prop_name.lower()
 
-        # Craft type (Default Sublimation + Printing for PNG design downloads)
+        # Craft type (Default Sublimation + Printing & printmaking for digital PNG design downloads)
         if "craft" in prop_name_lower:
             selected_val_ids: list[int] = []
             selected_val_names: list[str] = []
@@ -133,6 +133,13 @@ def suggest_taxonomy_properties(
                     if val_id:
                         selected_val_ids.append(int(val_id))
                         selected_val_names.append(val_name)
+            # Fallback if specific values weren't matched
+            if not selected_val_ids and possible_values:
+                first_val = possible_values[0]
+                if first_val.get("value_id"):
+                    selected_val_ids.append(int(first_val["value_id"]))
+                    selected_val_names.append(str(first_val.get("name", "")))
+
             if selected_val_ids:
                 suggested[str(prop_id)] = {
                     "property_id": prop_id,
