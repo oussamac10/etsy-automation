@@ -35,6 +35,14 @@ function stubFetch(telegramMock: (url: string, options?: unknown) => Promise<unk
         token_health: "disconnected",
       });
     }
+    if (url.endsWith("/settings") || url.endsWith("/settings/")) {
+      return Promise.resolve({
+        default_digital_price_minor: 499,
+        default_digital_quantity: 999,
+        default_auto_renew: false,
+        default_shop_section_strategy: "match_niche",
+      });
+    }
     return telegramMock(url, options);
   });
   vi.stubGlobal("$fetch", fetchMock);
