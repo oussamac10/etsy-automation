@@ -54,7 +54,10 @@ async def create_oauth_connect_url(
         if settings.provider_mode == "fake":
             api_key = "fake_etsy_api_key_123"
         else:
-            raise ValueError("ETSY_API_KEY is not configured on the server.")
+            raise ValueError(
+                "Etsy API Key is not configured on the server. "
+                "Please set ETSY_API_KEY (or ETSY_CLIENT_ID) in your .env file."
+            )
 
     state = secrets.token_urlsafe(32)
     code_verifier, code_challenge = generate_pkce_pair()

@@ -48,6 +48,11 @@ async def connect_etsy(
     try:
         url = await etsy_auth.create_oauth_connect_url(redis, user.id, settings)
         return EtsyConnectResponse(authorization_url=url)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
