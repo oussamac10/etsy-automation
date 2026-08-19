@@ -13,6 +13,7 @@ see ``docs/authentication-and-secrets.md``.
 from __future__ import annotations
 
 import base64
+import inspect
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
@@ -27,6 +28,7 @@ from app.api.schemas import (
     ArtworkJobResponse,
     AssetResponse,
     ConceptRevisionRequest,
+    CreateShopSectionRequest,
     CreateWorkflowRequest,
     DesignPromptResponse,
     Gate3DecisionRequest,
@@ -34,15 +36,18 @@ from app.api.schemas import (
     GenerateArtworkRequest,
     ListingDraftResponse,
     OriginalIdeaResponse,
+    PriceRecommendationResponse,
     ProductConceptResponse,
     ProductionJobResponse,
     RefineArtworkRequest,
     ReorderMockupsRequest,
     ResearchRunResponse,
     RestoreListingVersionRequest,
+    ShopSectionResponse,
     StartProductionRequest,
     SubmitIdeaRequest,
     TaxonomyCategoryResponse,
+    TaxonomyPropertyResponse,
     TimelineEntryResponse,
     TimelineResponse,
     UpdateListingDraftRequest,
@@ -1205,6 +1210,18 @@ async def set_mockup_cover_endpoint(
                 a.provenance = dict(a.provenance, is_cover=False)
             await uow.session.flush()
 
+    if hasattr(uow, "listing_drafts") and hasattr(uow.listing_drafts, "get_by_workflow"):
+        get_res = uow.listing_drafts.get_by_workflow(workflow_id)
+        listing = await get_res if inspect.isawaitable(get_res) else get_res
+        if listing and isinstance(getattr(listing, "id", None), uuid.UUID) and isinstance(getattr(listing, "version", None), int):
+            update_res = uow.listing_drafts.update(
+                listing.id,
+                primary_mockup_asset_id=asset_id,
+                expected_version=listing.version,
+            )
+            if inspect.isawaitable(update_res):
+                await update_res
+
     await uow.commit()
     url = await storage.signed_url(target_asset.storage_key, 86400 * 7)
     return to_asset_response(target_asset, url)
@@ -1755,6 +1772,16 @@ async def _build_listing_response(
         tags=draft.tags,
         taxonomy_id=draft.taxonomy_id,
         taxonomy_path=draft.taxonomy_path,
+        price_minor_units=draft.price_minor_units,
+        currency=draft.currency or "USD",
+        quantity=draft.quantity or 999,
+        sku=draft.sku,
+        shop_section_id=draft.shop_section_id,
+        shop_section_name=draft.shop_section_name,
+        should_auto_renew=bool(draft.should_auto_renew),
+        etsy_properties=draft.etsy_properties or {},
+        primary_mockup_asset_id=draft.primary_mockup_asset_id,
+        shopping_cart_summary=draft.shopping_cart_summary,
         ai_disclosure=draft.ai_disclosure,
         licence_text=draft.licence_text,
         customer_instructions=draft.customer_instructions,
@@ -1884,6 +1911,16 @@ async def update_listing_draft_endpoint(
             tags=payload.tags,
             taxonomy_id=payload.taxonomy_id,
             taxonomy_path=payload.taxonomy_path,
+            price_minor_units=payload.price_minor_units,
+            currency=payload.currency,
+            quantity=payload.quantity,
+            sku=payload.sku,
+            shop_section_id=payload.shop_section_id,
+            shop_section_name=payload.shop_section_name,
+            should_auto_renew=payload.should_auto_renew,
+            etsy_properties=payload.etsy_properties,
+            primary_mockup_asset_id=payload.primary_mockup_asset_id,
+            shopping_cart_summary=payload.shopping_cart_summary,
             expected_version=payload.expected_version,
             uow=uow,
             actor_email=user.email,
@@ -2382,3 +2419,208 @@ async def update_listing_taxonomy_endpoint(
     )
     await uow.commit()
     return await _build_listing_response(updated, workflow_id, uow, storage)
+
+
+@router.get(
+    "/{workflow_id}/listing/price-recommendation",
+    response_model=PriceRecommendationResponse,
+    summary="Get recommended pricing for listing based on graphics complexity and niche",
+)
+async def get_listing_price_recommendation_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+) -> PriceRecommendationResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    title = listing.title if listing else workflow.name
+    tags = list(listing.tags) if listing and listing.tags else []
+    currency = listing.currency if listing and listing.currency else "USD"
+    owner_settings = await uow.owner_settings.get_for_user(user.id)
+    if owner_settings and owner_settings.currency:
+        currency = owner_settings.currency
+
+    from app.domain.pricing import calculate_price_recommendation
+
+    rec = calculate_price_recommendation(
+        title=title,
+        tags=tags,
+        currency=currency,
+        owner_default_minor=owner_settings.default_digital_price_minor if owner_settings else None,
+    )
+    return PriceRecommendationResponse(
+        recommended_minor_units=rec.recommended_minor_units,
+        currency=rec.currency,
+        formatted_price=rec.formatted_price,
+        rationale=rec.rationale,
+        factors=rec.factors,
+    )
+
+
+@router.get(
+    "/{workflow_id}/listing/shop-sections",
+    response_model=list[ShopSectionResponse],
+    summary="Fetch existing shop sections from the connected Etsy shop",
+)
+async def get_listing_shop_sections_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+    cipher: CipherDep,
+) -> list[ShopSectionResponse]:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    conn = await uow.shop_connections.get_by_user_id(user.id, provider="etsy")
+    if not conn or not conn.is_connected or not conn.etsy_shop_id or cipher is None:
+        return []
+
+    from app.application.etsy_auth import get_valid_access_token
+
+    try:
+        token = await get_valid_access_token(
+            uow=uow,
+            cipher=cipher,
+            etsy_gateway=etsy_gateway,
+            owner_id=user.id,
+        )
+        sections = await etsy_gateway.get_shop_sections(
+            access_token=token,
+            shop_id=conn.etsy_shop_id,
+        )
+        return [
+            ShopSectionResponse(
+                shop_section_id=s.shop_section_id,
+                title=s.title,
+                rank=s.rank,
+                active_listing_count=s.active_listing_count,
+            )
+            for s in sections
+        ]
+    except Exception:
+        return []
+
+
+@router.post(
+    "/{workflow_id}/listing/shop-sections",
+    response_model=ShopSectionResponse,
+    summary="Create a new shop section in the connected Etsy shop",
+)
+async def create_listing_shop_section_endpoint(
+    workflow_id: uuid.UUID,
+    payload: CreateShopSectionRequest,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+    cipher: CipherDep,
+) -> ShopSectionResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    if cipher is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Credential cipher unavailable.",
+        )
+
+    conn = await uow.shop_connections.get_by_user_id(user.id, provider="etsy")
+    if not conn or not conn.is_connected or not conn.etsy_shop_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No Etsy shop connected to create sections.",
+        )
+
+    from app.application.etsy_auth import get_valid_access_token
+
+    try:
+        token = await get_valid_access_token(
+            uow=uow,
+            cipher=cipher,
+            etsy_gateway=etsy_gateway,
+            owner_id=user.id,
+        )
+        sec = await etsy_gateway.create_shop_section(
+            access_token=token,
+            shop_id=conn.etsy_shop_id,
+            title=payload.title,
+        )
+        return ShopSectionResponse(
+            shop_section_id=sec.shop_section_id,
+            title=sec.title,
+            rank=sec.rank,
+            active_listing_count=sec.active_listing_count,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to create Etsy shop section: {exc}",
+        )
+
+
+@router.get(
+    "/{workflow_id}/listing/taxonomy-properties",
+    response_model=list[TaxonomyPropertyResponse],
+    summary="Get valid taxonomy properties for the listing category with suggestions",
+)
+async def get_listing_taxonomy_properties_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+) -> list[TaxonomyPropertyResponse]:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    taxonomy_id = listing.taxonomy_id if listing and listing.taxonomy_id else 6844
+
+    try:
+        props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=taxonomy_id)
+    except Exception:
+        props = []
+
+    from app.domain.taxonomy_properties import suggest_taxonomy_properties
+
+    title = listing.title if listing else workflow.name
+    desc = listing.description if listing else ""
+    tags = list(listing.tags) if listing else []
+    suggested_map = suggest_taxonomy_properties(title=title, description=desc, tags=tags)
+
+    responses: list[TaxonomyPropertyResponse] = []
+    for p in props:
+        sug = suggested_map.get(str(p.property_id)) or {}
+        sug_ids = list(sug.get("value_ids", [])) if isinstance(sug, dict) else []
+        sug_names = list(sug.get("values", [])) if isinstance(sug, dict) else []
+
+        responses.append(
+            TaxonomyPropertyResponse(
+                property_id=p.property_id,
+                name=p.name,
+                is_required=p.is_required,
+                supports_attributes=p.supports_attributes,
+                is_multivalued=p.is_multivalued,
+                possible_values=p.possible_values,
+                suggested_value_ids=sug_ids,
+                suggested_values=sug_names,
+            )
+        )
+    return responses

@@ -106,6 +106,11 @@ class SettingsResponse(BaseModel):
     notify_on_budget_warning: bool
     notify_on_approval_needed: bool
 
+    default_digital_price_minor: int
+    default_digital_quantity: int
+    default_auto_renew: bool
+    default_shop_section_strategy: str
+
     updated_at: datetime
 
 
@@ -149,6 +154,11 @@ class UpdateSettingsRequest(BaseModel):
     notify_on_failure: bool | None = None
     notify_on_budget_warning: bool | None = None
     notify_on_approval_needed: bool | None = None
+
+    default_digital_price_minor: Annotated[int, Field(ge=20, le=100000)] | None = None
+    default_digital_quantity: Annotated[int, Field(ge=1, le=9999)] | None = None
+    default_auto_renew: bool | None = None
+    default_shop_section_strategy: Annotated[str, Field(max_length=50)] | None = None
 
     @field_validator("currency")
     @classmethod

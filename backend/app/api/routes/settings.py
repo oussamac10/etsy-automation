@@ -56,6 +56,10 @@ def _to_response(settings: OwnerSettings) -> SettingsResponse:
         notify_on_failure=settings.notify_on_failure,
         notify_on_budget_warning=settings.notify_on_budget_warning,
         notify_on_approval_needed=settings.notify_on_approval_needed,
+        default_digital_price_minor=settings.default_digital_price_minor,
+        default_digital_quantity=settings.default_digital_quantity,
+        default_auto_renew=settings.default_auto_renew,
+        default_shop_section_strategy=settings.default_shop_section_strategy,
         updated_at=settings.updated_at,
     )
 

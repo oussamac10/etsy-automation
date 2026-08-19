@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -390,6 +390,16 @@ class UpdateListingDraftRequest(BaseModel):
     tags: Annotated[list[str], Field(min_length=13, max_length=13)]
     taxonomy_id: int | None = None
     taxonomy_path: str | None = None
+    price_minor_units: Annotated[int, Field(ge=20, le=100000)] | None = None
+    currency: Annotated[str, Field(min_length=3, max_length=3)] | None = None
+    quantity: Annotated[int, Field(ge=1, le=9999)] | None = None
+    sku: Annotated[str, Field(max_length=64)] | None = None
+    shop_section_id: Annotated[str, Field(max_length=64)] | None = None
+    shop_section_name: Annotated[str, Field(max_length=128)] | None = None
+    should_auto_renew: bool | None = None
+    etsy_properties: dict[str, Any] | None = None
+    primary_mockup_asset_id: uuid.UUID | None = None
+    shopping_cart_summary: str | None = None
     expected_version: int | None = None
 
 
@@ -420,6 +430,16 @@ class ListingDraftResponse(BaseModel):
     tags: list[str]
     taxonomy_id: int | None = None
     taxonomy_path: str | None = None
+    price_minor_units: int | None = None
+    currency: str = "USD"
+    quantity: int = 999
+    sku: str | None = None
+    shop_section_id: str | None = None
+    shop_section_name: str | None = None
+    should_auto_renew: bool = False
+    etsy_properties: dict[str, object] = {}
+    primary_mockup_asset_id: uuid.UUID | None = None
+    shopping_cart_summary: str | None = None
     ai_disclosure: str | None = None
     licence_text: str | None = None
     customer_instructions: str | None = None
@@ -453,6 +473,40 @@ class TaxonomyCategoryResponse(BaseModel):
     name: str
     full_path: str
     level: int
+
+
+class ShopSectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    shop_section_id: str
+    title: str
+    rank: int = 0
+    active_listing_count: int = 0
+
+
+class CreateShopSectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: Annotated[str, Field(min_length=1, max_length=120)]
+
+
+class TaxonomyPropertyResponse(BaseModel):
+    property_id: int
+    name: str
+    is_required: bool = False
+    supports_attributes: bool = False
+    is_multivalued: bool = False
+    possible_values: list[dict[str, Any]] = []
+    suggested_value_ids: list[int] = []
+    suggested_values: list[str] = []
+
+
+class PriceRecommendationResponse(BaseModel):
+    recommended_minor_units: int
+    currency: str
+    formatted_price: str
+    rationale: str
+    factors: list[str] = []
 
 
 class UpdateListingTaxonomyRequest(BaseModel):
