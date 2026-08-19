@@ -35,6 +35,58 @@ def _parse_png_dimensions_and_channels(png_bytes: bytes) -> tuple[int, int, int]
     return width, height, color_type
 
 
+def optimize_png_deflate(png_bytes: bytes) -> bytes:
+    """Losslessly optimize PNG compression using maximum zlib deflate (level 9).
+
+    Preserves all chunks, dimensions, transparency channels, and pixel values exactly.
+    """
+    if len(png_bytes) < 24 or png_bytes[:8] != b"\x89PNG\r\n\x1a\n":
+        return png_bytes
+
+    offset = 8
+    chunks: list[tuple[bytes, bytes]] = []
+    idat_combined = bytearray()
+
+    while offset < len(png_bytes):
+        if offset + 8 > len(png_bytes):
+            break
+        length = struct.unpack(">I", png_bytes[offset : offset + 4])[0]
+        chunk_type = png_bytes[offset + 4 : offset + 8]
+        chunk_data = png_bytes[offset + 8 : offset + 8 + length]
+        if chunk_type == b"IDAT":
+            idat_combined.extend(chunk_data)
+        else:
+            chunks.append((chunk_type, chunk_data))
+        offset += 12 + length
+        if chunk_type == b"IEND":
+            break
+
+    try:
+        raw_data = zlib.decompress(bytes(idat_combined))
+        recompressed = zlib.compress(raw_data, level=9)
+        if len(recompressed) >= len(idat_combined):
+            # Already optimally compressed
+            return png_bytes
+    except Exception:
+        return png_bytes
+
+    out = bytearray(b"\x89PNG\r\n\x1a\n")
+    for chunk_type, chunk_data in chunks:
+        if chunk_type == b"IEND":
+            # Inject optimized IDAT chunk before IEND
+            crc = zlib.crc32(b"IDAT" + recompressed)
+            out.extend(
+                struct.pack(">I", len(recompressed))
+                + b"IDAT"
+                + recompressed
+                + struct.pack(">I", crc)
+            )
+        crc = zlib.crc32(chunk_type + chunk_data)
+        out.extend(struct.pack(">I", len(chunk_data)) + chunk_type + chunk_data + struct.pack(">I", crc))
+
+    return bytes(out)
+
+
 def create_print_ready_pdf(
     png_bytes: bytes,
     width_px: int = DEFAULT_WIDTH_PX,

@@ -30,6 +30,7 @@ from app.domain.package_builder import (
     generate_checksum_manifest,
     generate_instructions_text,
     generate_license_text,
+    optimize_png_deflate,
 )
 from app.domain.production_resolver import (
     filter_active_user_mockups,
@@ -299,6 +300,9 @@ async def execute_etsy_draft_pipeline(
 
         files_to_upload: list[tuple[str, bytes]] = []
 
+        master_bytes = await storage.get(master_asset.storage_key)
+        optimized_master = optimize_png_deflate(master_bytes)
+
         if len(zip_bytes) <= MAX_ETSY_DIGITAL_FILE_BYTES:
             # Single complete customer package ZIP fits safely
             files_to_upload.append((f"{clean_slug}-package.zip", zip_bytes))
@@ -308,21 +312,31 @@ async def execute_etsy_draft_pipeline(
                 "etsy_package_exceeds_limit_splitting_deliverables",
                 workflow_id=str(workflow_id),
                 zip_size=len(zip_bytes),
+                master_size=len(master_bytes),
+                optimized_master_size=len(optimized_master),
             )
-            master_bytes = await storage.get(master_asset.storage_key)
-            if len(master_bytes) > MAX_ETSY_DIGITAL_FILE_BYTES:
-                raise DomainError(
-                    f"Master PNG artwork ({len(master_bytes)} bytes) exceeds Etsy's maximum allowed digital file limit of 20MB."
-                )
 
-            # 1. Master high-res transparent PNG
-            files_to_upload.append((f"{clean_slug}-master.png", master_bytes))
+            # 1. Master PNG or Master ZIP if standalone PNG exceeds 20MB
+            if len(optimized_master) <= MAX_ETSY_DIGITAL_FILE_BYTES:
+                files_to_upload.append((f"{clean_slug}-master.png", optimized_master))
+            else:
+                # Wrap master PNG in an optimized ZIP archive (which adds extra deflation)
+                master_zip = build_zip_archive({f"{clean_slug}-master.png": optimized_master})
+                if len(master_zip) <= MAX_ETSY_DIGITAL_FILE_BYTES:
+                    files_to_upload.append((f"{clean_slug}-master-png.zip", master_zip))
+                else:
+                    # Multi-part chunking (Etsy supports up to 5 files, 20MB each = 100MB)
+                    part_size = 19 * 1024 * 1024
+                    for part_idx in range(0, len(master_zip), part_size):
+                        chunk = master_zip[part_idx : part_idx + part_size]
+                        part_num = (part_idx // part_size) + 1
+                        files_to_upload.append((f"{clean_slug}-master-part{part_num}.zip", chunk))
 
             # 2. Print-ready PDF if generated and fits within 20MB
-            if len(master_bytes) < 10 * 1024 * 1024:
+            if len(optimized_master) < 10 * 1024 * 1024 and len(files_to_upload) < 5:
                 try:
                     pdf_bytes = create_print_ready_pdf(
-                        master_bytes,
+                        optimized_master,
                         width_px=master_asset.width or 4500,
                         height_px=master_asset.height or 5400,
                     )
@@ -332,31 +346,32 @@ async def execute_etsy_draft_pipeline(
                     logger.warning("print_pdf_generation_skipped", error=str(exc))
 
             # 3. Documentation bundle ZIP (License, Instructions, Checksum manifest)
-            owner_settings = None
-            if hasattr(uow, "owner_settings") and uow.owner_settings and hasattr(workflow, "owner_id") and workflow.owner_id:
-                try:
-                    import inspect
-                    res = uow.owner_settings.get_for_user(workflow.owner_id)
-                    if inspect.isawaitable(res):
-                        owner_settings = await res
-                    elif hasattr(res, "shop_name"):
-                        owner_settings = res
-                except Exception:
-                    owner_settings = None
+            if len(files_to_upload) < 5:
+                owner_settings = None
+                if hasattr(uow, "owner_settings") and uow.owner_settings and hasattr(workflow, "owner_id") and workflow.owner_id:
+                    try:
+                        import inspect
+                        res = uow.owner_settings.get_for_user(workflow.owner_id)
+                        if inspect.isawaitable(res):
+                            owner_settings = await res
+                        elif hasattr(res, "shop_name"):
+                            owner_settings = res
+                    except Exception:
+                        owner_settings = None
 
-            shop_name = getattr(owner_settings, "shop_name", "Digital Art Studio") if owner_settings else "Digital Art Studio"
-            license_doc = generate_license_text(shop_name, listing.title)
-            instructions_doc = generate_instructions_text(listing.title)
+                shop_name = getattr(owner_settings, "shop_name", "Digital Art Studio") if owner_settings else "Digital Art Studio"
+                license_doc = generate_license_text(shop_name, listing.title)
+                instructions_doc = generate_instructions_text(listing.title)
 
-            doc_files = {
-                "LICENSE.txt": license_doc.encode("utf-8"),
-                "INSTRUCTIONS.txt": instructions_doc.encode("utf-8"),
-                "master_artwork_checksum.sha256": f"{master_asset.checksum_sha256}  {clean_slug}-master.png\n".encode("utf-8"),
-            }
-            doc_manifest = generate_checksum_manifest(doc_files)
-            doc_files["manifest.sha256"] = doc_manifest.encode("utf-8")
-            doc_zip_bytes = build_zip_archive(doc_files)
-            files_to_upload.append((f"{clean_slug}-license-and-info.zip", doc_zip_bytes))
+                doc_files = {
+                    "LICENSE.txt": license_doc.encode("utf-8"),
+                    "INSTRUCTIONS.txt": instructions_doc.encode("utf-8"),
+                    "master_artwork_checksum.sha256": f"{master_asset.checksum_sha256}  {clean_slug}-master.png\n".encode("utf-8"),
+                }
+                doc_manifest = generate_checksum_manifest(doc_files)
+                doc_files["manifest.sha256"] = doc_manifest.encode("utf-8")
+                doc_zip_bytes = build_zip_archive(doc_files)
+                files_to_upload.append((f"{clean_slug}-license-and-info.zip", doc_zip_bytes))
 
         # Idempotent upload loop across all deliverables
         current_file_ids = list(

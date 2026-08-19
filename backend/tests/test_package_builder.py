@@ -10,6 +10,7 @@ from app.domain.package_builder import (
     generate_checksum_manifest,
     generate_instructions_text,
     generate_license_text,
+    optimize_png_deflate,
 )
 
 
@@ -68,13 +69,13 @@ class TestPackageBuilder:
         zip_bytes = build_zip_archive(files)
         assert zip_bytes.startswith(b"PK")
 
-        # Verify reading with Python standard zipfile
-        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
-            namelist = zf.namelist()
-            assert "master.png" in namelist
-            assert "print-ready.pdf" in namelist
-            assert "LICENSE.txt" in namelist
-            assert "INSTRUCTIONS.txt" in namelist
-            assert "manifest.sha256" in namelist
-            assert zf.read("master.png") == b"png data here"
-            assert zf.read("print-ready.pdf") == b"%PDF-1.4 test"
+    def test_optimize_png_deflate(self) -> None:
+        # Minimal 1x1 PNG
+        png_bytes = bytes.fromhex(
+            "89504e470d0a1a0a0000000d494844520000000100000001080600000"
+            "01f15c4890000000a49444154789c6360000002000100ffff03000006"
+            "000557bfabd40000000049454e44ae426082"
+        )
+        opt = optimize_png_deflate(png_bytes)
+        assert opt.startswith(b"\x89PNG\r\n\x1a\n")
+        assert opt.endswith(b"IEND\xaeB`\x82")

@@ -362,3 +362,98 @@ class TestEtsyDraftExecution:
         # Must contain actual master PNG artwork deliverable
         assert any("master.png" in fn for fn in uploaded_names)
         assert any("license-and-info.zip" in fn for fn in uploaded_names)
+
+    @pytest.mark.asyncio
+    async def test_execute_etsy_draft_with_large_master_png_wraps_in_zip(
+        self,
+        cipher: CredentialCipher,
+    ) -> None:
+        uow = MagicMock()
+        workflow_id = uuid.uuid4()
+        owner_id = uuid.uuid4()
+
+        workflow = MagicMock(spec=ProductWorkflow)
+        workflow.id = workflow_id
+        workflow.owner_id = owner_id
+        workflow.name = "Large 23MB Artwork"
+        workflow.state = RunStatus.READY_FOR_ETSY_DRAFT
+        workflow.version = 1
+        uow.workflows.get = AsyncMock(return_value=workflow)
+
+        conn = MagicMock(spec=ShopConnection)
+        conn.is_connected = True
+        conn.etsy_shop_id = "shop_large_123"
+        conn.key_version = 1
+        conn.ciphertext_access_token = cipher.encrypt("token")
+        conn.token_expires_at = datetime.now(UTC) + timedelta(hours=1)
+        uow.shop_connections.get_by_user_id = AsyncMock(return_value=conn)
+
+        listing = MagicMock(spec=ListingDraft)
+        listing.id = uuid.uuid4()
+        listing.workflow_id = workflow_id
+        listing.title = "High Res 4500x5400 Art"
+        listing.description = "Download file."
+        listing.tags = [f"tag_{i}" for i in range(13)]
+        listing.price_minor_units = 500
+        listing.currency = "USD"
+        listing.taxonomy_id = 6844
+        listing.taxonomy_path = "Craft Supplies & Tools > Clip Art & Image Files"
+        listing.etsy_listing_id = None
+        listing.etsy_image_ids = []
+        listing.etsy_file_id = None
+        listing.etsy_file_ids = []
+        listing.etsy_dispatch_status = "not_started"
+
+        uow.listing_drafts.get_by_workflow = AsyncMock(return_value=listing)
+        uow.listing_drafts.update = AsyncMock(return_value=listing)
+        uow.listing_drafts.update_etsy_draft = AsyncMock(return_value=listing)
+        uow.listing_drafts.update_etsy_dispatch_status = AsyncMock(return_value=listing)
+        uow.listing_drafts.record_etsy_image_upload = AsyncMock(return_value=listing)
+        uow.listing_drafts.record_etsy_file_upload = AsyncMock(return_value=listing)
+
+        # 23.5MB uncompressed bytes
+        large_master_bytes = b"RAW_PIXELS_" * (2 * 1024 * 1024)
+        mock_storage = MagicMock(spec=ObjectStorage)
+
+        async def fake_storage_get(key: str) -> bytes:
+            if "master.png" in key:
+                return large_master_bytes
+            return b"Z" * (25 * 1024 * 1024)
+
+        mock_storage.get = AsyncMock(side_effect=fake_storage_get)
+        mock_storage.put = AsyncMock(return_value=MagicMock(storage_key="workflows/pkg.zip"))
+
+        master_asset = MagicMock(spec=Asset)
+        master_asset.id = uuid.uuid4()
+        master_asset.workflow_id = workflow_id
+        master_asset.mime_type = "image/png"
+        master_asset.storage_key = f"workflows/{workflow_id}/master.png"
+        master_asset.width = 4500
+        master_asset.height = 5400
+        master_asset.checksum_sha256 = "large_sha256"
+        master_asset.provenance = {"profile": "etsy-png-standard"}
+
+        uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset])
+        uow.assets.get_by_checksum_sha256 = AsyncMock(return_value=None)
+        uow.assets.add = AsyncMock()
+        uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
+        uow.audit.record = AsyncMock()
+        uow.commit = AsyncMock()
+        uow.workflows.transition = AsyncMock()
+
+        fake_etsy = FakeEtsyProvider()
+
+        await execute_etsy_draft_pipeline(
+            workflow_id=workflow_id,
+            owner_id=owner_id,
+            uow=uow,
+            storage=mock_storage,
+            cipher=cipher,
+            etsy_gateway=fake_etsy,
+        )
+
+        # Confirm files uploaded successfully and every file is strictly <= 20MB
+        assert len(fake_etsy.uploaded_files) >= 1
+        for uploaded in fake_etsy.uploaded_files:
+            assert uploaded["filesize"] <= 20 * 1024 * 1024
+

@@ -15,6 +15,7 @@ from app.domain.package_builder import (
     generate_checksum_manifest,
     generate_instructions_text,
     generate_license_text,
+    optimize_png_deflate,
 )
 from app.domain.production_resolver import (
     filter_active_user_mockups,
@@ -73,14 +74,15 @@ class CustomerPackageService:
 
         files_to_zip: dict[str, bytes] = {}
 
-        # Master PNG
-        files_to_zip["master.png"] = master_bytes
+        # Master PNG (losslessly optimized with level 9 deflate)
+        optimized_master = optimize_png_deflate(master_bytes)
+        files_to_zip["master.png"] = optimized_master
 
         # Print-ready PDF (include only if master raster is small enough to keep ZIP under Etsy 20MB limit)
-        if len(master_bytes) < 10 * 1024 * 1024:
+        if len(optimized_master) < 10 * 1024 * 1024:
             try:
                 pdf_bytes = create_print_ready_pdf(
-                    master_bytes,
+                    optimized_master,
                     width_px=master_asset.width or 4500,
                     height_px=master_asset.height or 5400,
                 )
