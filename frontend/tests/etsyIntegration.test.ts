@@ -215,7 +215,7 @@ describe('Etsy Frontend Integration Suite', () => {
 
       expect(wrapper.find('[data-testid="etsy-badge-completed"]').exists()).toBe(true);
       expect(wrapper.text()).toContain('9988776655');
-      expect(wrapper.text()).toContain('3 Mockup Previews');
+      expect(wrapper.text()).toContain('3 Mockups');
       expect(wrapper.text()).toContain('Digital Product Attached');
       expect(wrapper.find('[data-testid="etsy-open-manager-btn"]').exists()).toBe(true);
       expect(wrapper.text()).toContain('Open in Etsy Shop Manager');

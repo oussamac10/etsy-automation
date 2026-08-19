@@ -433,51 +433,51 @@ async function copyListingId() {
       </div>
 
       <!-- Completed Success Panel -->
-      <div v-if="isCompleted" class="space-y-4" data-testid="etsy-completed-panel">
-        <!-- High Contrast Clean Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-muted/40 border border-border p-4 rounded-xl text-xs">
+      <div v-if="isCompleted" class="space-y-3" data-testid="etsy-completed-panel">
+        <!-- Compact Refined Stats Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-muted/30 border border-border/80 p-3 rounded-lg text-xs">
           <!-- Listing ID -->
-          <div>
-            <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">Listing ID</span>
-            <div class="flex items-center gap-1.5 mt-1">
-              <span class="font-mono text-sm font-bold text-foreground">
+          <div class="flex flex-col justify-center px-1">
+            <span class="text-[11px] text-muted-foreground">Listing ID</span>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span class="font-mono text-xs font-semibold text-foreground tracking-tight">
                 {{ listingId || 'N/A' }}
               </span>
               <button
                 v-if="listingId"
                 type="button"
-                class="text-muted-foreground hover:text-foreground cursor-pointer p-1 rounded-md hover:bg-secondary transition-colors"
+                class="text-muted-foreground hover:text-foreground cursor-pointer p-0.5 rounded hover:bg-secondary transition-colors"
                 title="Copy Listing ID"
                 @click="copyListingId"
               >
-                <Icon :name="copied ? 'lucide:check' : 'lucide:copy'" class="size-3.5 text-primary" aria-hidden="true" />
+                <Icon :name="copied ? 'lucide:check' : 'lucide:copy'" class="size-3 text-muted-foreground hover:text-foreground" aria-hidden="true" />
               </button>
             </div>
           </div>
 
           <!-- Listing State -->
-          <div>
-            <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">Listing State</span>
-            <span class="inline-flex items-center gap-1 font-semibold text-foreground mt-1">
-              <Icon name="lucide:shield-check" class="size-3.5 text-primary" aria-hidden="true" />
-              Draft (Safe)
+          <div class="flex flex-col justify-center px-1">
+            <span class="text-[11px] text-muted-foreground">Listing State</span>
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-foreground mt-0.5">
+              <Icon name="lucide:shield-check" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              <span>Draft (Safe)</span>
             </span>
           </div>
 
           <!-- Mockups Count -->
-          <div>
-            <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">Mockups Uploaded</span>
-            <span class="text-xs font-semibold text-foreground mt-1 block">
-              {{ mockupCount }} Mockup Previews
+          <div class="flex flex-col justify-center px-1">
+            <span class="text-[11px] text-muted-foreground">Mockups</span>
+            <span class="text-xs font-medium text-foreground mt-0.5">
+              {{ mockupCount }} Mockups
             </span>
           </div>
 
           <!-- Customer Delivery -->
-          <div>
-            <span class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground block">Customer Download</span>
-            <span class="text-xs font-semibold text-foreground flex items-center gap-1 mt-1">
-              <Icon name="lucide:file-check" class="size-3.5 text-primary" aria-hidden="true" />
-              <span>{{ digitalFilesCount > 1 ? `${digitalFilesCount} Real Product Files` : 'Digital Product Attached' }}</span>
+          <div class="flex flex-col justify-center px-1">
+            <span class="text-[11px] text-muted-foreground">Customer Files</span>
+            <span class="text-xs font-medium text-foreground inline-flex items-center gap-1 mt-0.5 truncate">
+              <Icon name="lucide:file-check" class="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+              <span class="truncate">{{ digitalFilesCount > 1 ? `${digitalFilesCount} Real Files` : 'Digital Product Attached' }}</span>
             </span>
           </div>
         </div>
