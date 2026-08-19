@@ -10,10 +10,19 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import (
     CostEstimate,
+    EtsyFileResponse,
+    EtsyGateway,
+    EtsyImageResponse,
+    EtsyListingDraftInput,
+    EtsyListingResponse,
+    EtsyShop,
+    EtsyTokenResponse,
+    EtsyUser,
     ImageCandidate,
     ImageRequest,
     ImageResponse,
@@ -685,3 +694,275 @@ class ZeroCostCalculator:
                 **{key: str(value) for key, value in units.items()},
             },
         )
+
+
+class FakeEtsyProvider(EtsyGateway):
+    """Deterministic in-memory Etsy provider for tests and local development.
+
+    Simulates OAuth token exchange, token refresh, shop resolution, draft listing creation,
+    image uploads, and digital ZIP uploads without network I/O.
+    """
+
+    def __init__(
+        self,
+        *,
+        default_shop_id: str = "12345678",
+        default_shop_name: str = "CraftyDesignStudio",
+        default_user_id: str = "98765432",
+    ) -> None:
+        self.default_shop_id = default_shop_id
+        self.default_shop_name = default_shop_name
+        self.default_user_id = default_user_id
+
+        # Call tracking & recorded payloads
+        self.exchanged_codes: list[dict[str, str]] = []
+        self.refreshed_tokens: list[str] = []
+        self.created_listings: list[dict[str, Any]] = []
+        self.uploaded_images: list[dict[str, Any]] = []
+        self.uploaded_files: list[dict[str, Any]] = []
+
+        # Error triggers for tests
+        self.fail_exchange: bool = False
+        self.fail_refresh: bool = False
+        self.fail_create_listing: bool = False
+        self.fail_upload_image: bool = False
+        self.fail_upload_file: bool = False
+        self.rate_limit_after_calls: int | None = None
+        self.call_count: int = 0
+        self.revoked_token: bool = False
+
+    async def exchange_code_for_token(
+        self, *, code: str, code_verifier: str, redirect_uri: str
+    ) -> EtsyTokenResponse:
+        self.call_count += 1
+        if self.fail_exchange:
+            raise ProviderError(
+                kind=ProviderErrorKind.AUTHENTICATION,
+                provider="etsy",
+                operation="exchange_code",
+                message="Invalid or expired authorization code.",
+            )
+        self.exchanged_codes.append(
+            {"code": code, "code_verifier": code_verifier, "redirect_uri": redirect_uri}
+        )
+        return EtsyTokenResponse(
+            access_token=f"{self.default_user_id}.fake_access_token_123",
+            refresh_token=f"{self.default_user_id}.fake_refresh_token_456",
+            expires_in=3600,
+            token_type="Bearer",
+            scope=["listings_r", "listings_w", "shops_r"],
+        )
+
+    async def refresh_token(self, *, refresh_token: str) -> EtsyTokenResponse:
+        self.call_count += 1
+        if self.fail_refresh or self.revoked_token:
+            raise ProviderError(
+                kind=ProviderErrorKind.AUTHENTICATION,
+                provider="etsy",
+                operation="refresh_token",
+                message="Refresh token has been revoked or expired.",
+            )
+        self.refreshed_tokens.append(refresh_token)
+        return EtsyTokenResponse(
+            access_token=f"{self.default_user_id}.refreshed_access_token_{len(self.refreshed_tokens)}",
+            refresh_token=f"{self.default_user_id}.refreshed_refresh_token_{len(self.refreshed_tokens)}",
+            expires_in=3600,
+            token_type="Bearer",
+            scope=["listings_r", "listings_w", "shops_r"],
+        )
+
+    async def get_me(self, *, access_token: str) -> EtsyUser:
+        self.call_count += 1
+        if self.revoked_token:
+            raise ProviderError(
+                kind=ProviderErrorKind.AUTHENTICATION,
+                provider="etsy",
+                operation="get_me",
+                message="OAuth token revoked.",
+            )
+        return EtsyUser(
+            user_id=self.default_user_id,
+            primary_email="owner@etsycraftstudio.com",
+            first_name="Studio Owner",
+        )
+
+    async def get_user_shops(self, *, access_token: str, user_id: str) -> list[EtsyShop]:
+        self.call_count += 1
+        if self.revoked_token:
+            raise ProviderError(
+                kind=ProviderErrorKind.AUTHENTICATION,
+                provider="etsy",
+                operation="get_user_shops",
+                message="OAuth token revoked.",
+            )
+        return [
+            EtsyShop(
+                shop_id=self.default_shop_id,
+                shop_name=self.default_shop_name,
+                user_id=user_id,
+                url=f"https://www.etsy.com/shop/{self.default_shop_name}",
+            )
+        ]
+
+    async def create_draft_listing(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing: EtsyListingDraftInput,
+        idempotency_key: str | None = None,
+    ) -> EtsyListingResponse:
+        self.call_count += 1
+        if self.rate_limit_after_calls and self.call_count > self.rate_limit_after_calls:
+            raise ProviderError(
+                kind=ProviderErrorKind.RATE_LIMITED,
+                provider="etsy",
+                operation="create_draft_listing",
+                message="Etsy API rate limit exceeded (429).",
+                retry_after_seconds=2.0,
+            )
+        if self.fail_create_listing:
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider="etsy",
+                operation="create_draft_listing",
+                message="Simulated temporary Etsy server error (503).",
+            )
+        if self.revoked_token:
+            raise ProviderError(
+                kind=ProviderErrorKind.AUTHENTICATION,
+                provider="etsy",
+                operation="create_draft_listing",
+                message="Token expired or revoked.",
+            )
+
+        # Deterministic listing ID
+        seed = _seed(shop_id, listing.title, idempotency_key or "")
+        listing_id = str(int(seed[:10], 16))
+
+        record = {
+            "listing_id": listing_id,
+            "shop_id": shop_id,
+            "title": listing.title,
+            "description": listing.description,
+            "tags": list(listing.tags),
+            "price_cents": listing.price_cents,
+            "currency": listing.currency,
+            "taxonomy_id": listing.taxonomy_id,
+            "state": "draft",  # Hardcoded draft guarantee
+            "idempotency_key": idempotency_key,
+        }
+        self.created_listings.append(record)
+
+        return EtsyListingResponse(
+            listing_id=listing_id,
+            shop_id=shop_id,
+            title=listing.title,
+            state="draft",
+            url=f"https://www.etsy.com/listing/{listing_id}",
+        )
+
+    async def upload_listing_image(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        image_bytes: bytes,
+        filename: str = "mockup.jpg",
+        rank: int = 1,
+        alt_text: str | None = None,
+    ) -> EtsyImageResponse:
+        self.call_count += 1
+        if self.fail_upload_image:
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider="etsy",
+                operation="upload_listing_image",
+                message="Simulated image upload timeout / network error.",
+            )
+
+        seed = _seed(listing_id, filename, str(rank))
+        image_id = str(int(seed[:9], 16))
+
+        self.uploaded_images.append(
+            {
+                "listing_image_id": image_id,
+                "listing_id": listing_id,
+                "shop_id": shop_id,
+                "filename": filename,
+                "rank": rank,
+                "bytes_len": len(image_bytes),
+                "alt_text": alt_text,
+            }
+        )
+
+        return EtsyImageResponse(
+            listing_image_id=image_id,
+            listing_id=listing_id,
+            rank=rank,
+            url=f"https://i.etsystatic.com/fake/{image_id}.jpg",
+        )
+
+    async def upload_listing_file(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        file_bytes: bytes,
+        filename: str = "package.zip",
+        rank: int = 1,
+    ) -> EtsyFileResponse:
+        self.call_count += 1
+        if self.fail_upload_file:
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider="etsy",
+                operation="upload_listing_file",
+                message="Simulated digital file upload timeout.",
+            )
+
+        seed = _seed(listing_id, filename, str(len(file_bytes)))
+        file_id = str(int(seed[:8], 16))
+
+        self.uploaded_files.append(
+            {
+                "listing_file_id": file_id,
+                "listing_id": listing_id,
+                "shop_id": shop_id,
+                "filename": filename,
+                "rank": rank,
+                "filesize": len(file_bytes),
+            }
+        )
+
+        return EtsyFileResponse(
+            listing_file_id=file_id,
+            listing_id=listing_id,
+            rank=rank,
+            filename=filename,
+            filesize=len(file_bytes),
+        )
+
+    async def get_listing(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> EtsyListingResponse:
+        self.call_count += 1
+        for item in self.created_listings:
+            if item["listing_id"] == listing_id:
+                return EtsyListingResponse(
+                    listing_id=listing_id,
+                    shop_id=shop_id,
+                    title=item["title"],
+                    state="draft",
+                    url=f"https://www.etsy.com/listing/{listing_id}",
+                )
+        return EtsyListingResponse(
+            listing_id=listing_id,
+            shop_id=shop_id,
+            title="Etsy Draft Listing",
+            state="draft",
+            url=f"https://www.etsy.com/listing/{listing_id}",
+        )
+

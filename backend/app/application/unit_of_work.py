@@ -30,6 +30,7 @@ from app.infrastructure.repositories import (
     SqlProviderCredentialRepository,
     SqlResearchRepository,
     SqlSessionRepository,
+    SqlShopConnectionRepository,
     SqlTelegramConnectionRepository,
     SqlTrademarkRepository,
     SqlUserRepository,
@@ -50,6 +51,7 @@ from app.ports.repositories import (
     ProviderCredentialRepository,
     ResearchRepository,
     SessionRepository,
+    ShopConnectionRepository,
     TelegramConnectionRepository,
     TrademarkRepository,
     UserRepository,
@@ -74,6 +76,7 @@ class UnitOfWork:
     costs: CostRepository
     audit: AuditRepository
     telegram_connections: TelegramConnectionRepository
+    shop_connections: ShopConnectionRepository
     outbox: OutboxRepository
     research: ResearchRepository
     artwork_jobs: ArtworkJobRepository
@@ -101,6 +104,7 @@ class UnitOfWork:
         self.costs = SqlCostRepository(session)
         self.audit = SqlAuditRepository(session)
         self.telegram_connections = SqlTelegramConnectionRepository(session)
+        self.shop_connections = SqlShopConnectionRepository(session)
         self.outbox = SqlOutboxRepository(session)
         self.research = SqlResearchRepository(session)
         self.artwork_jobs = SqlArtworkJobRepository(session)

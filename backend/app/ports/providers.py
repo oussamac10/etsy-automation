@@ -145,6 +145,72 @@ class TrademarkMatch:
     source_url: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class EtsyTokenResponse:
+    access_token: str
+    refresh_token: str
+    expires_in: int
+    token_type: str = "Bearer"
+    scope: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class EtsyUser:
+    user_id: str
+    primary_email: str | None = None
+    first_name: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EtsyShop:
+    shop_id: str
+    shop_name: str
+    user_id: str
+    url: str | None = None
+    icon_url: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EtsyListingDraftInput:
+    title: str
+    description: str
+    tags: list[str]
+    price_cents: int
+    currency: str = "USD"
+    taxonomy_id: int | None = None
+    who_made: str = "i_did"
+    when_made: str = "2020_2026"
+    item_type: str = "download"
+    is_supply: bool = False
+    quantity: int = 999
+
+
+@dataclass(frozen=True, slots=True)
+class EtsyListingResponse:
+    listing_id: str
+    shop_id: str
+    title: str
+    state: str = "draft"
+    url: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EtsyImageResponse:
+    listing_image_id: str
+    listing_id: str
+    rank: int
+    url: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EtsyFileResponse:
+    listing_file_id: str
+    listing_id: str
+    rank: int
+    filename: str
+    filesize: int | None = None
+
+
 # --------------------------------------------------------------------------
 # Ports
 # --------------------------------------------------------------------------
@@ -194,15 +260,53 @@ class ObjectStorage(Protocol):
 
 @runtime_checkable
 class EtsyGateway(Protocol):
-    """Creates drafts. There is intentionally no publish/activate method."""
+    """Creates drafts and manages assets. There is intentionally no publish/activate method."""
+
+    async def exchange_code_for_token(
+        self, *, code: str, code_verifier: str, redirect_uri: str
+    ) -> EtsyTokenResponse: ...
+
+    async def refresh_token(self, *, refresh_token: str) -> EtsyTokenResponse: ...
+
+    async def get_me(self, *, access_token: str) -> EtsyUser: ...
+
+    async def get_user_shops(self, *, access_token: str, user_id: str) -> list[EtsyShop]: ...
 
     async def create_draft_listing(
-        self, shop_id: str, payload: dict[str, object], idempotency_key: str
-    ) -> str: ...
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing: EtsyListingDraftInput,
+        idempotency_key: str | None = None,
+    ) -> EtsyListingResponse: ...
 
     async def upload_listing_image(
-        self, shop_id: str, listing_id: str, image: bytes, idempotency_key: str
-    ) -> str: ...
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        image_bytes: bytes,
+        filename: str = "mockup.jpg",
+        rank: int = 1,
+        alt_text: str | None = None,
+    ) -> EtsyImageResponse: ...
+
+    async def upload_listing_file(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        file_bytes: bytes,
+        filename: str = "package.zip",
+        rank: int = 1,
+    ) -> EtsyFileResponse: ...
+
+    async def get_listing(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> EtsyListingResponse: ...
 
 
 @runtime_checkable

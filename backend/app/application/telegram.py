@@ -815,3 +815,42 @@ async def send_gate3_review_notification(
         text="\n".join(msg_lines),
         reply_markup={"inline_keyboard": inline_keyboard},
     )
+
+
+async def send_etsy_draft_created_notification(
+    uow: UnitOfWork,
+    telegram_gateway: TelegramGateway,
+    owner_id: uuid.UUID,
+    workflow_id: uuid.UUID,
+    title: str,
+    shop_name: str,
+    listing_id: str,
+    images_count: int,
+    has_zip: bool,
+) -> None:
+    """Send structured completion notification with link to Etsy Shop Manager (ZERO publish action)."""
+    manager_url = f"https://www.etsy.com/your/shops/me/listing-editor/edit/{listing_id}"
+
+    msg_lines = [
+        "<b>📦 Etsy Draft Created ✅</b>",
+        "",
+        f"<b>Shop:</b> {escape_html(shop_name)}",
+        f"<b>Listing ID:</b> <code>{listing_id}</code>",
+        f"<b>Title:</b> {escape_html(title)}",
+        f"<b>Images:</b> {images_count} preview mockups uploaded",
+        f"<b>Digital Package:</b> {'Attached ✅' if has_zip else 'Pending'}",
+        "",
+        "<i>This listing is in <b>draft</b> state. Publish manually inside Etsy Shop Manager when ready.</i>",
+    ]
+
+    inline_keyboard = [
+        [{"text": "🛒 Open in Etsy Shop Manager", "url": manager_url}]
+    ]
+
+    await send_telegram_notification(
+        uow=uow,
+        telegram_gateway=telegram_gateway,
+        owner_id=owner_id,
+        text="\n".join(msg_lines),
+        reply_markup={"inline_keyboard": inline_keyboard},
+    )

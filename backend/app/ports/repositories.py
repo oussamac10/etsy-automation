@@ -39,6 +39,7 @@ from app.infrastructure.models import (
     ProviderUsage,
     ResearchEvidence,
     ResearchRun,
+    ShopConnection,
     TelegramConnection,
     TrademarkRecord,
     User,
@@ -163,6 +164,53 @@ class TelegramConnectionRepository(Protocol):
     ) -> None: ...
 
     async def disconnect(self, record: TelegramConnection, *, revoked_at: datetime) -> None: ...
+
+
+@runtime_checkable
+class ShopConnectionRepository(Protocol):
+    async def get_by_user_id(
+        self, user_id: uuid.UUID, provider: str = "etsy"
+    ) -> ShopConnection | None: ...
+
+    async def get_by_shop_id(
+        self, etsy_shop_id: str, provider: str = "etsy"
+    ) -> ShopConnection | None: ...
+
+    async def list_for_user(self, user_id: uuid.UUID) -> Sequence[ShopConnection]: ...
+
+    async def upsert(
+        self,
+        *,
+        user_id: uuid.UUID,
+        provider: str = "etsy",
+        etsy_user_id: str,
+        etsy_shop_id: str,
+        etsy_shop_name: str,
+        ciphertext_access_token: bytes,
+        ciphertext_refresh_token: bytes,
+        key_version: int,
+        token_expires_at: datetime,
+        granted_scopes: list[str],
+        connection_status: str = "connected",
+        last_refreshed_at: datetime | None = None,
+    ) -> ShopConnection: ...
+
+    async def update_tokens(
+        self,
+        record: ShopConnection,
+        *,
+        ciphertext_access_token: bytes,
+        ciphertext_refresh_token: bytes,
+        key_version: int,
+        token_expires_at: datetime,
+        last_refreshed_at: datetime | None = None,
+    ) -> ShopConnection: ...
+
+    async def update_status(
+        self, record: ShopConnection, *, connection_status: str
+    ) -> ShopConnection: ...
+
+    async def delete(self, record: ShopConnection) -> None: ...
 
 
 @runtime_checkable
@@ -586,6 +634,41 @@ class ListingDraftRepository(Protocol):
         *,
         acknowledged_by: str,
         acknowledged_at: datetime,
+    ) -> ListingDraft: ...
+
+    async def update_etsy_draft(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        etsy_shop_id: str,
+        etsy_listing_id: str,
+        etsy_listing_url: str | None = None,
+        etsy_state: str = "draft",
+        etsy_draft_created_at: datetime | None = None,
+        etsy_dispatch_status: str = "creating_listing",
+    ) -> ListingDraft: ...
+
+    async def record_etsy_image_upload(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        image_id: str,
+    ) -> ListingDraft: ...
+
+    async def record_etsy_file_upload(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        file_id: str,
+    ) -> ListingDraft: ...
+
+    async def update_etsy_dispatch_status(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        status: str,
+        failure_reason: str | None = None,
+        last_synced_at: datetime | None = None,
     ) -> ListingDraft: ...
 
 

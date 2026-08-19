@@ -121,3 +121,79 @@ class SqlListingDraftRepository:
         draft.ip_acknowledged_at = acknowledged_at
         await self._session.flush()
         return draft
+
+    async def update_etsy_draft(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        etsy_shop_id: str,
+        etsy_listing_id: str,
+        etsy_listing_url: str | None = None,
+        etsy_state: str = "draft",
+        etsy_draft_created_at: datetime | None = None,
+        etsy_dispatch_status: str = "creating_listing",
+    ) -> ListingDraft:
+        draft = await self.get(draft_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", draft_id)
+
+        draft.etsy_shop_id = etsy_shop_id
+        draft.etsy_listing_id = etsy_listing_id
+        draft.etsy_listing_url = etsy_listing_url
+        draft.etsy_state = etsy_state
+        draft.etsy_draft_created_at = etsy_draft_created_at or datetime.now(datetime.UTC if hasattr(datetime, 'UTC') else None)
+        draft.etsy_dispatch_status = etsy_dispatch_status
+        draft.etsy_last_synced_at = draft.etsy_draft_created_at
+        await self._session.flush()
+        return draft
+
+    async def record_etsy_image_upload(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        image_id: str,
+    ) -> ListingDraft:
+        draft = await self.get(draft_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", draft_id)
+
+        current_images = list(draft.etsy_image_ids or [])
+        if image_id not in current_images:
+            current_images.append(image_id)
+            draft.etsy_image_ids = current_images
+        await self._session.flush()
+        return draft
+
+    async def record_etsy_file_upload(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        file_id: str,
+    ) -> ListingDraft:
+        draft = await self.get(draft_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", draft_id)
+
+        draft.etsy_file_id = file_id
+        await self._session.flush()
+        return draft
+
+    async def update_etsy_dispatch_status(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        status: str,
+        failure_reason: str | None = None,
+        last_synced_at: datetime | None = None,
+    ) -> ListingDraft:
+        draft = await self.get(draft_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", draft_id)
+
+        draft.etsy_dispatch_status = status
+        if failure_reason is not None:
+            draft.etsy_failure_reason = failure_reason
+        if last_synced_at is not None:
+            draft.etsy_last_synced_at = last_synced_at
+        await self._session.flush()
+        return draft

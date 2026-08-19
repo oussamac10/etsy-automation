@@ -104,6 +104,30 @@ class Settings(BaseSettings):
         default="gemini-3.1-flash-image", alias="GEMINI_REFINEMENT_MODEL"
     )
 
+    # --- Etsy Integration (Phase 9) ---
+    etsy_api_key: SecretStr | None = Field(default=None, alias="ETSY_API_KEY")
+    etsy_client_id: SecretStr | None = Field(default=None, alias="ETSY_CLIENT_ID")
+    etsy_shared_secret: SecretStr | None = Field(default=None, alias="ETSY_SHARED_SECRET")
+    etsy_client_secret: SecretStr | None = Field(default=None, alias="ETSY_CLIENT_SECRET")
+    etsy_redirect_uri: str = Field(
+        default="http://localhost:8000/api/v1/auth/etsy/callback", alias="ETSY_REDIRECT_URI"
+    )
+    etsy_api_base_url: str = Field(
+        default="https://openapi.etsy.com/v3", alias="ETSY_API_BASE_URL"
+    )
+    etsy_authorization_url: str = Field(
+        default="https://www.etsy.com/oauth/connect", alias="ETSY_AUTHORIZATION_URL"
+    )
+    etsy_token_url: str = Field(
+        default="https://api.etsy.com/v3/public/oauth/token", alias="ETSY_TOKEN_URL"
+    )
+    etsy_frontend_redirect_url: str = Field(
+        default="http://localhost:3000/settings", alias="ETSY_FRONTEND_REDIRECT_URL"
+    )
+    etsy_scopes: str = Field(
+        default="listings_r listings_w shops_r", alias="ETSY_SCOPES"
+    )
+
     @field_validator("log_level")
     @classmethod
     def _normalise_log_level(cls, value: str) -> str:
@@ -172,6 +196,16 @@ class Settings(BaseSettings):
     @property
     def is_local(self) -> bool:
         return self.app_env == "local"
+
+    @property
+    def resolved_etsy_api_key(self) -> str | None:
+        key = self.etsy_api_key or self.etsy_client_id
+        return key.get_secret_value() if key is not None else None
+
+    @property
+    def resolved_etsy_shared_secret(self) -> str | None:
+        secret = self.etsy_shared_secret or self.etsy_client_secret
+        return secret.get_secret_value() if secret is not None else None
 
 
 @lru_cache(maxsize=1)
