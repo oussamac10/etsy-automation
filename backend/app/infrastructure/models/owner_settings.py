@@ -33,9 +33,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.domain.enums import IdeaMode, ProviderName, QualityTier
 from app.domain.money import Money
 from app.domain.owner_settings import (
+    DEFAULT_AUTO_RENEW,
     DEFAULT_CURRENCY,
+    DEFAULT_DIGITAL_PRICE_MINOR,
+    DEFAULT_DIGITAL_QUANTITY,
     DEFAULT_LANGUAGE,
     DEFAULT_MARKETPLACE,
+    DEFAULT_SHOP_SECTION_STRATEGY,
     DEFAULT_TARGET_COUNTRY,
     MAX_STYLE_PREFERENCES,
 )
@@ -127,6 +131,18 @@ class OwnerSettings(UuidMixin, TimestampMixin, Base):
     notify_on_approval_needed: Mapped[bool] = mapped_column(nullable=False, default=True)
     is_paused: Mapped[bool] = mapped_column(nullable=False, default=False)
 
+    # --- Etsy Listing Defaults ---------------------------------------------
+    default_digital_price_minor: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=DEFAULT_DIGITAL_PRICE_MINOR
+    )
+    default_digital_quantity: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=DEFAULT_DIGITAL_QUANTITY
+    )
+    default_auto_renew: Mapped[bool] = mapped_column(nullable=False, default=DEFAULT_AUTO_RENEW)
+    default_shop_section_strategy: Mapped[str] = mapped_column(
+        String(50), nullable=False, default=DEFAULT_SHOP_SECTION_STRATEGY
+    )
+
     user: Mapped[User] = relationship(back_populates="settings")
 
     __table_args__ = (
@@ -135,6 +151,8 @@ class OwnerSettings(UuidMixin, TimestampMixin, Base):
         CheckConstraint("daily_budget_minor >= 0", name="daily_budget_non_negative"),
         CheckConstraint("monthly_budget_minor >= 0", name="monthly_budget_non_negative"),
         CheckConstraint("daily_budget_minor <= monthly_budget_minor", name="daily_within_monthly"),
+        CheckConstraint("default_digital_price_minor > 0", name="default_digital_price_positive"),
+        CheckConstraint("default_digital_quantity > 0", name="default_digital_quantity_positive"),
         CheckConstraint("char_length(target_country) = 2", name="target_country_alpha2"),
         CheckConstraint("char_length(currency) = 3", name="currency_alpha3"),
         CheckConstraint("min_output_pixels BETWEEN 512 AND 20000", name="output_pixels_range"),

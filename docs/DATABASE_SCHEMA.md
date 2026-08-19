@@ -18,6 +18,7 @@ erDiagram
     product_workflows ||--o{ audit_events : "workflow_id -> id"
     product_concepts ||--o{ design_prompts : "concept_id -> id"
     research_runs ||--o{ keyword_clusters : "run_id -> id"
+    assets ||--o{ listing_drafts : "primary_mockup_asset_id -> id"
     product_workflows ||--o{ listing_drafts : "workflow_id -> id"
     original_ideas ||--o{ original_idea_revisions : "idea_id -> id"
     product_workflows ||--o{ original_ideas : "workflow_id -> id"
@@ -113,11 +114,15 @@ erDiagram
 | `notify_on_budget_warning` | `BOOLEAN` | NO | `True` | - | - |
 | `notify_on_approval_needed` | `BOOLEAN` | NO | `True` | - | - |
 | `is_paused` | `BOOLEAN` | NO | `False` | - | - |
+| `default_digital_price_minor` | `BIGINT` | NO | `499` | - | - |
+| `default_digital_quantity` | `INTEGER` | NO | `999` | - | - |
+| `default_auto_renew` | `BOOLEAN` | NO | `False` | - | - |
+| `default_shop_section_strategy` | `VARCHAR(50)` | NO | `auto` | - | - |
 | `created_at` | `DATETIME` | NO | `dynamic` | - | - |
 | `updated_at` | `DATETIME` | NO | `dynamic` | - | - |
 
 - **Unique Constraints**: `user_id`
-- **Check Constraints**: `ck_owner_settings_currency_alpha3` (`char_length(currency) = 3`), `ck_owner_settings_daily_budget_non_negative` (`daily_budget_minor >= 0`), `ck_owner_settings_daily_within_monthly` (`daily_budget_minor <= monthly_budget_minor`), `ck_owner_settings_monthly_budget_non_negative` (`monthly_budget_minor >= 0`), `ck_owner_settings_output_pixels_range` (`min_output_pixels BETWEEN 512 AND 20000`), `ck_owner_settings_style_preferences_bounded` (`cardinality(style_preferences) <= 20`), `ck_owner_settings_target_country_alpha2` (`char_length(target_country) = 2`), `ck_owner_settings_weekly_research_hour_range` (`weekly_research_hour_utc BETWEEN 0 AND 23`), `ck_owner_settings_weekly_research_weekday_range` (`weekly_research_weekday BETWEEN 0 AND 6`)
+- **Check Constraints**: `ck_owner_settings_currency_alpha3` (`char_length(currency) = 3`), `ck_owner_settings_daily_budget_non_negative` (`daily_budget_minor >= 0`), `ck_owner_settings_daily_within_monthly` (`daily_budget_minor <= monthly_budget_minor`), `ck_owner_settings_default_digital_price_positive` (`default_digital_price_minor > 0`), `ck_owner_settings_default_digital_quantity_positive` (`default_digital_quantity > 0`), `ck_owner_settings_monthly_budget_non_negative` (`monthly_budget_minor >= 0`), `ck_owner_settings_output_pixels_range` (`min_output_pixels BETWEEN 512 AND 20000`), `ck_owner_settings_style_preferences_bounded` (`cardinality(style_preferences) <= 20`), `ck_owner_settings_target_country_alpha2` (`char_length(target_country) = 2`), `ck_owner_settings_weekly_research_hour_range` (`weekly_research_hour_utc BETWEEN 0 AND 23`), `ck_owner_settings_weekly_research_weekday_range` (`weekly_research_weekday BETWEEN 0 AND 6`)
 
 #### `provider_credentials`
 
@@ -615,6 +620,14 @@ erDiagram
 | `currency` | `VARCHAR(3)` | NO | `USD` | - | - |
 | `taxonomy_id` | `INTEGER` | YES | - | - | - |
 | `taxonomy_path` | `VARCHAR(500)` | YES | - | - | - |
+| `quantity` | `INTEGER` | NO | `999` | - | - |
+| `sku` | `VARCHAR(60)` | YES | - | - | - |
+| `shop_section_id` | `VARCHAR(60)` | YES | - | - | - |
+| `shop_section_name` | `VARCHAR(120)` | YES | - | - | - |
+| `should_auto_renew` | `BOOLEAN` | NO | `False` | - | - |
+| `etsy_properties` | `JSONB` | NO | `dynamic` | - | - |
+| `primary_mockup_asset_id` | `CHAR(32)` | YES | - | - | `assets.id` |
+| `shopping_cart_summary` | `VARCHAR(200)` | YES | - | - | - |
 | `ai_disclosure` | `TEXT` | YES | - | - | - |
 | `licence_text` | `TEXT` | YES | - | - | - |
 | `customer_instructions` | `TEXT` | YES | - | - | - |
@@ -639,7 +652,8 @@ erDiagram
 | `updated_at` | `DATETIME` | NO | `dynamic` | - | - |
 
 - **Unique Constraints**: `etsy_listing_id`, `workflow_id`
-- **Check Constraints**: `ck_listing_drafts_listing_price_non_negative` (`price_minor_units IS NULL OR price_minor_units >= 0`), `ck_listing_drafts_listing_tag_limit` (`cardinality(tags) <= 13`), `ck_listing_drafts_listing_version_positive` (`version >= 1`)
+- **Check Constraints**: `ck_listing_drafts_listing_price_non_negative` (`price_minor_units IS NULL OR price_minor_units >= 0`), `ck_listing_drafts_listing_quantity_positive` (`quantity > 0`), `ck_listing_drafts_listing_tag_limit` (`cardinality(tags) <= 13`), `ck_listing_drafts_listing_version_positive` (`version >= 1`)
+- **Indexes**: `ix_listing_drafts_sku` on `sku`
 
 #### `trademark_records`
 

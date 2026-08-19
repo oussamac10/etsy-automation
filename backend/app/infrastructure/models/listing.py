@@ -111,6 +111,27 @@ class ListingDraft(UuidMixin, TimestampMixin, Base):
 
     taxonomy_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     taxonomy_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    #: Listing quantity for instant digital downloads (defaults to 999).
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=999)
+    #: Deterministic, human-readable internal SKU (e.g. NCP-XMAS-BAKE-001).
+    sku: Mapped[str | None] = mapped_column(String(60), nullable=True, index=True)
+
+    #: Optional Etsy shop section.
+    shop_section_id: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    shop_section_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    #: Whether the Etsy listing should auto-renew (default False = manual renewal).
+    should_auto_renew: Mapped[bool] = mapped_column(nullable=False, default=False)
+
+    #: Dynamic Etsy taxonomy properties/attributes (e.g. craft type, season, holiday, colors).
+    etsy_properties: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    #: Optional user-selected primary hero mockup asset ID for Rank 1 image.
+    primary_mockup_asset_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("assets.id", ondelete="SET NULL"), nullable=True
+    )
+    #: Optional concise shopping cart summary (up to 200 chars).
+    shopping_cart_summary: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
     #: Required by Etsy when a listing uses AI-generated imagery.
     ai_disclosure: Mapped[str | None] = mapped_column(Text, nullable=True)
     licence_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -155,6 +176,7 @@ class ListingDraft(UuidMixin, TimestampMixin, Base):
             "price_minor_units IS NULL OR price_minor_units >= 0",
             name="listing_price_non_negative",
         ),
+        CheckConstraint("quantity > 0", name="listing_quantity_positive"),
         CheckConstraint("cardinality(tags) <= 13", name="listing_tag_limit"),
         CheckConstraint("version >= 1", name="listing_version_positive"),
     )
