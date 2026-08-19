@@ -283,7 +283,7 @@ const isApproved = computed(() => {
     <!-- Main Content Grid -->
     <div v-else-if="listingDraft" class="space-y-6">
       <!-- Top Row: Etsy Seller Category & Etsy Listing Dispatch in same line -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <CategorySelectorCard
           :workflow-id="workflowId"
           :taxonomy-id="listingDraft.taxonomy_id"
