@@ -7,6 +7,7 @@ import re
 import uuid
 import structlog
 
+from app.application.brand_resolver import resolve_connected_shop_name
 from app.application.unit_of_work import UnitOfWork
 from app.domain.errors import EntityNotFoundError
 from app.domain.package_builder import (
@@ -16,6 +17,8 @@ from app.domain.package_builder import (
     generate_instructions_text,
     generate_license_text,
     optimize_png_deflate,
+    sanitize_brand_slug,
+    sanitize_product_title,
 )
 from app.domain.production_resolver import (
     filter_active_user_mockups,
@@ -72,11 +75,17 @@ class CustomerPackageService:
         logger.info("building_customer_package", workflow_id=str(workflow_id), master_id=str(master_asset.id), include_mockups=include_mockups)
         master_bytes = await self._storage.get(master_asset.storage_key)
 
+        # Resolve dynamic connected Etsy shop name
+        shop_name = await resolve_connected_shop_name(uow, workflow.owner_id)
+        shop_slug = sanitize_brand_slug(shop_name)
+        product_slug = sanitize_product_title(listing_title)
+        base_prefix = f"{shop_slug}_{product_slug}"
+
         files_to_zip: dict[str, bytes] = {}
 
         # Master PNG (losslessly optimized with level 9 deflate)
         optimized_master = optimize_png_deflate(master_bytes)
-        files_to_zip["master.png"] = optimized_master
+        files_to_zip[f"{base_prefix}_PNG.png"] = optimized_master
 
         # Print-ready PDF (include only if master raster is small enough to keep ZIP under Etsy 20MB limit)
         if len(optimized_master) < 10 * 1024 * 1024:
@@ -86,7 +95,7 @@ class CustomerPackageService:
                     width_px=master_asset.width or 4500,
                     height_px=master_asset.height or 5400,
                 )
-                files_to_zip["print-ready.pdf"] = pdf_bytes
+                files_to_zip[f"{base_prefix}_Print_Ready.pdf"] = pdf_bytes
             except Exception as exc:
                 logger.warning("pdf_generation_failed", error=str(exc))
 
@@ -98,34 +107,20 @@ class CustomerPackageService:
                     mockup_bytes = await self._storage.get(mockup_asset.storage_key)
                     raw_prod = mockup_asset.provenance.get("product_type", f"preview-{idx}")
                     clean_prod = re.sub(r"[^a-zA-Z0-9_-]", "_", str(raw_prod))
-                    files_to_zip[f"mockup-{idx}-{clean_prod}.png"] = mockup_bytes
+                    files_to_zip[f"{base_prefix}_Mockup_{idx}_{clean_prod}.png"] = mockup_bytes
                 except Exception as exc:
                     logger.warning("mockup_fetch_failed", asset_id=str(mockup_asset.id), error=str(exc))
 
         # License and Instructions text
-        owner_settings = None
-        if hasattr(uow, "owner_settings") and uow.owner_settings and hasattr(workflow, "owner_id") and workflow.owner_id:
-            try:
-                import inspect
-                res = uow.owner_settings.get_for_user(workflow.owner_id)
-                if inspect.isawaitable(res):
-                    owner_settings = await res
-                elif hasattr(res, "shop_name"):
-                    owner_settings = res
-            except Exception:
-                owner_settings = None
-
-        shop_name = getattr(owner_settings, "shop_name", "Digital Art Studio") if owner_settings else "Digital Art Studio"
-
         license_doc = generate_license_text(shop_name, listing_title)
-        instructions_doc = generate_instructions_text(listing_title)
+        instructions_doc = generate_instructions_text(listing_title, shop_name=shop_name)
 
-        files_to_zip["LICENSE.txt"] = license_doc.encode("utf-8")
-        files_to_zip["INSTRUCTIONS.txt"] = instructions_doc.encode("utf-8")
+        files_to_zip[f"{base_prefix}_LICENSE.txt"] = license_doc.encode("utf-8")
+        files_to_zip[f"{base_prefix}_INSTRUCTIONS.txt"] = instructions_doc.encode("utf-8")
 
         # Checksum manifest
         manifest_text = generate_checksum_manifest(files_to_zip)
-        files_to_zip["manifest.sha256"] = manifest_text.encode("utf-8")
+        files_to_zip[f"{base_prefix}_manifest.sha256"] = manifest_text.encode("utf-8")
 
         # Build ZIP
         zip_bytes = build_zip_archive(files_to_zip)

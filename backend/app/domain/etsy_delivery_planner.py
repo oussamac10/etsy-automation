@@ -32,6 +32,8 @@ from app.domain.package_builder import (
     generate_instructions_text,
     generate_license_text,
     optimize_png_deflate,
+    sanitize_brand_slug,
+    sanitize_product_title,
 )
 
 MAX_ETSY_DIGITAL_FILES_COUNT: Final[int] = 5
@@ -51,7 +53,7 @@ class EtsyDeliveryFile:
 
 def validate_zip_integrity(zip_bytes: bytes, expected_members: list[str] | None = None) -> None:
     """Verify that bytes represent a complete, uncorrupted, extractable ZIP archive.
-    
+
     Checks:
     1. Opens successfully with zipfile.ZipFile.
     2. testzip() reports zero corrupt members.
@@ -59,30 +61,30 @@ def validate_zip_integrity(zip_bytes: bytes, expected_members: list[str] | None 
     4. No duplicate member names.
     5. All expected members are present and readable in full.
     """
-    if len(zip_bytes) == 0:
-        raise DomainError("Generated ZIP archive is empty (0 bytes).")
+    if not zip_bytes or len(zip_bytes) < 22:
+        raise DomainError("Invalid digital delivery package: ZIP archive is empty or truncated.")
 
     try:
         with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
-            bad_member = zf.testzip()
-            if bad_member is not None:
-                raise DomainError(f"Corrupt member '{bad_member}' detected in generated ZIP archive.")
+            corrupt = zf.testzip()
+            if corrupt is not None:
+                raise DomainError(f"ZIP archive corrupted at member: '{corrupt}'")
 
-            namelist = zf.namelist()
-            if not namelist:
-                raise DomainError("ZIP archive contains no file members.")
+            infolist = zf.infolist()
+            if not infolist:
+                raise DomainError("ZIP archive contains zero files.")
 
-            if len(namelist) != len(set(namelist)):
-                raise DomainError("ZIP archive contains duplicate member names.")
+            names = [info.filename for info in infolist]
+            if len(names) != len(set(names)):
+                raise DomainError("ZIP archive contains duplicate file entries.")
 
             if expected_members:
                 for expected in expected_members:
-                    if expected not in namelist:
-                        raise DomainError(f"Expected member '{expected}' missing from ZIP archive.")
-
-            # Read all members to verify full uncompressed stream integrity
-            for name in namelist:
-                zf.read(name)
+                    if expected not in names:
+                        raise DomainError(f"Required member '{expected}' missing from ZIP archive.")
+                    member_data = zf.read(expected)
+                    if len(member_data) == 0 and not expected.endswith("/"):
+                        pass
     except (zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
         raise DomainError(f"Invalid ZIP archive structure: {exc}") from exc
 
@@ -91,21 +93,26 @@ def validate_png_integrity(
     png_bytes: bytes,
     expected_width: int | None = None,
     expected_height: int | None = None,
+    expected_w: int | None = None,
+    expected_h: int | None = None,
 ) -> None:
-    """Verify that bytes represent a valid, complete PNG with valid signature and readable IDAT."""
+    """Validate PNG signature, header chunks, dimensions, and decompression integrity."""
     if len(png_bytes) < 24 or png_bytes[:8] != b"\x89PNG\r\n\x1a\n":
-        raise DomainError("Invalid PNG signature.")
+        raise DomainError("Invalid PNG signature: Not a valid PNG binary signature.")
 
-    width, height, bit_depth, color_type = struct.unpack(">IIBB", png_bytes[16:26])
-    if width <= 0 or height <= 0:
-        raise DomainError(f"Invalid PNG dimensions: {width}x{height}")
+    target_w = expected_width if expected_width is not None else expected_w
+    target_h = expected_height if expected_height is not None else expected_h
 
-    if expected_width and expected_width > 0 and width != expected_width:
-        raise DomainError(f"PNG width {width}px does not match expected {expected_width}px.")
-    if expected_height and expected_height > 0 and height != expected_height:
-        raise DomainError(f"PNG height {height}px does not match expected {expected_height}px.")
+    w, h, bit_depth, color_type = struct.unpack(">IIBB", png_bytes[16:26])
+    if w < 100 or h < 100:
+        raise DomainError(f"PNG dimensions ({w}x{h}) are too small for commercial print delivery.")
 
-    # Traverse chunks and ensure IDAT stream decompresses
+    if target_w and target_w > 0 and w != target_w:
+        raise DomainError(f"PNG width {w}px does not match expected {target_w}px.")
+    if target_h and target_h > 0 and h != target_h:
+        raise DomainError(f"PNG height {h}px does not match expected {target_h}px.")
+
+    # Check for valid IDAT chunk and decompressibility
     offset = 8
     idat_combined = bytearray()
     has_iend = False
@@ -115,24 +122,27 @@ def validate_png_integrity(
             break
         length = struct.unpack(">I", png_bytes[offset : offset + 4])[0]
         chunk_type = png_bytes[offset + 4 : offset + 8]
+        chunk_data = png_bytes[offset + 8 : offset + 8 + length]
         if chunk_type == b"IDAT":
-            idat_combined.extend(png_bytes[offset + 8 : offset + 8 + length])
+            idat_combined.extend(chunk_data)
         elif chunk_type == b"IEND":
             has_iend = True
             break
         offset += 12 + length
 
-    if not has_iend:
-        raise DomainError("Incomplete PNG: missing IEND chunk.")
+    if not has_iend or not idat_combined:
+        raise DomainError("Invalid master PNG: Truncated raster image data or missing IEND.")
 
     try:
-        zlib.decompress(bytes(idat_combined))
+        decompressed = zlib.decompress(bytes(idat_combined))
+        if len(decompressed) == 0:
+            raise DomainError("Master PNG contains empty raster image data.")
     except Exception as exc:
         raise DomainError(f"Corrupted PNG IDAT stream: {exc}") from exc
 
 
 class EtsyDigitalDeliveryPlanner:
-    """Planner for assembling compliant, valid digital deliverables for Etsy."""
+    """Computes and plans uploadable customer files conforming to Etsy constraints."""
 
     def __init__(
         self,
@@ -164,7 +174,9 @@ class EtsyDigitalDeliveryPlanner:
                   3. If optimized PNG packed in standalone ZIP <= 20MB, produces [master.zip, extras.zip].
                   4. If even master.zip exceeds 20MB, fail safely with DomainError without raw byte splitting.
         """
-        clean_slug = re.sub(r"[^a-zA-Z0-9_-]", "_", listing_title[:35]).strip("_") or "artwork"
+        shop_slug = sanitize_brand_slug(shop_name)
+        product_slug = sanitize_product_title(listing_title)
+        base_prefix = f"{shop_slug}_{product_slug}"
 
         # 1. Optimize master PNG losslessly
         optimized_master = optimize_png_deflate(master_png_bytes)
@@ -173,7 +185,7 @@ class EtsyDigitalDeliveryPlanner:
 
         # 2. Build Documentation
         license_doc = generate_license_text(shop_name, listing_title).encode("utf-8")
-        instructions_doc = generate_instructions_text(listing_title).encode("utf-8")
+        instructions_doc = generate_instructions_text(listing_title, shop_name=shop_name).encode("utf-8")
 
         # 3. Build Optional Print-Ready PDF
         pdf_bytes: bytes | None = None
@@ -193,15 +205,15 @@ class EtsyDigitalDeliveryPlanner:
         # Case A: Try single complete customer archive
         # ----------------------------------------------------------------------
         single_pack_files: dict[str, bytes] = {
-            "master.png": optimized_master,
-            "LICENSE.txt": license_doc,
-            "INSTRUCTIONS.txt": instructions_doc,
+            f"{base_prefix}_PNG.png": optimized_master,
+            f"{base_prefix}_LICENSE.txt": license_doc,
+            f"{base_prefix}_INSTRUCTIONS.txt": instructions_doc,
         }
         if pdf_bytes is not None:
-            single_pack_files["print-ready.pdf"] = pdf_bytes
+            single_pack_files[f"{base_prefix}_Print_Ready.pdf"] = pdf_bytes
 
         manifest_a = generate_checksum_manifest(single_pack_files).encode("utf-8")
-        single_pack_files["manifest.sha256"] = manifest_a
+        single_pack_files[f"{base_prefix}_manifest.sha256"] = manifest_a
 
         single_zip_bytes = build_zip_archive(single_pack_files)
 
@@ -210,11 +222,11 @@ class EtsyDigitalDeliveryPlanner:
             zip_sha = hashlib.sha256(single_zip_bytes).hexdigest()
             return [
                 EtsyDeliveryFile(
-                    filename=f"{clean_slug}.zip",
+                    filename=f"{base_prefix}_Digital_Download.zip",
                     mime_type="application/zip",
                     content=single_zip_bytes,
                     checksum_sha256=zip_sha,
-                    file_key=f"{clean_slug}_complete_zip",
+                    file_key=f"{base_prefix}_complete_zip",
                 )
             ]
 
@@ -227,26 +239,26 @@ class EtsyDigitalDeliveryPlanner:
             # Deliverable 1: Direct Master PNG
             planned_files.append(
                 EtsyDeliveryFile(
-                    filename=f"{clean_slug}_master.png",
+                    filename=f"{base_prefix}_PNG.png",
                     mime_type="image/png",
                     content=optimized_master,
                     checksum_sha256=master_sha,
-                    file_key=f"{clean_slug}_master_png",
+                    file_key=f"{base_prefix}_master_png",
                 )
             )
         else:
             # Check if packing master in a dedicated ZIP archive compresses under limit
-            master_zip_files = {f"{clean_slug}_master.png": optimized_master}
+            master_zip_files = {f"{base_prefix}_PNG.png": optimized_master}
             master_zip_bytes = build_zip_archive(master_zip_files)
             if len(master_zip_bytes) <= self.max_file_bytes:
-                validate_zip_integrity(master_zip_bytes, [f"{clean_slug}_master.png"])
+                validate_zip_integrity(master_zip_bytes, [f"{base_prefix}_PNG.png"])
                 planned_files.append(
                     EtsyDeliveryFile(
-                        filename=f"{clean_slug}_master.zip",
+                        filename=f"{base_prefix}_Master.zip",
                         mime_type="application/zip",
                         content=master_zip_bytes,
                         checksum_sha256=hashlib.sha256(master_zip_bytes).hexdigest(),
-                        file_key=f"{clean_slug}_master_zip",
+                        file_key=f"{base_prefix}_master_zip",
                     )
                 )
             else:
@@ -260,15 +272,15 @@ class EtsyDigitalDeliveryPlanner:
 
         # Build Extras ZIP (PDF if fits, License, Instructions, Master Checksum Manifest)
         extras_files: dict[str, bytes] = {
-            "LICENSE.txt": license_doc,
-            "INSTRUCTIONS.txt": instructions_doc,
-            "master_artwork_checksum.sha256": f"{master_sha}  {clean_slug}_master.png\n".encode("utf-8"),
+            f"{base_prefix}_LICENSE.txt": license_doc,
+            f"{base_prefix}_INSTRUCTIONS.txt": instructions_doc,
+            f"{base_prefix}_master_artwork_checksum.sha256": f"{master_sha}  {base_prefix}_PNG.png\n".encode("utf-8"),
         }
         if pdf_bytes is not None and len(pdf_bytes) < 15 * 1024 * 1024:
-            extras_files["print-ready.pdf"] = pdf_bytes
+            extras_files[f"{base_prefix}_Print_Ready.pdf"] = pdf_bytes
 
         manifest_extras = generate_checksum_manifest(extras_files).encode("utf-8")
-        extras_files["manifest.sha256"] = manifest_extras
+        extras_files[f"{base_prefix}_manifest.sha256"] = manifest_extras
 
         extras_zip_bytes = build_zip_archive(extras_files)
 
@@ -276,31 +288,31 @@ class EtsyDigitalDeliveryPlanner:
             validate_zip_integrity(extras_zip_bytes, list(extras_files.keys()))
             planned_files.append(
                 EtsyDeliveryFile(
-                    filename=f"{clean_slug}_extras.zip",
+                    filename=f"{base_prefix}_Extras.zip",
                     mime_type="application/zip",
                     content=extras_zip_bytes,
                     checksum_sha256=hashlib.sha256(extras_zip_bytes).hexdigest(),
-                    file_key=f"{clean_slug}_extras_zip",
+                    file_key=f"{base_prefix}_extras_zip",
                 )
             )
         else:
             # If extras exceeds limit (e.g. PDF is large), separate docs and PDF into independent valid ZIPs
             doc_files = {
-                "LICENSE.txt": license_doc,
-                "INSTRUCTIONS.txt": instructions_doc,
-                "manifest.sha256": generate_checksum_manifest(
-                    {"LICENSE.txt": license_doc, "INSTRUCTIONS.txt": instructions_doc}
+                f"{base_prefix}_LICENSE.txt": license_doc,
+                f"{base_prefix}_INSTRUCTIONS.txt": instructions_doc,
+                f"{base_prefix}_manifest.sha256": generate_checksum_manifest(
+                    {f"{base_prefix}_LICENSE.txt": license_doc, f"{base_prefix}_INSTRUCTIONS.txt": instructions_doc}
                 ).encode("utf-8"),
             }
             doc_zip = build_zip_archive(doc_files)
             validate_zip_integrity(doc_zip, list(doc_files.keys()))
             planned_files.append(
                 EtsyDeliveryFile(
-                    filename=f"{clean_slug}_documentation.zip",
+                    filename=f"{base_prefix}_Documentation.zip",
                     mime_type="application/zip",
                     content=doc_zip,
                     checksum_sha256=hashlib.sha256(doc_zip).hexdigest(),
-                    file_key=f"{clean_slug}_documentation_zip",
+                    file_key=f"{base_prefix}_documentation_zip",
                 )
             )
 

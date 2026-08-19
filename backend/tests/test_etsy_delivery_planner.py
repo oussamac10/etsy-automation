@@ -127,23 +127,23 @@ class TestEtsyDigitalDeliveryPlanner:
 
         assert len(planned) == 1
         complete_zip = planned[0]
-        assert complete_zip.filename == "Cozy_Fall_Book_Lover_PNG.zip"
+        assert complete_zip.filename == "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_Digital_Download.zip"
         assert complete_zip.mime_type == "application/zip"
         assert len(complete_zip.content) <= 20 * 1024 * 1024
 
-        # Verify ZIP can be opened and extracted completely
+        # Verify ZIP can be opened and extracted completely with branded filenames
         with zipfile.ZipFile(io.BytesIO(complete_zip.content), "r") as zf:
             assert zf.testzip() is None
             namelist = zf.namelist()
-            assert "master.png" in namelist
-            assert "LICENSE.txt" in namelist
-            assert "INSTRUCTIONS.txt" in namelist
-            assert "manifest.sha256" in namelist
+            assert "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_PNG.png" in namelist
+            assert "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_LICENSE.txt" in namelist
+            assert "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_INSTRUCTIONS.txt" in namelist
+            assert "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_manifest.sha256" in namelist
 
     def test_case_b_direct_master_png_and_extras_zip_when_total_exceeds_limit(self) -> None:
         # Create a PNG of 15KB with random bytes
         png_bytes = _create_test_png_bytes(width=4500, height=5400, raw_payload_bytes=15000)
-        
+
         # Single complete ZIP is ~15.5KB. Set max_file_bytes to 15.2KB so single ZIP fails,
         # but direct master PNG (15.0KB) and extras ZIP (1.5KB) both fit easily.
         planner = EtsyDigitalDeliveryPlanner(max_file_bytes=len(png_bytes) + 100)
@@ -162,18 +162,56 @@ class TestEtsyDigitalDeliveryPlanner:
         file2 = planned[1]
 
         # Deliverable 1: Direct Master PNG
-        assert file1.filename == "Cozy_Fall_Book_Lover_PNG_master.png"
+        assert file1.filename == "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_PNG.png"
         assert file1.mime_type == "image/png"
         validate_png_integrity(file1.content, 4500, 5400)
 
         # Deliverable 2: Extras ZIP
-        assert file2.filename == "Cozy_Fall_Book_Lover_PNG_extras.zip"
+        assert file2.filename == "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_Extras.zip"
         assert file2.mime_type == "application/zip"
-        validate_zip_integrity(file2.content, ["LICENSE.txt", "INSTRUCTIONS.txt", "manifest.sha256"])
+        validate_zip_integrity(
+            file2.content,
+            [
+                "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_LICENSE.txt",
+                "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_INSTRUCTIONS.txt",
+                "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_manifest.sha256",
+            ],
+        )
 
         # Confirm all planned files are within configured limit
         for f in planned:
             assert len(f.content) <= planner.max_file_bytes
+
+    def test_dynamic_shop_name_generates_distinct_branding_without_code_changes(self) -> None:
+        """Asserts that two different shop names produce distinct branding dynamically."""
+        planner = EtsyDigitalDeliveryPlanner(max_file_bytes=20 * 1024 * 1024)
+        png_bytes = _create_test_png_bytes(width=4500, height=5400)
+
+        # Shop A
+        planned_a = planner.plan_delivery(
+            master_png_bytes=png_bytes,
+            listing_title="Vintage Floral PNG",
+            shop_name="NovaCraftPixel",
+            include_pdf=False,
+        )
+        assert planned_a[0].filename == "NovaCraftPixel_Vintage_Floral_PNG_Digital_Download.zip"
+        with zipfile.ZipFile(io.BytesIO(planned_a[0].content), "r") as zf:
+            lic = zf.read("NovaCraftPixel_Vintage_Floral_PNG_LICENSE.txt").decode("utf-8")
+            assert "Issued By: NovaCraftPixel" in lic
+            assert "Support: Contact NovaCraftPixel through Etsy Messages." in lic
+
+        # Shop B
+        planned_b = planner.plan_delivery(
+            master_png_bytes=png_bytes,
+            listing_title="Vintage Floral PNG",
+            shop_name="PixelMoonStudio",
+            include_pdf=False,
+        )
+        assert planned_b[0].filename == "PixelMoonStudio_Vintage_Floral_PNG_Digital_Download.zip"
+        with zipfile.ZipFile(io.BytesIO(planned_b[0].content), "r") as zf:
+            lic = zf.read("PixelMoonStudio_Vintage_Floral_PNG_LICENSE.txt").decode("utf-8")
+            assert "Issued By: PixelMoonStudio" in lic
+            assert "Support: Contact PixelMoonStudio through Etsy Messages." in lic
 
     def test_case_c_oversized_master_fails_safely_with_domain_error(self) -> None:
         # Set limit extremely small so even master PNG cannot fit

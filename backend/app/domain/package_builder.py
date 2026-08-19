@@ -345,12 +345,49 @@ def create_print_ready_pdf(
     return pdf_buffer.getvalue()
 
 
+def sanitize_brand_slug(name: str, max_length: int = 40) -> str:
+    """Convert a brand/shop name into a clean, filesystem-safe identifier.
+
+    - Keeps letters and numbers
+    - Converts spaces to underscores
+    - Removes unsafe filesystem characters
+    - Collapses repeated separators
+    - Trims leading and trailing separators
+    - Limits length reasonably
+    """
+    raw = str(name).strip() if name is not None else ""
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "_", raw)
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_-")
+    return cleaned[:max_length] if cleaned else "Shop"
+
+
+def sanitize_product_title(title: str, max_length: int = 40) -> str:
+    """Extract a concise, clean product slug from listing title for customer filenames.
+
+    Extracts primary title segment and strips SEO clutter.
+    """
+    raw = str(title).strip() if title is not None else ""
+    primary = re.split(r"[,|\-–—]", raw)[0].strip() or raw
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "_", primary)
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_-")
+    return cleaned[:max_length] if cleaned else "Artwork"
+
+
+def sanitize_display_title(title: str, max_length: int = 60) -> str:
+    """Extract clean, short display title for customer documents (LICENSE/INSTRUCTIONS)."""
+    raw = str(title).strip() if title is not None else ""
+    primary = re.split(r"[,|\-–—]", raw)[0].strip() or raw
+    return primary[:max_length] if primary else "Digital Artwork"
+
+
 def generate_license_text(shop_name: str, listing_title: str) -> str:
     """Generate the commercial use license document for customer packages."""
+    display_shop = (shop_name or "Digital Art Studio").strip()
+    clean_title = sanitize_display_title(listing_title)
     return f"""COMMERCIAL USE LICENSE & TERMS OF USE
 ================================================================================
-Product: {listing_title}
-Issued By: {shop_name or "Digital Art Studio"}
+Product: {clean_title}
+Issued By: {display_shop}
 
 Thank you for your purchase! This digital product includes a Commercial Use License.
 
@@ -376,16 +413,19 @@ PROHIBITED USES:
 REFUNDS & SUPPORT:
 --------------------------------------------------------------------------------
 Due to the digital nature of instant downloads, all sales are final. If you encounter
-any issue unzipping or opening your files, please reach out via Etsy messages!
+any issue unzipping or opening your files:
+Support: Contact {display_shop} through Etsy Messages.
 ================================================================================
 """
 
 
-def generate_instructions_text(listing_title: str) -> str:
+def generate_instructions_text(listing_title: str, shop_name: str = "Digital Art Studio") -> str:
     """Generate customer instructions and printing sizing guide."""
+    display_shop = (shop_name or "Digital Art Studio").strip()
+    clean_title = sanitize_display_title(listing_title)
     return f"""INSTRUCTIONS & SIZING GUIDE
 ================================================================================
-Artwork: {listing_title}
+Artwork: {clean_title}
 
 FILE SPECIFICATIONS:
 --------------------------------------------------------------------------------
@@ -410,7 +450,7 @@ HOW TO USE YOUR FILES:
 3. Ensure "Transparent Background" is preserved when placing on dark or light garments.
 4. For highest print quality, do not stretch the graphic beyond 15" x 18" (300 DPI).
 
-Need assistance? Feel free to contact us via Etsy messages!
+Need assistance? Contact {display_shop} via Etsy Messages.
 ================================================================================
 """
 

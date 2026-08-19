@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from typing import Any
 import structlog
 
+from app.application.brand_resolver import resolve_connected_shop_name
 from app.application.etsy_auth import get_valid_access_token
 from app.application.package import CustomerPackageService
 from app.application.telegram import send_telegram_notification
@@ -300,20 +301,8 @@ async def execute_etsy_draft_pipeline(
         )
         await uow.commit()
 
-        # Fetch shop settings for license attribution
-        owner_settings = None
-        if hasattr(uow, "owner_settings") and uow.owner_settings and hasattr(workflow, "owner_id") and workflow.owner_id:
-            try:
-                import inspect
-                res = uow.owner_settings.get_for_user(workflow.owner_id)
-                if inspect.isawaitable(res):
-                    owner_settings = await res
-                elif hasattr(res, "shop_name"):
-                    owner_settings = res
-            except Exception:
-                owner_settings = None
-
-        shop_name = getattr(owner_settings, "shop_name", "Digital Art Studio") if owner_settings else "Digital Art Studio"
+        # Resolve dynamic connected Etsy shop name
+        shop_name = await resolve_connected_shop_name(uow, workflow.owner_id)
         master_bytes = await storage.get(master_asset.storage_key)
 
         planner = EtsyDigitalDeliveryPlanner(
