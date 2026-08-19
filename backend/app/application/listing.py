@@ -480,6 +480,32 @@ class ListingDraftService:
 
         # Transition workflow state
         if workflow.state != to_state:
+            # If workflow is in an earlier valid state before LISTING_REVIEW, advance through the happy path
+            if workflow.state == RunStatus.ARTWORK_APPROVED:
+                await uow.workflows.transition(
+                    workflow,
+                    to_state=RunStatus.PRODUCTION,
+                    expected_version=workflow.version,
+                    reason="Advance to production pipeline",
+                    actor=owner_email,
+                )
+            if workflow.state == RunStatus.PRODUCTION:
+                await uow.workflows.transition(
+                    workflow,
+                    to_state=RunStatus.IP_REVIEW,
+                    expected_version=workflow.version,
+                    reason="Advance to IP & trademark review",
+                    actor=owner_email,
+                )
+            if workflow.state == RunStatus.IP_REVIEW:
+                await uow.workflows.transition(
+                    workflow,
+                    to_state=RunStatus.LISTING_REVIEW,
+                    expected_version=workflow.version,
+                    reason="Advance to listing review",
+                    actor=owner_email,
+                )
+
             await uow.workflows.transition(
                 workflow,
                 to_state=to_state,
