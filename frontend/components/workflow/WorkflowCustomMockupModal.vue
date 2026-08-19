@@ -88,6 +88,7 @@ const heightPct = ref(50);
 const angleDeg = ref(0);
 const blendMode = ref<MockupBlendMode | string>("over");
 
+const isModalLoading = ref(true);
 const isCompositing = ref(false);
 const compositeError = ref<string | null>(null);
 
@@ -226,9 +227,16 @@ function handleRemoveFile(): void {
 
 watch(
   () => props.open,
-  (isOpen) => {
+  async (isOpen) => {
     if (isOpen) {
+      isModalLoading.value = true;
       compositeError.value = null;
+      templates.value = [];
+      uploadedFile.value = null;
+      uploadedPreviewUrl.value = null;
+      rawUploadImageUrl.value = null;
+      isCroppingMode.value = false;
+
       if (props.editingAsset) {
         // Editing existing mockup
         const prov = props.editingAsset.provenance;
@@ -244,19 +252,26 @@ watch(
           blendMode.value = prov.placement.blend_mode || "multiply";
         }
         activeSubTab.value = "library";
-        loadTemplatesForProduct();
+        await loadTemplatesForProduct();
+        if (selectedTemplateId.value && !templates.value.some((t) => t.id === selectedTemplateId.value) && templates.value.length > 0) {
+          selectedTemplateId.value = templates.value[0].id;
+        }
       } else {
         // Fresh creation
-        uploadedFile.value = null;
-        uploadedPreviewUrl.value = null;
         selectedTemplateId.value = null;
         templateName.value = "";
         isCover.value = false;
         resetToDefaultPreset();
-        loadTemplatesForProduct().then(() => {
-          activeSubTab.value = templates.value.length > 0 ? "library" : "upload";
-        });
+        await loadTemplatesForProduct();
+        activeSubTab.value = templates.value.length > 0 ? "library" : "upload";
       }
+
+      isModalLoading.value = false;
+    } else {
+      isModalLoading.value = false;
+      templates.value = [];
+      uploadedFile.value = null;
+      uploadedPreviewUrl.value = null;
     }
   },
   { immediate: true }
@@ -450,7 +465,35 @@ async function handleGenerateMockup(): Promise<void> {
           />
         </div>
 
-        <!-- Normal Studio Workspace (when not cropping) -->
+        <!-- Loading Progression State (Prevents previous modal data flicker) -->
+        <div v-else-if="isModalLoading" class="py-8 px-2 flex flex-col items-center justify-center space-y-6 animate-in fade-in duration-200">
+          <div class="w-full max-w-sm space-y-3 text-center">
+            <div class="size-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto border border-primary/20 shadow-2xs">
+              <Icon name="lucide:loader-2" class="size-5.5 animate-spin text-primary" aria-hidden="true" />
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-foreground">Loading {{ getProductLabel(productType) }} Mockup Studio</h4>
+              <p class="text-[11px] text-muted-foreground mt-0.5">Synchronizing templates and master artwork...</p>
+            </div>
+            <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-border/50">
+              <div class="h-full bg-primary rounded-full animate-pulse w-3/4" />
+            </div>
+          </div>
+
+          <!-- Studio Skeleton Mockup -->
+          <div class="w-full grid grid-cols-1 md:grid-cols-12 gap-6 pt-2 opacity-50 pointer-events-none select-none">
+            <div class="md:col-span-6 aspect-square bg-slate-100 rounded-2xl border border-border/80 flex items-center justify-center">
+              <Icon name="lucide:image" class="size-10 text-slate-300 animate-pulse" />
+            </div>
+            <div class="md:col-span-6 space-y-3">
+              <div class="h-6 bg-slate-100 rounded-lg w-2/3 animate-pulse" />
+              <div class="h-20 bg-slate-100 rounded-xl animate-pulse" />
+              <div class="h-32 bg-slate-100 rounded-xl animate-pulse" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Normal Studio Workspace (when not cropping & loaded) -->
         <template v-else>
           <!-- Template Selector Section (Max 3 + Show More) -->
           <div v-if="activeSubTab === 'library'" class="pb-2 border-b border-border">
@@ -539,6 +582,21 @@ async function handleGenerateMockup(): Promise<void> {
                 @center-both="centerBoth"
               />
             </div>
+          </div>
+
+          <!-- Empty template library warning if no templates exist -->
+          <div v-else-if="activeSubTab === 'library' && templates.length === 0" class="py-12 text-center space-y-3 bg-secondary/20 rounded-2xl border border-dashed border-border">
+            <div class="size-10 rounded-xl bg-secondary text-muted-foreground flex items-center justify-center mx-auto">
+              <Icon name="lucide:image" class="size-5" aria-hidden="true" />
+            </div>
+            <div>
+              <p class="text-xs font-bold text-foreground">No {{ getProductLabel(productType) }} templates found</p>
+              <p class="text-[11px] text-muted-foreground mt-0.5">Upload a blank mockup photo to place your artwork</p>
+            </div>
+            <Button size="sm" variant="default" class="text-xs font-bold gap-1.5 cursor-pointer" @click="activeSubTab = 'upload'">
+              <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
+              <span>Upload New Template</span>
+            </Button>
           </div>
         </template>
       </div>

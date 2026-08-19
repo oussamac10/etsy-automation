@@ -136,45 +136,31 @@ const artworkBoxStyle = computed(() => {
   };
 });
 
-const blendStyle = computed(() => {
+const activeCssBlend = computed(() => {
   const norm = (props.blendMode || "over").toLowerCase().trim().replace(/_/g, "-");
-  let cssBlend: any = "normal";
   switch (norm) {
     case "multiply":
-      cssBlend = "multiply";
-      break;
+      return "multiply";
     case "screen":
-      cssBlend = "screen";
-      break;
+      return "screen";
     case "overlay":
-      cssBlend = "overlay";
-      break;
+      return "overlay";
     case "soft-light":
-      cssBlend = "soft-light";
-      break;
+      return "soft-light";
     case "hard-light":
-      cssBlend = "hard-light";
-      break;
+      return "hard-light";
     case "darken":
-      cssBlend = "darken";
-      break;
+      return "darken";
     case "lighten":
-      cssBlend = "lighten";
-      break;
+      return "lighten";
     case "color-burn":
-      cssBlend = "color-burn";
-      break;
+      return "color-burn";
     case "color-dodge":
-      cssBlend = "color-dodge";
-      break;
+      return "color-dodge";
     case "over":
     default:
-      cssBlend = "normal";
-      break;
+      return "normal";
   }
-  return {
-    mixBlendMode: cssBlend,
-  };
 });
 </script>
 
@@ -199,29 +185,28 @@ const blendStyle = computed(() => {
       >
       <div v-else class="text-zinc-500 text-xs py-12">No template selected</div>
 
-      <!-- Artwork Placement Interactive Overlay -->
+      <!-- Layer 1: Pure Blended Master Artwork Container -->
       <div
         v-if="templateImageUrl && masterImageUrl"
-        class="absolute cursor-move transition-[box-shadow]"
-        :class="
-          viewMode === 'edit'
-            ? 'border-2 border-dashed border-primary/90 bg-transparent shadow-sm'
-            : 'border-0 bg-transparent'
-        "
-        :style="artworkBoxStyle"
-        @mousedown="startDrag"
+        class="absolute pointer-events-none select-none"
+        :style="[artworkBoxStyle, { mixBlendMode: activeCssBlend as any }]"
       >
-        <!-- Master PNG Artwork Inside Placement Box -->
         <img
           :src="masterImageUrl"
           alt="Artwork Preview"
-          class="w-full h-full object-contain pointer-events-none transition-all select-none"
-          :style="blendStyle"
+          class="w-full h-full object-contain pointer-events-none select-none block"
         >
+      </div>
 
+      <!-- Layer 2: Interactive Controls & Placement Boundary (Only rendered in Edit mode) -->
+      <div
+        v-if="templateImageUrl && masterImageUrl && viewMode === 'edit'"
+        class="absolute cursor-move border-2 border-dashed border-primary/90 bg-transparent shadow-sm select-none"
+        :style="artworkBoxStyle"
+        @mousedown="startDrag"
+      >
         <!-- Resize Handle in Bottom Right -->
         <div
-          v-if="viewMode === 'edit'"
           class="absolute -bottom-2 -right-2 h-5 w-5 bg-primary border-2 border-white rounded-full cursor-nwse-resize shadow-md flex items-center justify-center hover:scale-125 transition-transform"
           @mousedown="startResize"
         >
@@ -229,10 +214,7 @@ const blendStyle = computed(() => {
         </div>
 
         <!-- Center Crosshair for Edit Mode -->
-        <div
-          v-if="viewMode === 'edit'"
-          class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-40"
-        >
+        <div class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-40">
           <div class="w-2 h-0.5 bg-primary absolute" />
           <div class="h-2 w-0.5 bg-primary absolute" />
         </div>
