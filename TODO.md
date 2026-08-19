@@ -165,7 +165,7 @@ Current state, completed milestones, and granular task breakdowns for upcoming p
 - [x] **Etsy Open API v3 OAuth 2.0 Integration**:
   - [x] PKCE authorization URL generation with secure state verification in Redis (`etsy:oauth_state:{state}`).
   - [x] Token exchange callback (`GET /api/v1/auth/etsy/callback`) and proactive token auto-refresh with 5-minute buffer.
-  - [x] Encrypted token storage in PostgreSQL via `ShopConnection` model with Fernet AES-128-CBC + HMAC key versioning (`0011_phase_9_etsy_shop_connection.py`).
+  - [x] Encrypted token storage in PostgreSQL via `ShopConnection` model with Fernet AES-128-CBC + HMAC key versioning (`0011_phase_9_etsy_connection.py`).
 - [x] **Etsy Draft Listing Dispatcher**:
   - [x] Create draft listing via `POST /v3/application/shops/{shop_id}/listings` with state strictly enforced as `draft`.
   - [x] Upload ordered mockup preview images (`POST /v3/application/shops/{shop_id}/listings/{listing_id}/images`).

@@ -9,6 +9,7 @@
 ## 1. Overview & Objectives
 
 Phase 9 implements the complete, end-to-end official Etsy Open API v3 integration for `etsy-automation`:
+
 1. **OAuth 2.0 PKCE Shop Connection:**
    - 1-click authorization flow using PKCE code verifier / SHA-256 challenge.
    - Redis-backed temporary state management (`etsy:oauth_state:{state}`) with 600-second TTL.
@@ -33,7 +34,7 @@ Phase 9 implements the complete, end-to-end official Etsy Open API v3 integratio
 
 ## 2. Architecture & Flow
 
-```
+```text
                       +------------------------------------------+
                       |         Owner in Web App / Nuxt 3        |
                       +------------------------------------------+
@@ -70,13 +71,15 @@ Phase 9 implements the complete, end-to-end official Etsy Open API v3 integratio
 ## 3. Implemented Components
 
 ### 3.1 Database & Persistence
+
 - **Model:** `backend/app/infrastructure/models/shop_connection.py` (`ShopConnection` table: `shop_connections`).
 - **Listing Columns:** Added `etsy_shop_id`, `etsy_listing_id`, `etsy_listing_url`, `etsy_state`, `etsy_image_ids`, `etsy_file_id`, `etsy_dispatch_status`, `etsy_draft_created_at`, `etsy_last_synced_at`, `etsy_failure_reason` to `ListingDraft`.
-- **Migration:** `backend/migrations/versions/0011_phase_9_etsy_shop_connection.py`.
+- **Migration:** `backend/migrations/versions/0011_phase_9_etsy_connection.py`.
 - **Repository:** `backend/app/infrastructure/repositories/shop_connection.py` (`SqlShopConnectionRepository`).
 - **UnitOfWork:** `backend/app/application/unit_of_work.py` (`uow.shop_connections`).
 
 ### 3.2 Provider & HTTP Client
+
 - **Provider Port:** `backend/app/ports/providers.py` (`EtsyGateway` protocol & DTOs).
 - **Live HTTP Adapter:** `backend/app/providers/etsy.py` (`EtsyProvider`):
   - Strict `state: "draft"` parameter in listing creation payload.
@@ -85,12 +88,14 @@ Phase 9 implements the complete, end-to-end official Etsy Open API v3 integratio
 - **Offline Fake Adapter:** `backend/app/providers/fake.py` (`FakeEtsyProvider`) for hermetic testing.
 
 ### 3.3 Application Services & Workers
+
 - **OAuth & Token Management:** `backend/app/application/etsy_auth.py` (`generate_oauth_url`, `handle_oauth_callback`, `get_valid_etsy_token`).
 - **Draft Creation Pipeline:** `backend/app/application/etsy_draft.py` (`validate_pre_dispatch`, `execute_etsy_draft_pipeline`).
 - **Worker Task:** `workers/general-worker/worker/etsy.py` & `workers/general-worker/worker/tasks.py` (`create_etsy_draft_task`).
 - **Telegram Notification:** `backend/app/application/telegram.py` (`send_etsy_draft_created_notification`).
 
 ### 3.4 API Routes
+
 - `GET /api/v1/auth/etsy/connect` — Returns PKCE authorization URL.
 - `GET /api/v1/auth/etsy/callback` — Exchanges authorization code, fetches shop ID/name, encrypts tokens, redirects to frontend settings.
 - `GET /api/v1/integrations/etsy` — Returns safe status (connected, shop name, token health, granted scopes).
@@ -99,6 +104,7 @@ Phase 9 implements the complete, end-to-end official Etsy Open API v3 integratio
 - `GET /api/v1/workflows/{id}/etsy/status` — Returns draft dispatch status and Etsy listing ID.
 
 ### 3.5 Frontend (Nuxt 3 / Vue 3)
+
 - **Types:** `frontend/types/etsy.ts` & `frontend/types/listing.ts`.
 - **Composable:** `frontend/composables/useEtsy.ts`.
 - **Components:**
@@ -110,7 +116,7 @@ Phase 9 implements the complete, end-to-end official Etsy Open API v3 integratio
 ## 4. Verification & Testing
 
 | Test Category | Suite | Passed | Description |
-|:---|:---|:---:|:---|
+| :--- | :--- | :---: | :--- |
 | Backend OAuth & Tokens | `test_etsy_auth.py` | 8/8 | PKCE verifier/challenge, state validation, token encryption, and auto-refresh |
 | Backend Live Provider | `test_etsy_provider.py` | 6/6 | Etsy HTTP adapter, draft state enforcement, image/file multipart streams |
 | Backend Draft Pipeline | `test_etsy_draft.py` | 3/3 | Pre-dispatch validation, pipeline execution, Telegram notification |

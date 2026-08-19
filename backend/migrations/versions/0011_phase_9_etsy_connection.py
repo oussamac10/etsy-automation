@@ -1,6 +1,6 @@
 """Phase 9 — Etsy ShopConnection and ListingDraft Etsy metadata.
 
-Revision ID: 0011_phase_9_etsy_shop_connection
+Revision ID: 0011_phase_9_etsy_connection
 Revises: 0010_trademark_records
 Create Date: 2026-08-19
 """
@@ -13,7 +13,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 
-revision: str = "0011_phase_9_etsy_shop_connection"
+revision: str = "0011_phase_9_etsy_connection"
 down_revision: str | None = "0010_trademark_records"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
