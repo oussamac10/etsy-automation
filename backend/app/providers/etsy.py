@@ -43,20 +43,27 @@ class EtsyProvider(EtsyGateway):
     def __init__(
         self,
         api_key: str,
+        shared_secret: str | None = None,
         base_url: str = DEFAULT_ETSY_API_BASE,
         token_url: str = DEFAULT_ETSY_TOKEN_URL,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._api_key = api_key
+        self._shared_secret = shared_secret
         self._base_url = base_url.rstrip("/")
         self._token_url = token_url
         self._timeout = timeout
         self._client = client
 
     def _default_headers(self, access_token: str | None = None) -> dict[str, str]:
+        api_header_value = (
+            f"{self._api_key}:{self._shared_secret}"
+            if self._shared_secret
+            else self._api_key
+        )
         headers = {
-            "x-api-key": self._api_key,
+            "x-api-key": api_header_value,
             "Accept": "application/json",
             "User-Agent": "EtsyPngAutomation/1.0",
         }

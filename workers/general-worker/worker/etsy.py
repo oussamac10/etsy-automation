@@ -54,6 +54,7 @@ async def run_etsy_draft_pipeline_async(workflow_id: uuid.UUID) -> None:
                 async with httpx.AsyncClient(timeout=30.0) as http_client:
                     etsy_gateway = EtsyProvider(
                         api_key=settings.resolved_etsy_api_key,
+                        shared_secret=settings.resolved_etsy_shared_secret,
                         base_url=settings.etsy_api_base_url,
                         token_url=settings.etsy_token_url,
                         client=http_client,

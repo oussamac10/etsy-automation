@@ -117,6 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if resolved.provider_mode == "live" and resolved.resolved_etsy_api_key:
             etsy_gateway = EtsyProvider(
                 api_key=resolved.resolved_etsy_api_key,
+                shared_secret=resolved.resolved_etsy_shared_secret,
                 base_url=resolved.etsy_api_base_url,
                 token_url=resolved.etsy_token_url,
                 client=http_client,
