@@ -66,6 +66,14 @@ export interface ListingDraft {
   taxonomy_path?: string | null;
   price_minor_units?: number | null;
   currency?: string | null;
+  quantity?: number;
+  sku?: string | null;
+  shop_section_id?: string | null;
+  shop_section_name?: string | null;
+  should_auto_renew?: boolean;
+  etsy_properties?: Record<string, any>;
+  primary_mockup_asset_id?: string | null;
+  shopping_cart_summary?: string | null;
   ai_disclosure?: string | null;
   licence_text?: string | null;
   customer_instructions?: string | null;
@@ -100,6 +108,16 @@ export interface UpdateListingPayload {
   tags: string[];
   taxonomy_id?: number | null;
   taxonomy_path?: string | null;
+  price_minor_units?: number | null;
+  currency?: string | null;
+  quantity?: number | null;
+  sku?: string | null;
+  shop_section_id?: string | null;
+  shop_section_name?: string | null;
+  should_auto_renew?: boolean | null;
+  etsy_properties?: Record<string, any> | null;
+  primary_mockup_asset_id?: string | null;
+  shopping_cart_summary?: string | null;
   expected_version?: number;
 }
 
@@ -108,6 +126,32 @@ export interface TaxonomyCategory {
   name: string;
   full_path: string;
   level: number;
+}
+
+export interface ShopSection {
+  shop_section_id: string;
+  title: string;
+  rank: number;
+  active_listing_count: number;
+}
+
+export interface TaxonomyProperty {
+  property_id: number;
+  name: string;
+  is_required: boolean;
+  supports_attributes: boolean;
+  is_multivalued: boolean;
+  possible_values: Array<{ value_id: number; name: string }>;
+  suggested_value_ids: number[];
+  suggested_values: string[];
+}
+
+export interface PriceRecommendation {
+  recommended_minor_units: number;
+  currency: string;
+  formatted_price: string;
+  rationale: string;
+  factors: string[];
 }
 
 export interface Gate3DecisionPayload {

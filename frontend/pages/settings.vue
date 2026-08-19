@@ -12,6 +12,7 @@ import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
 import AlertTitle from "~/components/ui/AlertTitle.vue";
 import EtsyConnectionCard from "~/components/settings/EtsyConnectionCard.vue";
+import EtsyListingDefaultsCard from "~/components/settings/EtsyListingDefaultsCard.vue";
 
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase;
@@ -257,6 +258,9 @@ onBeforeUnmount(stopCountdown);
 
       <!-- Etsy Shop Integration Section -->
       <EtsyConnectionCard />
+
+      <!-- Etsy Digital Listing Defaults Section -->
+      <EtsyListingDefaultsCard />
 
       <!-- Telegram Section -->
       <Card class="shadow-2xs">

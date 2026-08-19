@@ -7,6 +7,9 @@ import IpRiskCard from './IpRiskCard.vue';
 import CategorySelectorCard from './CategorySelectorCard.vue';
 import CustomerPackageCard from './CustomerPackageCard.vue';
 import EtsyDraftCard from './EtsyDraftCard.vue';
+import PricingInventoryCard from './PricingInventoryCard.vue';
+import ShopOrganizationCard from './ShopOrganizationCard.vue';
+import TaxonomyAttributesCard from './TaxonomyAttributesCard.vue';
 import Button from '~/components/ui/Button.vue';
 import Alert from '~/components/ui/Alert.vue';
 import AlertTitle from '~/components/ui/AlertTitle.vue';
@@ -51,6 +54,15 @@ const {
 const localTitle = ref('');
 const localDescription = ref('');
 const localTags = ref<string[]>([]);
+const localPriceMinorUnits = ref<number | null>(null);
+const localCurrency = ref<string>('USD');
+const localQuantity = ref<number>(999);
+const localSku = ref<string>('');
+const localShopSectionId = ref<string | null>(null);
+const localShopSectionName = ref<string | null>(null);
+const localShouldAutoRenew = ref<boolean>(false);
+const localEtsyProperties = ref<Record<string, any>>({});
+const localPrimaryMockupAssetId = ref<string | null>(null);
 const warningAcknowledged = ref(false);
 const successMessage = ref<string | null>(null);
 
@@ -64,6 +76,15 @@ async function loadListingData() {
     localTitle.value = draft.title || '';
     localDescription.value = draft.description || '';
     localTags.value = [...(draft.tags || [])];
+    localPriceMinorUnits.value = draft.price_minor_units ?? 499;
+    localCurrency.value = draft.currency || 'USD';
+    localQuantity.value = draft.quantity ?? 999;
+    localSku.value = draft.sku || '';
+    localShopSectionId.value = draft.shop_section_id || null;
+    localShopSectionName.value = draft.shop_section_name || null;
+    localShouldAutoRenew.value = draft.should_auto_renew ?? false;
+    localEtsyProperties.value = draft.etsy_properties ? JSON.parse(JSON.stringify(draft.etsy_properties)) : {};
+    localPrimaryMockupAssetId.value = draft.primary_mockup_asset_id || null;
     warningAcknowledged.value = draft.ip_acknowledged_at !== null && draft.ip_acknowledged_at !== undefined;
   }
 }
@@ -77,13 +98,31 @@ async function handleSave() {
       title: localTitle.value,
       description: localDescription.value,
       tags: localTags.value,
+      price_minor_units: localPriceMinorUnits.value,
+      currency: localCurrency.value,
+      quantity: localQuantity.value,
+      sku: localSku.value,
+      shop_section_id: localShopSectionId.value,
+      shop_section_name: localShopSectionName.value,
+      should_auto_renew: localShouldAutoRenew.value,
+      etsy_properties: localEtsyProperties.value,
+      primary_mockup_asset_id: localPrimaryMockupAssetId.value,
       expected_version: listingDraft.value.version,
     });
     if (updated) {
       localTitle.value = updated.title;
       localDescription.value = updated.description;
       localTags.value = [...updated.tags];
-      successMessage.value = 'Listing changes saved and trademark screening updated.';
+      localPriceMinorUnits.value = updated.price_minor_units ?? localPriceMinorUnits.value;
+      localCurrency.value = updated.currency || localCurrency.value;
+      localQuantity.value = updated.quantity ?? localQuantity.value;
+      localSku.value = updated.sku || localSku.value;
+      localShopSectionId.value = updated.shop_section_id || null;
+      localShopSectionName.value = updated.shop_section_name || null;
+      localShouldAutoRenew.value = updated.should_auto_renew ?? false;
+      localEtsyProperties.value = updated.etsy_properties ? JSON.parse(JSON.stringify(updated.etsy_properties)) : {};
+      localPrimaryMockupAssetId.value = updated.primary_mockup_asset_id || null;
+      successMessage.value = 'Listing configuration and metadata saved successfully.';
       setTimeout(() => {
         successMessage.value = null;
       }, 4000);
@@ -282,9 +321,9 @@ const isApproved = computed(() => {
 
     <!-- Main Content Grid -->
     <div v-else-if="listingDraft" class="space-y-6">
-      <!-- 2-Column Responsive Grid: Left (Category & Copy & Tags) vs Right (Etsy Dispatch & IP Risk & Package) -->
+      <!-- 2-Column Responsive Grid: Left (Category, Attributes, Copy, Tags) vs Right (Pricing, Organization, Etsy Dispatch, IP Risk, Package) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <!-- Left Column: Etsy Seller Category, Copy & Tags -->
+        <!-- Left Column: Etsy Category, Taxonomy Attributes, Copy & Tags -->
         <div class="space-y-6">
           <CategorySelectorCard
             :workflow-id="workflowId"
@@ -292,6 +331,15 @@ const isApproved = computed(() => {
             :taxonomy-path="listingDraft.taxonomy_path"
             :is-updating="isUpdatingTaxonomy"
             @update-category="handleUpdateCategory"
+          />
+
+          <TaxonomyAttributesCard
+            :workflow-id="workflowId"
+            :taxonomy-id="listingDraft.taxonomy_id"
+            :etsy-properties="localEtsyProperties"
+            :is-saving="isSaving"
+            @update:etsy-properties="localEtsyProperties = $event"
+            @save="handleSave"
           />
 
           <ListingEditorCard
@@ -325,8 +373,34 @@ const isApproved = computed(() => {
           />
         </div>
 
-        <!-- Right Column: Etsy Dispatch, IP Risk & Customer ZIP Package -->
+        <!-- Right Column: Pricing & SKU, Shop Organization, Etsy Dispatch, IP Risk & Package -->
         <div class="space-y-6">
+          <PricingInventoryCard
+            :workflow-id="workflowId"
+            :price-minor-units="localPriceMinorUnits"
+            :currency="localCurrency"
+            :quantity="localQuantity"
+            :sku="localSku"
+            :is-saving="isSaving"
+            @update:price-minor-units="localPriceMinorUnits = $event"
+            @update:currency="localCurrency = $event"
+            @update:quantity="localQuantity = $event"
+            @update:sku="localSku = $event"
+            @save="handleSave"
+          />
+
+          <ShopOrganizationCard
+            :workflow-id="workflowId"
+            :shop-section-id="localShopSectionId"
+            :shop-section-name="localShopSectionName"
+            :should-auto-renew="localShouldAutoRenew"
+            :is-saving="isSaving"
+            @update:shop-section-id="localShopSectionId = $event"
+            @update:shop-section-name="localShopSectionName = $event"
+            @update:should-auto-renew="localShouldAutoRenew = $event"
+            @save="handleSave"
+          />
+
           <EtsyDraftCard
             :workflow-id="workflowId"
             :workflow-state="workflowState"
