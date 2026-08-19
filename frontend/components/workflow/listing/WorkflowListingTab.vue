@@ -5,6 +5,7 @@ import ListingEditorCard from './ListingEditorCard.vue';
 import TagEditorCard from './TagEditorCard.vue';
 import IpRiskCard from './IpRiskCard.vue';
 import CustomerPackageCard from './CustomerPackageCard.vue';
+import EtsyDraftCard from './EtsyDraftCard.vue';
 import Button from '~/components/ui/Button.vue';
 import Alert from '~/components/ui/Alert.vue';
 import AlertTitle from '~/components/ui/AlertTitle.vue';
@@ -310,6 +311,15 @@ const isApproved = computed(() => {
             :version="listingDraft.version"
             :is-building="isBuildingPackage"
             @build-package="handleBuildPackage"
+          />
+
+          <!-- Phase 9 Etsy Draft Creation Card (Visible when Gate 3 is Approved or in Draft Dispatch) -->
+          <EtsyDraftCard
+            v-if="isApproved || ['READY_FOR_ETSY_DRAFT', 'ETSY_DRAFT_CREATED'].includes(workflowState)"
+            :workflow-id="workflowId"
+            :workflow-state="workflowState"
+            :listing="listingDraft"
+            @draft-created="loadListingData"
           />
         </div>
       </div>

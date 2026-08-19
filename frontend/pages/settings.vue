@@ -11,6 +11,7 @@ import Badge from "~/components/ui/Badge.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
 import AlertTitle from "~/components/ui/AlertTitle.vue";
+import EtsyConnectionCard from "~/components/settings/EtsyConnectionCard.vue";
 
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase;
@@ -250,9 +251,12 @@ onBeforeUnmount(stopCountdown);
         </div>
         <h1 class="text-3xl font-bold tracking-tight text-foreground">Owner Settings</h1>
         <p class="text-sm text-muted-foreground max-w-2xl">
-          Manage API connection credentials, encryption keys, and active Telegram remote control pairings.
+          Manage API connection credentials, encryption keys, Etsy shop integration, and active Telegram remote control pairings.
         </p>
       </header>
+
+      <!-- Etsy Shop Integration Section -->
+      <EtsyConnectionCard />
 
       <!-- Telegram Section -->
       <Card class="shadow-2xs">

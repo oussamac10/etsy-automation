@@ -77,6 +77,16 @@ export interface ListingDraft {
   package_download_url?: string | null;
   history?: ListingVersionSnapshot[];
   tag_history?: string[];
+  etsy_shop_id?: string | null;
+  etsy_listing_id?: string | null;
+  etsy_listing_url?: string | null;
+  etsy_state?: string | null;
+  etsy_image_ids?: string[];
+  etsy_file_id?: string | null;
+  etsy_dispatch_status?: string | null;
+  etsy_draft_created_at?: string | null;
+  etsy_last_synced_at?: string | null;
+  etsy_failure_reason?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
