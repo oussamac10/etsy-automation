@@ -84,6 +84,15 @@ class EtsyProvider(EtsyGateway):
                 message=f"Etsy authentication failed (status {response.status_code}): {response.text}",
             )
 
+        if response.status_code in (404, 410):
+            logger.info("etsy_not_found", status_code=response.status_code, operation=operation)
+            raise ProviderError(
+                kind=ProviderErrorKind.NOT_FOUND,
+                provider="etsy",
+                operation=operation,
+                message=f"Etsy resource not found (status {response.status_code}): {response.text}",
+            )
+
         if response.status_code == 429:
             retry_after_str = response.headers.get("retry-after")
             retry_after: float = 2.0
@@ -417,19 +426,27 @@ class EtsyProvider(EtsyGateway):
 
     async def get_listing(
         self, *, access_token: str, shop_id: str, listing_id: str
-    ) -> EtsyListingResponse:
-        """Retrieve existing Etsy listing metadata."""
+    ) -> EtsyListingResponse | None:
+        """Retrieve existing Etsy listing metadata, returning None if listing is not found / deleted."""
         url = f"{self._base_url}/application/listings/{listing_id}"
         headers = self._default_headers(access_token)
-        response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing")
-        payload = response.json()
-        return EtsyListingResponse(
-            listing_id=str(payload.get("listing_id", listing_id)),
-            shop_id=str(payload.get("shop_id", shop_id)),
-            title=str(payload.get("title", "")),
-            state=str(payload.get("state", "draft")),
-            url=payload.get("url") or f"https://www.etsy.com/listing/{listing_id}",
-        )
+        try:
+            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing")
+            payload = response.json()
+            state = str(payload.get("state", "draft")).lower()
+            if state in ("deleted", "removed"):
+                return None
+            return EtsyListingResponse(
+                listing_id=str(payload.get("listing_id", listing_id)),
+                shop_id=str(payload.get("shop_id", shop_id)),
+                title=str(payload.get("title", "")),
+                state=state,
+                url=payload.get("url") or f"https://www.etsy.com/listing/{listing_id}",
+            )
+        except ProviderError as pe:
+            if pe.kind == ProviderErrorKind.NOT_FOUND:
+                return None
+            raise
 
     async def get_seller_taxonomy_nodes(self) -> list[EtsyTaxonomyNode]:
         """Fetch all official Etsy seller taxonomy nodes with 24h caching."""

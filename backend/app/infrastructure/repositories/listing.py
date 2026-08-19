@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 import uuid
 
 from sqlalchemy import select
@@ -203,5 +203,29 @@ class SqlListingDraftRepository:
             draft.etsy_failure_reason = failure_reason
         if last_synced_at is not None:
             draft.etsy_last_synced_at = last_synced_at
+        await self._session.flush()
+        return draft
+
+    async def clear_etsy_draft_state(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        last_synced_at: datetime | None = None,
+    ) -> ListingDraft:
+        draft = await self.get(draft_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", draft_id)
+
+        draft.etsy_shop_id = None
+        draft.etsy_listing_id = None
+        draft.etsy_listing_url = None
+        draft.etsy_state = None
+        draft.etsy_image_ids = []
+        draft.etsy_file_id = None
+        draft.etsy_file_ids = []
+        draft.etsy_draft_created_at = None
+        draft.etsy_dispatch_status = "not_started"
+        draft.etsy_failure_reason = None
+        draft.etsy_last_synced_at = last_synced_at or datetime.now(UTC)
         await self._session.flush()
         return draft

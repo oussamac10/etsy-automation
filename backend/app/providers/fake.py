@@ -728,9 +728,16 @@ class FakeEtsyProvider(EtsyGateway):
         self.fail_create_listing: bool = False
         self.fail_upload_image: bool = False
         self.fail_upload_file: bool = False
+        self.get_listing_rate_limited: bool = False
+        self.get_listing_server_error: bool = False
+        self.get_listing_timeout: bool = False
+        self.deleted_listing_ids: set[str] = set()
         self.rate_limit_after_calls: int | None = None
         self.call_count: int = 0
         self.revoked_token: bool = False
+
+    def mark_listing_deleted(self, listing_id: str) -> None:
+        self.deleted_listing_ids.add(listing_id)
 
     async def exchange_code_for_token(
         self, *, code: str, code_verifier: str, redirect_uri: str
@@ -948,8 +955,39 @@ class FakeEtsyProvider(EtsyGateway):
 
     async def get_listing(
         self, *, access_token: str, shop_id: str, listing_id: str
-    ) -> EtsyListingResponse:
+    ) -> EtsyListingResponse | None:
         self.call_count += 1
+        if self.revoked_token:
+            raise ProviderError(
+                kind=ProviderErrorKind.AUTHENTICATION,
+                provider="etsy",
+                operation="get_listing",
+                message="OAuth token revoked.",
+            )
+        if self.get_listing_rate_limited:
+            raise ProviderError(
+                kind=ProviderErrorKind.RATE_LIMITED,
+                provider="etsy",
+                operation="get_listing",
+                message="Etsy API rate limit reached (429).",
+                retry_after_seconds=5.0,
+            )
+        if self.get_listing_server_error:
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider="etsy",
+                operation="get_listing",
+                message="Etsy remote server error (503).",
+            )
+        if self.get_listing_timeout:
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider="etsy",
+                operation="get_listing",
+                message="Etsy request timed out.",
+            )
+        if listing_id in self.deleted_listing_ids:
+            return None
         for item in self.created_listings:
             if item["listing_id"] == listing_id:
                 return EtsyListingResponse(
