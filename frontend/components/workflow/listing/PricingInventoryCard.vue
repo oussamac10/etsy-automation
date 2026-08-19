@@ -33,11 +33,11 @@ const localSku = ref(props.sku || '');
 const skuCopied = ref(false);
 
 const SUPPORTED_CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'USD ($)' },
-  { code: 'EUR', symbol: '€', name: 'EUR (€)' },
-  { code: 'GBP', symbol: '£', name: 'GBP (£)' },
-  { code: 'CAD', symbol: 'CA$', name: 'CAD ($)' },
-  { code: 'AUD', symbol: 'AU$', name: 'AUD ($)' },
+  { code: 'USD', symbol: '$' },
+  { code: 'EUR', symbol: '€' },
+  { code: 'GBP', symbol: '£' },
+  { code: 'CAD', symbol: '$' },
+  { code: 'AUD', symbol: '$' },
 ];
 
 const localPriceDecimal = ref(
@@ -174,19 +174,19 @@ const isDirty = computed(() => {
 
 <template>
   <Card
-    class="shadow-xs border border-border bg-card transition-all duration-200"
+    class="shadow-xs border border-border/80 bg-card transition-all duration-200"
     data-testid="pricing-inventory-card"
   >
     <CardHeader class="pb-3 border-b border-border/40">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shadow-2xs">
-            <Icon name="lucide:tag" class="size-5" aria-hidden="true" />
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-foreground border border-border/60">
+            <Icon name="lucide:tag" class="size-4 text-muted-foreground" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle class="text-base font-semibold">Pricing &amp; Inventory</CardTitle>
+            <CardTitle class="text-sm font-semibold">Pricing &amp; Inventory</CardTitle>
             <CardDescription class="text-xs text-muted-foreground mt-0.5">
-              Digital listing price, currency, quantity, and internal SKU
+              Digital listing price, stock quantity, and internal SKU
             </CardDescription>
           </div>
         </div>
@@ -197,31 +197,31 @@ const isDirty = computed(() => {
           size="sm"
           variant="default"
           :disabled="isSaving"
-          class="text-xs h-8 px-3 gap-1.5 cursor-pointer shadow-2xs font-medium"
+          class="text-xs h-7 px-2.5 gap-1.5 cursor-pointer shadow-2xs font-medium"
           @click="emit('save')"
         >
-          <Icon v-if="isSaving" name="lucide:loader-2" class="size-3.5 animate-spin" aria-hidden="true" />
-          <Icon v-else name="lucide:check" class="size-3.5" aria-hidden="true" />
-          <span>Save Changes</span>
+          <Icon v-if="isSaving" name="lucide:loader-2" class="size-3 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:check" class="size-3" aria-hidden="true" />
+          <span>Save</span>
         </Button>
       </div>
     </CardHeader>
 
-    <CardContent class="pt-4 space-y-5">
+    <CardContent class="pt-4 space-y-4">
       <!-- Pricing Row & Currency Selector -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
         <!-- Listing Price Input -->
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
-            <Label for="listing-price" class="text-xs font-medium text-foreground">Digital Listing Price</Label>
-            <!-- Currency selector pills -->
-            <div class="flex items-center gap-1">
+            <Label for="listing-price" class="text-xs font-medium text-foreground/90">Price</Label>
+            <!-- Currency pills -->
+            <div class="flex items-center gap-0.5">
               <button
                 v-for="curr in SUPPORTED_CURRENCIES"
                 :key="curr.code"
                 type="button"
-                class="px-1.5 py-0.5 text-2xs rounded font-mono transition-all cursor-pointer"
-                :class="localCurrency === curr.code ? 'bg-primary/10 text-primary font-bold border border-primary/30' : 'text-muted-foreground hover:bg-muted/60'"
+                class="px-1.5 py-0.5 text-2xs rounded font-mono transition-colors cursor-pointer"
+                :class="localCurrency === curr.code ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground hover:bg-muted/70'"
                 @click="onCurrencySelect(curr.code)"
               >
                 {{ curr.code }}
@@ -230,7 +230,7 @@ const isDirty = computed(() => {
           </div>
 
           <div class="relative flex items-center">
-            <span class="absolute left-3 text-sm font-semibold text-muted-foreground">{{ currencySymbol }}</span>
+            <span class="absolute left-3 text-xs font-semibold text-muted-foreground">{{ currencySymbol }}</span>
             <Input
               id="listing-price"
               v-model="localPriceDecimal"
@@ -239,7 +239,7 @@ const isDirty = computed(() => {
               min="0.20"
               max="1000"
               placeholder="4.99"
-              class="pl-7 pr-3 h-9 text-sm font-mono font-medium focus:ring-1"
+              class="pl-7 pr-3 h-8 text-xs font-mono font-medium"
               @change="onPriceChange"
               @blur="onPriceChange"
             />
@@ -248,12 +248,9 @@ const isDirty = computed(() => {
 
         <!-- Quantity Input -->
         <div class="space-y-1.5">
-          <Label for="listing-quantity" class="text-xs font-medium flex items-center justify-between">
-            <span>Digital Stock Quantity</span>
-            <span class="text-2xs text-emerald-600 font-medium flex items-center gap-1">
-              <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Auto-replenishes
-            </span>
+          <Label for="listing-quantity" class="text-xs font-medium flex items-center justify-between text-foreground/90">
+            <span>Stock Quantity</span>
+            <span class="text-2xs text-muted-foreground font-normal">Instant digital download</span>
           </Label>
           <Input
             id="listing-quantity"
@@ -263,7 +260,7 @@ const isDirty = computed(() => {
             min="1"
             max="9999"
             placeholder="999"
-            class="h-9 text-sm font-mono"
+            class="h-8 text-xs font-mono"
             @change="onQuantityChange"
             @blur="onQuantityChange"
           />
@@ -271,13 +268,11 @@ const isDirty = computed(() => {
       </div>
 
       <!-- Pricing Recommendation Box -->
-      <div v-if="recommendation" class="bg-gradient-to-r from-emerald-500/5 via-teal-500/5 to-emerald-500/10 border border-emerald-500/20 rounded-xl p-3.5 space-y-2.5 shadow-2xs">
+      <div v-if="recommendation" class="bg-muted/30 border border-border/60 rounded-lg p-3 space-y-2">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <div class="flex size-6 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-700">
-              <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
-            </div>
-            <span class="text-xs font-bold text-emerald-900 dark:text-emerald-300">
+            <Icon name="lucide:sparkles" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <span class="text-xs font-semibold text-foreground">
               AI Recommendation: {{ recommendation.formatted_price }}
             </span>
           </div>
@@ -286,25 +281,24 @@ const isDirty = computed(() => {
             type="button"
             variant="outline"
             size="sm"
-            class="h-7 px-2.5 text-2xs font-semibold bg-white dark:bg-card text-emerald-700 border-emerald-300 hover:bg-emerald-100/50 cursor-pointer shadow-2xs"
+            class="h-6 px-2 text-2xs font-medium text-foreground cursor-pointer shadow-2xs"
             @click="applyRecommendation"
           >
-            <Icon name="lucide:check-check" class="size-3 text-emerald-600" aria-hidden="true" />
+            <Icon name="lucide:check" class="size-3" aria-hidden="true" />
             <span>Use recommended</span>
           </Button>
         </div>
 
-        <p class="text-2xs text-emerald-800/90 dark:text-emerald-300/90 leading-relaxed font-normal">
+        <p class="text-2xs text-muted-foreground leading-relaxed">
           {{ recommendation.rationale }}
         </p>
 
-        <div v-if="recommendation?.factors && recommendation.factors.length" class="flex flex-wrap gap-1.5 pt-0.5">
+        <div v-if="recommendation?.factors && recommendation.factors.length" class="flex flex-wrap gap-1">
           <span
             v-for="factor in recommendation.factors"
             :key="factor"
-            class="inline-flex items-center gap-1 text-2xs bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-md border border-emerald-500/20 font-medium"
+            class="inline-flex items-center text-2xs bg-background text-muted-foreground px-1.5 py-0.5 rounded border border-border/60 font-mono"
           >
-            <Icon name="lucide:check" class="size-2.5 text-emerald-600" aria-hidden="true" />
             {{ factor }}
           </span>
         </div>
@@ -312,12 +306,9 @@ const isDirty = computed(() => {
 
       <!-- Internal SKU Row -->
       <div class="space-y-1.5 pt-1 border-t border-border/40">
-        <Label for="listing-sku" class="text-xs font-medium flex items-center justify-between">
-          <div class="flex items-center gap-1.5">
-            <Icon name="lucide:barcode" class="size-3.5 text-muted-foreground" aria-hidden="true" />
-            <span>Deterministic Internal SKU</span>
-          </div>
-          <span class="text-2xs text-muted-foreground font-normal">Unique &amp; Stable across retries</span>
+        <Label for="listing-sku" class="text-xs font-medium flex items-center justify-between text-foreground/90">
+          <span>Internal SKU</span>
+          <span class="text-2xs text-muted-foreground font-normal">Deterministic identifier</span>
         </Label>
         <div class="relative flex items-center">
           <Input
@@ -326,22 +317,19 @@ const isDirty = computed(() => {
             type="text"
             placeholder="NCP-RETRO-CHRISTMAS-A1B2"
             maxlength="64"
-            class="h-9 pr-20 text-xs font-mono tracking-wide"
+            class="h-8 pr-16 text-xs font-mono tracking-wide"
             @change="onSkuChange"
             @blur="onSkuChange"
           />
           <button
             type="button"
-            class="absolute right-2 px-2 py-1 text-2xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded transition-colors cursor-pointer flex items-center gap-1"
+            class="absolute right-2 px-1.5 py-0.5 text-2xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded transition-colors cursor-pointer flex items-center gap-1"
             @click="copySku"
           >
             <Icon :name="skuCopied ? 'lucide:check' : 'lucide:copy'" class="size-3" aria-hidden="true" />
             <span>{{ skuCopied ? 'Copied' : 'Copy' }}</span>
           </button>
         </div>
-        <p class="text-2xs text-muted-foreground">
-          Derived from shop name prefix, key product terms, and workflow hash. Syncs to Etsy listing inventory.
-        </p>
       </div>
     </CardContent>
   </Card>
