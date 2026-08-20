@@ -41,6 +41,8 @@ from app.api.schemas import (
     ProductionJobResponse,
     RefineArtworkRequest,
     ReorderMockupsRequest,
+    ReResolveTaxonomyRequest,
+    ReResolveTaxonomyResponse,
     ResearchRunResponse,
     RestoreListingVersionRequest,
     ShopSectionResponse,
@@ -1773,6 +1775,10 @@ async def _build_listing_response(
         tags=draft.tags,
         taxonomy_id=draft.taxonomy_id,
         taxonomy_path=draft.taxonomy_path,
+        taxonomy_selection_source=(draft.ip_findings or {}).get(
+            "taxonomy_selection_source",
+            "auto" if draft.taxonomy_id else "fallback",
+        ),
         price_minor_units=draft.price_minor_units,
         currency=draft.currency or "USD",
         quantity=draft.quantity or 999,
@@ -1855,6 +1861,7 @@ async def get_listing_draft_endpoint(
     user: CurrentUser,
     uow: UowDep,
     storage: StorageDep,
+    etsy_gateway: EtsyGatewayDep,
 ) -> ListingDraftResponse:
     from app.application.listing import ListingDraftService
 
@@ -1866,7 +1873,7 @@ async def get_listing_draft_endpoint(
         )
 
     listing_service = ListingDraftService()
-    draft = await listing_service.get_or_create_listing(workflow_id, uow)
+    draft = await listing_service.get_or_create_listing(workflow_id, uow, etsy_gateway=etsy_gateway)
     await uow.commit()
     return await _build_listing_response(draft, workflow_id, uow, storage)
 
@@ -2444,6 +2451,23 @@ async def get_listing_taxonomy_fitness_endpoint(
         )
 
     listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    if not listing or not listing.taxonomy_id:
+        return TaxonomyFitnessResponse(
+            taxonomy_id=0,
+            taxonomy_path="",
+            fit="unknown",
+            score=0.0,
+            fit_score=0.0,
+            fit_level="unknown",
+            blocking_mismatch=False,
+            fit_reasons=[],
+            warnings=["No Etsy category selected."],
+            has_mismatched_required_attributes=False,
+            mismatched_required_reason=None,
+            best_available=False,
+            campaign_intent="unknown",
+        )
+
     concepts = await uow.concepts.list_for_workflow(workflow_id)
     approved_concept = next(
         (c for c in concepts if c.status == ConceptStatus.APPROVED),
@@ -2461,12 +2485,8 @@ async def get_listing_taxonomy_fitness_endpoint(
             if prompts[0].intended_product_uses:
                 concept_uses.extend(prompts[0].intended_product_uses)
 
-    taxonomy_id = listing.taxonomy_id if listing and listing.taxonomy_id else 6844
-    taxonomy_path = (
-        listing.taxonomy_path
-        if listing and listing.taxonomy_path
-        else "Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files"
-    )
+    taxonomy_id = listing.taxonomy_id
+    taxonomy_path = listing.taxonomy_path or ""
 
     campaign_context = {
         "title": listing.title if listing else (approved_concept.title if approved_concept else workflow.name),
@@ -2564,14 +2584,55 @@ async def update_listing_taxonomy_endpoint(
         available_properties=props,
     )
 
+    findings = dict(listing.ip_findings or {})
+    findings["taxonomy_selection_source"] = "manual"
+
     updated = await uow.listing_drafts.update(
         listing.id,
         taxonomy_id=payload.taxonomy_id,
         taxonomy_path=payload.taxonomy_path,
         etsy_properties=validated_properties,
     )
+    await uow.listing_drafts.update_ip_review(
+        listing.id,
+        ip_reviewed_phrase=listing.ip_reviewed_phrase,
+        ip_risk_level=listing.ip_risk_level,
+        ip_findings=findings,
+    )
     await uow.commit()
     return await _build_listing_response(updated, workflow_id, uow, storage)
+
+
+@router.post(
+    "/{workflow_id}/listing/taxonomy/re-resolve",
+    response_model=ReResolveTaxonomyResponse,
+    summary="Re-evaluate campaign taxonomy fitness and return recommended category",
+)
+async def re_evaluate_listing_taxonomy_endpoint(
+    workflow_id: uuid.UUID,
+    payload: ReResolveTaxonomyRequest,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+) -> ReResolveTaxonomyResponse:
+    from app.application.listing import ListingDraftService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing_service = ListingDraftService()
+    res = await listing_service.re_evaluate_taxonomy(
+        workflow_id,
+        uow,
+        etsy_gateway,
+        apply=payload.apply,
+    )
+    await uow.commit()
+    return ReResolveTaxonomyResponse(**res)
 
 
 @router.get(
@@ -2744,7 +2805,10 @@ async def get_listing_taxonomy_properties_endpoint(
         )
 
     listing = await uow.listing_drafts.get_by_workflow(workflow_id)
-    taxonomy_id = listing.taxonomy_id if listing and listing.taxonomy_id else 6844
+    if not listing or not listing.taxonomy_id:
+        return []
+
+    taxonomy_id = listing.taxonomy_id
 
     try:
         props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=taxonomy_id)

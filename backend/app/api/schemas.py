@@ -430,6 +430,7 @@ class ListingDraftResponse(BaseModel):
     tags: list[str]
     taxonomy_id: int | None = None
     taxonomy_path: str | None = None
+    taxonomy_selection_source: str | None = "auto"
     price_minor_units: int | None = None
     currency: str = "USD"
     quantity: int = 999
@@ -533,4 +534,23 @@ class UpdateListingTaxonomyRequest(BaseModel):
 
     taxonomy_id: int
     taxonomy_path: str | None = None
+
+
+class ReResolveTaxonomyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    apply: bool = False
+
+
+class ReResolveTaxonomyResponse(BaseModel):
+    recommended_taxonomy_id: int
+    recommended_taxonomy_path: str
+    fit_score: float
+    fit_level: str
+    blocking_mismatch: bool
+    fit_reasons: list[str] = []
+    warnings: list[str] = []
+    applied: bool = False
+    current_taxonomy_id: int | None = None
+    current_taxonomy_path: str | None = None
+
 
