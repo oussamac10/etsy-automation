@@ -81,47 +81,33 @@ const reasons = computed<string[]>(() => {
 
 <template>
   <Card class="border-border bg-card shadow-xs overflow-hidden" data-testid="ip-risk-card">
-    <CardHeader class="p-4 sm:p-5 pb-3">
-      <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div
-            class="flex size-8 shrink-0 items-center justify-center rounded-lg border"
+    <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
+      <div>
+        <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
+          <Icon
+            :name="isHighRisk ? 'lucide:shield-ban' : isWarning ? 'lucide:shield-alert' : 'lucide:shield-check'"
+            class="size-4 text-primary"
+            aria-hidden="true"
+          />
+          <span>Trademark Screening</span>
+          <Badge
+            variant="outline"
+            class="text-[10px] font-mono font-semibold"
             :class="
               isHighRisk
-                ? 'bg-red-500/10 text-red-600 border-red-500/20'
+                ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20'
                 : isWarning
-                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
             "
           >
-            <Icon
-              :name="isHighRisk ? 'lucide:shield-ban' : isWarning ? 'lucide:shield-alert' : 'lucide:shield-check'"
-              class="size-4"
-              aria-hidden="true"
-            />
-          </div>
-          <div class="min-w-0">
-            <CardTitle class="text-sm font-semibold tracking-tight flex items-center gap-2">
-              <span>Trademark Screening</span>
-              <Badge
-                variant="outline"
-                class="text-[10px] font-mono font-semibold"
-                :class="
-                  isHighRisk
-                    ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20'
-                    : isWarning
-                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-                    : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
-                "
-              >
-                {{ riskLevel.toUpperCase() }} RISK
-              </Badge>
-            </CardTitle>
-            <CardDescription class="text-xs text-muted-foreground truncate">
-              Automated USPTO trademark screening.
-            </CardDescription>
-          </div>
-        </div>
+            {{ riskLevel.toUpperCase() }} RISK
+          </Badge>
+        </CardTitle>
+        <CardDescription class="text-xs">
+          Automated USPTO trademark screening.
+        </CardDescription>
+      </div>
 
         <div class="flex items-center gap-2 shrink-0">
           <Button
@@ -147,7 +133,6 @@ const reasons = computed<string[]>(() => {
             <span>{{ showDetails ? 'Hide Details' : 'View Details' }}</span>
           </Button>
         </div>
-      </div>
     </CardHeader>
 
     <CardContent class="p-4 sm:p-5 pt-0 space-y-3">

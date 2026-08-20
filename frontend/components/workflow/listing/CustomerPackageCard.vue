@@ -50,38 +50,32 @@ async function copyChecksum() {
 
 <template>
   <Card class="border-border bg-card shadow-xs overflow-hidden" data-testid="customer-package-card">
-    <CardHeader class="p-4 sm:p-5 pb-3">
-      <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
-            <Icon name="lucide:package-check" class="size-4" aria-hidden="true" />
-          </div>
-          <div class="min-w-0">
-            <CardTitle class="text-sm font-semibold tracking-tight flex items-center gap-2">
-              <span>Buyer Delivery Package</span>
-              <Badge v-if="packageAsset" variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                Ready
-              </Badge>
-            </CardTitle>
-            <CardDescription class="text-xs text-muted-foreground truncate">
-              Digital deliverables packaged for Etsy buyer download.
-            </CardDescription>
-          </div>
-        </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
-          :disabled="isBuilding"
-          @click="emit('build-package')"
-        >
-          <Icon v-if="isBuilding" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
-          <Icon v-else name="lucide:refresh-cw" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>{{ isBuilding ? 'Building...' : packageAsset ? 'Rebuild' : 'Build Package' }}</span>
-        </Button>
+    <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
+      <div>
+        <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
+          <Icon name="lucide:package-check" class="size-4 text-primary" aria-hidden="true" />
+          <span>Buyer Delivery Package</span>
+          <Badge v-if="packageAsset" variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+            Ready
+          </Badge>
+        </CardTitle>
+        <CardDescription class="text-xs">
+          Digital deliverables packaged for Etsy buyer download.
+        </CardDescription>
       </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer self-start sm:self-auto"
+        :disabled="isBuilding"
+        @click="emit('build-package')"
+      >
+        <Icon v-if="isBuilding" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+        <Icon v-else name="lucide:refresh-cw" class="size-3.5 text-primary" aria-hidden="true" />
+        <span>{{ isBuilding ? 'Building...' : packageAsset ? 'Rebuild' : 'Build Package' }}</span>
+      </Button>
     </CardHeader>
 
     <CardContent class="p-4 sm:p-5 pt-0 space-y-3 text-xs">

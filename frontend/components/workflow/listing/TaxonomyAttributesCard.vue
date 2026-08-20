@@ -208,32 +208,27 @@ const totalSelectedCount = computed(() => {
 
 <template>
   <Card class="border-border bg-card shadow-xs" data-testid="taxonomy-attributes-card">
-    <CardHeader class="p-4 sm:p-5 pb-3">
-      <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
-            <Icon name="lucide:sliders-horizontal" class="size-4" aria-hidden="true" />
-          </div>
-          <div class="min-w-0">
-            <CardTitle class="text-sm font-semibold tracking-tight flex items-center gap-2">
-              <span>Category Attributes</span>
-              <Badge variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                {{ totalSelectedCount }} selected
-              </Badge>
-              <button
-                type="button"
-                class="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-                title="Category attributes info"
-                @click="showInfoTooltip = !showInfoTooltip"
-              >
-                <Icon name="lucide:info" class="size-3.5" aria-hidden="true" />
-              </button>
-            </CardTitle>
-            <CardDescription class="text-xs text-muted-foreground truncate">
-              Etsy-supported details for the selected category.
-            </CardDescription>
-          </div>
-        </div>
+    <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
+      <div>
+        <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
+          <Icon name="lucide:sliders-horizontal" class="size-4 text-primary" aria-hidden="true" />
+          <span>Category Attributes</span>
+          <Badge variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+            {{ totalSelectedCount }} selected
+          </Badge>
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+            title="Category attributes info"
+            @click="showInfoTooltip = !showInfoTooltip"
+          >
+            <Icon name="lucide:info" class="size-3.5" aria-hidden="true" />
+          </button>
+        </CardTitle>
+        <CardDescription class="text-xs">
+          Etsy-supported details for the selected category.
+        </CardDescription>
+      </div>
 
         <div class="flex items-center gap-2 shrink-0">
           <Button
@@ -275,7 +270,6 @@ const totalSelectedCount = computed(() => {
             <span>Save</span>
           </Button>
         </div>
-      </div>
 
       <!-- Info Banner Tooltip -->
       <div v-if="showInfoTooltip" class="mt-2.5 p-3 rounded-lg bg-muted/60 border border-border text-xs text-muted-foreground space-y-1">

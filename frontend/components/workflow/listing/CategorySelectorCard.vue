@@ -120,29 +120,25 @@ watch(searchQuery, (newQuery) => {
 
 <template>
   <Card class="border-border bg-card shadow-xs self-start" data-testid="etsy-category-card">
-    <CardHeader class="p-4 sm:p-5 pb-3">
-      <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
-            <Icon name="lucide:folder-tree" class="size-4" aria-hidden="true" />
-          </div>
-          <div class="min-w-0">
-            <CardTitle class="text-sm font-semibold tracking-tight">Etsy Seller Category</CardTitle>
-            <CardDescription class="text-xs text-muted-foreground truncate">
-              Etsy Open API v3 seller taxonomy for digital transparent PNG artwork.
-            </CardDescription>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          class="h-8 gap-1.5 text-xs font-medium shrink-0"
-          @click="openModal"
-        >
-          <Icon name="lucide:sliders-horizontal" class="size-3.5" aria-hidden="true" />
-          Change Category
-        </Button>
+    <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
+      <div>
+        <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
+          <Icon name="lucide:folder-tree" class="size-4 text-primary" aria-hidden="true" />
+          <span>Etsy Seller Category</span>
+        </CardTitle>
+        <CardDescription class="text-xs">
+          Etsy Open API v3 seller taxonomy for digital transparent PNG artwork.
+        </CardDescription>
       </div>
+      <Button
+        variant="outline"
+        size="sm"
+        class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer self-start sm:self-auto"
+        @click="openModal"
+      >
+        <Icon name="lucide:sliders-horizontal" class="size-3.5" aria-hidden="true" />
+        <span>Change Category</span>
+      </Button>
     </CardHeader>
 
     <CardContent class="p-4 sm:p-5 pt-0">
