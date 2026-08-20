@@ -644,3 +644,52 @@ class TestEtsyVerificationService:
         assert prop_item["status"] == "different"
         assert prop_item["missing"] == ["Paper"]
 
+    def test_description_crlf_and_whitespace_normalization(self) -> None:
+        """Browser CRLF and trailing line spaces normalize accurately to Etsy LF."""
+        local_desc = "Line 1 with text\r\n\r\nLine 2 details &amp; features  \r\nLine 3 conclusion."
+        etsy_desc = "Line 1 with text\n\nLine 2 details & features\nLine 3 conclusion."
+
+        res = compare_etsy_draft(
+            workflow_id="wf-101",
+            listing_id="4559404921",
+            expected_title="Title &amp; Art",
+            expected_description=local_desc,
+            expected_tags=["tag"],
+            expected_price_minor=499,
+            expected_currency="USD",
+            expected_quantity=999,
+            expected_sku=None,
+            expected_taxonomy_id=77,
+            expected_taxonomy_path="Digital",
+            expected_shop_section_id=None,
+            expected_shop_section_name=None,
+            expected_should_auto_renew=False,
+            expected_properties={},
+            expected_mockup_count=1,
+            expected_file_count=1,
+            expected_filenames=["file.zip"],
+            expected_ai_disclosure=None,
+            expected_shopping_cart_summary=None,
+            actual_listing={
+                "listing_id": 4559404921,
+                "state": "draft",
+                "title": "Title & Art",
+                "description": etsy_desc,
+                "tags": ["tag"],
+                "price": {"amount": 499, "divisor": 100, "currency_code": "USD"},
+                "quantity": 999,
+                "taxonomy_id": 77,
+            },
+            actual_inventory=None,
+            actual_images=[{"listing_image_id": "img-1", "rank": 1}],
+            actual_files=[{"listing_file_id": "f-1", "filename": "file.zip", "rank": 1}],
+            actual_properties=[],
+        )
+
+        desc_check = next(c for c in res.checks if c.key == "description")
+        assert desc_check.status == EtsyVerificationCheckStatus.SYNCED
+        assert desc_check.expected == "Exact match"
+
+        title_check = next(c for c in res.checks if c.key == "title")
+        assert title_check.status == EtsyVerificationCheckStatus.SYNCED
+

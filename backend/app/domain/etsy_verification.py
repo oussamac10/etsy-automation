@@ -89,7 +89,25 @@ class EtsyDraftVerification:
         }
 
 
+def _normalize_text(text: str) -> str:
+    """Normalize multiline text for comparison across HTTP and API encoding transformations."""
+    if not text:
+        return ""
+    import html
+
+    t = html.unescape(text)
+    # Normalize CRLF and CR to LF
+    t = t.replace("\r\n", "\n").replace("\r", "\n")
+    # Replace non-breaking spaces with standard spaces
+    t = t.replace("\xa0", " ")
+    # Strip trailing whitespace on each line
+    lines = [line.rstrip() for line in t.split("\n")]
+    # Strip leading and trailing empty lines
+    return "\n".join(lines).strip()
+
+
 def compare_etsy_draft(
+
     *,
     workflow_id: str,
     listing_id: str,
@@ -176,9 +194,10 @@ def compare_etsy_draft(
         )
 
     # 2. Title
-    actual_title = str(actual_listing.get("title", "")).strip()
-    exp_title_norm = expected_title.strip()
-    if actual_title == exp_title_norm:
+    actual_title_raw = str(actual_listing.get("title", ""))
+    actual_title_norm = _normalize_text(actual_title_raw)
+    exp_title_norm = _normalize_text(expected_title)
+    if actual_title_norm == exp_title_norm:
         checks.append(
             EtsyVerificationCheck(
                 key="title",
@@ -186,7 +205,7 @@ def compare_etsy_draft(
                 category="listing",
                 status=EtsyVerificationCheckStatus.SYNCED,
                 expected=expected_title,
-                actual=actual_title,
+                actual=actual_title_raw.strip(),
             )
         )
     else:
@@ -197,15 +216,16 @@ def compare_etsy_draft(
                 category="listing",
                 status=EtsyVerificationCheckStatus.DIFFERENT,
                 expected=expected_title,
-                actual=actual_title,
+                actual=actual_title_raw.strip(),
                 message="Title on Etsy differs from expected title.",
             )
         )
 
     # 3. Description
-    actual_desc = str(actual_listing.get("description", "")).strip()
-    exp_desc_norm = expected_description.strip()
-    if actual_desc == exp_desc_norm:
+    actual_desc_raw = str(actual_listing.get("description", ""))
+    actual_desc_norm = _normalize_text(actual_desc_raw)
+    exp_desc_norm = _normalize_text(expected_description)
+    if actual_desc_norm == exp_desc_norm:
         checks.append(
             EtsyVerificationCheck(
                 key="description",
@@ -223,11 +243,12 @@ def compare_etsy_draft(
                 label="Description",
                 category="listing",
                 status=EtsyVerificationCheckStatus.DIFFERENT,
-                expected=expected_description[:200] + ("..." if len(expected_description) > 200 else ""),
-                actual=actual_desc[:200] + ("..." if len(actual_desc) > 200 else ""),
+                expected=exp_desc_norm[:200] + ("..." if len(exp_desc_norm) > 200 else ""),
+                actual=actual_desc_norm[:200] + ("..." if len(actual_desc_norm) > 200 else ""),
                 message="Description on Etsy differs from local listing description.",
             )
         )
+
 
     # 4. Tags (Case-normalized, order-insensitive)
     raw_actual_tags = actual_listing.get("tags") or []
