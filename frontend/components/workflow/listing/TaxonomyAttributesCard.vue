@@ -223,6 +223,43 @@ const isDirty = computed(() => {
 const totalSelectedCount = computed(() => {
   return Object.values(localPropertiesMap.value).reduce((acc, curr) => acc + (curr.values?.length || 0), 0);
 });
+
+const PAGE_SIZE = 30;
+const visibleLimits = ref<Record<number, number>>({});
+
+function getVisibleLimit(propId: number): number {
+  return visibleLimits.value[propId] || PAGE_SIZE;
+}
+
+function showMoreValues(propId: number, total: number) {
+  const current = getVisibleLimit(propId);
+  visibleLimits.value[propId] = Math.min(current + PAGE_SIZE, total);
+}
+
+function showLessValues(propId: number) {
+  visibleLimits.value[propId] = PAGE_SIZE;
+}
+
+function getVisibleValues(prop: TaxonomyProperty) {
+  if (!prop.possible_values) return [];
+  const limit = getVisibleLimit(prop.property_id);
+  if (prop.possible_values.length <= PAGE_SIZE) {
+    return prop.possible_values;
+  }
+
+  const sliced = prop.possible_values.slice(0, limit);
+  const selectedEntry = localPropertiesMap.value[String(prop.property_id)];
+  if (selectedEntry?.values?.length) {
+    const slicedNames = new Set(sliced.map((v) => v.name));
+    const extraSelected = prop.possible_values.filter(
+      (v) => selectedEntry.values.includes(v.name) && !slicedNames.has(v.name)
+    );
+    if (extraSelected.length > 0) {
+      return [...sliced, ...extraSelected];
+    }
+  }
+  return sliced;
+}
 </script>
 
 <template>
@@ -277,19 +314,19 @@ const totalSelectedCount = computed(() => {
           class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
           @click="emit('save')"
         >
-          <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-if="isSaving" name="lucide:loader-2" class="size-3.5 animate-spin" aria-hidden="true" />
           <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
-          <span>Save</span>
+          <span>Save Attributes</span>
         </Button>
       </div>
     </CardHeader>
 
     <CardContent class="p-4 sm:p-5 pt-0 space-y-4">
-      <!-- Info Alert Box -->
-      <div v-if="showInfoTooltip" class="p-3 rounded-lg border border-border bg-muted/30 text-xs space-y-1.5">
-        <p class="font-medium text-foreground">About Etsy Category Attributes</p>
-        <p class="text-muted-foreground text-[11px] leading-relaxed">
-          These attributes come directly from Etsy's seller taxonomy. Selecting accurate properties helps Etsy buyers find your digital download. Values are 100% manual and draft-only.
+      <!-- Info Tooltip Banner -->
+      <div v-if="showInfoTooltip" class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-foreground space-y-1">
+        <p class="font-medium text-foreground">What are Category Attributes?</p>
+        <p class="text-muted-foreground leading-relaxed">
+          Etsy taxonomy attributes allow shoppers to filter search results by specific dimensions like Craft Type, Holiday, Primary Color, and Occasion.
         </p>
       </div>
 
@@ -330,23 +367,22 @@ const totalSelectedCount = computed(() => {
       <!-- Empty State -->
       <div
         v-else-if="usableProperties.length === 0"
-        class="py-6 text-center text-xs text-muted-foreground border border-dashed rounded-lg"
+        class="py-6 text-center text-xs text-muted-foreground space-y-1"
+        data-testid="empty-attributes-state"
       >
-        <Icon name="lucide:check-circle" class="size-5 text-emerald-600 mx-auto mb-1.5" aria-hidden="true" />
-        <p>No additional attributes required by Etsy for this category.</p>
+        <Icon name="lucide:sliders-horizontal" class="size-6 text-muted-foreground/50 mx-auto" aria-hidden="true" />
+        <p class="font-medium">No customizable attributes for this category</p>
+        <p class="text-2xs text-muted-foreground">Etsy does not define specific tag attributes for this category node.</p>
       </div>
 
       <!-- Properties Form -->
-      <div v-else class="space-y-4">
-        <!-- Recommended / Core Properties -->
+      <div v-else class="space-y-5">
+        <!-- Recommended / Required Properties -->
         <div
           v-for="prop in recommendedProperties"
           :key="prop.property_id"
-          class="p-3.5 rounded-lg border border-border/80 bg-card/60 space-y-2.5 transition-colors"
-          :class="{
-            'border-amber-500/30 bg-amber-500/5': isPropertyMismatched(prop),
-            'border-destructive/30 bg-destructive/5': isPropertyMissingRequired(prop),
-          }"
+          class="space-y-2 p-3 rounded-lg border border-border/60 bg-muted/10"
+          :data-testid="`property-row-${prop.property_id}`"
         >
           <div class="flex items-center justify-between gap-2 flex-wrap">
             <div class="flex items-center gap-2">
@@ -384,28 +420,57 @@ const totalSelectedCount = computed(() => {
             </Badge>
           </div>
 
-          <!-- Multi-valued Property: Tag Chips -->
-          <div v-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="flex flex-wrap gap-1.5 pt-1">
-            <button
-              v-for="val in prop.possible_values"
-              :key="val.value_id"
-              type="button"
-              class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
-              :class="
-                isValueSelected(prop.property_id, val.name)
-                  ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
-                  : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
-              "
-              @click="toggleValue(prop, val.name, val.value_id)"
-            >
-              <Icon
-                v-if="isValueSelected(prop.property_id, val.name)"
-                name="lucide:check"
-                class="size-3"
-                aria-hidden="true"
-              />
-              <span>{{ val.name }}</span>
-            </button>
+          <!-- Multi-valued Property: Tag Chips with 30 by 30 pagination -->
+          <div v-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="space-y-2 pt-1">
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="val in getVisibleValues(prop)"
+                :key="val.value_id"
+                type="button"
+                class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
+                :class="
+                  isValueSelected(prop.property_id, val.name)
+                    ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
+                    : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
+                "
+                @click="toggleValue(prop, val.name, val.value_id)"
+              >
+                <Icon
+                  v-if="isValueSelected(prop.property_id, val.name)"
+                  name="lucide:check"
+                  class="size-3"
+                  aria-hidden="true"
+                />
+                <span>{{ val.name }}</span>
+              </button>
+            </div>
+
+            <!-- Show 30 More / Show Less Controls -->
+            <div v-if="prop.possible_values.length > PAGE_SIZE" class="flex items-center gap-2 pt-0.5">
+              <Button
+                v-if="getVisibleLimit(prop.property_id) < prop.possible_values.length"
+                type="button"
+                variant="outline"
+                size="sm"
+                class="h-6 text-[11px] font-medium gap-1 text-primary hover:bg-primary/10 cursor-pointer"
+                @click="showMoreValues(prop.property_id, prop.possible_values.length)"
+              >
+                <Icon name="lucide:chevron-down" class="size-3" aria-hidden="true" />
+                <span>Show 30 more ({{ prop.possible_values.length - getVisibleLimit(prop.property_id) }} remaining)</span>
+              </Button>
+
+              <Button
+                v-if="getVisibleLimit(prop.property_id) > PAGE_SIZE"
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="h-6 text-[11px] font-medium gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                @click="showLessValues(prop.property_id)"
+              >
+                <Icon name="lucide:chevron-up" class="size-3" aria-hidden="true" />
+                <span>Show less</span>
+              </Button>
+            </div>
           </div>
 
           <!-- Single-valued Property (<= 6 items): Radio/Toggle Chips -->
@@ -482,22 +547,57 @@ const totalSelectedCount = computed(() => {
                 </Badge>
               </div>
 
-              <!-- Multivalued chips -->
-              <div v-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="flex flex-wrap gap-1.5 pt-1">
-                <button
-                  v-for="val in prop.possible_values"
-                  :key="val.value_id"
-                  type="button"
-                  class="px-2 py-0.5 rounded text-xs transition-colors cursor-pointer border"
-                  :class="
-                    isValueSelected(prop.property_id, val.name)
-                      ? 'bg-primary text-primary-foreground border-primary font-medium'
-                      : 'bg-muted/40 hover:bg-muted text-muted-foreground border-border/60'
-                  "
-                  @click="toggleValue(prop, val.name, val.value_id)"
-                >
-                  {{ val.name }}
-                </button>
+              <!-- Multivalued chips with 30 by 30 pagination -->
+              <div v-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="space-y-2 pt-1">
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="val in getVisibleValues(prop)"
+                    :key="val.value_id"
+                    type="button"
+                    class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
+                    :class="
+                      isValueSelected(prop.property_id, val.name)
+                        ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
+                        : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
+                    "
+                    @click="toggleValue(prop, val.name, val.value_id)"
+                  >
+                    <Icon
+                      v-if="isValueSelected(prop.property_id, val.name)"
+                      name="lucide:check"
+                      class="size-3"
+                      aria-hidden="true"
+                    />
+                    <span>{{ val.name }}</span>
+                  </button>
+                </div>
+
+                <!-- Show 30 More / Show Less Controls -->
+                <div v-if="prop.possible_values.length > PAGE_SIZE" class="flex items-center gap-2 pt-0.5">
+                  <Button
+                    v-if="getVisibleLimit(prop.property_id) < prop.possible_values.length"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-6 text-[11px] font-medium gap-1 text-primary hover:bg-primary/10 cursor-pointer"
+                    @click="showMoreValues(prop.property_id, prop.possible_values.length)"
+                  >
+                    <Icon name="lucide:chevron-down" class="size-3" aria-hidden="true" />
+                    <span>Show 30 more ({{ prop.possible_values.length - getVisibleLimit(prop.property_id) }} remaining)</span>
+                  </Button>
+
+                  <Button
+                    v-if="getVisibleLimit(prop.property_id) > PAGE_SIZE"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="h-6 text-[11px] font-medium gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                    @click="showLessValues(prop.property_id)"
+                  >
+                    <Icon name="lucide:chevron-up" class="size-3" aria-hidden="true" />
+                    <span>Show less</span>
+                  </Button>
+                </div>
               </div>
 
               <!-- Dropdown for others -->
