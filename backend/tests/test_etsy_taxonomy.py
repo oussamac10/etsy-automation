@@ -265,17 +265,16 @@ async def test_fake_provider_returns_taxonomy_specific_properties() -> None:
     assert "Card making & stationery" in values_6844
     assert "Scrapbooking" in values_6844
 
-    # 77 contains sublimation/printing craft types
-    craft_77 = next(p for p in props_77 if p.name == "Craft type")
-    values_77 = {v["name"] for v in craft_77.possible_values}
-    assert "Sublimation" in values_77
-    assert "Printing & printmaking" in values_77
-    assert "Fabric printing" in values_77
+    # 77 (Digital) contains real Etsy attributes: Materials, Orientation, Framing, Subject, Aspect ratio
+    prop_names_77 = {p.name for p in props_77}
+    assert "Material multi" in prop_names_77
+    assert "Orientation" in prop_names_77
+    assert "Framing" in prop_names_77
+    assert "Art subject" in prop_names_77
 
     # 2078 contains wall art/framing properties
     prop_names_2078 = {p.name for p in props_2078}
     assert "Framing" in prop_names_2078
-    assert "Subject" in prop_names_2078
 
 
 @pytest.mark.asyncio
