@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+import re
 from typing import Any
 import httpx
 import structlog
@@ -391,8 +392,21 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}/files"
         headers = self._default_headers(access_token)
 
+        # Sanitize and strictly enforce Etsy filename constraints (3 to 70 characters)
+        clean_fn = re.sub(r"[^a-zA-Z0-9_.-]+", "_", filename)
+        clean_fn = re.sub(r"_+", "_", clean_fn).strip("_-")
+        if len(clean_fn) > 68:
+            if "." in clean_fn:
+                stem, ext = clean_fn.rsplit(".", 1)
+                ext = f".{ext}"
+            else:
+                stem, ext = clean_fn, ""
+            clean_fn = f"{stem[: 68 - len(ext)].rstrip('_-.')}{ext}"
+        if len(clean_fn) < 3:
+            clean_fn = f"file_{clean_fn}" if clean_fn else "file.zip"
+
         mime_type = "application/zip"
-        lower_fn = filename.lower()
+        lower_fn = clean_fn.lower()
         if lower_fn.endswith(".png"):
             mime_type = "image/png"
         elif lower_fn.endswith(".pdf"):
@@ -403,10 +417,10 @@ class EtsyProvider(EtsyGateway):
             mime_type = "text/plain"
 
         files = {
-            "file": (filename, file_bytes, mime_type),
+            "file": (clean_fn, file_bytes, mime_type),
         }
         data = {
-            "name": filename,
+            "name": clean_fn,
             "rank": str(rank),
         }
 

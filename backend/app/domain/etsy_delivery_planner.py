@@ -141,6 +141,30 @@ def validate_png_integrity(
         raise DomainError(f"Corrupted PNG IDAT stream: {exc}") from exc
 
 
+def make_etsy_safe_filename(base_prefix: str, suffix: str, max_length: int = 68) -> str:
+    """Format and guarantee a filename strictly meets Etsy constraints:
+
+    - Between 3 and 70 characters (default max 68 chars).
+    - Only alphanumeric, hyphens, underscores, or periods.
+    """
+    raw_name = f"{base_prefix}_{suffix}" if base_prefix and suffix else (base_prefix or suffix)
+    cleaned = re.sub(r"[^a-zA-Z0-9_.-]+", "_", raw_name)
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_-")
+
+    if "." in cleaned:
+        stem, ext = cleaned.rsplit(".", 1)
+        ext = f".{ext}"
+    else:
+        stem, ext = cleaned, ""
+
+    if len(cleaned) <= max_length:
+        return cleaned
+
+    allowed_stem_len = max(max_length - len(ext), 3)
+    trimmed_stem = stem[:allowed_stem_len].rstrip("_-.")
+    return f"{trimmed_stem}{ext}"
+
+
 class EtsyDigitalDeliveryPlanner:
     """Computes and plans uploadable customer files conforming to Etsy constraints."""
 
@@ -174,8 +198,8 @@ class EtsyDigitalDeliveryPlanner:
                   3. If optimized PNG packed in standalone ZIP <= 20MB, produces [master.zip, extras.zip].
                   4. If even master.zip exceeds 20MB, fail safely with DomainError without raw byte splitting.
         """
-        shop_slug = sanitize_brand_slug(shop_name)
-        product_slug = sanitize_product_title(listing_title)
+        shop_slug = sanitize_brand_slug(shop_name, max_length=20)
+        product_slug = sanitize_product_title(listing_title, max_length=25)
         base_prefix = f"{shop_slug}_{product_slug}"
 
         # 1. Optimize master PNG losslessly
@@ -222,7 +246,7 @@ class EtsyDigitalDeliveryPlanner:
             zip_sha = hashlib.sha256(single_zip_bytes).hexdigest()
             return [
                 EtsyDeliveryFile(
-                    filename=f"{base_prefix}_Digital_Download.zip",
+                    filename=make_etsy_safe_filename(base_prefix, "Digital_Download.zip"),
                     mime_type="application/zip",
                     content=single_zip_bytes,
                     checksum_sha256=zip_sha,
@@ -239,7 +263,7 @@ class EtsyDigitalDeliveryPlanner:
             # Deliverable 1: Direct Master PNG
             planned_files.append(
                 EtsyDeliveryFile(
-                    filename=f"{base_prefix}_PNG.png",
+                    filename=make_etsy_safe_filename(base_prefix, "PNG.png"),
                     mime_type="image/png",
                     content=optimized_master,
                     checksum_sha256=master_sha,
@@ -254,7 +278,7 @@ class EtsyDigitalDeliveryPlanner:
                 validate_zip_integrity(master_zip_bytes, [f"{base_prefix}_PNG.png"])
                 planned_files.append(
                     EtsyDeliveryFile(
-                        filename=f"{base_prefix}_Master.zip",
+                        filename=make_etsy_safe_filename(base_prefix, "Master.zip"),
                         mime_type="application/zip",
                         content=master_zip_bytes,
                         checksum_sha256=hashlib.sha256(master_zip_bytes).hexdigest(),
@@ -288,7 +312,7 @@ class EtsyDigitalDeliveryPlanner:
             validate_zip_integrity(extras_zip_bytes, list(extras_files.keys()))
             planned_files.append(
                 EtsyDeliveryFile(
-                    filename=f"{base_prefix}_Extras.zip",
+                    filename=make_etsy_safe_filename(base_prefix, "Extras.zip"),
                     mime_type="application/zip",
                     content=extras_zip_bytes,
                     checksum_sha256=hashlib.sha256(extras_zip_bytes).hexdigest(),
@@ -308,7 +332,7 @@ class EtsyDigitalDeliveryPlanner:
             validate_zip_integrity(doc_zip, list(doc_files.keys()))
             planned_files.append(
                 EtsyDeliveryFile(
-                    filename=f"{base_prefix}_Documentation.zip",
+                    filename=make_etsy_safe_filename(base_prefix, "Documentation.zip"),
                     mime_type="application/zip",
                     content=doc_zip,
                     checksum_sha256=hashlib.sha256(doc_zip).hexdigest(),

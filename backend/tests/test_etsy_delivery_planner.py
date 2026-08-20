@@ -255,3 +255,23 @@ class TestEtsyDigitalDeliveryPlanner:
                 listing_title="Test Listing",
                 include_pdf=False,
             )
+
+    def test_etsy_filename_length_strictly_under_70_chars(self) -> None:
+        """Verify that very long listing titles and shop names produce filenames strictly <= 70 chars."""
+        import re
+
+        planner = EtsyDigitalDeliveryPlanner()
+        png_bytes = _create_test_png_bytes(width=4500, height=5400)
+
+        planned = planner.plan_delivery(
+            master_png_bytes=png_bytes,
+            listing_title="Patchwork Sea Turtle PNG Sublimation Design Digital Download Clipart For T-Shirts and Hoodies",
+            shop_name="NovaCraftPixel Studio Boutique",
+            include_pdf=True,
+        )
+
+        assert len(planned) > 0
+        for item in planned:
+            assert 3 <= len(item.filename) <= 70, f"Filename '{item.filename}' length {len(item.filename)} violates Etsy 3-70 constraint"
+            assert re.match(r"^[a-zA-Z0-9_.-]+$", item.filename), f"Filename '{item.filename}' contains invalid Etsy chars"
+
