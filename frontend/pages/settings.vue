@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import Button from "~/components/ui/Button.vue";
 import Input from "~/components/ui/Input.vue";
 import Card from "~/components/ui/Card.vue";
@@ -44,6 +44,14 @@ const credentialsError = ref<string | null>(null);
 const isCredentialsLoading = ref(false);
 const newSecrets = ref<Record<string, string>>({});
 const keyLabels = ref<Record<string, string>>({});
+
+const EXCLUDED_API_PROVIDERS = new Set(["etsy", "fake", "telegram"]);
+
+const displayCredentials = computed(() => {
+  return credentialsList.value.filter(
+    (cred) => !EXCLUDED_API_PROVIDERS.has(cred.provider.toLowerCase())
+  );
+});
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -415,7 +423,7 @@ onBeforeUnmount(stopCountdown);
 
           <div v-else class="divide-y divide-border">
             <div
-              v-for="cred in credentialsList"
+              v-for="cred in displayCredentials"
               :key="cred.provider"
               class="py-4 first:pt-0 last:pb-0"
             >

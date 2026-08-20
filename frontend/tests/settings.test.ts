@@ -246,4 +246,50 @@ describe("settings page - Telegram card", () => {
     // Verify unpaired state is restored
     expect(wrapper.find('[data-testid="telegram-unpaired-container"]').exists()).toBe(true);
   });
+
+  it("filters out OAuth/non-api-key providers (etsy, fake, telegram) from provider credentials list", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/settings/credentials")) {
+        return Promise.resolve({
+          items: [
+            { provider: "openai", configured: true, masked_value: "••••1234", label: null, updated_at: null },
+            { provider: "etsy", configured: false, masked_value: null, label: null, updated_at: null },
+            { provider: "fake", configured: false, masked_value: null, label: null, updated_at: null },
+            { provider: "telegram", configured: false, masked_value: null, label: null, updated_at: null },
+            { provider: "recraft", configured: false, masked_value: null, label: null, updated_at: null },
+          ],
+        });
+      }
+      if (url.includes("/integrations/etsy")) {
+        return Promise.resolve({ connected: false, connection_status: "disconnected", granted_scopes: [], token_health: "disconnected" });
+      }
+      if (url.includes("/settings/telegram")) {
+        return Promise.resolve({ paired: false, telegram_username: null, pairing_code_expires_at: null });
+      }
+      return Promise.resolve({});
+    });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const wrapper = mount(settingsPage, {
+      global: {
+        components: {
+          NavBar: NavBarMock,
+          NuxtLink: NuxtLinkMock,
+        },
+      },
+    });
+
+    await vi.dynamicImportSettled();
+    await wrapper.vm.$nextTick();
+
+    const text = wrapper.text();
+    expect(text).toContain("openai");
+    expect(text).toContain("recraft");
+    // Ensure etsy, fake, and telegram are NOT shown in API keys card
+    const providerSpans = wrapper.findAll(".capitalize").map((el) => el.text().toLowerCase());
+    expect(providerSpans.includes("etsy")).toBe(false);
+    expect(providerSpans.includes("fake")).toBe(false);
+    expect(providerSpans.includes("telegram")).toBe(false);
+  });
 });
+
