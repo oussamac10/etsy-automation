@@ -45,10 +45,9 @@ const localPropertiesMap = ref<Record<string, { property_id: number; value_ids: 
 watch(
   () => props.etsyProperties,
   (newVal) => {
-    if (newVal) {
-      localPropertiesMap.value = JSON.parse(JSON.stringify(newVal));
-    }
-  }
+    localPropertiesMap.value = newVal ? JSON.parse(JSON.stringify(newVal)) : {};
+  },
+  { deep: true, immediate: true }
 );
 
 watch(

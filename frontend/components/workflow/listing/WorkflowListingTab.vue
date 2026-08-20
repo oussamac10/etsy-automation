@@ -179,6 +179,11 @@ async function handleSave() {
   }
 }
 
+async function handleAttributesUpdate(newProps: Record<string, any>) {
+  localEtsyProperties.value = newProps;
+  await handleSave();
+}
+
 async function handleGenerateSeo() {
   successMessage.value = null;
   const draft = await generateSeo(props.workflowId);
@@ -769,7 +774,7 @@ const subTabs = computed(() => [
               :taxonomy-id="activeTaxonomyId"
               :etsy-properties="localEtsyProperties"
               :is-saving="isSaving"
-              @update:etsy-properties="localEtsyProperties = $event"
+              @update:etsy-properties="handleAttributesUpdate"
               @save="handleSave"
               @review-category="categorySelectorRef?.openModal()"
             />
