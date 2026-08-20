@@ -141,16 +141,17 @@ const reasons = computed<string[]>(() => {
         class="p-3 rounded-lg border text-xs space-y-1.5"
         :class="
           isHighRisk
-            ? 'bg-red-500/5 border-red-500/20 text-red-900 dark:text-red-200'
+            ? 'bg-red-500/10 border-red-500/20'
             : isWarning
-            ? 'bg-amber-500/5 border-amber-500/20 text-amber-900 dark:text-amber-200'
-            : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-900 dark:text-emerald-200'
+            ? 'bg-amber-500/10 border-amber-500/20'
+            : 'bg-muted/40 border-border'
         "
       >
-        <p class="font-semibold flex items-center gap-1.5">
+        <p class="font-semibold text-foreground flex items-center gap-2">
           <Icon
             :name="isHighRisk ? 'lucide:alert-octagon' : isWarning ? 'lucide:alert-triangle' : 'lucide:check-circle-2'"
             class="size-4 shrink-0"
+            :class="isHighRisk ? 'text-red-600 dark:text-red-400' : isWarning ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'"
             aria-hidden="true"
           />
           <span>
@@ -163,7 +164,7 @@ const reasons = computed<string[]>(() => {
             }}
           </span>
         </p>
-        <p class="text-[11px] text-muted-foreground opacity-90">
+        <p class="text-[11px] text-muted-foreground">
           {{ liveMatchesCount }} conflicting LIVE mark{{ liveMatchesCount === 1 ? '' : 's' }} found • Screened: {{ scannedPhrases.length }} term{{ scannedPhrases.length === 1 ? '' : 's' }} • Dataset: {{ datasetFormattedDate || 'Aug 2026' }}
         </p>
       </div>

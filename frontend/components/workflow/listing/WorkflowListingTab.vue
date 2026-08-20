@@ -926,8 +926,7 @@ const subTabs = computed(() => [
             <div
               v-for="check in readinessChecks"
               :key="check.id"
-              class="flex items-center justify-between p-2.5 rounded-lg border text-xs transition-colors"
-              :class="check.passed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-900 dark:text-emerald-200' : 'bg-muted/30 border-border text-foreground'"
+              class="flex items-center justify-between p-2.5 rounded-lg border text-xs transition-colors bg-muted/30 border-border text-foreground"
             >
               <div class="flex items-center gap-2.5 min-w-0">
                 <Icon
