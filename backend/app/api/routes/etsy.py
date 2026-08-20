@@ -24,8 +24,11 @@ from app.api.etsy_schemas import (
     EtsyConnectResponse,
     EtsyDispatchStepInfo,
     EtsyDraftDispatchResponse,
+    EtsyDraftVerificationResponse,
+    EtsyVerificationCheckResponse,
+    EtsyVerificationSummaryResponse,
 )
-from app.application import etsy_auth, etsy_draft
+from app.application import etsy_auth, etsy_draft, etsy_verification
 from app.domain.workflow import RunStatus
 
 router = APIRouter(tags=["etsy"])
@@ -364,6 +367,14 @@ def _build_etsy_dispatch_response(
     if not isinstance(err_msg, str):
         err_msg = None
 
+    verification_data = getattr(listing, "etsy_verification_result", None)
+    verification_resp = None
+    if isinstance(verification_data, dict) and verification_data:
+        try:
+            verification_resp = EtsyDraftVerificationResponse.model_validate(verification_data)
+        except Exception:
+            verification_resp = None
+
     return EtsyDraftDispatchResponse(
         workflow_id=workflow_id,
         dispatch_status=dispatch_status,
@@ -380,6 +391,7 @@ def _build_etsy_dispatch_response(
         error_message=err_msg,
         last_synced_at=last_synced_at,
         steps=steps,
+        verification=verification_resp,
     )
 
 
@@ -477,3 +489,94 @@ async def reconcile_etsy_draft_endpoint(
         return _build_etsy_dispatch_response(workflow_id, None)
 
     return _build_etsy_dispatch_response(workflow_id, listing, reconcile_res)
+
+
+@router.post(
+    "/workflows/{workflow_id}/etsy/verify",
+    response_model=EtsyDraftVerificationResponse,
+    summary="Verify actual Etsy draft listing against local expectations",
+)
+async def verify_etsy_draft_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+    cipher: CipherDep,
+    storage: StorageDep,
+) -> EtsyDraftVerificationResponse:
+    """Run authoritative reconciliation comparing expected local state with live Etsy Open API v3 state."""
+    if cipher is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Credential cipher is not configured on the server",
+        )
+    report = await etsy_verification.verify_etsy_draft_listing(
+        workflow_id=workflow_id,
+        owner_id=user.id,
+        uow=uow,
+        cipher=cipher,
+        etsy_gateway=etsy_gateway,
+        storage=storage,
+    )
+    return EtsyDraftVerificationResponse.model_validate(report.to_dict())
+
+
+@router.get(
+    "/workflows/{workflow_id}/etsy/verification",
+    response_model=EtsyDraftVerificationResponse | None,
+    summary="Get latest Etsy draft verification report for a workflow",
+)
+async def get_etsy_verification_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+    cipher: CipherDep,
+    storage: StorageDep,
+    force_recheck: bool = Query(default=False, description="Re-run verification against Etsy API."),
+) -> EtsyDraftVerificationResponse | None:
+    """Retrieve existing cached verification snapshot or run a fresh verification."""
+    workflow = await uow.workflows.get(workflow_id)
+    if workflow is None or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    if listing is None or not listing.etsy_listing_id:
+        return None
+
+    if force_recheck or not listing.etsy_verification_result:
+        if cipher is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Credential cipher is not configured on the server",
+            )
+        report = await etsy_verification.verify_etsy_draft_listing(
+            workflow_id=workflow_id,
+            owner_id=user.id,
+            uow=uow,
+            cipher=cipher,
+            etsy_gateway=etsy_gateway,
+            storage=storage,
+        )
+        return EtsyDraftVerificationResponse.model_validate(report.to_dict())
+
+    try:
+        return EtsyDraftVerificationResponse.model_validate(listing.etsy_verification_result)
+    except Exception:
+        if cipher is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Credential cipher is not configured on the server",
+            )
+        report = await etsy_verification.verify_etsy_draft_listing(
+            workflow_id=workflow_id,
+            owner_id=user.id,
+            uow=uow,
+            cipher=cipher,
+            etsy_gateway=etsy_gateway,
+            storage=storage,
+        )
+        return EtsyDraftVerificationResponse.model_validate(report.to_dict())

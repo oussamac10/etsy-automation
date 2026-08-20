@@ -540,6 +540,25 @@ async def execute_etsy_draft_pipeline(
                 web_dashboard_url=web_dashboard_url,
             )
 
+        # Step 6: Post-Dispatch Automatic Verification
+        try:
+            from app.application.etsy_verification import verify_etsy_draft_listing
+            await verify_etsy_draft_listing(
+                workflow_id=workflow_id,
+                owner_id=owner_id,
+                uow=uow,
+                cipher=cipher,
+                etsy_gateway=etsy_gateway,
+                storage=storage,
+            )
+        except Exception as ver_exc:
+            logger.warning(
+                "etsy_post_dispatch_verification_warning",
+                workflow_id=str(workflow_id),
+                listing_id=listing_id,
+                error=str(ver_exc),
+            )
+
         logger.info(
             "etsy_draft_pipeline_completed",
             workflow_id=str(workflow_id),

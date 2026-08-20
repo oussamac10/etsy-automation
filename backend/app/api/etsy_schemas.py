@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 import uuid
 from datetime import datetime
 from pydantic import BaseModel, Field
@@ -41,6 +42,36 @@ class EtsyDispatchStepInfo(BaseModel):
     error: str | None = Field(default=None, description="Error detail if step failed.")
 
 
+class EtsyVerificationCheckResponse(BaseModel):
+    key: str = Field(..., description="Check identifier (e.g. title, price, digital_files, ai_disclosure)")
+    label: str = Field(..., description="Human-readable label for the check")
+    category: str = Field(..., description="Category: listing, commerce, media_and_delivery, attributes, manual_review")
+    status: str = Field(..., description="synced, different, missing, failed, manual_review, not_applicable")
+    expected: Any = Field(default=None, description="Expected local value")
+    actual: Any = Field(default=None, description="Authoritative actual value from Etsy Open API v3")
+    message: str | None = Field(default=None, description="Explanation of difference or guidance")
+    source: str = Field(default="etsy_api", description="Source: etsy_api or manual_review")
+    details: dict[str, Any] | None = Field(default=None, description="Detailed sub-items (e.g. tags, properties)")
+
+
+class EtsyVerificationSummaryResponse(BaseModel):
+    synced: int = Field(default=0, description="Count of fully synced checks")
+    warnings: int = Field(default=0, description="Count of differences / warnings")
+    errors: int = Field(default=0, description="Count of hard errors")
+    manual_review: int = Field(default=0, description="Count of manual Etsy web checks required")
+    total: int = Field(default=0, description="Total checks performed")
+
+
+class EtsyDraftVerificationResponse(BaseModel):
+    workflow_id: str = Field(..., description="Workflow ID")
+    listing_id: str | None = Field(default=None, description="Etsy Listing ID")
+    status: str = Field(..., description="Overall status: verified, needs_attention, failed")
+    verified_at: datetime = Field(..., description="Verification timestamp")
+    summary: EtsyVerificationSummaryResponse = Field(..., description="Summary counts")
+    checks: list[EtsyVerificationCheckResponse] = Field(default_factory=list, description="Individual checks")
+    error_message: str | None = Field(default=None, description="Verification error if failed")
+
+
 class EtsyDraftDispatchResponse(BaseModel):
     """Status of the Etsy draft creation and asset upload operation."""
 
@@ -65,4 +96,7 @@ class EtsyDraftDispatchResponse(BaseModel):
     last_synced_at: datetime | None = Field(default=None, description="Last successful sync timestamp.")
     steps: dict[str, EtsyDispatchStepInfo] = Field(
         default_factory=dict, description="Status of individual dispatch steps."
+    )
+    verification: EtsyDraftVerificationResponse | None = Field(
+        default=None, description="Latest Etsy draft verification report."
     )
