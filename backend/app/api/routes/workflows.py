@@ -24,6 +24,8 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, 
 
 from app.api.dependencies import CipherDep, CurrentUser, EtsyGatewayDep, SettingsDep, StorageDep, UowDep
 from app.api.schemas import (
+    AiTaxonomyAttributeSuggestionsResponse,
+    AiTaxonomyPropertySuggestionItem,
     ApprovalResponse,
     ArtworkJobResponse,
     AssetResponse,
@@ -2643,3 +2645,245 @@ async def get_listing_taxonomy_properties_endpoint(
             )
         )
     return responses
+
+
+# In-memory cache for taxonomy AI suggestions to avoid duplicate provider costs on identical inputs
+_TAXONOMY_AI_CACHE: dict[str, tuple[list[Any], str]] = {}
+
+
+@router.post(
+    "/{workflow_id}/listing/taxonomy-properties/ai-suggest",
+    response_model=AiTaxonomyAttributeSuggestionsResponse,
+    summary="Generate campaign-specific AI Etsy category attribute suggestions strictly from real Etsy taxonomy",
+)
+async def suggest_listing_taxonomy_attributes_ai_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    settings: SettingsDep,
+    etsy_gateway: EtsyGatewayDep,
+    cipher: CipherDep,
+) -> AiTaxonomyAttributeSuggestionsResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No listing draft found for this workflow",
+        )
+
+    taxonomy_id = listing.taxonomy_id if listing.taxonomy_id else 6844
+    try:
+        props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=taxonomy_id)
+    except Exception:
+        props = []
+
+    if not props:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No taxonomy properties available from Etsy for this category.",
+        )
+
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    approved_concept = next(
+        (c for c in concepts if c.status == ConceptStatus.APPROVED),
+        concepts[0] if concepts else None,
+    )
+    slogan = None
+    intended_uses = list(workflow.intended_product_uses or [])
+    seasonality = approved_concept.seasonality if approved_concept else None
+    target_buyer = approved_concept.target_buyer if approved_concept else None
+    concept_desc = approved_concept.description if approved_concept else None
+    concept_title = approved_concept.title if approved_concept else workflow.name
+
+    if approved_concept:
+        prompts = await uow.concepts.prompts(approved_concept.id)
+        if prompts:
+            slogan = prompts[0].exact_slogan
+            if prompts[0].intended_product_uses:
+                intended_uses = prompts[0].intended_product_uses
+
+    title = listing.title or workflow.name
+    desc = listing.description or ""
+    tags = list(listing.tags or [])
+
+    from app.domain.taxonomy_ai import (
+        compute_taxonomy_content_fingerprint,
+        build_taxonomy_ai_context,
+        build_taxonomy_ai_prompt,
+        validate_ai_taxonomy_suggestions,
+        RawAiTaxonomyResponse,
+    )
+
+    fingerprint = compute_taxonomy_content_fingerprint(
+        workflow_id=str(workflow_id),
+        taxonomy_id=taxonomy_id,
+        title=title,
+        description=desc,
+        tags=tags,
+        properties=props,
+        concept_title=concept_title,
+        slogan=slogan,
+        seasonality=seasonality,
+    )
+
+    cache_key = f"{workflow_id}:{taxonomy_id}:{fingerprint}"
+    if cache_key in _TAXONOMY_AI_CACHE:
+        cached_suggestions, cached_fp = _TAXONOMY_AI_CACHE[cache_key]
+        high_conf = sum(1 for s in cached_suggestions if s.is_high_confidence)
+        return AiTaxonomyAttributeSuggestionsResponse(
+            workflow_id=workflow_id,
+            taxonomy_id=taxonomy_id,
+            suggestions=[
+                AiTaxonomyPropertySuggestionItem(**s.to_dict()) for s in cached_suggestions
+            ],
+            high_confidence_count=high_conf,
+            fingerprint=cached_fp,
+            cached=True,
+        )
+
+    # Resolve text provider
+    text_provider: Any = None
+    provider_name = ProviderName.FAKE
+
+    if settings.provider_mode == "live":
+        from app.application.owner_settings import reveal_credential
+        from app.providers.gemini import GeminiSynthesisAdapter
+        from app.providers.openai import OpenAISynthesisAdapter
+
+        gemini_key = None
+        openai_key = None
+        if cipher:
+            try:
+                gemini_key = await reveal_credential(
+                    uow, user.id, provider=ProviderName.GEMINI, cipher=cipher
+                )
+            except Exception:
+                gemini_key = None
+
+            try:
+                openai_key = await reveal_credential(
+                    uow, user.id, provider=ProviderName.OPENAI, cipher=cipher
+                )
+            except Exception:
+                openai_key = None
+
+        if gemini_key:
+            text_provider = GeminiSynthesisAdapter(api_key=gemini_key)
+            provider_name = ProviderName.GEMINI
+        elif openai_key:
+            text_provider = OpenAISynthesisAdapter(api_key=openai_key)
+            provider_name = ProviderName.OPENAI
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="AI suggestions are unavailable. Configure Gemini or OpenAI in Settings, or use Smart Suggestions.",
+            )
+    else:
+        from app.providers.fake import FakeTextProvider
+
+        text_provider = FakeTextProvider()
+
+    context = build_taxonomy_ai_context(
+        workflow_id=str(workflow_id),
+        workflow_name=workflow.name,
+        concept_title=concept_title,
+        concept_description=concept_desc,
+        slogan=slogan,
+        seasonality=seasonality,
+        target_buyer=target_buyer,
+        intended_product_uses=intended_uses,
+        title=title,
+        description=desc,
+        tags=tags,
+        taxonomy_id=taxonomy_id,
+        taxonomy_path=listing.taxonomy_path,
+        available_properties=props,
+    )
+    prompt_text = build_taxonomy_ai_prompt(context)
+
+    from app.ports.providers import TextRequest
+    from app.domain.money import Money
+    import json
+    import re
+
+    try:
+        if text_provider is not None and getattr(text_provider, "__class__", type(None)).__name__ == "FakeTextProvider":
+            from app.domain.taxonomy_properties import suggest_taxonomy_properties
+
+            smart_map = suggest_taxonomy_properties(
+                title=title, description=desc, tags=tags, available_properties=props
+            )
+            fake_selections = []
+            for p in props:
+                sug = smart_map.get(str(p.property_id))
+                if sug and sug.get("value_ids"):
+                    fake_selections.append(
+                        {
+                            "property_id": p.property_id,
+                            "value_ids": sug["value_ids"],
+                            "confidence": 0.95 if "craft" in p.name.lower() or "holiday" in p.name.lower() else 0.88,
+                            "reason": f"Campaign explicitly matches {p.name.lower()} for this digital artwork.",
+                        }
+                    )
+            raw_data = {"selections": fake_selections}
+        else:
+            req = TextRequest(
+                prompt=prompt_text,
+                system="You are an expert Etsy attribute selector that chooses only from supplied properties and outputs strict JSON.",
+                max_output_tokens=2048,
+                schema_class=RawAiTaxonomyResponse,
+            )
+            llm_resp = await text_provider.generate(req)
+            raw_text = llm_resp.text.strip()
+            if raw_text.startswith("```"):
+                raw_text = re.sub(r"^```(?:json)?\n?", "", raw_text)
+                raw_text = re.sub(r"\n?```$", "", raw_text)
+            raw_data = json.loads(raw_text)
+
+        validated_suggestions = validate_ai_taxonomy_suggestions(raw_data, props)
+
+        # Record usage & cost in ledger
+        try:
+            await uow.costs.record_estimate(
+                workflow_id=workflow_id,
+                provider=provider_name,
+                service="text_generation",
+                operation="etsy_attribute_suggestion",
+                estimated=Money(1, "USD"),
+                input_units=len(prompt_text) // 4,
+                output_units=150,
+                unit_kind="tokens",
+            )
+            await uow.commit()
+        except Exception:
+            pass
+
+        # Cache result
+        _TAXONOMY_AI_CACHE[cache_key] = (validated_suggestions, fingerprint)
+
+        high_conf = sum(1 for s in validated_suggestions if s.is_high_confidence)
+        return AiTaxonomyAttributeSuggestionsResponse(
+            workflow_id=workflow_id,
+            taxonomy_id=taxonomy_id,
+            suggestions=[
+                AiTaxonomyPropertySuggestionItem(**s.to_dict()) for s in validated_suggestions
+            ],
+            high_confidence_count=high_conf,
+            fingerprint=fingerprint,
+            cached=False,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to generate AI attribute suggestions: {exc}",
+        )
+

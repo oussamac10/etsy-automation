@@ -515,3 +515,24 @@ class UpdateListingTaxonomyRequest(BaseModel):
     taxonomy_id: int
     taxonomy_path: str | None = None
 
+
+class AiTaxonomyPropertySuggestionItem(BaseModel):
+    property_id: int
+    property_name: str
+    value_ids: list[int]
+    values: list[str]
+    confidence: float
+    reason: str
+    is_required: bool
+    is_multivalued: bool
+    is_high_confidence: bool
+
+
+class AiTaxonomyAttributeSuggestionsResponse(BaseModel):
+    workflow_id: uuid.UUID
+    taxonomy_id: int
+    suggestions: list[AiTaxonomyPropertySuggestionItem]
+    high_confidence_count: int
+    fingerprint: str
+    cached: bool = False
+
