@@ -221,7 +221,7 @@ const isDirty = computed(() => {
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
             <Label for="listing-price" class="text-xs font-semibold text-foreground">
-              Digital Listing Price
+              Price
             </Label>
             <!-- Currency Selector -->
             <div class="flex items-center gap-1">
