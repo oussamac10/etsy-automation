@@ -172,7 +172,7 @@ describe('Post-Dispatch Etsy Draft Verification UI Suite', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders verified state with manual review count badge and stats cards', () => {
+  it('renders verified state with status badge and API stats cards', () => {
     const wrapper = mount(EtsyDraftVerificationCard, {
       props: {
         workflowId: 'wf-101',
@@ -188,12 +188,10 @@ describe('Post-Dispatch Etsy Draft Verification UI Suite', () => {
     });
 
     expect(wrapper.find('[data-testid="etsy-verification-card"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="verification-status-badge"]').text()).toContain('Verified');
-    expect(wrapper.find('[data-testid="verification-status-badge"]').text()).toContain('3 manual checks');
+    expect(wrapper.find('[data-testid="verification-status-badge"]').text()).toBe('Verified');
 
     expect(wrapper.text()).toContain('12 Synced');
-    expect(wrapper.text()).toContain('3 Manual Checks');
-    expect(wrapper.text()).toContain('15 Total Checks');
+    expect(wrapper.text()).toContain('12 Total Checks');
   });
 
   it('renders needs_attention state with warning indicators and difference messages', () => {
@@ -213,36 +211,6 @@ describe('Post-Dispatch Etsy Draft Verification UI Suite', () => {
     expect(wrapper.find('[data-testid="verification-status-badge"]').text()).toContain('Needs Attention');
     expect(wrapper.text()).toContain('Local title differs from live Etsy draft title.');
     expect(wrapper.text()).toContain('Digital files have not been uploaded to Etsy yet.');
-  });
-
-  it('copies shopping cart summary text when copy button is clicked', async () => {
-    const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: {
-        writeText: writeTextMock,
-      },
-      writable: true,
-      configurable: true,
-    });
-
-    const wrapper = mount(EtsyDraftVerificationCard, {
-      props: {
-        workflowId: 'wf-101',
-        listingId: '4559404921',
-        verification: mockVerifiedPayload,
-      },
-      global: {
-        stubs: {
-          Icon: { template: '<span class="icon-stub"><slot /></span>' },
-        },
-      },
-    });
-
-    const copyBtn = wrapper.find('[data-testid="copy-cart-summary-btn"]');
-    expect(copyBtn.exists()).toBe(true);
-
-    await copyBtn.trigger('click');
-    expect(writeTextMock).toHaveBeenCalledWith('Cozy Fall Book Lover PNG Sublimation Graphic');
   });
 
   it('triggers re-check API endpoint when Re-check Etsy button is clicked', async () => {

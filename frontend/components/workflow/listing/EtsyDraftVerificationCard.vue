@@ -20,7 +20,6 @@ const { verifyEtsyDraft } = useEtsy();
 const isRechecking = ref(false);
 const localVerification = ref<EtsyDraftVerification | null>(props.verification || null);
 const expandedKeys = ref<Record<string, boolean>>({});
-const copiedText = ref<string | null>(null);
 
 // Watch for prop updates
 watch(
@@ -76,7 +75,6 @@ const checksByCategory = computed(() => {
     commerce: checks.filter((c) => c.category === 'commerce'),
     media: checks.filter((c) => c.category === 'media_and_delivery'),
     attributes: checks.filter((c) => c.category === 'attributes'),
-    manual_review: checks.filter((c) => c.category === 'manual_review'),
   };
 });
 
@@ -99,18 +97,6 @@ const handleRecheck = async () => {
     isRechecking.value = false;
   }
 };
-
-async function copyToClipboard(text: string, key: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    copiedText.value = key;
-    setTimeout(() => {
-      if (copiedText.value === key) copiedText.value = null;
-    }, 2000);
-  } catch {
-    // fallback
-  }
-}
 
 function getCheckBadgeText(check: EtsyVerificationCheck): string {
   if (check.status === 'synced') {
@@ -184,7 +170,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
               <span>
                 {{
                   overallStatus === 'verified'
-                    ? (summary.manual_review > 0 ? `Verified (${summary.manual_review} manual checks)` : 'Verified')
+                    ? 'Verified'
                     : overallStatus === 'needs_attention'
                       ? `Needs Attention (${summary.warnings} items)`
                       : 'Verification Failed'
@@ -222,7 +208,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
     </div>
 
     <!-- Summary Stats Bar -->
-    <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
       <div class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
         <Icon name="lucide:circle-check" class="size-4 text-emerald-700 shrink-0" aria-hidden="true" />
         <div>
@@ -239,19 +225,11 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
         </div>
       </div>
 
-      <div class="flex items-center gap-2 rounded-lg bg-muted/40 border border-border/60 p-2.5">
-        <Icon name="lucide:help-circle" class="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
-        <div>
-          <div class="font-semibold text-foreground">{{ summary.manual_review }} Manual Checks</div>
-          <div class="text-[11px] text-muted-foreground">Etsy Web Editor Only</div>
-        </div>
-      </div>
-
       <div class="flex items-center gap-2 rounded-lg bg-muted/30 border border-border/50 p-2.5">
         <Icon name="lucide:list-checks" class="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
         <div>
-          <div class="font-semibold text-foreground">{{ summary.total }} Total Checks</div>
-          <div class="text-[11px] text-muted-foreground">100% Comprehensive</div>
+          <div class="font-semibold text-foreground">{{ (summary.synced || 0) + (summary.warnings || 0) + (summary.errors || 0) }} Total Checks</div>
+          <div class="text-[11px] text-muted-foreground">100% Comprehensive API Checks</div>
         </div>
       </div>
     </div>
@@ -579,58 +557,6 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                     Extra on Etsy: {{ p.unexpected.join(', ') }}
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 5. Manual Etsy Web Review (Not accessible via Public API) -->
-      <div v-if="checksByCategory.manual_review.length > 0" class="rounded-lg border border-border/60 overflow-hidden">
-        <div class="bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <Icon name="lucide:sparkles" class="size-3.5 text-muted-foreground" aria-hidden="true" />
-            <span>Manual Etsy Shop Manager Checks (Web Editor Only)</span>
-          </div>
-          <span class="text-[11px] font-normal text-muted-foreground">Not accessible via Etsy Public API</span>
-        </div>
-        <div class="divide-y divide-border/40 text-xs">
-          <div
-            v-for="check in checksByCategory.manual_review"
-            :key="check.key"
-            class="p-3 hover:bg-muted/20 transition-colors"
-          >
-            <div class="flex items-start justify-between gap-2">
-              <div class="flex items-start gap-2 min-w-0">
-                <Icon name="lucide:circle-dot" class="size-4 text-muted-foreground shrink-0 mt-0.5" aria-hidden="true" />
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2">
-                    <span class="font-medium text-foreground">{{ check.label }}</span>
-                    <span class="text-[10px] rounded bg-muted px-1.5 py-0.5 text-muted-foreground">Manual Check</span>
-                  </div>
-                  <p class="text-[11px] text-muted-foreground mt-0.5">
-                    {{ check.message }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- Action button for manual checks (e.g. Copy shopping cart summary) -->
-              <div class="flex items-center gap-2 shrink-0">
-                <button
-                  v-if="check.details?.copy_ready_text"
-                  type="button"
-                  @click="copyToClipboard(check.details.copy_ready_text, check.key)"
-                  class="inline-flex items-center gap-1 rounded border border-border/80 bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
-                  data-testid="copy-cart-summary-btn"
-                >
-                  <Icon
-                    :name="copiedText === check.key ? 'lucide:check' : 'lucide:copy'"
-                    class="size-3"
-                    :class="copiedText === check.key ? 'text-emerald-500' : 'text-muted-foreground'"
-                    aria-hidden="true"
-                  />
-                  <span>{{ copiedText === check.key ? 'Copied' : 'Copy Text' }}</span>
-                </button>
               </div>
             </div>
           </div>
