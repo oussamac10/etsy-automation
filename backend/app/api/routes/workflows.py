@@ -2498,6 +2498,14 @@ async def get_listing_taxonomy_fitness_endpoint(
         "concept": concept_text,
     }
 
+    provider_name = "live" if type(etsy_gateway).__name__ == "EtsyProvider" else "fake"
+    logger.debug(
+        "get_listing_taxonomy_fitness_request",
+        workflow_id=str(workflow_id),
+        taxonomy_id=taxonomy_id,
+        etsy_provider=provider_name,
+    )
+
     try:
         props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=taxonomy_id)
     except Exception:

@@ -11,7 +11,11 @@ from dataclasses import dataclass, field
 import re
 from typing import Any, Sequence
 
+import structlog
+
 from app.ports.providers import EtsyTaxonomyNode, EtsyTaxonomyProperty
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,23 +159,31 @@ def evaluate_taxonomy_fit(
     norm_text, tokens = _extract_campaign_text_and_tokens(campaign_context)
 
     # 1. Detect campaign intent deterministically (supporting multi-word phrases)
-    is_scrapbooking_paper = _has_signal(
-        (
-            "scrapbook",
-            "scrapbooking",
-            "card making",
-            "stationery",
-            "junk journal",
-            "paper craft",
-            "planner",
-            "origami",
-            "ephemera",
-        ),
-        norm_text,
-        tokens,
+    intended_uses = campaign_context.get("intended_product_uses")
+    has_apparel_uses = bool(
+        intended_uses
+        and isinstance(intended_uses, (list, tuple))
+        and any(
+            any(
+                apparel_kw in str(u).lower()
+                for apparel_kw in (
+                    "shirt",
+                    "t_shirt",
+                    "sweatshirt",
+                    "hoodie",
+                    "apparel",
+                    "sublimation",
+                    "pod",
+                    "dtg",
+                    "mug",
+                    "tumbler",
+                )
+            )
+            for u in intended_uses
+        )
     )
 
-    is_sublimation_apparel = _has_signal(
+    is_sublimation_apparel = has_apparel_uses or _has_signal(
         (
             "sublimation",
             "shirt",
@@ -193,6 +205,25 @@ def evaluate_taxonomy_fit(
         ),
         norm_text,
         tokens,
+    )
+
+    is_scrapbooking_paper = (
+        not has_apparel_uses
+        and _has_signal(
+            (
+                "scrapbook",
+                "scrapbooking",
+                "card making",
+                "stationery",
+                "junk journal",
+                "paper craft",
+                "planner",
+                "origami",
+                "ephemera",
+            ),
+            norm_text,
+            tokens,
+        )
     )
 
     is_wall_art_print = (
@@ -229,11 +260,10 @@ def evaluate_taxonomy_fit(
         )
     )
 
-    campaign_intent = "apparel_sublimation"
-    if is_scrapbooking_paper:
-        campaign_intent = "scrapbooking_paper"
-    elif is_sublimation_apparel:
+    if is_sublimation_apparel:
         campaign_intent = "apparel_sublimation"
+    elif is_scrapbooking_paper:
+        campaign_intent = "scrapbooking_paper"
     elif is_wall_art_print:
         campaign_intent = "wall_art_print"
     elif is_illustration:
@@ -285,52 +315,61 @@ def evaluate_taxonomy_fit(
         None,
     )
 
+    val_names: list[str] = []
+    has_sublimation_values = False
+    has_paper_values = False
+
     if craft_prop:
-        val_names = [v.get("name", "").lower() for v in craft_prop.possible_values if isinstance(v, dict)]
+        for v in craft_prop.possible_values:
+            if isinstance(v, dict):
+                val_names.append(str(v.get("name", "")).lower().strip())
+            elif isinstance(v, str):
+                val_names.append(v.lower().strip())
 
         has_sublimation_values = any(
             any(sub_val in v for sub_val in SUBLIMATION_PRINTING_CRAFT_VALUES)
             for v in val_names
         )
 
-        all_paper_values = (
-            len(val_names) > 0
-            and all(
-                any(paper_val in v for paper_val in PAPER_ONLY_CRAFT_VALUES)
-                for v in val_names
-            )
-            and not has_sublimation_values
+        has_paper_values = any(
+            any(paper_val in v for paper_val in PAPER_ONLY_CRAFT_VALUES)
+            for v in val_names
         )
 
         if craft_prop.is_required:
-            if is_scrapbooking_paper and (all_paper_values or any("scrapbooking" in v for v in val_names)):
+            if campaign_intent == "scrapbooking_paper" and (has_paper_values or any("scrapbooking" in v for v in val_names)):
                 score += 35.0
                 reasons.append("Required Craft type directly supports scrapbooking and papercraft")
-            elif is_sublimation_apparel and all_paper_values:
-                # Severe mismatch: Required Craft type is paper-only for a sublimation/apparel product
-                score -= 60.0
-                has_mismatched_required = True
-                mismatched_reason = (
-                    "This Etsy category requires a Craft type, but the available choices are oriented toward paper/collage uses "
-                    f"({', '.join(v.get('name', '') for v in craft_prop.possible_values[:4])}). "
-                    "This campaign is intended for T-shirt / Sublimation / Digital PNG use."
-                )
-                reasons = [
-                    "Required Craft type values are limited to paper/collage uses.",
-                    "Campaign is primarily intended for sublimation and apparel graphics.",
-                ]
-                warnings.append(
-                    "Required Craft type values are limited to paper/collage uses and do not match apparel/sublimation intent."
-                )
-            elif is_sublimation_apparel and has_sublimation_values:
-                score += 35.0
-                reasons.append("Exposes sublimation and printing craft types")
+            elif campaign_intent == "apparel_sublimation":
+                if has_sublimation_values:
+                    score += 35.0
+                    reasons.append("Exposes sublimation and printing craft types")
+                else:
+                    # Severe mismatch: Required Craft type does NOT offer sublimation/apparel/printing choices
+                    score -= 60.0
+                    has_mismatched_required = True
+                    sample_vals = ", ".join(
+                        v.get("name", "") if isinstance(v, dict) else str(v)
+                        for v in craft_prop.possible_values[:4]
+                    )
+                    mismatched_reason = (
+                        f"This Etsy category requires a Craft type, but the available choices ({sample_vals}) "
+                        "do not support Sublimation, T-shirt, or Apparel printing. "
+                        "This campaign is intended for Sublimation / T-shirt / Digital PNG use."
+                    )
+                    reasons = [
+                        "Required Craft type values are limited to paper/collage uses.",
+                        "Campaign is primarily intended for sublimation and apparel graphics.",
+                    ]
+                    warnings.append(
+                        "Required Craft type values do not match apparel/sublimation campaign intent."
+                    )
             elif has_sublimation_values:
                 score += 20.0
                 reasons.append("Supports versatile printing and craft types")
         else:
             # Optional craft type
-            if is_sublimation_apparel and has_sublimation_values:
+            if campaign_intent == "apparel_sublimation" and has_sublimation_values:
                 score += 20.0
                 reasons.append("Offers optional sublimation and printing craft types")
 
@@ -367,6 +406,21 @@ def evaluate_taxonomy_fit(
     else:
         fit_level = "moderate"
         blocking_mismatch = False
+
+    logger.debug(
+        "evaluate_taxonomy_fit_result",
+        taxonomy_id=taxonomy_node.id,
+        taxonomy_path=taxonomy_node.full_path,
+        campaign_intent=campaign_intent,
+        intended_product_uses=campaign_context.get("intended_product_uses"),
+        craft_prop_found=bool(craft_prop),
+        craft_prop_required=craft_prop.is_required if craft_prop else False,
+        craft_prop_possible_values=val_names[:6] if craft_prop else [],
+        has_sublimation_values=has_sublimation_values,
+        has_mismatched_required=has_mismatched_required,
+        calculated_fit=fit_level,
+        calculated_score=normalized_score,
+    )
 
     return TaxonomyFitResult(
         score=normalized_score,

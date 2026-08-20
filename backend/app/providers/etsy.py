@@ -61,6 +61,7 @@ class EtsyProvider(EtsyGateway):
         self._client = client
         self._taxonomy_cache: list[EtsyTaxonomyNode] | None = None
         self._taxonomy_cache_time: float = 0.0
+        self._taxonomy_properties_cache: dict[int, list[EtsyTaxonomyProperty]] = {}
 
     def _default_headers(self, access_token: str | None = None) -> dict[str, str]:
         api_header_value = (
@@ -521,6 +522,9 @@ class EtsyProvider(EtsyGateway):
 
     async def get_taxonomy_properties(self, *, taxonomy_id: int) -> list[EtsyTaxonomyProperty]:
         """Fetch official Etsy taxonomy properties/attributes for a category node."""
+        if taxonomy_id in self._taxonomy_properties_cache:
+            return self._taxonomy_properties_cache[taxonomy_id]
+
         url = f"{self._base_url}/application/seller-taxonomy/nodes/{taxonomy_id}/properties"
         headers = self._default_headers()
         try:
@@ -545,6 +549,7 @@ class EtsyProvider(EtsyGateway):
                         possible_values=parsed_values,
                     )
                 )
+            self._taxonomy_properties_cache[taxonomy_id] = properties
             return properties
         except Exception as exc:
             logger.warning("etsy_get_taxonomy_properties_failed", taxonomy_id=taxonomy_id, error=str(exc))

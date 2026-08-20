@@ -374,3 +374,86 @@ def test_reconcile_etsy_draft_endpoint_when_draft_deleted(
     assert mock_uow.listing_drafts.clear_etsy_draft_state.call_count == 1
     assert mock_uow.workflows.transition.call_count == 1
 
+
+def test_manual_6844_listing_returns_poor_fit_for_sublimation_campaign(
+    client: TestClient,
+    mock_uow: MagicMock,
+    test_user: User,
+) -> None:
+    """Exact regression test: A sublimation campaign with manual 6844 category
+
+    MUST evaluate to 'poor' fit (score <= 0.35, blocking_mismatch=True)
+    because required Craft type only offers papercraft choices, and its
+    manual selection source must remain 'manual'.
+    """
+    from app.domain.enums import ConceptStatus
+    from app.infrastructure.models import ProductConcept
+
+    workflow_id = uuid.uuid4()
+
+    workflow = MagicMock(spec=ProductWorkflow)
+    workflow.id = workflow_id
+    workflow.owner_id = test_user.id
+    workflow.name = "Vintage Mushroom Sublimation Design"
+    mock_uow.workflows.get = AsyncMock(return_value=workflow)
+
+    concept = MagicMock(spec=ProductConcept)
+    concept.id = uuid.uuid4()
+    concept.status = ConceptStatus.APPROVED
+    concept.title = "Vintage Mushroom PNG Sublimation Design"
+    concept.description = "High resolution 4500x5400 px digital PNG for T-shirts and mugs."
+    concept.differentiation = "Retro cottagecore"
+    concept.intended_product_uses = ["t_shirt", "sweatshirt", "sublimation", "mug"]
+    mock_uow.concepts.list_for_workflow = AsyncMock(return_value=[concept])
+    mock_uow.concepts.prompts = AsyncMock(return_value=[])
+
+    listing = MagicMock(spec=ListingDraft)
+    listing.id = uuid.uuid4()
+    listing.workflow_id = workflow_id
+    listing.title = "Vintage Mushroom PNG Digital Download Sublimation Design"
+    listing.description = "High resolution 4500x5400 px digital PNG file for t-shirts."
+    listing.tags = [
+        "png download",
+        "sublimation shirt",
+        "vintage mushroom",
+        "digital print",
+        "dtg ready",
+        "shirt sublimation",
+        "pod graphics",
+        "transparent png",
+    ]
+    listing.taxonomy_id = 6844
+    listing.taxonomy_path = "Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files"
+    listing.ip_findings = {"taxonomy_selection_source": "manual"}
+    mock_uow.listing_drafts.get_by_workflow = AsyncMock(return_value=listing)
+
+    fake_etsy = FakeEtsyProvider()
+    app = client.app
+    app.dependency_overrides[get_etsy_gateway] = lambda: fake_etsy
+
+    # 1. Call GET taxonomy/fitness
+    fit_resp = client.get(f"/api/v1/workflows/{workflow_id}/listing/taxonomy/fitness")
+    assert fit_resp.status_code == 200
+    fit_data = fit_resp.json()
+
+    assert fit_data["taxonomy_id"] == 6844
+    assert fit_data["fit"] == "poor"
+    assert fit_data["fit_score"] <= 0.35
+    assert fit_data["blocking_mismatch"] is True
+    assert fit_data["has_mismatched_required_attributes"] is True
+    assert fit_data["campaign_intent"] == "apparel_sublimation"
+    assert "card making" in fit_data["mismatched_required_reason"].lower()
+    assert "sublimation" in fit_data["mismatched_required_reason"].lower()
+
+    # 2. Call GET taxonomy-properties
+    props_resp = client.get(f"/api/v1/workflows/{workflow_id}/listing/taxonomy-properties")
+    assert props_resp.status_code == 200
+    props_data = props_resp.json()
+    craft_prop = next(p for p in props_data if "craft" in p["name"].lower())
+    val_names = {v["name"] for v in craft_prop["possible_values"]}
+    assert "Card making & stationery" in val_names
+    assert "Collage" in val_names
+    assert "Kids' crafts" in val_names
+    assert "Scrapbooking" in val_names
+
+
