@@ -9,6 +9,7 @@ import CardContent from '~/components/ui/CardContent.vue';
 import Button from '~/components/ui/Button.vue';
 import Label from '~/components/ui/Label.vue';
 import Badge from '~/components/ui/Badge.vue';
+import Input from '~/components/ui/Input.vue';
 
 const props = defineProps<{
   workflowId: string;
@@ -36,9 +37,16 @@ const properties = ref<TaxonomyProperty[]>([]);
 const fitness = ref<TaxonomyFitness | null>(null);
 const isLoading = ref(false);
 const showInfoTooltip = ref(false);
-const showOtherProperties = ref(false);
+const searchQueryMap = ref<Record<number, string>>({});
 
-const localPropertiesMap = ref<Record<string, { property_id: number; value_ids: number[]; values: string[] }>>(
+const localPropertiesMap = ref<Record<string, {
+  property_id: number;
+  value_ids?: number[];
+  values?: string[];
+  scale_id?: number;
+  scale_name?: string;
+  value?: string;
+}>>(
   props.etsyProperties ? JSON.parse(JSON.stringify(props.etsyProperties)) : {}
 );
 
@@ -52,30 +60,23 @@ watch(
 
 watch(
   () => [props.workflowId, props.taxonomyId],
-  () => {
-    loadTaxonomyProperties();
-    loadFitness();
+  async ([newWf, newTax], [oldWf, oldTax]) => {
+    if (newTax !== oldTax && oldTax !== undefined) {
+      // Taxonomy switched: clear local state and trigger server reconcile
+      localPropertiesMap.value = {};
+      emit('update:etsyProperties', {});
+    }
+    await loadTaxonomyProperties();
+    await loadFitness();
+    if (newTax !== oldTax && oldTax !== undefined) {
+      await reconcileStaleAttributes();
+    }
   }
 );
 
-// Only keep properties that have possible values or are required
+// Only keep properties that officially support Etsy listing attributes
 const usableProperties = computed(() => {
-  return properties.value.filter((p) => p.is_required || (p.possible_values && p.possible_values.length > 0));
-});
-
-const RECOMMENDED_PROP_KEYWORDS = ['craft', 'primary color', 'secondary color', 'holiday', 'occasion', 'style', 'season'];
-
-const recommendedProperties = computed(() => {
-  return usableProperties.value.filter((p) => {
-    if (p.is_required) return true;
-    const nameLower = p.name.toLowerCase();
-    return RECOMMENDED_PROP_KEYWORDS.some((kw) => nameLower.includes(kw));
-  });
-});
-
-const otherProperties = computed(() => {
-  const recIds = new Set(recommendedProperties.value.map((p) => p.property_id));
-  return usableProperties.value.filter((p) => !recIds.has(p.property_id));
+  return properties.value.filter((p) => p.supports_attributes !== false);
 });
 
 async function loadTaxonomyProperties() {
@@ -115,10 +116,35 @@ async function loadFitness() {
   }
 }
 
-onMounted(() => {
-  loadTaxonomyProperties();
-  loadFitness();
+async function reconcileStaleAttributes() {
+  if (!props.workflowId) return;
+  try {
+    const apiBase = getApiBase();
+    const updated = await $fetch<any>(
+      `${apiBase}/api/v1/workflows/${props.workflowId}/listing/taxonomy-properties/reconcile`,
+      {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        credentials: 'include',
+      }
+    );
+    if (updated?.etsy_properties) {
+      localPropertiesMap.value = updated.etsy_properties;
+      emit('update:etsyProperties', updated.etsy_properties);
+    }
+  } catch {
+    // Ignore reconcile error
+  }
+}
+
+onMounted(async () => {
+  await loadTaxonomyProperties();
+  await loadFitness();
 });
+
+function getPropertyDisplayName(prop: TaxonomyProperty): string {
+  return prop.display_name || prop.name;
+}
 
 function isValueSelected(propId: number, valName: string): boolean {
   const entry = localPropertiesMap.value[String(propId)];
@@ -158,6 +184,12 @@ function toggleValue(prop: TaxonomyProperty, valName: string, valId?: number) {
     }
   } else {
     if (prop.is_multivalued) {
+      const maxAllowed = prop.max_values_allowed || 5;
+      if (values.length >= maxAllowed) {
+        // Drop oldest to respect max_values_allowed
+        values.shift();
+        valueIds.shift();
+      }
       values.push(valName);
       if (valId !== undefined) valueIds.push(valId);
     } else {
@@ -179,6 +211,31 @@ function toggleValue(prop: TaxonomyProperty, valName: string, valId?: number) {
   emit('update:etsyProperties', { ...localPropertiesMap.value });
 }
 
+function removeSelectedValue(propId: number, valName: string) {
+  const key = String(propId);
+  const entry = localPropertiesMap.value[key];
+  if (!entry || !entry.values) return;
+
+  const idx = entry.values.indexOf(valName);
+  if (idx >= 0) {
+    const nextVals = [...entry.values];
+    nextVals.splice(idx, 1);
+    const nextIds = entry.value_ids ? [...entry.value_ids] : [];
+    if (nextIds.length > idx) nextIds.splice(idx, 1);
+
+    if (nextVals.length === 0) {
+      delete localPropertiesMap.value[key];
+    } else {
+      localPropertiesMap.value[key] = {
+        ...entry,
+        values: nextVals,
+        value_ids: nextIds,
+      };
+    }
+    emit('update:etsyProperties', { ...localPropertiesMap.value });
+  }
+}
+
 function onDropdownSelect(prop: TaxonomyProperty, event: Event) {
   const target = event.target as HTMLSelectElement;
   const valName = target.value;
@@ -195,6 +252,49 @@ function onDropdownSelect(prop: TaxonomyProperty, event: Event) {
     property_id: prop.property_id,
     value_ids: valId !== undefined ? [valId] : [],
     values: [valName],
+  };
+
+  emit('update:etsyProperties', { ...localPropertiesMap.value });
+}
+
+function onMeasurementValueChange(prop: TaxonomyProperty, valStr: string) {
+  const key = String(prop.property_id);
+  const cleanVal = valStr.trim();
+  const existing = localPropertiesMap.value[key];
+  const defaultScale = prop.scales?.[0];
+
+  if (!cleanVal) {
+    delete localPropertiesMap.value[key];
+    emit('update:etsyProperties', { ...localPropertiesMap.value });
+    return;
+  }
+
+  const scaleId = existing?.scale_id || defaultScale?.scale_id || 5; // Default Inches
+  const scaleName = existing?.scale_name || defaultScale?.display_name || 'Inches';
+
+  localPropertiesMap.value[key] = {
+    property_id: prop.property_id,
+    scale_id: scaleId,
+    scale_name: scaleName,
+    value: cleanVal,
+    values: [cleanVal],
+    value_ids: [],
+  };
+
+  emit('update:etsyProperties', { ...localPropertiesMap.value });
+}
+
+function onMeasurementScaleChange(prop: TaxonomyProperty, scaleIdNum: number) {
+  const key = String(prop.property_id);
+  const existing = localPropertiesMap.value[key];
+  const matchedScale = prop.scales?.find((s) => s.scale_id === scaleIdNum);
+
+  if (!existing || !existing.value) return;
+
+  localPropertiesMap.value[key] = {
+    ...existing,
+    scale_id: scaleIdNum,
+    scale_name: matchedScale?.display_name || '',
   };
 
   emit('update:etsyProperties', { ...localPropertiesMap.value });
@@ -221,44 +321,26 @@ const isDirty = computed(() => {
 });
 
 const totalSelectedCount = computed(() => {
-  return Object.values(localPropertiesMap.value).reduce((acc, curr) => acc + (curr.values?.length || 0), 0);
-});
-
-const PAGE_SIZE = 30;
-const visibleLimits = ref<Record<number, number>>({});
-
-function getVisibleLimit(propId: number): number {
-  return visibleLimits.value[propId] || PAGE_SIZE;
-}
-
-function showMoreValues(propId: number, total: number) {
-  const current = getVisibleLimit(propId);
-  visibleLimits.value[propId] = Math.min(current + PAGE_SIZE, total);
-}
-
-function showLessValues(propId: number) {
-  visibleLimits.value[propId] = PAGE_SIZE;
-}
-
-function getVisibleValues(prop: TaxonomyProperty) {
-  if (!prop.possible_values) return [];
-  const limit = getVisibleLimit(prop.property_id);
-  if (prop.possible_values.length <= PAGE_SIZE) {
-    return prop.possible_values;
-  }
-
-  const sliced = prop.possible_values.slice(0, limit);
-  const selectedEntry = localPropertiesMap.value[String(prop.property_id)];
-  if (selectedEntry?.values?.length) {
-    const slicedNames = new Set(sliced.map((v) => v.name));
-    const extraSelected = prop.possible_values.filter(
-      (v) => selectedEntry.values.includes(v.name) && !slicedNames.has(v.name)
-    );
-    if (extraSelected.length > 0) {
-      return [...sliced, ...extraSelected];
+  const eligibleIds = new Set(usableProperties.value.map((p) => String(p.property_id)));
+  let count = 0;
+  for (const [k, entry] of Object.entries(localPropertiesMap.value)) {
+    if (!eligibleIds.has(k)) continue;
+    if (entry.value) {
+      count += 1;
+    } else if (entry.values) {
+      count += entry.values.length;
     }
   }
-  return sliced;
+  return count;
+});
+
+function getFilteredComboboxValues(prop: TaxonomyProperty) {
+  if (!prop.possible_values) return [];
+  const query = (searchQueryMap.value[prop.property_id] || '').toLowerCase().trim();
+  if (!query) {
+    return prop.possible_values.slice(0, 40);
+  }
+  return prop.possible_values.filter((v) => v.name.toLowerCase().includes(query)).slice(0, 40);
 }
 </script>
 
@@ -286,11 +368,24 @@ function getVisibleValues(prop: TaxonomyProperty) {
           </button>
         </CardTitle>
         <CardDescription class="text-xs">
-          Optional and required details provided by Etsy for the selected category.
+          Details provided by Etsy for this category. All selections are completely manual.
         </CardDescription>
       </div>
 
       <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+        <!-- Reconcile Button -->
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          class="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer gap-1"
+          title="Clean invalid or stale attributes from prior categories"
+          @click="reconcileStaleAttributes"
+        >
+          <Icon name="lucide:refresh-cw" class="size-3 text-muted-foreground" aria-hidden="true" />
+          <span>Clean Stale</span>
+        </Button>
+
         <!-- Clear Optional -->
         <Button
           v-if="totalSelectedCount > 0"
@@ -326,7 +421,7 @@ function getVisibleValues(prop: TaxonomyProperty) {
       <div v-if="showInfoTooltip" class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-foreground space-y-1">
         <p class="font-medium text-foreground">What are Category Attributes?</p>
         <p class="text-muted-foreground leading-relaxed">
-          Etsy taxonomy attributes allow shoppers to filter search results by specific dimensions like Craft Type, Holiday, Primary Color, and Occasion.
+          Etsy taxonomy attributes allow shoppers to filter search results by specific dimensions like Materials, Subject, Aspect Ratio, Room, Orientation, and Framing.
         </p>
       </div>
 
@@ -376,18 +471,17 @@ function getVisibleValues(prop: TaxonomyProperty) {
       </div>
 
       <!-- Properties Form -->
-      <div v-else class="space-y-5">
-        <!-- Recommended / Required Properties -->
+      <div v-else class="space-y-4">
         <div
-          v-for="prop in recommendedProperties"
+          v-for="prop in usableProperties"
           :key="prop.property_id"
-          class="space-y-2 p-3 rounded-lg border border-border/60 bg-muted/10"
+          class="space-y-2 p-3.5 rounded-lg border border-border/60 bg-muted/10 transition-colors"
           :data-testid="`property-row-${prop.property_id}`"
         >
           <div class="flex items-center justify-between gap-2 flex-wrap">
             <div class="flex items-center gap-2">
               <Label class="text-xs font-semibold text-foreground">
-                {{ prop.name }}
+                {{ getPropertyDisplayName(prop) }}
               </Label>
               <Badge
                 v-if="prop.is_required"
@@ -399,6 +493,9 @@ function getVisibleValues(prop: TaxonomyProperty) {
               <Badge v-else variant="outline" class="text-[10px] py-0 text-muted-foreground">
                 Optional
               </Badge>
+              <span v-if="prop.max_values_allowed && prop.is_multivalued" class="text-[11px] text-muted-foreground">
+                (Max {{ prop.max_values_allowed }})
+              </span>
             </div>
 
             <!-- Missing / Mismatch indicator -->
@@ -420,17 +517,71 @@ function getVisibleValues(prop: TaxonomyProperty) {
             </Badge>
           </div>
 
-          <!-- Multi-valued Property: Tag Chips with 30 by 30 pagination -->
-          <div v-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="space-y-2 pt-1">
-            <div class="flex flex-wrap gap-1.5">
+          <!-- TYPE 1: Measurement Scale Property (e.g. Width, Height) -->
+          <div v-if="prop.scales && prop.scales.length > 0 && (!prop.possible_values || prop.possible_values.length === 0)" class="flex items-center gap-2 pt-1">
+            <div class="w-32">
+              <Input
+                type="number"
+                placeholder="e.g. 15"
+                class="h-8 text-xs font-mono"
+                :model-value="localPropertiesMap[String(prop.property_id)]?.value || ''"
+                @update:model-value="onMeasurementValueChange(prop, String($event))"
+              />
+            </div>
+            <select
+              class="flex h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              :value="localPropertiesMap[String(prop.property_id)]?.scale_id || prop.scales[0]?.scale_id || 5"
+              @change="onMeasurementScaleChange(prop, Number(($event.target as HTMLSelectElement).value))"
+            >
+              <option v-for="scale in prop.scales" :key="scale.scale_id" :value="scale.scale_id">
+                {{ scale.display_name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- TYPE 2: Large Multi-valued Property with Searchable Combobox (e.g. Materials with 500+ choices) -->
+          <div v-else-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 25" class="space-y-2 pt-1">
+            <!-- Selected Pills -->
+            <div v-if="localPropertiesMap[String(prop.property_id)]?.values?.length" class="flex flex-wrap gap-1.5 pb-1">
+              <span
+                v-for="valName in localPropertiesMap[String(prop.property_id)]?.values"
+                :key="valName"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-primary text-primary-foreground shadow-2xs"
+              >
+                <span>{{ valName }}</span>
+                <button
+                  type="button"
+                  class="cursor-pointer hover:text-white/80 transition-colors"
+                  :title="`Remove ${valName}`"
+                  @click="removeSelectedValue(prop.property_id, valName)"
+                >
+                  <Icon name="lucide:x" class="size-3" aria-hidden="true" />
+                </button>
+              </span>
+            </div>
+
+            <!-- Search input -->
+            <div class="relative">
+              <Icon name="lucide:search" class="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground pointer-events-none" aria-hidden="true" />
+              <input
+                type="text"
+                :placeholder="`Search ${getPropertyDisplayName(prop).toLowerCase()}...`"
+                class="flex h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                :value="searchQueryMap[prop.property_id] || ''"
+                @input="searchQueryMap[prop.property_id] = ($event.target as HTMLInputElement).value"
+              />
+            </div>
+
+            <!-- Filtered Choices -->
+            <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 border border-border/40 rounded-md bg-card/60">
               <button
-                v-for="val in getVisibleValues(prop)"
+                v-for="val in getFilteredComboboxValues(prop)"
                 :key="val.value_id"
                 type="button"
-                class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
+                class="px-2 py-1 rounded text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
                 :class="
                   isValueSelected(prop.property_id, val.name)
-                    ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
+                    ? 'bg-primary text-primary-foreground border-primary font-medium'
                     : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
                 "
                 @click="toggleValue(prop, val.name, val.value_id)"
@@ -444,36 +595,33 @@ function getVisibleValues(prop: TaxonomyProperty) {
                 <span>{{ val.name }}</span>
               </button>
             </div>
-
-            <!-- Show 30 More / Show Less Controls -->
-            <div v-if="prop.possible_values.length > PAGE_SIZE" class="flex items-center gap-2 pt-0.5">
-              <Button
-                v-if="getVisibleLimit(prop.property_id) < prop.possible_values.length"
-                type="button"
-                variant="outline"
-                size="sm"
-                class="h-6 text-[11px] font-medium gap-1 text-primary hover:bg-primary/10 cursor-pointer"
-                @click="showMoreValues(prop.property_id, prop.possible_values.length)"
-              >
-                <Icon name="lucide:chevron-down" class="size-3" aria-hidden="true" />
-                <span>Show 30 more ({{ prop.possible_values.length - getVisibleLimit(prop.property_id) }} remaining)</span>
-              </Button>
-
-              <Button
-                v-if="getVisibleLimit(prop.property_id) > PAGE_SIZE"
-                type="button"
-                variant="ghost"
-                size="sm"
-                class="h-6 text-[11px] font-medium gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                @click="showLessValues(prop.property_id)"
-              >
-                <Icon name="lucide:chevron-up" class="size-3" aria-hidden="true" />
-                <span>Show less</span>
-              </Button>
-            </div>
           </div>
 
-          <!-- Single-valued Property (<= 6 items): Radio/Toggle Chips -->
+          <!-- TYPE 3: Small Multi-valued Property (<= 25 items, e.g. Aspect ratio, Room, Subject) -->
+          <div v-else-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="flex flex-wrap gap-1.5 pt-1">
+            <button
+              v-for="val in prop.possible_values"
+              :key="val.value_id"
+              type="button"
+              class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
+              :class="
+                isValueSelected(prop.property_id, val.name)
+                  ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
+                  : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
+              "
+              @click="toggleValue(prop, val.name, val.value_id)"
+            >
+              <Icon
+                v-if="isValueSelected(prop.property_id, val.name)"
+                name="lucide:check"
+                class="size-3"
+                aria-hidden="true"
+              />
+              <span>{{ val.name }}</span>
+            </button>
+          </div>
+
+          <!-- TYPE 4: Single-valued Property (<= 6 items): Radio/Pill Chips -->
           <div
             v-else-if="!prop.is_multivalued && prop.possible_values && prop.possible_values.length <= 6 && prop.possible_values.length > 0"
             class="flex flex-wrap gap-1.5 pt-1"
@@ -500,10 +648,10 @@ function getVisibleValues(prop: TaxonomyProperty) {
             </button>
           </div>
 
-          <!-- Single-valued Property (> 6 items): Dropdown with '-- Not selected --' -->
+          <!-- TYPE 5: Single-valued Property (> 6 items): Clean Select Dropdown -->
           <div v-else-if="prop.possible_values && prop.possible_values.length > 6" class="pt-1">
             <select
-              class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              class="flex h-8 w-full max-w-sm rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               :value="localPropertiesMap[String(prop.property_id)]?.values?.[0] || ''"
               @change="onDropdownSelect(prop, $event)"
             >
@@ -514,109 +662,8 @@ function getVisibleValues(prop: TaxonomyProperty) {
             </select>
           </div>
         </div>
-
-        <!-- Other / Secondary Properties Collapsible -->
-        <div v-if="otherProperties.length > 0" class="pt-2 border-t border-border/50">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            class="w-full justify-between text-xs text-muted-foreground hover:text-foreground h-8"
-            @click="showOtherProperties = !showOtherProperties"
-          >
-            <span>Other Etsy Attributes ({{ otherProperties.length }})</span>
-            <Icon
-              :name="showOtherProperties ? 'lucide:chevron-up' : 'lucide:chevron-down'"
-              class="size-3.5"
-              aria-hidden="true"
-            />
-          </Button>
-
-          <div v-if="showOtherProperties" class="space-y-3 pt-3">
-            <div
-              v-for="prop in otherProperties"
-              :key="prop.property_id"
-              class="p-3 rounded-lg border border-border bg-card/40 space-y-2"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <Label class="text-xs font-semibold text-foreground">
-                  {{ prop.name }}
-                </Label>
-                <Badge variant="outline" class="text-[10px] py-0 text-muted-foreground">
-                  Optional
-                </Badge>
-              </div>
-
-              <!-- Multivalued chips with 30 by 30 pagination -->
-              <div v-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="space-y-2 pt-1">
-                <div class="flex flex-wrap gap-1.5">
-                  <button
-                    v-for="val in getVisibleValues(prop)"
-                    :key="val.value_id"
-                    type="button"
-                    class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
-                    :class="
-                      isValueSelected(prop.property_id, val.name)
-                        ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
-                        : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
-                    "
-                    @click="toggleValue(prop, val.name, val.value_id)"
-                  >
-                    <Icon
-                      v-if="isValueSelected(prop.property_id, val.name)"
-                      name="lucide:check"
-                      class="size-3"
-                      aria-hidden="true"
-                    />
-                    <span>{{ val.name }}</span>
-                  </button>
-                </div>
-
-                <!-- Show 30 More / Show Less Controls -->
-                <div v-if="prop.possible_values.length > PAGE_SIZE" class="flex items-center gap-2 pt-0.5">
-                  <Button
-                    v-if="getVisibleLimit(prop.property_id) < prop.possible_values.length"
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    class="h-6 text-[11px] font-medium gap-1 text-primary hover:bg-primary/10 cursor-pointer"
-                    @click="showMoreValues(prop.property_id, prop.possible_values.length)"
-                  >
-                    <Icon name="lucide:chevron-down" class="size-3" aria-hidden="true" />
-                    <span>Show 30 more ({{ prop.possible_values.length - getVisibleLimit(prop.property_id) }} remaining)</span>
-                  </Button>
-
-                  <Button
-                    v-if="getVisibleLimit(prop.property_id) > PAGE_SIZE"
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    class="h-6 text-[11px] font-medium gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                    @click="showLessValues(prop.property_id)"
-                  >
-                    <Icon name="lucide:chevron-up" class="size-3" aria-hidden="true" />
-                    <span>Show less</span>
-                  </Button>
-                </div>
-              </div>
-
-              <!-- Dropdown for others -->
-              <div v-else-if="prop.possible_values && prop.possible_values.length > 0" class="pt-1">
-                <select
-                  class="flex h-8 w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  :value="localPropertiesMap[String(prop.property_id)]?.values?.[0] || ''"
-                  @change="onDropdownSelect(prop, $event)"
-                >
-                  <option value="">-- Not selected --</option>
-                  <option v-for="val in prop.possible_values" :key="val.value_id" :value="val.name">
-                    {{ val.name }}
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </CardContent>
   </Card>
 </template>
+

@@ -170,13 +170,23 @@ export interface ShopSection {
   active_listing_count: number;
 }
 
+export interface TaxonomyPropertyScale {
+  scale_id: number;
+  display_name: string;
+  description?: string;
+}
+
 export interface TaxonomyProperty {
   property_id: number;
   name: string;
+  display_name?: string | null;
   is_required: boolean;
   supports_attributes: boolean;
+  supports_variations?: boolean;
   is_multivalued: boolean;
-  possible_values: Array<{ value_id: number; name: string }>;
+  max_values_allowed?: number | null;
+  scales?: TaxonomyPropertyScale[];
+  possible_values: Array<{ value_id: number; name: string; scale_id?: number }>;
 }
 
 export interface PriceRecommendation {
