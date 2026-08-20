@@ -725,6 +725,7 @@ class FakeEtsyProvider(EtsyGateway):
         self.uploaded_files: list[dict[str, Any]] = []
         self.updated_properties: list[dict[str, Any]] = []
         self.updated_inventory: list[dict[str, Any]] = []
+        self.updated_listings: list[dict[str, Any]] = []
 
         # Fake shop sections
         self.fake_shop_sections: list[EtsyShopSection] = [
@@ -1657,4 +1658,50 @@ class FakeEtsyProvider(EtsyGateway):
             }
         )
         return True
+
+    async def update_listing(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        title: str | None = None,
+        description: str | None = None,
+        shop_section_id: int | None = None,
+        should_auto_renew: bool | None = None,
+        taxonomy_id: int | None = None,
+        who_made: str | None = None,
+        when_made: str | None = None,
+    ) -> bool:
+        self.call_count += 1
+        payload = {
+            "listing_id": listing_id,
+            "shop_id": shop_id,
+            "title": title,
+            "description": description,
+            "shop_section_id": shop_section_id,
+            "should_auto_renew": should_auto_renew,
+            "taxonomy_id": taxonomy_id,
+            "who_made": who_made,
+            "when_made": when_made,
+        }
+        self.updated_listings.append(payload)
+
+        # Update in-memory created_listings if present
+        for item in self.created_listings:
+            if str(item.get("listing_id")) == str(listing_id):
+                if shop_section_id is not None:
+                    item["shop_section_id"] = shop_section_id
+                if title is not None:
+                    item["title"] = title
+                if description is not None:
+                    item["description"] = description
+                if should_auto_renew is not None:
+                    item["should_auto_renew"] = should_auto_renew
+                if taxonomy_id is not None:
+                    item["taxonomy_id"] = taxonomy_id
+                break
+
+        return True
+
 

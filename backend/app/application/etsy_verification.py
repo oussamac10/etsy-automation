@@ -189,6 +189,48 @@ async def verify_etsy_draft_listing(
         )
         return report
 
+    # Auto-repair / Sync shop_section_id if missing on Etsy but specified locally
+    actual_sec_id = raw_listing.get("shop_section_id") if isinstance(raw_listing, dict) else None
+    raw_sec_id = getattr(listing, "shop_section_id", None)
+    raw_sec_name = getattr(listing, "shop_section_name", None)
+
+    if (not actual_sec_id or str(actual_sec_id) == "0") and (raw_sec_id or raw_sec_name) and isinstance(raw_listing, dict):
+        resolved_sec_id: int | None = None
+        target_title = (raw_sec_name or raw_sec_id or "").strip()
+        if raw_sec_id and str(raw_sec_id).isdigit():
+            resolved_sec_id = int(str(raw_sec_id))
+        elif target_title:
+            try:
+                sections = await etsy_gateway.get_shop_sections(access_token=access_token, shop_id=conn.etsy_shop_id)
+                matched = next((s for s in sections if s.title.strip().lower() == target_title.lower()), None)
+                if matched and matched.shop_section_id.isdigit():
+                    resolved_sec_id = int(matched.shop_section_id)
+                else:
+                    created_sec = await etsy_gateway.create_shop_section(access_token=access_token, shop_id=conn.etsy_shop_id, title=target_title)
+                    if created_sec and created_sec.shop_section_id.isdigit():
+                        resolved_sec_id = int(created_sec.shop_section_id)
+            except Exception as exc:
+                logger.warning("etsy_auto_sync_section_failed", error=str(exc))
+
+        if resolved_sec_id:
+            try:
+                updated = await etsy_gateway.update_listing(
+                    access_token=access_token,
+                    shop_id=conn.etsy_shop_id,
+                    listing_id=listing_id,
+                    shop_section_id=resolved_sec_id,
+                )
+                if updated:
+                    raw_listing["shop_section_id"] = resolved_sec_id
+                    if str(resolved_sec_id) != raw_sec_id:
+                        await uow.listing_drafts.update(
+                            listing.id,
+                            shop_section_id=str(resolved_sec_id),
+                        )
+                        await uow.commit()
+            except Exception as exc:
+                logger.warning("etsy_patch_listing_section_failed", error=str(exc))
+
     # 4. Resolve Expected Artifacts
     assets = await uow.assets.list_for_workflow(workflow_id)
     active_mockups = filter_active_user_mockups(assets)

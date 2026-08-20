@@ -436,22 +436,44 @@ def compare_etsy_draft(
 
     # 8. Shop Section
     actual_section_id = actual_listing.get("shop_section_id")
-    # Coerce to string/None
     actual_sec_str = str(actual_section_id) if actual_section_id is not None and str(actual_section_id) != "0" else None
     exp_sec_str = str(expected_shop_section_id) if expected_shop_section_id is not None and str(expected_shop_section_id) != "0" else None
+    has_expected_section = bool(exp_sec_str or (expected_shop_section_name and expected_shop_section_name.strip()))
 
-    if exp_sec_str == actual_sec_str:
+    if not has_expected_section and not actual_sec_str:
         checks.append(
             EtsyVerificationCheck(
                 key="shop_section",
                 label="Shop Section",
                 category="commerce",
                 status=EtsyVerificationCheckStatus.SYNCED,
-                expected=expected_shop_section_name or (f"Section #{exp_sec_str}" if exp_sec_str else "None"),
-                actual=expected_shop_section_name or (f"Section #{actual_sec_str}" if actual_sec_str else "None"),
+                expected="None",
+                actual="None",
             )
         )
-    elif exp_sec_str and not actual_sec_str:
+    elif exp_sec_str and actual_sec_str and exp_sec_str == actual_sec_str:
+        checks.append(
+            EtsyVerificationCheck(
+                key="shop_section",
+                label="Shop Section",
+                category="commerce",
+                status=EtsyVerificationCheckStatus.SYNCED,
+                expected=expected_shop_section_name or f"Section #{exp_sec_str}",
+                actual=expected_shop_section_name or f"Section #{actual_sec_str}",
+            )
+        )
+    elif expected_shop_section_name and actual_sec_str and (not exp_sec_str or not exp_sec_str.isdigit()):
+        checks.append(
+            EtsyVerificationCheck(
+                key="shop_section",
+                label="Shop Section",
+                category="commerce",
+                status=EtsyVerificationCheckStatus.SYNCED,
+                expected=expected_shop_section_name,
+                actual=expected_shop_section_name,
+            )
+        )
+    elif has_expected_section and not actual_sec_str:
         checks.append(
             EtsyVerificationCheck(
                 key="shop_section",
@@ -471,10 +493,11 @@ def compare_etsy_draft(
                 category="commerce",
                 status=EtsyVerificationCheckStatus.DIFFERENT,
                 expected=expected_shop_section_name or f"Section #{exp_sec_str}",
-                actual=f"Section #{actual_sec_str}",
+                actual=f"Section #{actual_sec_str}" if actual_sec_str else "None on Etsy",
                 message="Shop section on Etsy differs from expected section.",
             )
         )
+
 
     # 9. Renewal
     actual_renew = actual_listing.get("should_auto_renew", False)

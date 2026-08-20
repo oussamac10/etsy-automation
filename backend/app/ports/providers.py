@@ -398,6 +398,22 @@ class EtsyGateway(Protocol):
         quantity: int,
     ) -> bool: ...
 
+    async def update_listing(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        title: str | None = None,
+        description: str | None = None,
+        shop_section_id: int | None = None,
+        should_auto_renew: bool | None = None,
+        taxonomy_id: int | None = None,
+        who_made: str | None = None,
+        when_made: str | None = None,
+    ) -> bool: ...
+
+
 
 @runtime_checkable
 class TrademarkDataGateway(Protocol):

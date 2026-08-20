@@ -761,3 +761,53 @@ class EtsyProvider(EtsyGateway):
         except Exception as exc:
             logger.warning("etsy_update_listing_inventory_failed", listing_id=listing_id, sku=sku, error=str(exc))
             return False
+
+    async def update_listing(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        title: str | None = None,
+        description: str | None = None,
+        shop_section_id: int | None = None,
+        should_auto_renew: bool | None = None,
+        taxonomy_id: int | None = None,
+        who_made: str | None = None,
+        when_made: str | None = None,
+    ) -> bool:
+        """Update draft listing fields (e.g. shop_section_id, title, description) on Etsy."""
+        url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}"
+        headers = self._default_headers(access_token)
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+        data: dict[str, Any] = {}
+        if title is not None:
+            data["title"] = title[:140]
+        if description is not None:
+            data["description"] = description
+        if shop_section_id is not None:
+            data["shop_section_id"] = shop_section_id
+        if should_auto_renew is not None:
+            data["should_auto_renew"] = "true" if should_auto_renew else "false"
+        if taxonomy_id is not None:
+            data["taxonomy_id"] = str(taxonomy_id)
+        if who_made is not None:
+            data["who_made"] = who_made
+        if when_made is not None:
+            data["when_made"] = when_made
+
+        try:
+            await self._execute_with_retry(
+                "PATCH", url, headers=headers, data=data, operation="update_listing"
+            )
+            return True
+        except Exception as exc:
+            logger.warning(
+                "etsy_update_listing_failed",
+                listing_id=listing_id,
+                shop_id=shop_id,
+                error=str(exc),
+            )
+            return False
+

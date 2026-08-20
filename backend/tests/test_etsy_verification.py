@@ -584,6 +584,106 @@ class TestEtsyVerificationService:
         # Verify reconciliation was invoked and cleared draft state
         uow.listing_drafts.clear_etsy_draft_state.assert_awaited_once()
 
+    @pytest.mark.asyncio
+    async def test_verify_etsy_draft_listing_auto_repairs_missing_section(
+        self, cipher: CredentialCipher
+    ) -> None:
+        """When Etsy draft is missing shop_section_id but local draft defines it, verification auto-patches Etsy."""
+        workflow_id = uuid.uuid4()
+        owner_id = uuid.uuid4()
+        listing_id = uuid.uuid4()
+
+        uow = MagicMock()
+        wf = MagicMock(spec=ProductWorkflow)
+        wf.id = workflow_id
+        wf.owner_id = owner_id
+        wf.state = "READY_FOR_ETSY_DRAFT"
+        uow.workflows.get = AsyncMock(return_value=wf)
+
+        listing = MagicMock(spec=ListingDraft)
+        listing.id = listing_id
+        listing.workflow_id = workflow_id
+        listing.title = "Medicine Art PNG Sublimation Design"
+        listing.description = "High resolution 300 DPI PNG file."
+        listing.tags = ["medicine png", "doctor art"]
+        listing.price_minor_units = 499
+        listing.currency = "USD"
+        listing.quantity = 999
+        listing.sku = "MED-001"
+        listing.taxonomy_id = 77
+        listing.taxonomy_path = "Digital"
+        listing.shop_section_id = None
+        listing.shop_section_name = "Medicine"
+        listing.should_auto_renew = False
+        listing.etsy_properties = {}
+        listing.etsy_shop_id = "12345678"
+        listing.etsy_listing_id = "4559404921"
+        listing.etsy_dispatch_status = "completed"
+        listing.etsy_image_ids = ["img-1"]
+        listing.etsy_file_id = "f-1"
+        listing.etsy_file_ids = ["f-1"]
+        listing.ai_disclosure = None
+        listing.shopping_cart_summary = None
+
+        conn = MagicMock(spec=ShopConnection)
+        conn.id = uuid.uuid4()
+        conn.user_id = owner_id
+        conn.shop_id = "12345678"
+        conn.shop_name = "NovaCraftPixel"
+        conn.is_connected = True
+        conn.connection_status = "connected"
+        conn.key_version = 1
+        conn.ciphertext_access_token = cipher.encrypt("valid-access-token")
+        conn.ciphertext_refresh_token = cipher.encrypt("valid-refresh-token")
+        conn.token_expires_at = datetime.now(UTC) + timedelta(hours=2)
+
+        uow.shop_connections.get_by_user_id = AsyncMock(return_value=conn)
+        uow.shop_connections.update_tokens = AsyncMock()
+        uow.listing_drafts.get_by_workflow = AsyncMock(return_value=listing)
+        uow.listing_drafts.update = AsyncMock(return_value=listing)
+        uow.listing_drafts.update_etsy_verification = AsyncMock(return_value=listing)
+        uow.assets.list_for_workflow = AsyncMock(return_value=[])
+        uow.audit.record = AsyncMock()
+        uow.commit = AsyncMock()
+
+        fake_etsy = FakeEtsyProvider()
+        fake_etsy.created_listings.append(
+            {
+                "listing_id": "4559404921",
+                "shop_id": "12345678",
+                "state": "draft",
+                "title": "Medicine Art PNG Sublimation Design",
+                "description": "High resolution 300 DPI PNG file.",
+                "tags": ["medicine png", "doctor art"],
+                "price": {"amount": 499, "divisor": 100, "currency_code": "USD"},
+                "quantity": 999,
+                "taxonomy_id": 77,
+                "who_made": "i_did",
+                "when_made": "2020_2026",
+                "listing_type": "download",
+                "is_supply": False,
+                "shop_section_id": None,  # Missing on remote Etsy listing
+            }
+        )
+
+        report = await verify_etsy_draft_listing(
+            workflow_id=workflow_id,
+            owner_id=owner_id,
+            uow=uow,
+            cipher=cipher,
+            etsy_gateway=fake_etsy,
+        )
+
+        # Verification auto-created section on Etsy and patched remote listing
+        assert len(fake_etsy.updated_listings) == 1
+        assert fake_etsy.updated_listings[0]["listing_id"] == "4559404921"
+        assert fake_etsy.updated_listings[0]["shop_section_id"] is not None
+
+        sec_check = next(c for c in report.checks if c.key == "shop_section")
+        assert sec_check.status == EtsyVerificationCheckStatus.SYNCED
+
+
+
     def test_materials_removed_on_etsy_reported_as_different(self) -> None:
         """When a material is removed on Etsy, verification reports 'different' with missing material item."""
         expected_properties = {
