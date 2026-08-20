@@ -47,6 +47,7 @@ from app.api.schemas import (
     StartProductionRequest,
     SubmitIdeaRequest,
     TaxonomyCategoryResponse,
+    TaxonomyFitnessResponse,
     TaxonomyPropertyResponse,
     TimelineEntryResponse,
     TimelineResponse,
@@ -2317,7 +2318,7 @@ async def decide_gate3_endpoint(
 @router.get(
     "/{workflow_id}/listing/taxonomy/categories",
     response_model=list[TaxonomyCategoryResponse],
-    summary="List available digital Etsy seller taxonomy categories",
+    summary="List available digital Etsy seller taxonomy categories with fitness score",
 )
 async def get_listing_taxonomy_categories_endpoint(
     workflow_id: uuid.UUID,
@@ -2333,6 +2334,34 @@ async def get_listing_taxonomy_categories_endpoint(
             detail="No workflow with that ID",
         )
 
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    approved_concept = next(
+        (c for c in concepts if c.status == ConceptStatus.APPROVED),
+        concepts[0] if concepts else None,
+    )
+    concept_uses: list[str] = []
+    concept_text = ""
+    if approved_concept:
+        concept_uses = list(approved_concept.intended_product_uses or [])
+        concept_text = f"{approved_concept.description} {approved_concept.differentiation}"
+        prompts = await uow.concepts.prompts(approved_concept.id)
+        if prompts:
+            slogan = prompts[0].exact_slogan
+            if prompts[0].intended_product_uses:
+                concept_uses.extend(prompts[0].intended_product_uses)
+
+    campaign_context = {
+        "title": listing.title if listing else (approved_concept.title if approved_concept else workflow.name),
+        "description": listing.description if listing else (approved_concept.description if approved_concept else ""),
+        "tags": listing.tags if listing else [],
+        "product_type": "digital_png",
+        "intended_product_uses": concept_uses,
+        "slogan": slogan or "",
+        "concept": concept_text,
+    }
+
+    from app.domain.taxonomy_fitness import evaluate_taxonomy_fit
     from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
 
     resolver = EtsyTaxonomyResolver()
@@ -2366,15 +2395,117 @@ async def get_listing_taxonomy_categories_endpoint(
             or "clip art" in n.full_path.lower()
         ]
 
-    return [
-        TaxonomyCategoryResponse(
+    # Evaluate fitness for candidates
+    evaluated_responses: list[tuple[float, TaxonomyCategoryResponse]] = []
+    for n in matched_nodes[:20]:
+        try:
+            props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=n.id)
+        except Exception:
+            props = []
+        fit = evaluate_taxonomy_fit(
+            taxonomy_node=n,
+            taxonomy_properties=props,
+            campaign_context=campaign_context,
+        )
+        cat_resp = TaxonomyCategoryResponse(
             id=n.id,
             name=n.name,
             full_path=n.full_path,
             level=n.level,
+            fit_score=fit.score,
+            fit_reasons=fit.reasons,
+            warnings=fit.warnings,
         )
-        for n in matched_nodes[:30]
-    ]
+        evaluated_responses.append((fit.score, cat_resp))
+
+    # Sort descending by fit score
+    evaluated_responses.sort(key=lambda x: x[0], reverse=True)
+    return [item[1] for item in evaluated_responses]
+
+
+@router.get(
+    "/{workflow_id}/listing/taxonomy/fitness",
+    response_model=TaxonomyFitnessResponse,
+    summary="Get taxonomy category compatibility and fitness for current listing and campaign",
+)
+async def get_listing_taxonomy_fitness_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+) -> TaxonomyFitnessResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    approved_concept = next(
+        (c for c in concepts if c.status == ConceptStatus.APPROVED),
+        concepts[0] if concepts else None,
+    )
+    concept_uses: list[str] = []
+    concept_text = ""
+    slogan = None
+    if approved_concept:
+        concept_uses = list(approved_concept.intended_product_uses or [])
+        concept_text = f"{approved_concept.description} {approved_concept.differentiation}"
+        prompts = await uow.concepts.prompts(approved_concept.id)
+        if prompts:
+            slogan = prompts[0].exact_slogan
+            if prompts[0].intended_product_uses:
+                concept_uses.extend(prompts[0].intended_product_uses)
+
+    taxonomy_id = listing.taxonomy_id if listing and listing.taxonomy_id else 6844
+    taxonomy_path = (
+        listing.taxonomy_path
+        if listing and listing.taxonomy_path
+        else "Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files"
+    )
+
+    campaign_context = {
+        "title": listing.title if listing else (approved_concept.title if approved_concept else workflow.name),
+        "description": listing.description if listing else (approved_concept.description if approved_concept else ""),
+        "tags": listing.tags if listing else [],
+        "product_type": "digital_png",
+        "intended_product_uses": concept_uses,
+        "slogan": slogan or "",
+        "concept": concept_text,
+    }
+
+    try:
+        props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=taxonomy_id)
+    except Exception:
+        props = []
+
+    from app.domain.taxonomy_fitness import evaluate_taxonomy_fit
+    from app.ports.providers import EtsyTaxonomyNode
+
+    node = EtsyTaxonomyNode(
+        id=taxonomy_id,
+        level=3,
+        name=taxonomy_path.split(" > ")[-1] if " > " in taxonomy_path else taxonomy_path,
+        full_path=taxonomy_path,
+    )
+
+    fit = evaluate_taxonomy_fit(
+        taxonomy_node=node,
+        taxonomy_properties=props,
+        campaign_context=campaign_context,
+    )
+
+    return TaxonomyFitnessResponse(
+        taxonomy_id=taxonomy_id,
+        taxonomy_path=taxonomy_path,
+        fit_score=fit.score,
+        fit_reasons=fit.reasons,
+        warnings=fit.warnings,
+        has_mismatched_required_attributes=fit.has_mismatched_required_attributes,
+        mismatched_required_reason=fit.mismatched_required_reason,
+    )
 
 
 @router.put(
