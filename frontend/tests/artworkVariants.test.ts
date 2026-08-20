@@ -176,68 +176,48 @@ describe("ArtworkVariantsCard component", () => {
   });
 });
 
-describe("CustomerPackagePreviewCard component", () => {
-  const mockPreviewResponse = {
+describe("CustomerPackageCard component with dynamic variants", () => {
+  const mockPackageAsset = {
+    id: "asset-pkg-1",
     workflow_id: "wf-123",
-    files: [
-      {
-        type: "original",
-        name: "Original Master PNG",
-        filename: "NovaCraft_Fox_Original.png",
-        byte_size: 14500000,
-        included: true,
-        status: "ready",
-        asset_id: "master-1",
+    storage_key: "workflows/wf-123/packages/NovaCraft_Fox_Digital_Download.zip",
+    mime_type: "application/zip",
+    byte_size: 26000000,
+    checksum_sha256: "abc123sha",
+    width: null,
+    height: null,
+    has_alpha: null,
+    has_transparent_pixels: null,
+    provenance: {
+      kind: "customer_package",
+      manifest: {
+        files: [
+          {
+            type: "original",
+            filename: "NovaCraft_Fox_Original.png",
+            byte_size: 14500000,
+          },
+          {
+            type: "dark_shirt",
+            filename: "NovaCraft_Fox_Dark_Shirt.png",
+            byte_size: 14600000,
+          },
+        ],
+        has_pdf: true,
+        readme: true,
+        license: true,
       },
-      {
-        type: "dark_shirt",
-        name: "Dark Shirt Version",
-        filename: "NovaCraft_Fox_Dark_Shirt.png",
-        byte_size: 14600000,
-        included: true,
-        status: "ready",
-        asset_id: "var-1",
-      },
-      {
-        type: "readme",
-        name: "Usage & Print Guide",
-        filename: "NovaCraft_Fox_README.txt",
-        byte_size: 2500,
-        included: true,
-        status: "ready",
-        asset_id: null,
-      },
-      {
-        type: "license",
-        name: "Commercial License",
-        filename: "NovaCraft_Fox_LICENSE.txt",
-        byte_size: 1800,
-        included: true,
-        status: "ready",
-        asset_id: null,
-      },
-    ],
-    included_count: 2,
-    estimated_total_bytes: 29104300,
-    needs_rebuild: true,
-    etsy_files_out_of_sync: true,
-    package_asset: {
-      id: "asset-pkg-1",
-      byte_size: 26000000,
     },
-    package_download_url: "https://storage.test/package.zip",
+    created_at: "2026-08-20T12:00:00Z",
   };
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.stubGlobal("$fetch", vi.fn().mockResolvedValue(mockPreviewResponse));
-  });
-
-  it("renders itemized buyer deliverables table and sync warning banner", async () => {
-    const CustomerPackagePreviewCard = (await import("../components/workflow/production/CustomerPackagePreviewCard.vue")).default;
-    const wrapper = mount(CustomerPackagePreviewCard, {
+  it("renders master PNG and dynamically included variant deliverables", async () => {
+    const CustomerPackageCard = (await import("../components/workflow/listing/CustomerPackageCard.vue")).default;
+    const wrapper = mount(CustomerPackageCard, {
       props: {
-        workflowId: "wf-123",
+        packageAsset: mockPackageAsset,
+        downloadUrl: "https://storage.test/package.zip",
+        version: 1,
       },
       global: {
         components: {
@@ -248,15 +228,15 @@ describe("CustomerPackagePreviewCard component", () => {
 
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Buyer Deliverable ZIP Package");
-    expect(wrapper.text()).toContain("Etsy Digital Files Out of Sync");
-    expect(wrapper.text()).toContain("Sync Updated Files");
-    expect(wrapper.text()).toContain("Rebuild Required");
-    expect(wrapper.text()).toContain("Original Master PNG");
-    expect(wrapper.text()).toContain("Dark Shirt Version");
-    expect(wrapper.text()).toContain("Usage & Print Guide");
-    expect(wrapper.text()).toContain("Commercial License");
+    expect(wrapper.text()).toContain("Buyer Delivery Package");
+    expect(wrapper.text()).toContain("Ready");
+    expect(wrapper.text()).toContain("Download ZIP");
+    expect(wrapper.text()).toContain("Master Artwork PNG");
+    expect(wrapper.text()).toContain("Dark Shirt Variant PNG");
     expect(wrapper.text()).toContain("NovaCraft_Fox_Dark_Shirt.png");
-    expect(wrapper.text()).toContain("Etsy File Limit");
+    expect(wrapper.text()).toContain("Variant Included");
+    expect(wrapper.text()).toContain("Commercial License");
+    expect(wrapper.text()).toContain("Sizing & Print Guide");
+    expect(wrapper.text()).toContain("Etsy Delivery Usage");
   });
 });

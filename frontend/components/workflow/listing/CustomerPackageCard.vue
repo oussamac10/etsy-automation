@@ -10,6 +10,13 @@ import Badge from '~/components/ui/Badge.vue';
 import type { Asset } from '~/types/workflow';
 import { sanitizeUrl } from '~/utils/sanitize';
 
+interface ManifestFile {
+  type: string;
+  asset_id?: string | null;
+  filename: string;
+  byte_size?: number;
+}
+
 const props = defineProps<{
   packageAsset?: Asset | null;
   downloadUrl?: string | null;
@@ -31,6 +38,30 @@ const byteSize = computed(() => {
   }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 });
+
+const manifest = computed(() => {
+  return (props.packageAsset?.provenance as Record<string, any>)?.manifest || null;
+});
+
+const manifestFiles = computed<ManifestFile[]>(() => {
+  if (manifest.value && Array.isArray(manifest.value.files) && manifest.value.files.length > 0) {
+    return manifest.value.files;
+  }
+  return [];
+});
+
+const includedVariantFiles = computed<ManifestFile[]>(() => {
+  return manifestFiles.value.filter(
+    (f) => f.type !== 'original' && f.type !== 'pdf' && f.type !== 'readme' && f.type !== 'license'
+  );
+});
+
+function getVariantTitle(type: string): string {
+  if (type === 'dark_shirt') return 'Dark Shirt Variant PNG';
+  if (type === 'light_shirt') return 'Light Shirt Variant PNG';
+  if (type.startsWith('accent_') || type === 'custom') return 'Color Accent Variant PNG';
+  return `${type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} PNG`;
+}
 
 const checksum = computed(() => props.packageAsset?.checksum_sha256 || null);
 
@@ -95,6 +126,7 @@ async function copyChecksum() {
     <CardContent class="p-4 sm:p-5 pt-0 space-y-3 text-xs">
       <!-- Deliverables Clean Vertical List -->
       <div class="space-y-2">
+        <!-- Master Artwork PNG -->
         <div class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between">
           <div class="flex items-center gap-2.5">
             <Icon name="lucide:file-image" class="size-4 text-primary shrink-0" aria-hidden="true" />
@@ -106,7 +138,29 @@ async function copyChecksum() {
           <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
         </div>
 
-        <div class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between">
+        <!-- Dynamically Included Artwork Variants -->
+        <div
+          v-for="variant in includedVariantFiles"
+          :key="variant.filename"
+          class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between"
+        >
+          <div class="flex items-center gap-2.5">
+            <Icon name="lucide:image" class="size-4 text-primary shrink-0" aria-hidden="true" />
+            <div>
+              <div class="flex items-center gap-1.5">
+                <p class="font-semibold text-foreground">{{ getVariantTitle(variant.type) }}</p>
+                <Badge variant="outline" class="text-[9px] px-1.5 py-0 font-mono text-primary border-primary/30 bg-primary/5">
+                  Variant Included
+                </Badge>
+              </div>
+              <p class="text-[11px] font-mono text-muted-foreground">{{ variant.filename }} • Transparent (300 DPI)</p>
+            </div>
+          </div>
+          <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+        </div>
+
+        <!-- Print-Ready Vector PDF (if present) -->
+        <div v-if="manifest?.has_pdf !== false" class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between">
           <div class="flex items-center gap-2.5">
             <Icon name="lucide:file-text" class="size-4 text-primary shrink-0" aria-hidden="true" />
             <div>
@@ -117,6 +171,7 @@ async function copyChecksum() {
           <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
         </div>
 
+        <!-- Commercial License -->
         <div class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between">
           <div class="flex items-center gap-2.5">
             <Icon name="lucide:shield-check" class="size-4 text-primary shrink-0" aria-hidden="true" />
@@ -128,12 +183,15 @@ async function copyChecksum() {
           <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
         </div>
 
+        <!-- Sizing & Print Guide -->
         <div class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between">
           <div class="flex items-center gap-2.5">
             <Icon name="lucide:book-open" class="size-4 text-primary shrink-0" aria-hidden="true" />
             <div>
               <p class="font-semibold text-foreground">Sizing &amp; Print Guide</p>
-              <p class="text-[11px] text-muted-foreground">Comprehensive heat press &amp; sublimation instructions</p>
+              <p class="text-[11px] text-muted-foreground">
+                Comprehensive heat press, garment color usage &amp; sublimation instructions
+              </p>
             </div>
           </div>
           <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
@@ -151,3 +209,4 @@ async function copyChecksum() {
     </CardContent>
   </Card>
 </template>
+
