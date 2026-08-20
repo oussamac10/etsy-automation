@@ -200,19 +200,28 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      target: dev
     environment:
       NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8000}
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./frontend:/srv/frontend
+      - ./packages/domain:/srv/packages/domain
+      - /srv/frontend/.nuxt
+      - /srv/node_modules
+      - /srv/frontend/node_modules
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-fsS", "http://localhost:3000/api/_health" ]
+      test: [ "CMD", "curl", "-fsS", "http://localhost:3000/" ]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 20s
+      start_period: 25s
 
 volumes:
   postgres-data:

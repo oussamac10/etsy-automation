@@ -1,9 +1,11 @@
 # syntax=docker/dockerfile:1.7
-# Nuxt web app, built once and served by the Nitro node-server preset.
-FROM node:24-bookworm-slim AS build
+# Nuxt web app: multi-stage build supporting both local dev HMR and production runtime.
+FROM node:24-bookworm-slim AS dev
 
 ENV PNPM_HOME=/pnpm \
-    PATH=/pnpm:$PATH
+    PATH=/pnpm:$PATH \
+    HOST=0.0.0.0 \
+    PORT=3000
 
 WORKDIR /srv
 
@@ -17,6 +19,13 @@ RUN pnpm install --filter @etsy/web... --prod=false --ignore-scripts
 
 COPY packages/domain /srv/packages/domain
 COPY frontend /srv/frontend
+
+EXPOSE 3000
+
+CMD ["pnpm", "--filter", "@etsy/web", "dev", "--host", "0.0.0.0"]
+
+
+FROM dev AS build
 
 RUN pnpm --filter @etsy/web exec nuxt build
 
