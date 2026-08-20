@@ -42,7 +42,7 @@ class TestEtsyPayloadBuilder:
         assert payload["who_made"] == "i_did"
         assert payload["is_supply"] == "false"
         assert payload["quantity"] == 999
-        assert payload["shop_section_id"] == "12345"
+        assert payload["shop_section_id"] == 12345
         assert payload["should_auto_renew"] == "true"
 
     def test_build_payload_missing_taxonomy_raises(self):

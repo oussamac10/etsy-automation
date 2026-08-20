@@ -201,8 +201,39 @@ async def execute_etsy_draft_pipeline(
         raw_sku = getattr(listing, "sku", None)
         sku = raw_sku if isinstance(raw_sku, str) and raw_sku.strip() else None
 
+        # Resolve real integer Etsy shop_section_id
         raw_sec_id = getattr(listing, "shop_section_id", None)
-        shop_section_id = raw_sec_id if isinstance(raw_sec_id, str) and raw_sec_id.strip() else None
+        raw_sec_name = getattr(listing, "shop_section_name", None)
+        shop_section_id: str | None = None
+
+        if isinstance(raw_sec_id, str) and raw_sec_id.strip():
+            sec_val = raw_sec_id.strip()
+            if sec_val.isdigit():
+                shop_section_id = sec_val
+            elif raw_sec_name or sec_val:
+                target_title = (raw_sec_name or sec_val).strip()
+                try:
+                    existing_sections = await etsy_gateway.get_shop_sections(
+                        access_token=access_token,
+                        shop_id=conn.etsy_shop_id,
+                    )
+                    matched = next(
+                        (s for s in existing_sections if s.title.strip().lower() == target_title.lower()),
+                        None,
+                    )
+                    if matched and matched.shop_section_id.isdigit():
+                        shop_section_id = matched.shop_section_id
+                    else:
+                        created_sec = await etsy_gateway.create_shop_section(
+                            access_token=access_token,
+                            shop_id=conn.etsy_shop_id,
+                            title=target_title,
+                        )
+                        if created_sec and created_sec.shop_section_id.isdigit():
+                            shop_section_id = created_sec.shop_section_id
+                except Exception as exc:
+                    logger.warning("etsy_section_resolution_failed", error=str(exc), title=target_title)
+                    shop_section_id = None
 
         raw_renew = getattr(listing, "should_auto_renew", False)
         should_auto_renew = raw_renew if isinstance(raw_renew, bool) else False

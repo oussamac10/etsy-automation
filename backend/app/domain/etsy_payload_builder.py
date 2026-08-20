@@ -22,7 +22,7 @@ def build_etsy_listing_payload(
     currency: str = "USD",
     taxonomy_id: int | None = None,
     quantity: int = 999,
-    shop_section_id: str | None = None,
+    shop_section_id: str | int | None = None,
     should_auto_renew: bool = False,
     who_made: str = "i_did",
     when_made: str = "2020_2026",
@@ -74,7 +74,10 @@ def build_etsy_listing_payload(
         "should_auto_renew": "true" if should_auto_renew else "false",
     }
 
-    if shop_section_id and shop_section_id.strip():
-        payload["shop_section_id"] = shop_section_id.strip()
+    if shop_section_id is not None:
+        sec_str = str(shop_section_id).strip()
+        if sec_str.isdigit() and int(sec_str) > 0:
+            payload["shop_section_id"] = int(sec_str)
 
     return payload
+
