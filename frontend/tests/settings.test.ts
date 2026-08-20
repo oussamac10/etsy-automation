@@ -1,6 +1,6 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import settingsPage from "../pages/settings.vue";
 
 // Mock Nuxt globals
@@ -290,6 +290,55 @@ describe("settings page - Telegram card", () => {
     expect(providerSpans.includes("etsy")).toBe(false);
     expect(providerSpans.includes("fake")).toBe(false);
     expect(providerSpans.includes("telegram")).toBe(false);
+  });
+});
+
+describe("EtsyListingDefaultsCard", () => {
+  it("loads and allows selecting default currency", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      if (opts?.method === "PATCH") {
+        return Promise.resolve({
+          currency: opts.body?.currency,
+          default_digital_price_minor: opts.body?.default_digital_price_minor,
+          default_digital_quantity: opts.body?.default_digital_quantity,
+          default_auto_renew: opts.body?.default_auto_renew,
+          default_shop_section_strategy: opts.body?.default_shop_section_strategy,
+        });
+      }
+      return Promise.resolve({
+        currency: "EUR",
+        default_digital_price_minor: 599,
+        default_digital_quantity: 999,
+        default_auto_renew: false,
+        default_shop_section_strategy: "match_niche",
+      });
+    });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const { default: EtsyListingDefaultsCard } = await import("../components/settings/EtsyListingDefaultsCard.vue");
+    const wrapper = mount(EtsyListingDefaultsCard, {
+      global: {
+        stubs: {
+          Icon: { template: "<span />" },
+        },
+      },
+    });
+
+    await vi.dynamicImportSettled();
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="default-currency-selector"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("EUR");
+
+    // Click GBP currency
+    const gbpBtn = wrapper.findAll('[data-testid="default-currency-selector"] button').find((b) => b.text() === "GBP");
+    expect(gbpBtn).toBeDefined();
+    await gbpBtn!.trigger("click");
+    await wrapper.vm.$nextTick();
+
+    // Verify Save button appears
+    const saveBtn = wrapper.find("button[type='button']");
+    expect(wrapper.text()).toContain("Save Defaults");
   });
 });
 
