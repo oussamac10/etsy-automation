@@ -233,9 +233,10 @@ const totalSelectedCount = computed(() => {
         <CardTitle class="text-sm font-semibold flex items-center gap-2 flex-wrap">
           <Icon name="lucide:sliders-horizontal" class="size-4 text-primary" aria-hidden="true" />
           <span>Category Attributes</span>
-          <Badge variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/60 shadow-2xs">
+            <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             {{ totalSelectedCount }} selected
-          </Badge>
+          </span>
           <button
             type="button"
             class="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
@@ -370,12 +371,20 @@ const totalSelectedCount = computed(() => {
             </div>
 
             <!-- Missing / Mismatch indicator -->
-            <span v-if="isPropertyMismatched(prop)" class="text-[11px] font-medium text-amber-600 dark:text-amber-400">
-              Category mismatch
-            </span>
-            <span v-else-if="isPropertyMissingRequired(prop)" class="text-[11px] font-medium text-destructive">
-              Required selection missing
-            </span>
+            <div
+              v-if="isPropertyMismatched(prop)"
+              class="inline-flex items-center rounded-full px-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-2xs py-0.5 gap-1 font-mono font-medium bg-amber-500/10 text-foreground border border-amber-500/20 shadow-2xs"
+            >
+              <Icon name="lucide:alert-triangle" class="size-3 text-amber-500" aria-hidden="true" />
+              <span>Category mismatch</span>
+            </div>
+            <div
+              v-else-if="isPropertyMissingRequired(prop)"
+              class="inline-flex items-center rounded-full px-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-2xs py-0.5 gap-1 font-mono font-medium bg-red-500/10 text-foreground border border-red-500/20 shadow-2xs"
+            >
+              <Icon name="lucide:alert-circle" class="size-3 text-red-500" aria-hidden="true" />
+              <span>Required selection missing</span>
+            </div>
           </div>
 
           <!-- Multi-valued Property: Tag Chips -->
