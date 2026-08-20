@@ -13,6 +13,7 @@ import MockupPlacementCanvas from "~/components/workflow/mockup-modal/MockupPlac
 import MockupPlacementControls from "~/components/workflow/mockup-modal/MockupPlacementControls.vue";
 import ImageCropperView from "~/components/ui/ImageCropperView.vue";
 import DeleteConfirmModal from "~/components/ui/DeleteConfirmModal.vue";
+import { useArtworkVariants } from "~/composables/useArtworkVariants";
 
 export interface MockupAssetItem {
   id: string;
@@ -91,6 +92,17 @@ const blendMode = ref<MockupBlendMode | string>("over");
 const isModalLoading = ref(true);
 const isCompositing = ref(false);
 const compositeError = ref<string | null>(null);
+
+const { variants, fetchVariants: fetchArtworkVariants } = useArtworkVariants();
+const selectedArtworkSourceId = ref<string | null>(null);
+
+const activeArtworkImageUrl = computed<string | null>(() => {
+  if (selectedArtworkSourceId.value && selectedArtworkSourceId.value !== props.masterAssetId) {
+    const found = variants.value.find((v) => v.id === selectedArtworkSourceId.value);
+    if (found?.url) return found.url;
+  }
+  return props.masterImageUrl || null;
+});
 
 const activeTemplateImageUrl = computed<string | null>(() => {
   if (activeSubTab.value === "upload") {
@@ -237,6 +249,11 @@ watch(
       rawUploadImageUrl.value = null;
       isCroppingMode.value = false;
 
+      if (props.workflowId) {
+        fetchArtworkVariants(props.workflowId);
+      }
+      selectedArtworkSourceId.value = props.masterAssetId || null;
+
       if (props.editingAsset) {
         // Editing existing mockup
         const prov = props.editingAsset.provenance;
@@ -303,7 +320,7 @@ async function handleGenerateMockup(): Promise<void> {
       },
       is_cover: isCover.value,
       target_asset_id: props.editingAsset?.id || undefined,
-      master_asset_id: props.masterAssetId || undefined,
+      master_asset_id: selectedArtworkSourceId.value || props.masterAssetId || undefined,
     };
 
     if (activeSubTab.value === "library" && selectedTemplateId.value) {
@@ -532,9 +549,33 @@ async function handleGenerateMockup(): Promise<void> {
                 <span class="text-[10px] text-muted-foreground font-mono">1:1 Aspect Frame</span>
               </div>
 
+              <!-- Artwork Source Selector if Color Variants Exist -->
+              <div
+                v-if="variants.length > 0"
+                class="flex items-center justify-between p-2 rounded-xl bg-secondary/40 border border-border/80 text-xs"
+              >
+                <span class="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                  <Icon name="lucide:palette" class="size-3.5 text-violet-500" aria-hidden="true" />
+                  <span>Placed Artwork Graphic:</span>
+                </span>
+                <select
+                  v-model="selectedArtworkSourceId"
+                  class="h-7 text-xs px-2 py-0.5 rounded-lg border border-border bg-white font-medium text-foreground cursor-pointer focus:outline-hidden"
+                >
+                  <option :value="masterAssetId">Original Master PNG</option>
+                  <option
+                    v-for="v in variants"
+                    :key="v.id"
+                    :value="v.id"
+                  >
+                    {{ v.title }} {{ v.variant_status === 'approved' ? '✓ (Approved)' : '(Draft)' }}
+                  </option>
+                </select>
+              </div>
+
               <MockupPlacementCanvas
                 :template-image-url="activeTemplateImageUrl"
-                :master-image-url="masterImageUrl || null"
+                :master-image-url="activeArtworkImageUrl || null"
                 :left-pct="leftPct"
                 :top-pct="topPct"
                 :width-pct="widthPct"

@@ -13,6 +13,7 @@ import Badge from "~/components/ui/Badge.vue";
 import ProductionStatusCard from "~/components/workflow/production/ProductionStatusCard.vue";
 import MasterPngCard from "~/components/workflow/production/MasterPngCard.vue";
 import ProductionQaCard from "~/components/workflow/production/ProductionQaCard.vue";
+import ArtworkVariantsCard from "~/components/workflow/production/ArtworkVariantsCard.vue";
 import MockupGallery from "~/components/workflow/production/MockupGallery.vue";
 import WorkflowCustomMockupModal, { type MockupAssetItem } from "~/components/workflow/WorkflowCustomMockupModal.vue";
 import DeleteConfirmModal from "~/components/ui/DeleteConfirmModal.vue";
@@ -377,6 +378,13 @@ async function handleMoveMockup(asset: MockupAsset, direction: "up" | "down"): P
               />
             </div>
           </div>
+
+          <!-- Middle: Garment Color Variants Card -->
+          <ArtworkVariantsCard
+            :workflow-id="workflow.id"
+            :master-image-url="masterImageUrl"
+            @variant-updated="emit('mockupUpdated')"
+          />
 
           <!-- Bottom: Realistic Multi-Mockup Gallery Grid -->
           <MockupGallery
