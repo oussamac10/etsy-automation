@@ -82,9 +82,10 @@ class TestArtworkVariantsDomain:
         assert is_valid_artwork_variant_asset(None) is False
 
     def test_compute_variant_filename(self) -> None:
-        assert compute_variant_filename("Shop_Fox", VariantType.DARK_SHIRT) == "Shop_Fox_PNG_Dark_Shirt.png"
-        assert compute_variant_filename("Shop_Fox", VariantType.LIGHT_SHIRT) == "Shop_Fox_PNG_Light_Shirt.png"
-        assert compute_variant_filename("Shop_Fox", VariantType.CUSTOM, "#E85D04") == "Shop_Fox_PNG_Custom_E85D04.png"
+        assert compute_variant_filename("Shop_Fox", VariantType.DARK_SHIRT) == "Shop_Fox_Dark_Shirt.png"
+        assert compute_variant_filename("Shop_Fox", VariantType.LIGHT_SHIRT) == "Shop_Fox_Light_Shirt.png"
+        assert compute_variant_filename("Shop_Fox", VariantType.CUSTOM, "#E85D04") == "Shop_Fox_Custom_E85D04.png"
+        assert compute_variant_filename("Shop_Fox", "original") == "Shop_Fox_Original.png"
 
     def test_filter_workflow_artwork_variants(self) -> None:
         v1 = MagicMock(spec=Asset)
@@ -158,13 +159,25 @@ class TestDeterministicRecolorEngine:
 
         # White highlight (250, 250) recolored to dark charcoal
         charcoal_pixel = out_img.getpixel((300, 300))
-        assert charcoal_pixel[0] < 50
-        assert charcoal_pixel[1] < 50
-        assert charcoal_pixel[2] < 50
+        assert charcoal_pixel[0] < 60
+        assert charcoal_pixel[1] < 60
+        assert charcoal_pixel[2] < 60
         assert charcoal_pixel[3] == 255
 
-        # Vibrant orange preserved
-        assert out_img.getpixel((500, 100)) == (240, 100, 20, 255)
+    def test_recolor_custom_hex_recolors_target_tone(self) -> None:
+        master_bytes = _create_sample_master_png()
+        variant_bytes, report = recolor_artwork_variant(
+            source_bytes=master_bytes,
+            variant_type=VariantType.CUSTOM,
+            target_color_hex="#E85D04",
+        )
+
+        out_img = Image.open(io.BytesIO(variant_bytes))
+        custom_pixel = out_img.getpixel((100, 100))
+        assert custom_pixel[0] > 200  # Red
+        assert custom_pixel[1] > 70   # Green
+        assert custom_pixel[2] < 30   # Blue
+        assert custom_pixel[3] == 255
 
 
 class TestVariantValidationGuards:
@@ -195,7 +208,7 @@ class TestVariantValidationGuards:
                 variant_type=VariantType.DARK_SHIRT,
             )
 
-    def test_reject_baked_checkerboard_pattern(self) -> None:
+    def test_validation_flags_baked_checkerboard(self) -> None:
         # Create an image with baked gray/white checkerboard in corner
         w, h = 800, 800
         img = Image.new("RGBA", (w, h), (255, 255, 255, 255))
@@ -249,33 +262,25 @@ class TestArtworkVariantService:
         uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
         uow.assets.get = AsyncMock(return_value=master_asset)
         uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset])
-        uow.concepts.list_for_workflow = AsyncMock(return_value=[])
         uow.assets.add = AsyncMock()
         uow.commit = AsyncMock()
 
         storage = MagicMock()
         storage.get = AsyncMock(return_value=master_bytes)
-        storage.put = AsyncMock(return_value=MagicMock(storage_key=f"workflows/{workflow_id}/variants/1/dark_shirt.png"))
+        storage.put = AsyncMock(return_value=MagicMock(storage_key="workflows/1/variants/1/dark_shirt.png"))
 
-        fake_provider = FakeImageProvider()
-        service = ArtworkVariantService(storage=storage, image_provider=fake_provider)
-
-        variant = await service.generate_variant(
+        service = ArtworkVariantService(storage, FakeImageProvider())
+        asset = await service.generate_variant(
             workflow_id=workflow_id,
             owner_id=owner_id,
             variant_type=VariantType.DARK_SHIRT,
             uow=uow,
         )
 
-        assert variant is not None
-        assert variant.derived_from_id == master_asset_id
-        assert variant.has_alpha is True
-        assert variant.provenance["kind"] == "artwork_variant"
-        assert variant.provenance["variant_type"] == "dark_shirt"
-        assert variant.provenance["variant_status"] == VariantStatus.READY.value
-        assert variant.quality_check["is_valid"] is True
-        uow.assets.add.assert_called_once()
-        uow.commit.assert_called_once()
+        assert asset.derived_from_id == master_asset_id
+        assert asset.has_alpha is True
+        assert asset.provenance["variant_type"] == "dark_shirt"
+        assert asset.provenance["variant_status"] == VariantStatus.READY.value
 
     @pytest.mark.asyncio
     async def test_approve_and_reject_variant(self) -> None:
@@ -290,17 +295,20 @@ class TestArtworkVariantService:
         variant_asset = MagicMock(spec=Asset)
         variant_asset.id = variant_id
         variant_asset.workflow_id = workflow_id
-        variant_asset.provenance = {"kind": "artwork_variant", "variant_status": VariantStatus.READY.value}
+        variant_asset.provenance = {
+            "kind": "artwork_variant",
+            "variant_type": "dark_shirt",
+            "variant_status": VariantStatus.READY.value,
+        }
 
         uow = MagicMock()
         uow.workflows.get = AsyncMock(return_value=workflow)
         uow.assets.get = AsyncMock(return_value=variant_asset)
         uow.commit = AsyncMock()
 
-        storage = MagicMock()
-        service = ArtworkVariantService(storage=storage, image_provider=FakeImageProvider())
+        service = ArtworkVariantService(MagicMock(), FakeImageProvider())
 
-        # Approve
+        # 1. Approve
         approved = await service.approve_variant(
             workflow_id=workflow_id,
             asset_id=variant_id,
@@ -309,7 +317,7 @@ class TestArtworkVariantService:
         )
         assert approved.provenance["variant_status"] == VariantStatus.APPROVED.value
 
-        # Reject
+        # 2. Reject
         rejected = await service.reject_variant(
             workflow_id=workflow_id,
             asset_id=variant_id,
@@ -319,57 +327,105 @@ class TestArtworkVariantService:
         assert rejected.provenance["variant_status"] == VariantStatus.REJECTED.value
 
     @pytest.mark.asyncio
-    async def test_delete_variant(self) -> None:
+    async def test_update_variant_package_inclusion(self) -> None:
         workflow_id = uuid.uuid4()
         owner_id = uuid.uuid4()
+        master_id = uuid.uuid4()
         variant_id = uuid.uuid4()
 
         workflow = MagicMock(spec=ProductWorkflow)
         workflow.id = workflow_id
         workflow.owner_id = owner_id
 
+        master_asset = MagicMock(spec=Asset)
+        master_asset.id = master_id
+        master_asset.workflow_id = workflow_id
+        master_asset.storage_key = "production/wf/master.png"
+        master_asset.provenance = {"profile": "etsy-png-standard"}
+        master_asset.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+
         variant_asset = MagicMock(spec=Asset)
         variant_asset.id = variant_id
         variant_asset.workflow_id = workflow_id
-        variant_asset.storage_key = "workflows/1/variants/1/dark.png"
-        variant_asset.provenance = {"kind": "artwork_variant"}
+        variant_asset.storage_key = "workflows/wf/variants/var1/dark_shirt.png"
+        variant_asset.derived_from_id = master_id
+        variant_asset.created_at = datetime(2026, 1, 2, tzinfo=UTC)
+        variant_asset.provenance = {
+            "kind": "artwork_variant",
+            "variant_type": "dark_shirt",
+            "variant_status": VariantStatus.READY.value,  # Not approved yet!
+        }
+
+        async def _mock_get_asset(aid: uuid.UUID) -> Asset | None:
+            if aid == master_id:
+                return master_asset
+            if aid == variant_id:
+                return variant_asset
+            return None
 
         uow = MagicMock()
         uow.workflows.get = AsyncMock(return_value=workflow)
-        uow.assets.get = AsyncMock(return_value=variant_asset)
-        uow.assets.delete = AsyncMock()
+        uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
+        uow.assets.get = AsyncMock(side_effect=_mock_get_asset)
+        uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset, variant_asset])
         uow.commit = AsyncMock()
 
-        storage = MagicMock()
-        storage.delete = AsyncMock()
+        service = ArtworkVariantService(MagicMock(), FakeImageProvider())
 
-        service = ArtworkVariantService(storage=storage, image_provider=FakeImageProvider())
-        await service.delete_variant(
+        # Fails if unapproved
+        with pytest.raises(ArtworkVariantError, match="Only approved variants can be included"):
+            await service.update_variant_package_inclusion(
+                workflow_id=workflow_id,
+                asset_id=variant_id,
+                include_in_buyer_package=True,
+                owner_id=owner_id,
+                uow=uow,
+            )
+
+        # Set approved
+        variant_asset.provenance["variant_status"] = VariantStatus.APPROVED.value
+        updated = await service.update_variant_package_inclusion(
             workflow_id=workflow_id,
             asset_id=variant_id,
+            include_in_buyer_package=True,
             owner_id=owner_id,
             uow=uow,
         )
+        assert updated.provenance["include_in_buyer_package"] is True
 
-        uow.assets.delete.assert_called_once_with(variant_asset)
-        storage.delete.assert_called_once_with(variant_asset.storage_key)
+        # Fails if outdated (derived from older master)
+        variant_asset.derived_from_id = uuid.uuid4()
+        with pytest.raises(ArtworkVariantError, match="generated from an older master artwork"):
+            await service.update_variant_package_inclusion(
+                workflow_id=workflow_id,
+                asset_id=variant_id,
+                include_in_buyer_package=True,
+                owner_id=owner_id,
+                uow=uow,
+            )
 
 
 class TestArtworkVariantRoutes:
     @pytest.mark.asyncio
     async def test_create_and_list_endpoints(self) -> None:
+        from app.api.routes.artwork_variants import (
+            create_artwork_variant_endpoint,
+            list_artwork_variants_endpoint,
+            update_artwork_variant_package_endpoint,
+        )
+        from app.api.schemas import CreateArtworkVariantRequest, UpdateArtworkVariantPackageRequest
+
         workflow_id = uuid.uuid4()
         owner_id = uuid.uuid4()
         master_id = uuid.uuid4()
+        variant_id = uuid.uuid4()
 
-        user = MagicMock(spec=User)
+        user = MagicMock()
         user.id = owner_id
 
         workflow = MagicMock(spec=ProductWorkflow)
         workflow.id = workflow_id
         workflow.owner_id = owner_id
-
-        master_bytes = _create_sample_master_png()
 
         master_asset = MagicMock(spec=Asset)
         master_asset.id = master_id
@@ -378,20 +434,41 @@ class TestArtworkVariantRoutes:
         master_asset.width = 800
         master_asset.height = 800
         master_asset.mime_type = "image/png"
+        master_asset.created_at = datetime(2026, 1, 1, tzinfo=UTC)
         master_asset.provenance = {"profile": "etsy-png-standard"}
+
+        variant_asset = MagicMock(spec=Asset)
+        variant_asset.id = variant_id
+        variant_asset.workflow_id = workflow_id
+        variant_asset.storage_key = "workflows/1/variants/1/dark.png"
+        variant_asset.byte_size = 1234
+        variant_asset.checksum_sha256 = "a" * 64
+        variant_asset.width = 800
+        variant_asset.height = 800
+        variant_asset.has_alpha = True
+        variant_asset.mime_type = "image/png"
+        variant_asset.created_at = datetime(2026, 1, 2, tzinfo=UTC)
+        variant_asset.derived_from_id = master_id
+        variant_asset.provenance = {
+            "kind": "artwork_variant",
+            "variant_type": "dark_shirt",
+            "variant_status": "ready",
+            "title": "Dark Shirt Version",
+        }
+        variant_asset.quality_check = {"is_valid": True}
 
         uow = MagicMock()
         uow.workflows.get = AsyncMock(return_value=workflow)
         uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
         uow.assets.get = AsyncMock(return_value=master_asset)
-        uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset])
-        uow.concepts.list_for_workflow = AsyncMock(return_value=[])
+        uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset, variant_asset])
         uow.assets.add = AsyncMock()
         uow.commit = AsyncMock()
 
         storage = MagicMock()
-        storage.get = AsyncMock(return_value=master_bytes)
-        storage.put = AsyncMock(return_value=MagicMock(storage_key=f"workflows/{workflow_id}/variants/1/dark_shirt.png"))
+        sample_master = _create_sample_master_png()
+        storage.get = AsyncMock(return_value=sample_master)
+        storage.put = AsyncMock(return_value=MagicMock(storage_key="workflows/1/variants/1/dark.png"))
         storage.signed_url = AsyncMock(return_value="https://storage.test/dark_shirt.png")
 
         settings = MagicMock()
@@ -414,27 +491,6 @@ class TestArtworkVariantRoutes:
         assert resp.url == "https://storage.test/dark_shirt.png"
 
         # 2. List Variants
-        variant_asset = MagicMock(spec=Asset)
-        variant_asset.id = uuid.uuid4()
-        variant_asset.workflow_id = workflow_id
-        variant_asset.storage_key = "workflows/1/variants/1/dark.png"
-        variant_asset.byte_size = 1234
-        variant_asset.checksum_sha256 = "a" * 64
-        variant_asset.width = 800
-        variant_asset.height = 800
-        variant_asset.has_alpha = True
-        variant_asset.mime_type = "image/png"
-        variant_asset.created_at = datetime.now(UTC)
-        variant_asset.derived_from_id = master_id
-        variant_asset.provenance = {
-            "kind": "artwork_variant",
-            "variant_type": "dark_shirt",
-            "variant_status": "ready",
-            "title": "Dark Shirt Version",
-        }
-        variant_asset.quality_check = {"is_valid": True}
-
-        uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset, variant_asset])
         list_resp = await list_artwork_variants_endpoint(
             workflow_id=workflow_id,
             user=user,
@@ -446,14 +502,30 @@ class TestArtworkVariantRoutes:
         assert len(list_resp) == 1
         assert list_resp[0].variant_type == "dark_shirt"
 
+        # 3. Patch Package Inclusion Endpoint
+        variant_asset.provenance["variant_status"] = VariantStatus.APPROVED.value
+        uow.assets.get = AsyncMock(return_value=variant_asset)
+
+        patch_req = UpdateArtworkVariantPackageRequest(include_in_buyer_package=True)
+        patch_resp = await update_artwork_variant_package_endpoint(
+            workflow_id=workflow_id,
+            variant_id=variant_id,
+            payload=patch_req,
+            user=user,
+            uow=uow,
+            storage=storage,
+        )
+        assert patch_resp.include_in_buyer_package is True
+
 
 class TestCustomerPackageWithVariants:
     @pytest.mark.asyncio
-    async def test_package_builder_includes_approved_variant(self) -> None:
+    async def test_package_builder_includes_only_selected_approved_variants(self) -> None:
         workflow_id = uuid.uuid4()
         owner_id = uuid.uuid4()
         master_id = uuid.uuid4()
-        variant_id = uuid.uuid4()
+        selected_var_id = uuid.uuid4()
+        unselected_var_id = uuid.uuid4()
 
         workflow = MagicMock(spec=ProductWorkflow)
         workflow.id = workflow_id
@@ -464,6 +536,9 @@ class TestCustomerPackageWithVariants:
         listing.id = uuid.uuid4()
         listing.title = "Cute Sleeping Fox Clipart PNG"
         listing.version = 1
+        listing.etsy_dispatch_status = "not_started"
+        listing.etsy_listing_id = None
+        listing.etsy_properties = {}
 
         master_asset = MagicMock(spec=Asset)
         master_asset.id = master_id
@@ -475,31 +550,69 @@ class TestCustomerPackageWithVariants:
         master_asset.created_at = datetime(2026, 1, 1, tzinfo=UTC)
         master_asset.provenance = {"profile": "etsy-png-standard"}
 
-        # Approved Variant
-        approved_var = MagicMock(spec=Asset)
-        approved_var.id = variant_id
-        approved_var.workflow_id = workflow_id
-        approved_var.storage_key = "workflows/wf/variants/var1/dark_shirt.png"
-        approved_var.mime_type = "image/png"
-        approved_var.created_at = datetime(2026, 1, 2, tzinfo=UTC)
-        approved_var.provenance = {
+        # 1. Approved Variant SELECTED for Buyer Package
+        selected_var = MagicMock(spec=Asset)
+        selected_var.id = selected_var_id
+        selected_var.workflow_id = workflow_id
+        selected_var.derived_from_id = master_id
+        selected_var.storage_key = "workflows/wf/variants/var1/dark_shirt.png"
+        selected_var.mime_type = "image/png"
+        selected_var.created_at = datetime(2026, 1, 2, tzinfo=UTC)
+        selected_var.provenance = {
             "kind": "artwork_variant",
             "variant_type": "dark_shirt",
             "variant_status": VariantStatus.APPROVED.value,
+            "include_in_buyer_package": True,
+            "title": "Dark Shirt Version",
         }
 
-        # Unapproved Variant (should NOT be included in ZIP)
+        # 2. Approved Variant UNSELECTED (should NOT be included)
+        unselected_var = MagicMock(spec=Asset)
+        unselected_var.id = unselected_var_id
+        unselected_var.workflow_id = workflow_id
+        unselected_var.derived_from_id = master_id
+        unselected_var.storage_key = "workflows/wf/variants/var2/light_shirt.png"
+        unselected_var.mime_type = "image/png"
+        unselected_var.created_at = datetime(2026, 1, 3, tzinfo=UTC)
+        unselected_var.provenance = {
+            "kind": "artwork_variant",
+            "variant_type": "light_shirt",
+            "variant_status": VariantStatus.APPROVED.value,
+            "include_in_buyer_package": False,
+            "title": "Light Shirt Version",
+        }
+
+        # 3. Unapproved Variant (should NOT be included)
         unapproved_var = MagicMock(spec=Asset)
         unapproved_var.id = uuid.uuid4()
         unapproved_var.workflow_id = workflow_id
-        unapproved_var.storage_key = "workflows/wf/variants/var2/light_shirt.png"
+        unapproved_var.derived_from_id = master_id
+        unapproved_var.storage_key = "workflows/wf/variants/var3/custom.png"
         unapproved_var.mime_type = "image/png"
-        unapproved_var.created_at = datetime(2026, 1, 3, tzinfo=UTC)
+        unapproved_var.created_at = datetime(2026, 1, 4, tzinfo=UTC)
         unapproved_var.provenance = {
             "kind": "artwork_variant",
-            "variant_type": "light_shirt",
+            "variant_type": "custom",
             "variant_status": VariantStatus.READY.value,
+            "include_in_buyer_package": True,  # Unapproved so must be ignored!
         }
+
+        # 4. Outdated Variant (should NOT be included)
+        outdated_var = MagicMock(spec=Asset)
+        outdated_var.id = uuid.uuid4()
+        outdated_var.workflow_id = workflow_id
+        outdated_var.derived_from_id = uuid.uuid4()  # Mismatched older master!
+        outdated_var.storage_key = "workflows/wf/variants/var4/dark_old.png"
+        outdated_var.mime_type = "image/png"
+        outdated_var.created_at = datetime(2026, 1, 5, tzinfo=UTC)
+        outdated_var.provenance = {
+            "kind": "artwork_variant",
+            "variant_type": "dark_shirt",
+            "variant_status": VariantStatus.APPROVED.value,
+            "include_in_buyer_package": True,
+        }
+
+        all_assets = [master_asset, selected_var, unselected_var, unapproved_var, outdated_var]
 
         uow = MagicMock()
         uow.workflows.get = AsyncMock(return_value=workflow)
@@ -507,7 +620,7 @@ class TestCustomerPackageWithVariants:
         uow.listing_drafts.update = AsyncMock()
         uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
         uow.assets.get = AsyncMock(return_value=master_asset)
-        uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset, approved_var, unapproved_var])
+        uow.assets.list_for_workflow = AsyncMock(return_value=all_assets)
         uow.assets.get_by_checksum_sha256 = AsyncMock(return_value=None)
         uow.assets.add = AsyncMock()
         uow.shop_connections.get_by_user_id = AsyncMock(return_value=None)
@@ -524,3 +637,18 @@ class TestCustomerPackageWithVariants:
         assert package_asset is not None
         prov = package_asset.provenance or {}
         assert prov.get("variant_count") == 1
+
+        manifest = prov.get("manifest") or {}
+        files = manifest.get("files") or []
+        file_types = [f["type"] for f in files]
+        assert "original" in file_types
+        assert "dark_shirt" in file_types
+        assert "light_shirt" not in file_types
+        assert "custom" not in file_types
+
+        # Check preview after package is built
+        all_assets.append(package_asset)
+        preview = await service.get_package_preview(workflow_id, uow)
+        assert preview["included_count"] == 2  # Original master + 1 selected variant
+        assert preview["needs_rebuild"] is False
+

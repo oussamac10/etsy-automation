@@ -109,6 +109,23 @@ describe("useArtworkVariants composable", () => {
     expect(variants.value.find((v) => v.id === "var-1")?.variant_status).toBe("approved");
     expect(approvedVariants.value).toHaveLength(2);
   });
+
+  it("toggles package inclusion and updates variant state", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(mockVariants)
+      .mockResolvedValueOnce({
+        ...mockVariants[1],
+        include_in_buyer_package: true,
+      });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const { variants, fetchVariants, togglePackageInclusion } = useArtworkVariants();
+    await fetchVariants("wf-123");
+
+    const success = await togglePackageInclusion("wf-123", "var-2", true);
+    expect(success).toBe(true);
+    expect(variants.value.find((v) => v.id === "var-2")?.include_in_buyer_package).toBe(true);
+  });
 });
 
 describe("ArtworkVariantsCard component", () => {
@@ -117,7 +134,7 @@ describe("ArtworkVariantsCard component", () => {
     vi.stubGlobal("$fetch", vi.fn().mockResolvedValue(mockVariants));
   });
 
-  it("renders variant cards and background preview toggles with black default", async () => {
+  it("renders variant cards with selective package inclusion controls", async () => {
     const wrapper = mount(ArtworkVariantsCard, {
       props: {
         workflowId: "wf-123",
@@ -134,11 +151,13 @@ describe("ArtworkVariantsCard component", () => {
 
     // Check title and approved badge
     expect(wrapper.text()).toContain("Garment Color Variants");
-    expect(wrapper.text()).toContain("1 Approved in ZIP");
 
     // Check variant titles
     expect(wrapper.text()).toContain("Dark Shirt Version");
     expect(wrapper.text()).toContain("Light Shirt Version");
+
+    // Check Include in ZIP controls
+    expect(wrapper.text()).toContain("Include in ZIP");
 
     // Check validation checklist strip
     expect(wrapper.text()).toContain("PNG (300 DPI)");
@@ -152,5 +171,90 @@ describe("ArtworkVariantsCard component", () => {
     // Check background toggle buttons
     const bgButtons = wrapper.findAll("button[title*='Background'], button[title*='Checkerboard']");
     expect(bgButtons.length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe("CustomerPackagePreviewCard component", () => {
+  const mockPreviewResponse = {
+    workflow_id: "wf-123",
+    files: [
+      {
+        type: "original",
+        name: "Original Master PNG",
+        filename: "NovaCraft_Fox_Original.png",
+        byte_size: 14500000,
+        included: true,
+        status: "ready",
+        asset_id: "master-1",
+      },
+      {
+        type: "dark_shirt",
+        name: "Dark Shirt Version",
+        filename: "NovaCraft_Fox_Dark_Shirt.png",
+        byte_size: 14600000,
+        included: true,
+        status: "ready",
+        asset_id: "var-1",
+      },
+      {
+        type: "readme",
+        name: "Usage & Print Guide",
+        filename: "NovaCraft_Fox_README.txt",
+        byte_size: 2500,
+        included: true,
+        status: "ready",
+        asset_id: null,
+      },
+      {
+        type: "license",
+        name: "Commercial License",
+        filename: "NovaCraft_Fox_LICENSE.txt",
+        byte_size: 1800,
+        included: true,
+        status: "ready",
+        asset_id: null,
+      },
+    ],
+    included_count: 2,
+    estimated_total_bytes: 29104300,
+    needs_rebuild: true,
+    etsy_files_out_of_sync: true,
+    package_asset: {
+      id: "asset-pkg-1",
+      byte_size: 26000000,
+    },
+    package_download_url: "https://storage.test/package.zip",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("$fetch", vi.fn().mockResolvedValue(mockPreviewResponse));
+  });
+
+  it("renders itemized buyer deliverables table and sync warning banner", async () => {
+    const CustomerPackagePreviewCard = (await import("../components/workflow/production/CustomerPackagePreviewCard.vue")).default;
+    const wrapper = mount(CustomerPackagePreviewCard, {
+      props: {
+        workflowId: "wf-123",
+      },
+      global: {
+        components: {
+          Icon: IconMock,
+        },
+      },
+    });
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Buyer Deliverable ZIP Package");
+    expect(wrapper.text()).toContain("Etsy Digital Files Out of Sync");
+    expect(wrapper.text()).toContain("Sync Updated Files");
+    expect(wrapper.text()).toContain("Rebuild Required");
+    expect(wrapper.text()).toContain("Original Master PNG");
+    expect(wrapper.text()).toContain("Dark Shirt Version");
+    expect(wrapper.text()).toContain("Usage & Print Guide");
+    expect(wrapper.text()).toContain("Commercial License");
+    expect(wrapper.text()).toContain("NovaCraft_Fox_Dark_Shirt.png");
+    expect(wrapper.text()).toContain("Etsy File Limit");
   });
 });
