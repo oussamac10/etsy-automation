@@ -55,7 +55,8 @@ async function copyChecksum() {
         <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
           <Icon name="lucide:package-check" class="size-4 text-primary" aria-hidden="true" />
           <span>Buyer Delivery Package</span>
-          <Badge v-if="packageAsset" variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+          <Badge v-if="packageAsset" variant="success" class="text-[10px] font-mono font-medium">
+            <span class="size-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" aria-hidden="true" />
             Ready
           </Badge>
         </CardTitle>

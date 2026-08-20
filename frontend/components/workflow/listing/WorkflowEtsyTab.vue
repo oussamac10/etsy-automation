@@ -34,7 +34,7 @@ onMounted(async () => {
         <div class="flex items-center gap-2">
           <Icon name="lucide:store" class="size-5 text-primary" aria-hidden="true" />
           <h2 class="text-base sm:text-lg font-bold tracking-tight">Step 5: Etsy Listing Dispatch</h2>
-          <Badge variant="outline" class="text-[10px] font-mono text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+          <Badge variant="success" class="text-[10px] font-mono font-medium">
             Gate 3 Approved
           </Badge>
         </div>
