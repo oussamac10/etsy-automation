@@ -3,7 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import CategorySelectorCard from '~/components/workflow/listing/CategorySelectorCard.vue';
 
 describe('CategorySelectorCard Component', () => {
-  it('renders default category when no taxonomy is provided', () => {
+  it('renders empty state when no taxonomy is provided (no fake default 6844)', () => {
     const wrapper = mount(CategorySelectorCard, {
       props: {
         workflowId: 'wf-123',
@@ -17,17 +17,19 @@ describe('CategorySelectorCard Component', () => {
     });
 
     expect(wrapper.text()).toContain('Etsy Seller Category');
-    expect(wrapper.text()).toContain('Clip Art & Image Files');
-    expect(wrapper.text()).toContain('6844');
-    expect(wrapper.text()).toContain('Change Category');
+    expect(wrapper.text()).toContain('No category selected');
+    expect(wrapper.text()).toContain('Select Category');
+    expect(wrapper.text()).not.toContain('6844');
+    expect(wrapper.text()).not.toContain('Clip Art & Image Files');
   });
 
-  it('renders custom category path and ID when provided', () => {
+  it('renders custom category path and ID when provided with source badge', () => {
     const wrapper = mount(CategorySelectorCard, {
       props: {
         workflowId: 'wf-123',
         taxonomyId: 2078,
         taxonomyPath: 'Art & Collectibles > Prints > Digital Prints',
+        taxonomySelectionSource: 'manual',
       },
       global: {
         stubs: {
@@ -39,6 +41,26 @@ describe('CategorySelectorCard Component', () => {
 
     expect(wrapper.text()).toContain('Art & Collectibles > Prints > Digital Prints');
     expect(wrapper.text()).toContain('2078');
+    expect(wrapper.text()).toContain('Manual override');
+  });
+
+  it('renders fallback review required badge when taxonomy source is fallback', () => {
+    const wrapper = mount(CategorySelectorCard, {
+      props: {
+        workflowId: 'wf-123',
+        taxonomyId: 6844,
+        taxonomyPath: 'Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files',
+        taxonomySelectionSource: 'fallback',
+      },
+      global: {
+        stubs: {
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain('Fallback — review required');
   });
 
   it('renders fit badge and reasons when fitness is loaded', async () => {
@@ -172,6 +194,50 @@ describe('CategorySelectorCard Component', () => {
     await flushPromises();
     expect(wrapper.text()).toContain('Poor fit');
     expect(wrapper.text()).toContain("Required attributes do not match this campaign's intended use.");
+  });
+
+  it('triggers re-evaluation and emits reResolved event', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, opts?: any) => {
+      if (url.includes('re-resolve')) {
+        return Promise.resolve({
+          recommended_taxonomy_id: 77,
+          recommended_taxonomy_path: 'Art & Collectibles > Drawing & Illustration > Digital',
+          fit_score: 0.92,
+          fit_level: 'good',
+          blocking_mismatch: false,
+          fit_reasons: ['Compatible with printing & sublimation graphics'],
+          warnings: [],
+          applied: false,
+        });
+      }
+      return Promise.resolve(null);
+    });
+    vi.stubGlobal('$fetch', fetchMock);
+
+    const wrapper = mount(CategorySelectorCard, {
+      props: {
+        workflowId: 'wf-123',
+        taxonomyId: 6844,
+        taxonomyPath: 'Craft Supplies & Tools > Canvas & Surfaces > Clip Art & Image Files',
+      },
+      global: {
+        stubs: {
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    });
+
+    const reEvaluateBtn = wrapper.findAll('button').find((b) => b.text().includes('Re-evaluate'));
+    expect(reEvaluateBtn).toBeDefined();
+    await reEvaluateBtn?.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.emitted('reResolved')).toBeTruthy();
+    expect(wrapper.emitted('reResolved')?.[0]?.[0]).toMatchObject({
+      recommended_taxonomy_id: 77,
+      fit_score: 0.92,
+    });
   });
 });
 

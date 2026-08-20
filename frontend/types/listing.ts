@@ -64,6 +64,7 @@ export interface ListingDraft {
   tags: string[];
   taxonomy_id?: number | null;
   taxonomy_path?: string | null;
+  taxonomy_selection_source?: 'auto' | 'manual' | 'fallback' | string | null;
   price_minor_units?: number | null;
   currency?: string | null;
   quantity?: number;
@@ -127,7 +128,7 @@ export interface TaxonomyCategory {
   full_path: string;
   level: number;
   fit_score?: number;
-  fit_level?: 'good' | 'moderate' | 'poor';
+  fit_level?: 'good' | 'moderate' | 'poor' | 'unknown';
   blocking_mismatch?: boolean;
   fit_reasons?: string[];
   warnings?: string[];
@@ -136,10 +137,10 @@ export interface TaxonomyCategory {
 export interface TaxonomyFitness {
   taxonomy_id: number;
   taxonomy_path: string;
-  fit?: 'good' | 'moderate' | 'poor';
+  fit?: 'good' | 'moderate' | 'poor' | 'unknown';
   score?: number;
   fit_score: number;
-  fit_level?: 'good' | 'moderate' | 'poor';
+  fit_level?: 'good' | 'moderate' | 'poor' | 'unknown';
   blocking_mismatch?: boolean;
   fit_reasons: string[];
   warnings: string[];
@@ -147,6 +148,19 @@ export interface TaxonomyFitness {
   mismatched_required_reason?: string | null;
   best_available?: boolean;
   campaign_intent?: string;
+}
+
+export interface ReResolveTaxonomyResponse {
+  recommended_taxonomy_id: number;
+  recommended_taxonomy_path: string;
+  fit_score: number;
+  fit_level: 'good' | 'moderate' | 'poor' | 'unknown';
+  blocking_mismatch: boolean;
+  fit_reasons: string[];
+  warnings: string[];
+  applied: boolean;
+  current_taxonomy_id?: number | null;
+  current_taxonomy_path?: string | null;
 }
 
 export interface ShopSection {

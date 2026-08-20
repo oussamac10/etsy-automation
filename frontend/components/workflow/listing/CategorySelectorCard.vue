@@ -13,43 +13,35 @@ import DialogHeader from '~/components/ui/DialogHeader.vue';
 import DialogTitle from '~/components/ui/DialogTitle.vue';
 import DialogDescription from '~/components/ui/DialogDescription.vue';
 import DialogFooter from '~/components/ui/DialogFooter.vue';
-import type { TaxonomyCategory, TaxonomyFitness } from '~/types/listing';
+import type { ReResolveTaxonomyResponse, TaxonomyCategory, TaxonomyFitness } from '~/types/listing';
 
 const props = defineProps<{
   workflowId: string;
   taxonomyId?: number | null;
   taxonomyPath?: string | null;
+  taxonomySelectionSource?: 'auto' | 'manual' | 'fallback' | string | null;
   isUpdating?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'updateCategory', payload: { id: number; path: string }): void;
+  (e: 'reResolved', payload: ReResolveTaxonomyResponse): void;
 }>();
 
 const isModalOpen = ref(false);
 const searchQuery = ref('');
 const searchResults = ref<TaxonomyCategory[]>([]);
 const isLoadingResults = ref(false);
+const isReResolving = ref(false);
 const selectedNode = ref<{ id: number; path: string } | null>(null);
 
 const activeFitness = ref<TaxonomyFitness | null>(null);
 const isLoadingFitness = ref(false);
 
-const DEFAULT_CATEGORY_PATH = 'Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files';
-const DEFAULT_CATEGORY_ID = 6844;
-
-const currentPath = computed(() => props.taxonomyPath || DEFAULT_CATEGORY_PATH);
-const currentId = computed(() => props.taxonomyId || DEFAULT_CATEGORY_ID);
+const currentPath = computed(() => props.taxonomyPath || '');
+const currentId = computed(() => props.taxonomyId || null);
 
 const RECOMMENDED_CATEGORIES: TaxonomyCategory[] = [
-  {
-    id: 6844,
-    name: 'Clip Art & Image Files',
-    full_path: 'Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files',
-    level: 3,
-    fit_score: 0.85,
-    fit_reasons: ['Digital download compatible', 'Matches digital clip art & graphics'],
-  },
   {
     id: 77,
     name: 'Digital',
@@ -67,11 +59,13 @@ const RECOMMENDED_CATEGORIES: TaxonomyCategory[] = [
     fit_reasons: ['Optimized for printable designs and posters'],
   },
   {
-    id: 769,
-    name: 'Store Graphics',
-    full_path: 'Paper & Party Supplies > Paper > Stationery > Design & Templates > Graphic Design > Store Graphics',
-    level: 4,
-    fit_score: 0.75,
+    id: 6844,
+    name: 'Clip Art & Image Files',
+    full_path: 'Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files',
+    level: 3,
+    fit_score: 0.35,
+    fit_reasons: ['Digital download compatible'],
+    warnings: ['Required Craft type is paper-oriented'],
   },
 ];
 
@@ -85,7 +79,10 @@ function getApiBase(): string {
 }
 
 async function loadFitness() {
-  if (!props.workflowId) return;
+  if (!props.workflowId || !props.taxonomyId) {
+    activeFitness.value = null;
+    return;
+  }
   isLoadingFitness.value = true;
   try {
     const apiBase = getApiBase();
@@ -123,11 +120,43 @@ async function loadCategories(query?: string) {
   }
 }
 
+async function reResolveTaxonomy(apply = false) {
+  if (!props.workflowId) return;
+  isReResolving.value = true;
+  try {
+    const apiBase = getApiBase();
+    const res = await $fetch<ReResolveTaxonomyResponse>(
+      `${apiBase}/api/v1/workflows/${props.workflowId}/listing/taxonomy/re-resolve`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'include',
+        body: { apply },
+      }
+    );
+    emit('reResolved', res);
+    if (apply) {
+      emit('updateCategory', {
+        id: res.recommended_taxonomy_id,
+        path: res.recommended_taxonomy_path,
+      });
+    }
+    await loadFitness();
+    await loadCategories();
+  } catch {
+    // Graceful fallback
+  } finally {
+    isReResolving.value = false;
+  }
+}
+
 function openModal() {
-  selectedNode.value = {
-    id: currentId.value,
-    path: currentPath.value,
-  };
+  selectedNode.value = currentId.value
+    ? {
+        id: currentId.value,
+        path: currentPath.value,
+      }
+    : null;
   searchQuery.value = '';
   isModalOpen.value = true;
   loadCategories();
@@ -169,6 +198,7 @@ onMounted(() => {
 defineExpose({
   openModal,
   loadFitness,
+  reResolveTaxonomy,
 });
 </script>
 
@@ -184,19 +214,55 @@ defineExpose({
           Etsy Open API v3 seller taxonomy for digital transparent PNG artwork.
         </CardDescription>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer self-start sm:self-auto"
-        @click="openModal"
-      >
-        <Icon name="lucide:sliders-horizontal" class="size-3.5" aria-hidden="true" />
-        <span>Change Category</span>
-      </Button>
+      <div class="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+        <Button
+          v-if="props.taxonomyId"
+          variant="ghost"
+          size="sm"
+          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
+          :disabled="isReResolving"
+          @click="reResolveTaxonomy(false)"
+        >
+          <Icon v-if="isReResolving" name="lucide:loader-2" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:refresh-cw" class="size-3.5" aria-hidden="true" />
+          <span>Re-evaluate</span>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
+          @click="openModal"
+        >
+          <Icon name="lucide:sliders-horizontal" class="size-3.5" aria-hidden="true" />
+          <span>{{ props.taxonomyId ? 'Change Category' : 'Select Category' }}</span>
+        </Button>
+      </div>
     </CardHeader>
 
     <CardContent class="p-4 sm:p-5 pt-0 space-y-3">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border/70 text-xs">
+      <!-- Empty state when no category is selected -->
+      <div
+        v-if="!props.taxonomyId"
+        class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-muted/20 border border-dashed border-border text-xs"
+        data-testid="empty-category-state"
+      >
+        <div class="space-y-0.5">
+          <p class="font-medium text-foreground">No category selected</p>
+          <p class="text-2xs text-muted-foreground">Select an Etsy seller category to configure taxonomy attributes for this campaign.</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer self-start sm:self-auto"
+          @click="openModal"
+        >
+          <Icon name="lucide:sliders-horizontal" class="size-3.5" aria-hidden="true" />
+          <span>Select Category</span>
+        </Button>
+      </div>
+
+      <!-- Selected category info -->
+      <div v-else class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border/70 text-xs">
         <div class="flex items-start gap-2.5 min-w-0">
           <Icon name="lucide:check-circle-2" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
           <div class="min-w-0">
@@ -208,7 +274,7 @@ defineExpose({
             </p>
           </div>
         </div>
-        <div class="flex items-center gap-1.5 shrink-0 self-start sm:self-auto">
+        <div class="flex items-center gap-1.5 shrink-0 self-start sm:self-auto flex-wrap">
           <!-- Poor fit status badge -->
           <Badge
             v-if="activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5)"
@@ -221,7 +287,7 @@ defineExpose({
 
           <!-- Fitness indicator for good/moderate fit -->
           <Badge
-            v-else-if="activeFitness && activeFitness.fit_score !== undefined"
+            v-else-if="activeFitness && activeFitness.fit_score !== undefined && activeFitness.fit_level !== 'unknown'"
             variant="outline"
             class="text-2xs py-0.5 gap-1 font-mono font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
           >
@@ -229,22 +295,26 @@ defineExpose({
             <span>{{ Math.round(activeFitness.fit_score * 100) }}% fit</span>
           </Badge>
 
-          <Badge v-if="props.taxonomyId && props.taxonomyId !== DEFAULT_CATEGORY_ID" variant="outline" class="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 text-2xs py-0.5">
+          <!-- Source badge -->
+          <Badge v-if="props.taxonomySelectionSource === 'manual'" variant="outline" class="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 text-2xs py-0.5">
             Manual override
+          </Badge>
+          <Badge v-else-if="props.taxonomySelectionSource === 'fallback'" variant="outline" class="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-2xs py-0.5">
+            Fallback — review required
           </Badge>
           <Badge
             v-else-if="!(activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5))"
             variant="outline"
             class="bg-primary/10 text-primary border-primary/20 text-2xs py-0.5"
           >
-            Recommended
+            Auto-selected
           </Badge>
         </div>
       </div>
 
       <!-- Poor fit warning callout -->
       <div
-        v-if="activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5)"
+        v-if="props.taxonomyId && (activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5))"
         class="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1.5 px-1 font-medium"
       >
         <Icon name="lucide:alert-triangle" class="size-3 shrink-0" aria-hidden="true" />
@@ -252,7 +322,7 @@ defineExpose({
       </div>
 
       <!-- Fit reasons callout if compatible -->
-      <div v-else-if="activeFitness?.fit_reasons && activeFitness.fit_reasons.length > 0" class="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap px-1">
+      <div v-else-if="props.taxonomyId && activeFitness?.fit_reasons && activeFitness.fit_reasons.length > 0" class="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap px-1">
         <span class="font-semibold text-foreground/80 uppercase tracking-wider text-[9px]">Compatibility:</span>
         <span v-for="(reason, idx) in activeFitness.fit_reasons.slice(0, 2)" :key="idx" class="inline-flex items-center gap-1">
           <span>• {{ reason }}</span>

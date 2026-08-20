@@ -307,6 +307,7 @@ async function handleUpdateCategory(payload: { id: number; path: string }) {
     if (updated) {
       localTaxonomyId.value = updated.taxonomy_id || payload.id;
       localTaxonomyPath.value = updated.taxonomy_path || payload.path;
+      localEtsyProperties.value = updated.etsy_properties ? JSON.parse(JSON.stringify(updated.etsy_properties)) : {};
       await loadCategoryFitness();
       successMessage.value = 'Etsy seller category updated successfully.';
       setTimeout(() => {
@@ -315,6 +316,15 @@ async function handleUpdateCategory(payload: { id: number; path: string }) {
     }
   } catch {
     // Error set in composable
+  }
+}
+
+async function handleCategoryReResolved(res: any) {
+  await loadListingData();
+  await loadCategoryFitness();
+  if (res?.applied) {
+    localTaxonomyId.value = res.recommended_taxonomy_id;
+    localTaxonomyPath.value = res.recommended_taxonomy_path;
   }
 }
 
@@ -751,8 +761,10 @@ const subTabs = computed(() => [
               :workflow-id="workflowId"
               :taxonomy-id="activeTaxonomyId"
               :taxonomy-path="localTaxonomyPath"
+              :taxonomy-selection-source="listingDraft?.taxonomy_selection_source"
               :is-updating="isUpdatingTaxonomy"
               @update-category="handleUpdateCategory"
+              @re-resolved="handleCategoryReResolved"
             />
 
             <TaxonomyAttributesCard
