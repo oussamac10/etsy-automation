@@ -144,6 +144,9 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment: *python-env
+    volumes:
+      - ./backend/app:/srv/backend/app
+      - ./workers/general-worker/worker:/srv/workers/general-worker/worker
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
@@ -167,6 +170,9 @@ services:
       context: .
       dockerfile: workers/general-worker/Dockerfile
     environment: *python-env
+    volumes:
+      - ./backend/app:/srv/backend/app
+      - ./workers/general-worker/worker:/srv/workers/general-worker/worker
     command: [ "dramatiq", "worker.main", "--processes", "1", "--threads", "4" ]
     depends_on:
       postgres:
