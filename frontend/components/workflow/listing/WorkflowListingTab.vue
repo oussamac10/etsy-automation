@@ -107,6 +107,7 @@ const localTaxonomyPath = ref<string>('Craft Supplies & Tools > Canvas & Surface
 const warningAcknowledged = ref(false);
 const successMessage = ref<string | null>(null);
 const showAllReadinessChecks = ref(false);
+const categorySelectorRef = ref<{ openModal: () => void; loadFitness: () => Promise<void> } | null>(null);
 
 onMounted(async () => {
   await loadListingData();
@@ -699,6 +700,7 @@ const subTabs = computed(() => [
           <!-- Left Column (Category & Attributes) -->
           <div class="lg:col-span-6 space-y-6">
             <CategorySelectorCard
+              ref="categorySelectorRef"
               :workflow-id="workflowId"
               :taxonomy-id="activeTaxonomyId"
               :taxonomy-path="localTaxonomyPath"
@@ -713,6 +715,7 @@ const subTabs = computed(() => [
               :is-saving="isSaving"
               @update:etsy-properties="localEtsyProperties = $event"
               @save="handleSave"
+              @review-category="categorySelectorRef?.openModal()"
             />
           </div>
 

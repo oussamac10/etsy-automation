@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import type { TaxonomyProperty } from '~/types/listing';
+import type { TaxonomyFitness, TaxonomyProperty } from '~/types/listing';
 import Card from '~/components/ui/Card.vue';
 import CardHeader from '~/components/ui/CardHeader.vue';
 import CardTitle from '~/components/ui/CardTitle.vue';
@@ -20,12 +20,20 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:etsyProperties', val: Record<string, any>): void;
   (e: 'save'): void;
+  (e: 'reviewCategory'): void;
 }>();
 
-const config = useRuntimeConfig();
-const apiBase = config.public.apiBase ? config.public.apiBase.replace(/\/$/, '') : '';
+function getApiBase(): string {
+  try {
+    const config = useRuntimeConfig();
+    return config?.public?.apiBase ? config.public.apiBase.replace(/\/$/, '') : '';
+  } catch {
+    return '';
+  }
+}
 
 const properties = ref<TaxonomyProperty[]>([]);
+const fitness = ref<TaxonomyFitness | null>(null);
 const isLoading = ref(false);
 const showInfoTooltip = ref(false);
 const showOtherProperties = ref(false);
@@ -44,16 +52,10 @@ watch(
 );
 
 watch(
-  () => props.workflowId,
+  () => [props.workflowId, props.taxonomyId],
   () => {
     loadTaxonomyProperties();
-  }
-);
-
-watch(
-  () => props.taxonomyId,
-  () => {
-    loadTaxonomyProperties();
+    loadFitness();
   }
 );
 
@@ -62,7 +64,7 @@ const usableProperties = computed(() => {
   return properties.value.filter((p) => p.is_required || (p.possible_values && p.possible_values.length > 0));
 });
 
-const RECOMMENDED_PROP_KEYWORDS = ['craft', 'holiday', 'season', 'style', 'primary color', 'secondary color', 'occasion'];
+const RECOMMENDED_PROP_KEYWORDS = ['craft', 'primary color', 'secondary color', 'holiday', 'occasion', 'style', 'season'];
 
 const recommendedProperties = computed(() => {
   return usableProperties.value.filter((p) => {
@@ -81,6 +83,7 @@ async function loadTaxonomyProperties() {
   if (!props.workflowId) return;
   isLoading.value = true;
   try {
+    const apiBase = getApiBase();
     const data = await $fetch<TaxonomyProperty[]>(
       `${apiBase}/api/v1/workflows/${props.workflowId}/listing/taxonomy-properties`,
       {
@@ -96,8 +99,26 @@ async function loadTaxonomyProperties() {
   }
 }
 
+async function loadFitness() {
+  if (!props.workflowId) return;
+  try {
+    const apiBase = getApiBase();
+    const data = await $fetch<TaxonomyFitness>(
+      `${apiBase}/api/v1/workflows/${props.workflowId}/listing/taxonomy/fitness`,
+      {
+        headers: { Accept: 'application/json' },
+        credentials: 'include',
+      }
+    );
+    fitness.value = data || null;
+  } catch {
+    fitness.value = null;
+  }
+}
+
 onMounted(() => {
   loadTaxonomyProperties();
+  loadFitness();
 });
 
 function isValueSelected(propId: number, valName: string): boolean {
@@ -244,7 +265,7 @@ const totalSelectedCount = computed(() => {
           variant="default"
           size="sm"
           :disabled="isSaving"
-          class="h-8 px-3 gap-1.5 text-xs font-medium shrink-0 cursor-pointer shadow-xs"
+          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
           @click="emit('save')"
         >
           <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
@@ -252,163 +273,222 @@ const totalSelectedCount = computed(() => {
           <span>Save</span>
         </Button>
       </div>
-
-      <!-- Info Banner Tooltip -->
-      <div v-if="showInfoTooltip" class="mt-2.5 p-3 rounded-lg bg-muted/60 border border-border text-xs text-muted-foreground space-y-1">
-        <p class="font-semibold text-foreground flex items-center gap-1.5">
-          <Icon name="lucide:info" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>About Category Attributes</span>
-        </p>
-        <p class="leading-normal">
-          These attributes come directly from Etsy. Select only the values that accurately describe this listing.
-        </p>
-      </div>
     </CardHeader>
 
     <CardContent class="p-4 sm:p-5 pt-0 space-y-4">
-      <!-- Loading State Skeleton -->
-      <div v-if="isLoading" class="space-y-3">
-        <div class="h-10 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-lg" />
-        <div class="h-10 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-lg" />
+      <!-- Info Alert Box -->
+      <div v-if="showInfoTooltip" class="p-3 rounded-lg border border-border bg-muted/30 text-xs space-y-1.5">
+        <p class="font-medium text-foreground">About Etsy Category Attributes</p>
+        <p class="text-muted-foreground text-[11px] leading-relaxed">
+          These attributes come directly from Etsy's seller taxonomy. Selecting accurate properties helps Etsy buyers find your digital download. Values are 100% manual and draft-only.
+        </p>
       </div>
 
-      <!-- Compact Attributes 2-Column Grid Layout -->
-      <div v-else-if="usableProperties.length > 0" class="space-y-4">
-        <!-- Recommended Category Attributes Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div
-            v-for="prop in recommendedProperties"
-            :key="prop.property_id"
-            class="p-3 rounded-lg bg-muted/30 border border-border/70 space-y-2"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <Label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <span>{{ prop.name }}</span>
-                <span v-if="prop.is_required" class="text-destructive font-bold" title="Required by Etsy">* Required</span>
-                <span v-else class="text-[10px] text-muted-foreground font-normal">Optional</span>
+      <!-- Warning Banner for Mismatched Required Attributes -->
+      <div
+        v-if="fitness?.has_mismatched_required_attributes || (fitness?.warnings && fitness.warnings.length > 0)"
+        class="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        data-testid="category-attribute-mismatch-warning"
+      >
+        <div class="space-y-1 min-w-0">
+          <p class="font-semibold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+            <Icon name="lucide:alert-triangle" class="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <span>Required Etsy attributes do not match this product's intended use</span>
+          </p>
+          <p class="text-[11px] text-amber-700 dark:text-amber-300/90 leading-relaxed">
+            {{ fitness?.mismatched_required_reason || fitness?.warnings?.[0] || 'Craft type is required, but Etsy only offers paper/collage-related values for this category. Consider changing the Etsy category.' }}
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          class="h-8 text-xs border-amber-500/30 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200 shrink-0 cursor-pointer self-start sm:self-auto"
+          @click="emit('reviewCategory')"
+        >
+          <Icon name="lucide:folder-tree" class="size-3.5 mr-1" aria-hidden="true" />
+          <span>Review Category</span>
+        </Button>
+      </div>
+
+      <!-- Loading State -->
+      <div v-if="isLoading" class="py-6 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
+        <Icon name="lucide:loader-2" class="size-5 animate-spin text-primary" aria-hidden="true" />
+        <span>Loading Etsy category properties...</span>
+      </div>
+
+      <!-- Empty State -->
+      <div
+        v-else-if="usableProperties.length === 0"
+        class="py-6 text-center text-xs text-muted-foreground border border-dashed rounded-lg"
+      >
+        <Icon name="lucide:check-circle" class="size-5 text-emerald-600 mx-auto mb-1.5" aria-hidden="true" />
+        <p>No additional attributes required by Etsy for this category.</p>
+      </div>
+
+      <!-- Properties Form -->
+      <div v-else class="space-y-4">
+        <!-- Recommended / Core Properties -->
+        <div
+          v-for="prop in recommendedProperties"
+          :key="prop.property_id"
+          class="p-3.5 rounded-lg border border-border/80 bg-card/60 space-y-2.5 transition-colors"
+          :class="{ 'border-amber-500/30 bg-amber-500/5': isPropertyMissingRequired(prop) }"
+        >
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <Label class="text-xs font-semibold text-foreground">
+                {{ prop.name }}
               </Label>
               <Badge
-                v-if="prop.is_multivalued"
+                v-if="prop.is_required"
                 variant="outline"
-                class="text-[9px] font-mono text-muted-foreground px-1.5 py-0"
+                class="text-[10px] py-0 font-medium"
+                :class="
+                  isPropertyMissingRequired(prop)
+                    ? 'bg-destructive/10 text-destructive border-destructive/20'
+                    : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+                "
               >
-                multi
+                * Required
+              </Badge>
+              <Badge v-else variant="outline" class="text-[10px] py-0 text-muted-foreground">
+                Optional
               </Badge>
             </div>
 
-            <!-- Missing Required Warning -->
-            <p v-if="isPropertyMissingRequired(prop)" class="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+            <!-- Missing indicator -->
+            <span v-if="isPropertyMissingRequired(prop)" class="text-[11px] font-medium text-destructive">
               Required selection missing
-            </p>
+            </span>
+          </div>
 
-            <!-- Multivalued OR Small choices <= 6: Chips -->
-            <div v-if="prop.is_multivalued || (prop.possible_values && prop.possible_values.length <= 6)" class="flex flex-wrap gap-1.5">
-              <button
-                v-for="val in prop.possible_values"
-                :key="val.value_id || val.name"
-                type="button"
-                class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded border transition-colors cursor-pointer"
-                :class="
-                  isValueSelected(prop.property_id, val.name)
-                    ? 'bg-primary/10 text-primary border-primary/40 font-semibold'
-                    : 'bg-background text-muted-foreground border-border hover:bg-muted'
-                "
-                @click="toggleValue(prop, val.name, val.value_id)"
-              >
-                <Icon
-                  :name="isValueSelected(prop.property_id, val.name) ? 'lucide:check' : 'lucide:plus'"
-                  class="size-3"
-                  aria-hidden="true"
-                />
-                <span>{{ val.name }}</span>
-              </button>
-            </div>
+          <!-- Multi-valued Property: Tag Chips -->
+          <div v-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="flex flex-wrap gap-1.5 pt-1">
+            <button
+              v-for="val in prop.possible_values"
+              :key="val.value_id"
+              type="button"
+              class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
+              :class="
+                isValueSelected(prop.property_id, val.name)
+                  ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
+                  : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
+              "
+              @click="toggleValue(prop, val.name, val.value_id)"
+            >
+              <Icon
+                v-if="isValueSelected(prop.property_id, val.name)"
+                name="lucide:check"
+                class="size-3"
+                aria-hidden="true"
+              />
+              <span>{{ val.name }}</span>
+            </button>
+          </div>
 
-            <!-- Single-valued with > 6 choices: Dropdown -->
-            <div v-else-if="prop.possible_values && prop.possible_values.length > 6" class="relative">
-              <select
-                class="w-full h-8 px-2.5 text-xs rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                :value="localPropertiesMap[String(prop.property_id)]?.values?.[0] || ''"
-                @change="onDropdownSelect(prop, $event)"
-              >
-                <option value="">-- Not selected --</option>
-                <option
-                  v-for="val in prop.possible_values"
-                  :key="val.value_id || val.name"
-                  :value="val.name"
-                >
-                  {{ val.name }}
-                </option>
-              </select>
-            </div>
+          <!-- Single-valued Property (<= 6 items): Radio/Toggle Chips -->
+          <div
+            v-else-if="!prop.is_multivalued && prop.possible_values && prop.possible_values.length <= 6 && prop.possible_values.length > 0"
+            class="flex flex-wrap gap-1.5 pt-1"
+          >
+            <button
+              v-for="val in prop.possible_values"
+              :key="val.value_id"
+              type="button"
+              class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
+              :class="
+                isValueSelected(prop.property_id, val.name)
+                  ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
+                  : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
+              "
+              @click="toggleValue(prop, val.name, val.value_id)"
+            >
+              <Icon
+                v-if="isValueSelected(prop.property_id, val.name)"
+                name="lucide:check"
+                class="size-3"
+                aria-hidden="true"
+              />
+              <span>{{ val.name }}</span>
+            </button>
+          </div>
+
+          <!-- Single-valued Property (> 6 items): Dropdown with '-- Not selected --' -->
+          <div v-else-if="prop.possible_values && prop.possible_values.length > 6" class="pt-1">
+            <select
+              class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              :value="localPropertiesMap[String(prop.property_id)]?.values?.[0] || ''"
+              @change="onDropdownSelect(prop, $event)"
+            >
+              <option value="">-- Not selected --</option>
+              <option v-for="val in prop.possible_values" :key="val.value_id" :value="val.name">
+                {{ val.name }}
+              </option>
+            </select>
           </div>
         </div>
 
-        <!-- Collapsible Other Etsy Attributes Section -->
-        <div v-if="otherProperties.length > 0" class="pt-2 border-t border-border/50 space-y-3">
-          <button
+        <!-- Other / Secondary Properties Collapsible -->
+        <div v-if="otherProperties.length > 0" class="pt-2 border-t border-border/50">
+          <Button
             type="button"
-            class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            variant="ghost"
+            size="sm"
+            class="w-full justify-between text-xs text-muted-foreground hover:text-foreground h-8"
             @click="showOtherProperties = !showOtherProperties"
           >
+            <span>Other Etsy Attributes ({{ otherProperties.length }})</span>
             <Icon
-              :name="showOtherProperties ? 'lucide:chevron-down' : 'lucide:chevron-right'"
+              :name="showOtherProperties ? 'lucide:chevron-up' : 'lucide:chevron-down'"
               class="size-3.5"
               aria-hidden="true"
             />
-            <span>Other Etsy Attributes ({{ otherProperties.length }} additional)</span>
-          </button>
+          </Button>
 
-          <div v-if="showOtherProperties" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          <div v-if="showOtherProperties" class="space-y-3 pt-3">
             <div
               v-for="prop in otherProperties"
               :key="prop.property_id"
-              class="p-3 rounded-lg bg-muted/20 border border-border/50 space-y-2"
+              class="p-3 rounded-lg border border-border bg-card/40 space-y-2"
             >
               <div class="flex items-center justify-between gap-2">
-                <Label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <span>{{ prop.name }}</span>
-                  <span v-if="prop.is_required" class="text-destructive font-bold" title="Required by Etsy">* Required</span>
-                  <span v-else class="text-[10px] text-muted-foreground font-normal">Optional</span>
+                <Label class="text-xs font-semibold text-foreground">
+                  {{ prop.name }}
                 </Label>
+                <Badge variant="outline" class="text-[10px] py-0 text-muted-foreground">
+                  Optional
+                </Badge>
               </div>
 
-              <!-- Multivalued OR Small choices <= 6: Chips -->
-              <div v-if="prop.is_multivalued || (prop.possible_values && prop.possible_values.length <= 6)" class="flex flex-wrap gap-1.5">
+              <!-- Multivalued chips -->
+              <div v-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="flex flex-wrap gap-1.5 pt-1">
                 <button
                   v-for="val in prop.possible_values"
-                  :key="val.value_id || val.name"
+                  :key="val.value_id"
                   type="button"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded border transition-colors cursor-pointer"
+                  class="px-2 py-0.5 rounded text-xs transition-colors cursor-pointer border"
                   :class="
                     isValueSelected(prop.property_id, val.name)
-                      ? 'bg-primary/10 text-primary border-primary/40 font-semibold'
-                      : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                      ? 'bg-primary text-primary-foreground border-primary font-medium'
+                      : 'bg-muted/40 hover:bg-muted text-muted-foreground border-border/60'
                   "
                   @click="toggleValue(prop, val.name, val.value_id)"
                 >
-                  <Icon
-                    :name="isValueSelected(prop.property_id, val.name) ? 'lucide:check' : 'lucide:plus'"
-                    class="size-3"
-                    aria-hidden="true"
-                  />
-                  <span>{{ val.name }}</span>
+                  {{ val.name }}
                 </button>
               </div>
 
-              <!-- Single-valued with > 6 choices: Dropdown -->
-              <div v-else-if="prop.possible_values && prop.possible_values.length > 6">
+              <!-- Dropdown for others -->
+              <div v-else-if="prop.possible_values && prop.possible_values.length > 0" class="pt-1">
                 <select
-                  class="w-full h-8 px-2.5 text-xs rounded-md border border-border bg-background text-foreground focus:outline-none cursor-pointer"
+                  class="flex h-8 w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   :value="localPropertiesMap[String(prop.property_id)]?.values?.[0] || ''"
                   @change="onDropdownSelect(prop, $event)"
                 >
                   <option value="">-- Not selected --</option>
-                  <option
-                    v-for="val in prop.possible_values"
-                    :key="val.value_id || val.name"
-                    :value="val.name"
-                  >
+                  <option v-for="val in prop.possible_values" :key="val.value_id" :value="val.name">
                     {{ val.name }}
                   </option>
                 </select>
@@ -416,14 +496,6 @@ const totalSelectedCount = computed(() => {
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Empty Fallback -->
-      <div v-else class="text-center py-4 px-3 bg-muted/40 border border-dashed border-border rounded-lg space-y-1">
-        <p class="text-xs font-semibold text-foreground">Category Attributes</p>
-        <p class="text-[11px] text-muted-foreground">
-          Select an Etsy category above to view available attributes.
-        </p>
       </div>
     </CardContent>
   </Card>

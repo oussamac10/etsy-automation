@@ -126,6 +126,19 @@ export interface TaxonomyCategory {
   name: string;
   full_path: string;
   level: number;
+  fit_score?: number;
+  fit_reasons?: string[];
+  warnings?: string[];
+}
+
+export interface TaxonomyFitness {
+  taxonomy_id: number;
+  taxonomy_path: string;
+  fit_score: number;
+  fit_reasons: string[];
+  warnings: string[];
+  has_mismatched_required_attributes: boolean;
+  mismatched_required_reason?: string | null;
 }
 
 export interface ShopSection {

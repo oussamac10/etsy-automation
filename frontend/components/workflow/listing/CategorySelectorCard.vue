@@ -13,7 +13,7 @@ import DialogHeader from '~/components/ui/DialogHeader.vue';
 import DialogTitle from '~/components/ui/DialogTitle.vue';
 import DialogDescription from '~/components/ui/DialogDescription.vue';
 import DialogFooter from '~/components/ui/DialogFooter.vue';
-import type { TaxonomyCategory } from '~/types/listing';
+import type { TaxonomyCategory, TaxonomyFitness } from '~/types/listing';
 
 const props = defineProps<{
   workflowId: string;
@@ -32,6 +32,9 @@ const searchResults = ref<TaxonomyCategory[]>([]);
 const isLoadingResults = ref(false);
 const selectedNode = ref<{ id: number; path: string } | null>(null);
 
+const activeFitness = ref<TaxonomyFitness | null>(null);
+const isLoadingFitness = ref(false);
+
 const DEFAULT_CATEGORY_PATH = 'Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files';
 const DEFAULT_CATEGORY_ID = 6844;
 
@@ -44,32 +47,67 @@ const RECOMMENDED_CATEGORIES: TaxonomyCategory[] = [
     name: 'Clip Art & Image Files',
     full_path: 'Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files',
     level: 3,
+    fit_score: 0.85,
+    fit_reasons: ['Digital download compatible', 'Matches digital clip art & graphics'],
   },
   {
     id: 77,
     name: 'Digital',
     full_path: 'Art & Collectibles > Drawing & Illustration > Digital',
     level: 2,
+    fit_score: 0.9,
+    fit_reasons: ['Supports digital illustration and artwork'],
   },
   {
     id: 2078,
     name: 'Digital Prints',
     full_path: 'Art & Collectibles > Prints > Digital Prints',
     level: 2,
+    fit_score: 0.85,
+    fit_reasons: ['Optimized for printable designs and posters'],
   },
   {
     id: 769,
     name: 'Store Graphics',
     full_path: 'Paper & Party Supplies > Paper > Stationery > Design & Templates > Graphic Design > Store Graphics',
     level: 4,
+    fit_score: 0.75,
   },
 ];
+
+function getApiBase(): string {
+  try {
+    const config = useRuntimeConfig();
+    return config?.public?.apiBase ? config.public.apiBase.replace(/\/$/, '') : '';
+  } catch {
+    return '';
+  }
+}
+
+async function loadFitness() {
+  if (!props.workflowId) return;
+  isLoadingFitness.value = true;
+  try {
+    const apiBase = getApiBase();
+    const data = await $fetch<TaxonomyFitness>(
+      `${apiBase}/api/v1/workflows/${props.workflowId}/listing/taxonomy/fitness`,
+      {
+        headers: { Accept: 'application/json' },
+        credentials: 'include',
+      }
+    );
+    activeFitness.value = data || null;
+  } catch {
+    activeFitness.value = null;
+  } finally {
+    isLoadingFitness.value = false;
+  }
+}
 
 async function loadCategories(query?: string) {
   isLoadingResults.value = true;
   try {
-    const config = useRuntimeConfig();
-    const apiBase = config.public.apiBase ? config.public.apiBase.replace(/\/$/, '') : '';
+    const apiBase = getApiBase();
     const url = query
       ? `${apiBase}/api/v1/workflows/${props.workflowId}/listing/taxonomy/categories?q=${encodeURIComponent(query)}`
       : `${apiBase}/api/v1/workflows/${props.workflowId}/listing/taxonomy/categories`;
@@ -116,6 +154,22 @@ watch(searchQuery, (newQuery) => {
     loadCategories(newQuery.trim());
   }, 300);
 });
+
+watch(
+  () => [props.workflowId, props.taxonomyId],
+  () => {
+    loadFitness();
+  }
+);
+
+onMounted(() => {
+  loadFitness();
+});
+
+defineExpose({
+  openModal,
+  loadFitness,
+});
 </script>
 
 <template>
@@ -141,7 +195,7 @@ watch(searchQuery, (newQuery) => {
       </Button>
     </CardHeader>
 
-    <CardContent class="p-4 sm:p-5 pt-0">
+    <CardContent class="p-4 sm:p-5 pt-0 space-y-3">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border/70 text-xs">
         <div class="flex items-start gap-2.5 min-w-0">
           <Icon name="lucide:check-circle-2" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
@@ -155,13 +209,44 @@ watch(searchQuery, (newQuery) => {
           </div>
         </div>
         <div class="flex items-center gap-1.5 shrink-0 self-start sm:self-auto">
+          <!-- Fitness indicator -->
+          <Badge
+            v-if="activeFitness && activeFitness.fit_score !== undefined"
+            variant="outline"
+            class="text-2xs py-0.5 gap-1 font-mono font-medium"
+            :class="
+              activeFitness.has_mismatched_required_attributes || activeFitness.fit_score < 0.5
+                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+            "
+          >
+            <Icon
+              :name="
+                activeFitness.has_mismatched_required_attributes || activeFitness.fit_score < 0.5
+                  ? 'lucide:alert-triangle'
+                  : 'lucide:sparkles'
+              "
+              class="size-3"
+              aria-hidden="true"
+            />
+            <span>{{ Math.round(activeFitness.fit_score * 100) }}% fit</span>
+          </Badge>
+
           <Badge v-if="props.taxonomyId && props.taxonomyId !== DEFAULT_CATEGORY_ID" variant="outline" class="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 text-2xs py-0.5">
             Manual override
           </Badge>
-          <Badge v-else variant="outline" class="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-2xs py-0.5">
-            Smart match
+          <Badge v-else variant="outline" class="bg-primary/10 text-primary border-primary/20 text-2xs py-0.5">
+            Recommended
           </Badge>
         </div>
+      </div>
+
+      <!-- Fit reasons callout if available -->
+      <div v-if="activeFitness?.fit_reasons && activeFitness.fit_reasons.length > 0 && !activeFitness.has_mismatched_required_attributes" class="text-2xs text-muted-foreground flex items-center gap-1.5 flex-wrap px-1">
+        <span class="font-medium text-foreground">Compatibility:</span>
+        <span v-for="(reason, idx) in activeFitness.fit_reasons.slice(0, 2)" :key="idx" class="inline-flex items-center gap-1">
+          <span>• {{ reason }}</span>
+        </span>
       </div>
     </CardContent>
 
@@ -196,12 +281,12 @@ watch(searchQuery, (newQuery) => {
             </span>
           </div>
 
-          <div class="max-h-60 overflow-y-auto space-y-1.5 pr-1">
+          <div class="max-h-64 overflow-y-auto space-y-1.5 pr-1">
             <button
               v-for="cat in searchResults"
               :key="cat.id"
               type="button"
-              class="w-full text-left p-2.5 rounded-lg border transition-colors flex items-center justify-between gap-3 text-xs"
+              class="w-full text-left p-3 rounded-lg border transition-colors flex flex-col gap-1 text-xs"
               :class="[
                 selectedNode?.id === cat.id
                   ? 'bg-primary/10 border-primary text-foreground font-medium'
@@ -209,18 +294,52 @@ watch(searchQuery, (newQuery) => {
               ]"
               @click="selectCategory(cat)"
             >
-              <div class="min-w-0">
-                <p class="font-medium text-foreground truncate">{{ cat.name }}</p>
-                <p class="text-2xs text-muted-foreground truncate">{{ cat.full_path }}</p>
+              <div class="flex items-center justify-between gap-3 w-full">
+                <div class="min-w-0">
+                  <p class="font-medium text-foreground truncate">{{ cat.name }}</p>
+                  <p class="text-2xs text-muted-foreground truncate">{{ cat.full_path }}</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <Badge
+                    v-if="cat.fit_score !== undefined && cat.fit_score !== null"
+                    variant="outline"
+                    class="font-mono text-2xs py-0"
+                    :class="
+                      cat.fit_score >= 0.8
+                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+                        : cat.fit_score < 0.5
+                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                        : 'bg-muted text-muted-foreground'
+                    "
+                  >
+                    {{ Math.round(cat.fit_score * 100) }}% fit
+                  </Badge>
+                  <Badge variant="outline" class="font-mono text-2xs py-0">ID: {{ cat.id }}</Badge>
+                  <Icon
+                    v-if="selectedNode?.id === cat.id"
+                    name="lucide:check"
+                    class="size-4 text-primary shrink-0"
+                    aria-hidden="true"
+                  />
+                </div>
               </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <Badge variant="outline" class="font-mono text-2xs py-0">ID: {{ cat.id }}</Badge>
-                <Icon
-                  v-if="selectedNode?.id === cat.id"
-                  name="lucide:check"
-                  class="size-4 text-primary shrink-0"
-                  aria-hidden="true"
-                />
+
+              <!-- Badges / Reasons in card item -->
+              <div v-if="(cat.fit_reasons && cat.fit_reasons.length > 0) || (cat.warnings && cat.warnings.length > 0)" class="flex items-center gap-1.5 flex-wrap mt-1">
+                <span
+                  v-for="(r, idx) in (cat.fit_reasons || []).slice(0, 2)"
+                  :key="'r-' + idx"
+                  class="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded"
+                >
+                  ✓ {{ r }}
+                </span>
+                <span
+                  v-for="(w, idx) in (cat.warnings || []).slice(0, 1)"
+                  :key="'w-' + idx"
+                  class="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded"
+                >
+                  ⚠ {{ w }}
+                </span>
               </div>
             </button>
 
