@@ -213,7 +213,11 @@ async def verify_etsy_draft_listing(
 
     # Serialize images & files to plain dicts for pure comparison
     images_dicts = [
-        {"listing_image_id": getattr(img, "listing_image_id", str(img)), "rank": getattr(img, "rank", 1)}
+        {
+            "listing_image_id": getattr(img, "listing_image_id", str(img)),
+            "rank": getattr(img, "rank", 1),
+            "url": getattr(img, "url", getattr(img, "url_fullxfull", None)),
+        }
         for img in (raw_images or [])
     ]
     files_dicts = [

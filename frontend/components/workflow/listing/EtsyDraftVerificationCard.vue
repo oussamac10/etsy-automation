@@ -446,18 +446,54 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                   @click="toggleExpand(check.key)"
                   class="text-[11px] text-primary hover:underline"
                 >
-                  {{ expandedKeys[check.key] ? 'Hide' : 'Files' }}
+                  {{ expandedKeys[check.key] ? 'Hide' : check.key === 'digital_files' ? 'Files' : 'Inspect' }}
                 </button>
               </div>
             </div>
 
+            <!-- Expandable Mockup Images Panel -->
             <div
-              v-if="expandedKeys[check.key] && check.details?.actual_filenames"
+              v-if="expandedKeys[check.key] && check.key === 'mockups'"
+              class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-2 border border-border/50 font-mono"
+            >
+              <div class="flex items-center justify-between text-muted-foreground">
+                <span class="font-semibold">Live Etsy Preview Images:</span>
+                <span>{{ check.details?.images?.length ? `${check.details.images.length} verified` : check.actual }}</span>
+              </div>
+              <div v-if="check.details?.images?.length" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div
+                  v-for="img in check.details.images"
+                  :key="img.image_id || img.rank"
+                  class="flex items-center gap-2 p-1.5 rounded bg-background/60 border border-border/40"
+                >
+                  <img
+                    v-if="img.url"
+                    :src="img.url"
+                    alt="Mockup preview"
+                    class="size-8 rounded object-cover border border-border/50 shrink-0"
+                  />
+                  <div v-else class="size-8 rounded bg-muted flex items-center justify-center shrink-0">
+                    <Icon name="lucide:image" class="size-4 text-muted-foreground" aria-hidden="true" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-foreground truncate">Rank #{{ img.rank }}</div>
+                    <div class="text-[10px] text-muted-foreground truncate font-mono">ID: {{ img.image_id }}</div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-muted-foreground">
+                {{ check.actual }}
+              </div>
+            </div>
+
+            <!-- Expandable Digital Files Panel -->
+            <div
+              v-if="expandedKeys[check.key] && check.key === 'digital_files'"
               class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-1 border border-border/50 font-mono"
             >
               <div class="font-semibold text-muted-foreground mb-1">Attached Customer Files:</div>
               <div
-                v-for="fn in check.details.actual_filenames"
+                v-for="fn in check.details?.actual_filenames || []"
                 :key="fn"
                 class="flex items-center gap-1.5 text-foreground"
               >

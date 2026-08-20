@@ -521,6 +521,14 @@ def compare_etsy_draft(
 
     # 11. Mockups / Images
     act_img_count = len(actual_images or [])
+    image_items = [
+        {
+            "image_id": str(img.get("listing_image_id", "")),
+            "rank": img.get("rank", idx + 1),
+            "url": img.get("url"),
+        }
+        for idx, img in enumerate(actual_images or [])
+    ]
     if expected_mockup_count > 0:
         if act_img_count >= expected_mockup_count:
             checks.append(
@@ -531,7 +539,7 @@ def compare_etsy_draft(
                     status=EtsyVerificationCheckStatus.SYNCED,
                     expected=f"{expected_mockup_count} uploaded",
                     actual=f"{act_img_count} verified on Etsy",
-                    details={"images_count": act_img_count},
+                    details={"images_count": act_img_count, "images": image_items},
                 )
             )
         elif act_img_count > 0:
@@ -544,6 +552,7 @@ def compare_etsy_draft(
                     expected=f"{expected_mockup_count} uploaded",
                     actual=f"{act_img_count} verified",
                     message=f"Only {act_img_count} of {expected_mockup_count} expected mockup images exist on Etsy.",
+                    details={"images_count": act_img_count, "images": image_items},
                 )
             )
         else:
@@ -556,6 +565,7 @@ def compare_etsy_draft(
                     expected=f"{expected_mockup_count} uploaded",
                     actual="0 images",
                     message="No mockup images found on Etsy listing.",
+                    details={"images_count": 0, "images": []},
                 )
             )
 
