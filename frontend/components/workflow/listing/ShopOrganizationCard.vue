@@ -39,18 +39,50 @@ const isCreatingSection = ref(false);
 const newSectionTitle = ref('');
 const showNewSectionInput = ref(false);
 
+function ensureCurrentSectionInList() {
+  const currentId = localSectionId.value || props.shopSectionId;
+  const currentName = localSectionName.value || props.shopSectionName;
+  if (currentId) {
+    const exists = sections.value.some((s) => s.shop_section_id === currentId);
+    if (!exists) {
+      sections.value.unshift({
+        shop_section_id: currentId,
+        title: currentName || currentId,
+        rank: 0,
+        active_listing_count: 0,
+      });
+    }
+  } else if (currentName) {
+    const exists = sections.value.some((s) => s.title.toLowerCase() === currentName.toLowerCase());
+    if (!exists) {
+      sections.value.unshift({
+        shop_section_id: currentName,
+        title: currentName,
+        rank: 0,
+        active_listing_count: 0,
+      });
+      localSectionId.value = currentName;
+      emit('update:shopSectionId', currentName);
+    }
+  }
+}
+
 watch(
   () => props.shopSectionId,
   (newVal) => {
     localSectionId.value = newVal || null;
-  }
+    ensureCurrentSectionInList();
+  },
+  { immediate: true }
 );
 
 watch(
   () => props.shopSectionName,
   (newVal) => {
     localSectionName.value = newVal || null;
-  }
+    ensureCurrentSectionInList();
+  },
+  { immediate: true }
 );
 
 watch(
@@ -76,6 +108,7 @@ async function loadSections() {
     sections.value = [];
   } finally {
     isLoadingSections.value = false;
+    ensureCurrentSectionInList();
   }
 }
 
@@ -94,40 +127,55 @@ function onSelectSection(event: Event) {
   } else {
     localSectionId.value = val;
     const match = sections.value.find((s) => s.shop_section_id === val);
-    const name = match ? match.title : null;
+    const name = match ? match.title : val;
     localSectionName.value = name;
     emit('update:shopSectionId', val);
     emit('update:shopSectionName', name);
   }
+  emit('save');
 }
 
 async function handleCreateSection() {
-  if (!newSectionTitle.value.trim() || !props.workflowId) return;
+  const title = newSectionTitle.value.trim();
+  if (!title || !props.workflowId) return;
   isCreatingSection.value = true;
   try {
-    const created = await $fetch<ShopSection>(
-      `${apiBase}/api/v1/workflows/${props.workflowId}/listing/shop-sections`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: { title: newSectionTitle.value.trim() },
-        credentials: 'include',
-      }
-    );
+    let created: ShopSection | null = null;
+    try {
+      created = await $fetch<ShopSection>(
+        `${apiBase}/api/v1/workflows/${props.workflowId}/listing/shop-sections`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: { title },
+          credentials: 'include',
+        }
+      );
+    } catch {
+      // Fallback to local section creation if offline or shop not connected
+      created = {
+        shop_section_id: title,
+        title: title,
+        rank: 0,
+        active_listing_count: 0,
+      };
+    }
+
     if (created) {
-      sections.value.push(created);
+      if (!sections.value.some((s) => s.shop_section_id === created?.shop_section_id)) {
+        sections.value.unshift(created);
+      }
       localSectionId.value = created.shop_section_id;
       localSectionName.value = created.title;
       emit('update:shopSectionId', created.shop_section_id);
       emit('update:shopSectionName', created.title);
       newSectionTitle.value = '';
       showNewSectionInput.value = false;
+      emit('save');
     }
-  } catch {
-    // handled gracefully
   } finally {
     isCreatingSection.value = false;
   }
@@ -136,6 +184,7 @@ async function handleCreateSection() {
 function onAutoRenewToggle(val: boolean) {
   localAutoRenew.value = val;
   emit('update:shouldAutoRenew', val);
+  emit('save');
 }
 
 const isDirty = computed(() => {

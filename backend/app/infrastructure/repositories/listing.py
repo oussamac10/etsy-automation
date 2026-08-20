@@ -12,6 +12,9 @@ from app.domain.errors import ConcurrentModificationError, EntityNotFoundError
 from app.infrastructure.models import ListingDraft
 
 
+_UNSET: object = object()
+
+
 class SqlListingDraftRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -43,11 +46,11 @@ class SqlListingDraftRepository:
         taxonomy_path: str | None = None,
         quantity: int | None = None,
         sku: str | None = None,
-        shop_section_id: str | None = None,
-        shop_section_name: str | None = None,
+        shop_section_id: str | None | object = _UNSET,
+        shop_section_name: str | None | object = _UNSET,
         should_auto_renew: bool | None = None,
         etsy_properties: dict[str, object] | None = None,
-        primary_mockup_asset_id: uuid.UUID | None = None,
+        primary_mockup_asset_id: uuid.UUID | None | object = _UNSET,
         shopping_cart_summary: str | None = None,
         ai_disclosure: str | None = None,
         licence_text: str | None = None,
@@ -91,11 +94,11 @@ class SqlListingDraftRepository:
         if sku is not None and draft.sku != sku:
             draft.sku = sku
             has_changes = True
-        if shop_section_id is not None and draft.shop_section_id != shop_section_id:
-            draft.shop_section_id = shop_section_id
+        if shop_section_id is not _UNSET and draft.shop_section_id != shop_section_id:
+            draft.shop_section_id = shop_section_id if isinstance(shop_section_id, str) else None
             has_changes = True
-        if shop_section_name is not None and draft.shop_section_name != shop_section_name:
-            draft.shop_section_name = shop_section_name
+        if shop_section_name is not _UNSET and draft.shop_section_name != shop_section_name:
+            draft.shop_section_name = shop_section_name if isinstance(shop_section_name, str) else None
             has_changes = True
         if should_auto_renew is not None and draft.should_auto_renew != should_auto_renew:
             draft.should_auto_renew = should_auto_renew
@@ -103,8 +106,8 @@ class SqlListingDraftRepository:
         if etsy_properties is not None and draft.etsy_properties != etsy_properties:
             draft.etsy_properties = etsy_properties
             has_changes = True
-        if primary_mockup_asset_id is not None and draft.primary_mockup_asset_id != primary_mockup_asset_id:
-            draft.primary_mockup_asset_id = primary_mockup_asset_id
+        if primary_mockup_asset_id is not _UNSET and draft.primary_mockup_asset_id != primary_mockup_asset_id:
+            draft.primary_mockup_asset_id = primary_mockup_asset_id if isinstance(primary_mockup_asset_id, uuid.UUID) else None
             has_changes = True
         if shopping_cart_summary is not None and draft.shopping_cart_summary != shopping_cart_summary:
             draft.shopping_cart_summary = shopping_cart_summary
