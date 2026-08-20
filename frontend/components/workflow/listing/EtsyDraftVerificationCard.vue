@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import type { EtsyDraftVerification, EtsyVerificationCheck } from '~/types/etsy';
 import { useEtsy } from '~/composables/useEtsy';
+import Badge from '~/components/ui/Badge.vue';
 
 const props = defineProps<{
   workflowId: string;
@@ -62,29 +63,29 @@ const formattedVerifiedAt = computed(() => {
   if (!localVerification.value?.verified_at) return null;
   try {
     const d = new Date(localVerification.value.verified_at);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   } catch {
-    return localVerification.value.verified_at;
+    return null;
   }
 });
 
 const checksByCategory = computed(() => {
-  const allChecks = localVerification.value?.checks || [];
+  const checks = localVerification.value?.checks || [];
   return {
-    listing: allChecks.filter((c) => c.category === 'listing'),
-    commerce: allChecks.filter((c) => c.category === 'commerce'),
-    media: allChecks.filter((c) => c.category === 'media_and_delivery'),
-    attributes: allChecks.filter((c) => c.category === 'attributes'),
-    manual_review: allChecks.filter((c) => c.category === 'manual_review'),
+    listing: checks.filter((c) => c.category === 'listing'),
+    commerce: checks.filter((c) => c.category === 'commerce'),
+    media: checks.filter((c) => c.category === 'media_and_delivery'),
+    attributes: checks.filter((c) => c.category === 'attributes'),
+    manual_review: checks.filter((c) => c.category === 'manual_review'),
   };
 });
 
-function toggleExpand(key: string) {
+const toggleExpand = (key: string) => {
   expandedKeys.value[key] = !expandedKeys.value[key];
-}
+};
 
-async function handleRecheck() {
-  if (isRechecking.value || !props.workflowId) return;
+const handleRecheck = async () => {
+  if (isRechecking.value || props.disabled) return;
   isRechecking.value = true;
   try {
     const res = await verifyEtsyDraft(props.workflowId);
@@ -92,12 +93,12 @@ async function handleRecheck() {
       localVerification.value = res;
       emit('recheck-completed', res);
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('Failed to re-verify Etsy draft:', err);
   } finally {
     isRechecking.value = false;
   }
-}
+};
 
 async function copyToClipboard(text: string, key: string) {
   try {
@@ -145,30 +146,32 @@ async function copyToClipboard(text: string, key: string) {
         <div>
           <div class="flex items-center gap-2">
             <h3 class="text-sm font-semibold text-foreground">Post-Dispatch Etsy Draft Verification</h3>
-            <span
-              v-if="overallStatus === 'verified'"
-              class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold font-mono text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 self-start sm:self-auto"
+            <Badge
+              :variant="statusBadgeVariant"
+              class="self-start sm:self-auto text-xs font-mono"
               data-testid="verification-status-badge"
             >
-              <Icon name="lucide:check" class="size-3" aria-hidden="true" />
-              Verified {{ summary.manual_review > 0 ? `(${summary.manual_review} manual checks)` : '' }}
-            </span>
-            <span
-              v-else-if="overallStatus === 'needs_attention'"
-              class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold font-mono text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-300 self-start sm:self-auto"
-              data-testid="verification-status-badge"
-            >
-              <Icon name="lucide:alert-triangle" class="size-3" aria-hidden="true" />
-              Needs Attention ({{ summary.warnings }} items)
-            </span>
-            <span
-              v-else
-              class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold font-mono text-rose-700 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-300 self-start sm:self-auto"
-              data-testid="verification-status-badge"
-            >
-              <Icon name="lucide:x-circle" class="size-3" aria-hidden="true" />
-              Verification Failed
-            </span>
+              <Icon
+                :name="
+                  overallStatus === 'verified'
+                    ? 'lucide:check'
+                    : overallStatus === 'needs_attention'
+                      ? 'lucide:alert-triangle'
+                      : 'lucide:x-circle'
+                "
+                class="size-3 mr-1"
+                aria-hidden="true"
+              />
+              <span>
+                {{
+                  overallStatus === 'verified'
+                    ? (summary.manual_review > 0 ? `Verified (${summary.manual_review} manual checks)` : 'Verified')
+                    : overallStatus === 'needs_attention'
+                      ? `Needs Attention (${summary.warnings} items)`
+                      : 'Verification Failed'
+                }}
+              </span>
+            </Badge>
           </div>
           <p class="text-xs text-muted-foreground mt-0.5">
             Authoritative comparison of expected listing state vs live Etsy Open API v3 draft.
@@ -282,18 +285,12 @@ async function copyToClipboard(text: string, key: string) {
 
               <!-- Status Badge / Val -->
               <div class="flex items-center gap-2 shrink-0">
-                <span
-                  class="font-mono text-[11px] px-2 py-0.5 rounded border"
-                  :class="[
-                    check.status === 'synced'
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold'
-                      : check.status === 'different'
-                        ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-300 font-semibold'
-                        : 'border-transparent bg-muted text-muted-foreground',
-                  ]"
+                <Badge
+                  :variant="check.status === 'synced' ? 'success' : check.status === 'different' ? 'warning' : 'secondary'"
+                  class="font-mono text-[11px]"
                 >
-                  {{ check.actual || check.status }}
-                </span>
+                  {{ check.actual || (check.status === 'synced' ? 'Synced' : check.status) }}
+                </Badge>
                 <button
                   v-if="check.details || check.status === 'different'"
                   type="button"
@@ -346,7 +343,7 @@ async function copyToClipboard(text: string, key: string) {
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0 mt-0.5"
-                  :class="check.status === 'synced' ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-400'"
+                  :class="check.status === 'synced' ? 'text-emerald-700' : 'text-amber-600'"
                   aria-hidden="true"
                 />
                 <div class="min-w-0">
@@ -358,16 +355,12 @@ async function copyToClipboard(text: string, key: string) {
               </div>
 
               <div class="flex items-center gap-2 shrink-0">
-                <span
-                  class="font-mono text-[11px] px-2 py-0.5 rounded border"
-                  :class="[
-                    check.status === 'synced'
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold'
-                      : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-300 font-semibold',
-                  ]"
+                <Badge
+                  :variant="check.status === 'synced' ? 'success' : 'warning'"
+                  class="font-mono text-[11px]"
                 >
                   {{ check.actual }}
-                </span>
+                </Badge>
                 <button
                   v-if="check.status !== 'synced'"
                   type="button"
@@ -407,7 +400,7 @@ async function copyToClipboard(text: string, key: string) {
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0 mt-0.5"
-                  :class="check.status === 'synced' ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-400'"
+                  :class="check.status === 'synced' ? 'text-emerald-700' : 'text-amber-600'"
                   aria-hidden="true"
                 />
                 <div class="min-w-0">
@@ -419,11 +412,12 @@ async function copyToClipboard(text: string, key: string) {
               </div>
 
               <div class="flex items-center gap-2 shrink-0">
-                <span
-                  class="font-mono text-[11px] px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold"
+                <Badge
+                  variant="success"
+                  class="font-mono text-[11px]"
                 >
                   {{ check.actual }}
-                </span>
+                </Badge>
                 <button
                   v-if="check.details"
                   type="button"
@@ -470,7 +464,7 @@ async function copyToClipboard(text: string, key: string) {
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0 mt-0.5"
-                  :class="check.status === 'synced' ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-400'"
+                  :class="check.status === 'synced' ? 'text-emerald-700' : 'text-amber-600'"
                   aria-hidden="true"
                 />
                 <div class="min-w-0">
@@ -482,16 +476,12 @@ async function copyToClipboard(text: string, key: string) {
               </div>
 
               <div class="flex items-center gap-2 shrink-0">
-                <span
-                  class="font-mono text-[11px] px-2 py-0.5 rounded border"
-                  :class="[
-                    check.status === 'synced'
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold'
-                      : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-300 font-semibold',
-                  ]"
+                <Badge
+                  :variant="check.status === 'synced' ? 'success' : 'warning'"
+                  class="font-mono text-[11px]"
                 >
                   {{ check.actual }}
-                </span>
+                </Badge>
                 <button
                   v-if="check.details"
                   type="button"
@@ -514,15 +504,12 @@ async function copyToClipboard(text: string, key: string) {
               >
                 <div class="flex items-center justify-between gap-2 font-semibold">
                   <span>{{ p.property_name || `Property #${p.property_id}` }}:</span>
-                  <span
-                    :class="
-                      p.status === 'synced'
-                        ? 'text-emerald-700 dark:text-emerald-300 font-semibold'
-                        : 'text-amber-600 dark:text-amber-400'
-                    "
+                  <Badge
+                    :variant="p.status === 'synced' ? 'success' : 'warning'"
+                    class="text-[10px] font-mono px-1.5 py-0.5"
                   >
                     {{ p.status === 'synced' ? 'Synced' : p.status === 'missing' ? 'Missing on Etsy' : 'Different' }}
-                  </span>
+                  </Badge>
                 </div>
                 <div class="text-[10px] text-muted-foreground flex flex-col gap-0.5">
                   <div>Expected: <span class="text-foreground">{{ p.expected?.join(', ') || 'None' }}</span></div>
