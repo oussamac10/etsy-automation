@@ -192,18 +192,6 @@ async function copyToClipboard(text: string, key: string) {
           />
           <span>{{ isRechecking ? 'Checking Etsy...' : 'Re-check Etsy' }}</span>
         </button>
-
-        <a
-          v-if="shopManagerUrl"
-          :href="shopManagerUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
-          data-testid="etsy-open-draft-btn"
-        >
-          <Icon name="lucide:external-link" class="size-3.5" aria-hidden="true" />
-          <span>Open Etsy Draft</span>
-        </a>
       </div>
     </div>
 
