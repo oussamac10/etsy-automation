@@ -3,6 +3,7 @@ import type {
   EtsyConnectResponse,
   EtsyConnectionStatus,
   EtsyDraftDispatchResponse,
+  EtsyDraftVerification,
 } from '~/types/etsy';
 import { getApiErrorMessage, getCsrfHeaders } from '~/utils/api';
 
@@ -161,6 +162,36 @@ export function useEtsy() {
     }
   }
 
+  async function verifyEtsyDraft(
+    workflowId: string
+  ): Promise<EtsyDraftVerification | null> {
+    if (!workflowId) return null;
+    isLoading.value = true;
+    errorMessage.value = null;
+    try {
+      const data = await $fetch<EtsyDraftVerification>(
+        `${apiBase}/api/v1/workflows/${workflowId}/etsy/verify`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            ...getCsrfHeaders(),
+          },
+          credentials: 'include',
+        }
+      );
+      if (draftStatus.value) {
+        draftStatus.value.verification = data;
+      }
+      return data;
+    } catch (err: unknown) {
+      errorMessage.value = getApiErrorMessage(err, 'Failed to verify Etsy draft.');
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     connectionStatus,
     draftStatus,
@@ -176,5 +207,6 @@ export function useEtsy() {
     triggerCreateEtsyDraft,
     fetchDraftStatus,
     reconcileEtsyDraft,
+    verifyEtsyDraft,
   };
 }

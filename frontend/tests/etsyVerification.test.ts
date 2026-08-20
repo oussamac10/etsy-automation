@@ -270,6 +270,10 @@ describe('Post-Dispatch Etsy Draft Verification UI Suite', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:8000/api/v1/workflows/wf-101/etsy/verify', {
       method: 'POST',
+      headers: {
+        Accept: 'application/json',
+      },
+      credentials: 'include',
     });
     expect(wrapper.emitted('recheck-completed')).toBeTruthy();
   });

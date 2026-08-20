@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import type { EtsyDraftVerification, EtsyVerificationCheck } from '~/types/etsy';
+import { useEtsy } from '~/composables/useEtsy';
 
 const props = defineProps<{
   workflowId: string;
@@ -14,7 +15,7 @@ const emit = defineEmits<{
   (e: 'recheck-completed', report: EtsyDraftVerification): void;
 }>();
 
-const config = useRuntimeConfig();
+const { verifyEtsyDraft } = useEtsy();
 const isRechecking = ref(false);
 const localVerification = ref<EtsyDraftVerification | null>(props.verification || null);
 const expandedKeys = ref<Record<string, boolean>>({});
@@ -28,41 +29,47 @@ watch(
       localVerification.value = newVal;
     }
   },
-  { immediate: true }
+  { deep: true, immediate: true }
 );
 
-const activeVerification = computed<EtsyDraftVerification | null>(() => {
-  return localVerification.value || props.verification || null;
-});
-
 const summary = computed(() => {
-  return (
-    activeVerification.value?.summary || {
-      synced: 0,
-      warnings: 0,
-      errors: 0,
-      manual_review: 0,
-      total: 0,
-    }
-  );
+  return localVerification.value?.summary || {
+    synced: 0,
+    warnings: 0,
+    errors: 0,
+    manual_review: 0,
+    total: 0,
+  };
 });
 
 const overallStatus = computed(() => {
-  return activeVerification.value?.status || 'needs_attention';
+  return localVerification.value?.status || 'needs_attention';
+});
+
+const statusBadgeVariant = computed(() => {
+  switch (overallStatus.value) {
+    case 'verified':
+      return 'success';
+    case 'failed':
+      return 'destructive';
+    case 'needs_attention':
+    default:
+      return 'warning';
+  }
 });
 
 const formattedVerifiedAt = computed(() => {
-  if (!activeVerification.value?.verified_at) return null;
+  if (!localVerification.value?.verified_at) return null;
   try {
-    const d = new Date(activeVerification.value.verified_at);
+    const d = new Date(localVerification.value.verified_at);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   } catch {
-    return activeVerification.value.verified_at;
+    return localVerification.value.verified_at;
   }
 });
 
 const checksByCategory = computed(() => {
-  const allChecks = activeVerification.value?.checks || [];
+  const allChecks = localVerification.value?.checks || [];
   return {
     listing: allChecks.filter((c) => c.category === 'listing'),
     commerce: allChecks.filter((c) => c.category === 'commerce'),
@@ -80,10 +87,7 @@ async function handleRecheck() {
   if (isRechecking.value || !props.workflowId) return;
   isRechecking.value = true;
   try {
-    const res = await $fetch<EtsyDraftVerification>(
-      `${config.public.apiBase}/api/v1/workflows/${props.workflowId}/etsy/verify`,
-      { method: 'POST' }
-    );
+    const res = await verifyEtsyDraft(props.workflowId);
     if (res) {
       localVerification.value = res;
       emit('recheck-completed', res);
@@ -501,17 +505,35 @@ async function copyToClipboard(text: string, key: string) {
 
             <div
               v-if="expandedKeys[check.key] && check.details?.properties"
-              class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-1.5 border border-border/50 font-mono"
+              class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-2 border border-border/50 font-mono"
             >
               <div
                 v-for="p in check.details.properties"
                 :key="p.property_id"
-                class="flex items-center justify-between gap-2"
+                class="p-2 rounded bg-background/60 border border-border/40 space-y-1"
               >
-                <span>Property #{{ p.property_id }}:</span>
-                <span :class="p.status === 'synced' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600'">
-                  {{ p.actual?.join(', ') || 'Missing' }} ({{ p.status }})
-                </span>
+                <div class="flex items-center justify-between gap-2 font-semibold">
+                  <span>{{ p.property_name || `Property #${p.property_id}` }}:</span>
+                  <span
+                    :class="
+                      p.status === 'synced'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    "
+                  >
+                    {{ p.status === 'synced' ? 'Synced' : p.status === 'missing' ? 'Missing on Etsy' : 'Different' }}
+                  </span>
+                </div>
+                <div class="text-[10px] text-muted-foreground flex flex-col gap-0.5">
+                  <div>Expected: <span class="text-foreground">{{ p.expected?.join(', ') || 'None' }}</span></div>
+                  <div>Live on Etsy: <span class="text-foreground">{{ p.actual?.join(', ') || 'None' }}</span></div>
+                  <div v-if="p.missing?.length" class="text-red-500 font-medium">
+                    Missing on Etsy: {{ p.missing.join(', ') }}
+                  </div>
+                  <div v-if="p.unexpected?.length" class="text-amber-500 font-medium">
+                    Extra on Etsy: {{ p.unexpected.join(', ') }}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
