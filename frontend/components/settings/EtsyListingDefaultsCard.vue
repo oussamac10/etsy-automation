@@ -172,17 +172,23 @@ onMounted(() => {
     </CardHeader>
 
     <CardContent class="p-4 sm:p-5 pt-0 space-y-4">
-      <Alert v-if="errorMessage" variant="destructive" dismissible @dismiss="errorMessage = null">
-        <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{{ errorMessage }}</AlertDescription>
-      </Alert>
+      <Alert
+        v-if="errorMessage"
+        variant="destructive"
+        title="Error"
+        :description="errorMessage"
+        dismissible
+        @dismiss="errorMessage = null"
+      />
 
-      <Alert v-if="successMessage" variant="success" dismissible @dismiss="successMessage = null">
-        <Icon name="lucide:circle-check" class="size-4" aria-hidden="true" />
-        <AlertTitle>Saved</AlertTitle>
-        <AlertDescription>{{ successMessage }}</AlertDescription>
-      </Alert>
+      <Alert
+        v-if="successMessage"
+        variant="success"
+        title="Saved"
+        :description="successMessage"
+        dismissible
+        @dismiss="successMessage = null"
+      />
 
       <div v-if="isLoading" class="text-muted-foreground text-xs animate-pulse py-4 flex items-center gap-2">
         <Icon name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
