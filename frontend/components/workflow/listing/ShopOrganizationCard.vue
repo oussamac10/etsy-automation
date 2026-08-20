@@ -16,6 +16,7 @@ const props = defineProps<{
   shopSectionName?: string | null;
   shouldAutoRenew?: boolean;
   isSaving?: boolean;
+  hasUnsavedChanges?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -138,6 +139,7 @@ function onAutoRenewToggle(val: boolean) {
 }
 
 const isDirty = computed(() => {
+  if (props.hasUnsavedChanges !== undefined) return props.hasUnsavedChanges;
   return (
     localSectionId.value !== (props.shopSectionId || null) ||
     localSectionName.value !== (props.shopSectionName || null) ||

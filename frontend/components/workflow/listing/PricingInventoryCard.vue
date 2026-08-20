@@ -20,6 +20,7 @@ const props = defineProps<{
   quantity?: number | null;
   sku?: string | null;
   isSaving?: boolean;
+  hasUnsavedChanges?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -176,12 +177,13 @@ async function copySku() {
 }
 
 const isDirty = computed(() => {
+  if (props.hasUnsavedChanges !== undefined) return props.hasUnsavedChanges;
   const currentMinor = Math.round(parseFloat(localPriceDecimal.value || '0') * 100);
   return (
     currentMinor !== (props.priceMinorUnits || 499) ||
     localCurrency.value !== (props.currency || 'USD') ||
     localQuantity.value !== (props.quantity || 999) ||
-    localSku.value !== (props.sku || '')
+    localSku.value.trim() !== (props.sku || '').trim()
   );
 });
 </script>
@@ -255,6 +257,7 @@ const isDirty = computed(() => {
               max="50000.00"
               placeholder="4.99"
               class="pl-7 h-9 text-sm font-semibold font-mono"
+              @input="onPriceChange"
               @change="onPriceChange"
               @blur="onPriceChange"
             />
@@ -279,6 +282,7 @@ const isDirty = computed(() => {
             max="9999"
             placeholder="999"
             class="h-9 text-sm font-mono"
+            @input="onQuantityChange"
             @change="onQuantityChange"
             @blur="onQuantityChange"
           />

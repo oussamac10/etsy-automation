@@ -464,6 +464,25 @@ const isTagsDirty = computed(() => {
   return JSON.stringify(localTags.value) !== JSON.stringify(savedTags);
 });
 
+const isPricingDirty = computed(() => {
+  if (!listingDraft.value) return false;
+  return (
+    localPriceMinorUnits.value !== (listingDraft.value.price_minor_units ?? 499) ||
+    localCurrency.value !== (listingDraft.value.currency || 'USD') ||
+    localQuantity.value !== (listingDraft.value.quantity ?? 999) ||
+    localSku.value.trim() !== (listingDraft.value.sku || '').trim()
+  );
+});
+
+const isShopOrgDirty = computed(() => {
+  if (!listingDraft.value) return false;
+  return (
+    localShopSectionId.value !== (listingDraft.value.shop_section_id || null) ||
+    localShopSectionName.value !== (listingDraft.value.shop_section_name || null) ||
+    localShouldAutoRenew.value !== (listingDraft.value.should_auto_renew ?? false)
+  );
+});
+
 const isApproved = computed(() => {
   return ['READY_FOR_ETSY_DRAFT', 'ETSY_DRAFT_CREATED', 'PUBLISHED'].includes(props.workflowState);
 });
@@ -706,6 +725,7 @@ const subTabs = computed(() => [
               :currency="localCurrency"
               :quantity="localQuantity"
               :sku="localSku"
+              :has-unsaved-changes="isPricingDirty"
               :is-saving="isSaving"
               @update:price-minor-units="localPriceMinorUnits = $event"
               @update:currency="localCurrency = $event"
@@ -719,6 +739,7 @@ const subTabs = computed(() => [
               :shop-section-id="localShopSectionId"
               :shop-section-name="localShopSectionName"
               :should-auto-renew="localShouldAutoRenew"
+              :has-unsaved-changes="isShopOrgDirty"
               :is-saving="isSaving"
               @update:shop-section-id="localShopSectionId = $event"
               @update:shop-section-name="localShopSectionName = $event"
