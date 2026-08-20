@@ -192,8 +192,13 @@ async def verify_etsy_draft_listing(
     # 4. Resolve Expected Artifacts
     assets = await uow.assets.list_for_workflow(workflow_id)
     active_mockups = filter_active_user_mockups(assets)
-    # Master is rank 1, active mockups follow
-    expected_mockup_count = max(len(listing.etsy_image_ids or []), 1 + len(active_mockups))
+    # Expected mockup count matches dispatched images or active mockups (or 1 master fallback)
+    if listing.etsy_image_ids:
+        expected_mockup_count = len(listing.etsy_image_ids)
+    elif active_mockups:
+        expected_mockup_count = len(active_mockups)
+    else:
+        expected_mockup_count = 1
 
     file_ids = list(listing.etsy_file_ids or ([listing.etsy_file_id] if listing.etsy_file_id else []))
     expected_file_count = max(len(file_ids), 1)
