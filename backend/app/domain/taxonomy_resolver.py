@@ -198,23 +198,40 @@ class EtsyTaxonomyResolver:
                 concept=concept,
             )
 
+        DIGITAL_PATH_KEYWORDS = frozenset([
+            "digital", "clip art", "clipart", "graphic", "graphics", "design",
+            "template", "templates", "download", "printable", "drawing & illustration",
+            "digital prints", "stencils, templates & transfers",
+        ])
+
+        def is_plausible_digital(n: EtsyTaxonomyNode) -> bool:
+            if self.is_physical_disqualified(n.full_path):
+                return False
+            path_lower = n.full_path.lower()
+            return any(k in path_lower for k in DIGITAL_PATH_KEYWORDS)
+
         flat_nodes = self.flatten_nodes(nodes)
         leaf_nodes = [n for n in flat_nodes if not n.children]
         candidate_pool = leaf_nodes if leaf_nodes else flat_nodes
-        valid_candidates = [
-            n for n in candidate_pool if not self.is_physical_disqualified(n.full_path)
-        ]
+
+        valid_candidates = [n for n in candidate_pool if is_plausible_digital(n)]
+        if not valid_candidates:
+            valid_candidates = [
+                n for n in candidate_pool if not self.is_physical_disqualified(n.full_path)
+            ]
 
         # Prioritize top candidates to avoid fetching properties for all nodes
         def pre_rank_heuristic(n: EtsyTaxonomyNode) -> int:
             p = n.full_path.lower()
+            if "drawing & illustration > digital" in p or "digital" in p and "drawing" in p:
+                return 45
+            if "digital graphics" in p or "graphics" in p:
+                return 40
             if "clip art" in p or "clipart" in p:
                 return 40
             if "digital prints" in p:
                 return 35
-            if "drawing & illustration > digital" in p:
-                return 35
-            if "digital" in p or "graphics" in p:
+            if "digital" in p:
                 return 30
             if "craft supplies" in p:
                 return 20

@@ -1148,21 +1148,126 @@ class FakeEtsyProvider(EtsyGateway):
 
     async def get_taxonomy_properties(self, *, taxonomy_id: int) -> list[EtsyTaxonomyProperty]:
         self.call_count += 1
-        from app.domain.taxonomy_properties import FAKE_TEST_TAXONOMY_PROPERTIES
-
-        props: list[EtsyTaxonomyProperty] = []
-        for raw in FAKE_TEST_TAXONOMY_PROPERTIES:
-            props.append(
+        if taxonomy_id == 6844:
+            # Paper/scrapbook oriented craft types
+            return [
                 EtsyTaxonomyProperty(
-                    property_id=int(raw["property_id"]),
-                    name=str(raw["name"]),
-                    is_required=bool(raw.get("is_required", False)),
-                    supports_attributes=bool(raw.get("supports_attributes", False)),
-                    is_multivalued=bool(raw.get("is_multivalued", False)),
-                    possible_values=list(raw.get("possible_values", [])),
-                )
-            )
-        return props
+                    property_id=82731,
+                    name="Craft type",
+                    is_required=True,
+                    supports_attributes=True,
+                    is_multivalued=True,
+                    possible_values=[
+                        {"value_id": 101, "name": "Card making & stationery"},
+                        {"value_id": 102, "name": "Collage"},
+                        {"value_id": 103, "name": "Kids' crafts"},
+                        {"value_id": 104, "name": "Scrapbooking"},
+                    ],
+                ),
+                EtsyTaxonomyProperty(
+                    property_id=200,
+                    name="Primary color",
+                    is_required=False,
+                    supports_attributes=True,
+                    is_multivalued=False,
+                    possible_values=[
+                        {"value_id": 1, "name": "Black"},
+                        {"value_id": 2, "name": "White"},
+                    ],
+                ),
+            ]
+        elif taxonomy_id in (77, 99001):
+            # Digital illustration / graphics with printing & sublimation craft types
+            return [
+                EtsyTaxonomyProperty(
+                    property_id=82731,
+                    name="Craft type",
+                    is_required=True,
+                    supports_attributes=True,
+                    is_multivalued=True,
+                    possible_values=[
+                        {"value_id": 201, "name": "Printing & printmaking"},
+                        {"value_id": 202, "name": "Sublimation"},
+                        {"value_id": 203, "name": "Fabric printing"},
+                        {"value_id": 204, "name": "Heat transfer"},
+                        {"value_id": 205, "name": "Digital design"},
+                    ],
+                ),
+                EtsyTaxonomyProperty(
+                    property_id=300,
+                    name="Subject",
+                    is_required=False,
+                    supports_attributes=True,
+                    is_multivalued=False,
+                    possible_values=[
+                        {"value_id": 10, "name": "Animals"},
+                        {"value_id": 11, "name": "Nature"},
+                        {"value_id": 12, "name": "Typography"},
+                    ],
+                ),
+                EtsyTaxonomyProperty(
+                    property_id=200,
+                    name="Primary color",
+                    is_required=False,
+                    supports_attributes=True,
+                    is_multivalued=False,
+                    possible_values=[
+                        {"value_id": 1, "name": "Black"},
+                        {"value_id": 2, "name": "White"},
+                    ],
+                ),
+            ]
+        elif taxonomy_id == 2078:
+            # Digital prints / wall art
+            return [
+                EtsyTaxonomyProperty(
+                    property_id=400,
+                    name="Framing",
+                    is_required=False,
+                    supports_attributes=True,
+                    is_multivalued=False,
+                    possible_values=[
+                        {"value_id": 401, "name": "Unframed"},
+                    ],
+                ),
+                EtsyTaxonomyProperty(
+                    property_id=300,
+                    name="Subject",
+                    is_required=False,
+                    supports_attributes=True,
+                    is_multivalued=False,
+                    possible_values=[
+                        {"value_id": 10, "name": "Animals"},
+                        {"value_id": 11, "name": "Botanical"},
+                        {"value_id": 12, "name": "Abstract"},
+                    ],
+                ),
+                EtsyTaxonomyProperty(
+                    property_id=200,
+                    name="Primary color",
+                    is_required=False,
+                    supports_attributes=True,
+                    is_multivalued=False,
+                    possible_values=[
+                        {"value_id": 1, "name": "Black"},
+                        {"value_id": 2, "name": "White"},
+                    ],
+                ),
+            ]
+        else:
+            return [
+                EtsyTaxonomyProperty(
+                    property_id=200,
+                    name="Primary color",
+                    is_required=False,
+                    supports_attributes=True,
+                    is_multivalued=False,
+                    possible_values=[
+                        {"value_id": 1, "name": "Black"},
+                        {"value_id": 2, "name": "White"},
+                    ],
+                ),
+            ]
 
     async def update_listing_property(
         self,

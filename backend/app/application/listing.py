@@ -105,6 +105,7 @@ class ListingDraftService:
         self,
         workflow_id: uuid.UUID,
         uow: UnitOfWork,
+        etsy_gateway: Any | None = None,
     ) -> ListingDraft:
         """Fetch active listing draft or initialize default from workflow concepts."""
         draft = await uow.listing_drafts.get_by_workflow(workflow_id)
@@ -179,14 +180,40 @@ class ListingDraftService:
                 if prompts[0].intended_product_uses:
                     concept_uses.extend(prompts[0].intended_product_uses)
 
-        tax_res = EtsyTaxonomyResolver().resolve(
-            title=initial_title,
-            tags=initial_tags,
-            product_type="digital_png",
-            intended_product_uses=concept_uses,
-            slogan=slogan,
-            concept=concept_text,
-        )
+        initial_desc = "High-resolution digital PNG download (4500x5400 px @ 300 DPI, transparent background)."
+
+        # Property-aware taxonomy resolution
+        tax_res = None
+        taxonomy_source = "fallback"
+        if etsy_gateway is not None:
+            try:
+                nodes = await etsy_gateway.get_seller_taxonomy_nodes()
+                tax_res = await EtsyTaxonomyResolver().resolve_with_gateway(
+                    title=initial_title,
+                    description=initial_desc,
+                    tags=initial_tags,
+                    product_type="digital_png",
+                    intended_product_uses=concept_uses,
+                    slogan=slogan,
+                    concept=concept_text,
+                    nodes=nodes,
+                    property_fetcher=lambda tid: etsy_gateway.get_taxonomy_properties(taxonomy_id=tid),
+                )
+                if tax_res and not tax_res.is_fallback:
+                    taxonomy_source = "auto"
+            except Exception:
+                tax_res = None
+
+        if tax_res is None:
+            tax_res = EtsyTaxonomyResolver().resolve(
+                title=initial_title,
+                tags=initial_tags,
+                product_type="digital_png",
+                intended_product_uses=concept_uses,
+                slogan=slogan,
+                concept=concept_text,
+            )
+            taxonomy_source = "fallback"
 
         # 1. Resolve shop & currency
         shop_name = await resolve_connected_shop_name(uow, workflow.owner_id)
@@ -208,8 +235,6 @@ class ListingDraftService:
         # 3. Suggest shop section
         suggested_sec_name, suggested_sec_id = suggest_shop_section_title(initial_title, initial_tags)
 
-        initial_desc = "High-resolution digital PNG download (4500x5400 px @ 300 DPI, transparent background)."
-
         draft = ListingDraft(
             workflow_id=workflow_id,
             title=initial_title,
@@ -226,7 +251,7 @@ class ListingDraftService:
             taxonomy_id=tax_res.taxonomy_id,
             taxonomy_path=tax_res.taxonomy_path,
             ip_risk_level=RiskLevel.UNKNOWN,
-            ip_findings={},
+            ip_findings={"taxonomy_selection_source": taxonomy_source},
             version=1,
         )
         record_version_snapshot(draft, source="initial")
@@ -661,3 +686,77 @@ class ListingDraftService:
             new_state=workflow.state.value,
         )
         return workflow, draft
+
+    async def re_evaluate_taxonomy(
+        self,
+        workflow_id: uuid.UUID,
+        uow: UnitOfWork,
+        etsy_gateway: Any,
+        *,
+        apply: bool = False,
+    ) -> dict[str, Any]:
+        """Re-evaluate campaign taxonomy fitness and optionally apply recommended category."""
+        from app.domain.enums import ConceptStatus
+        from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
+
+        workflow = await uow.workflows.get(workflow_id)
+        if workflow is None:
+            raise EntityNotFoundError("ProductWorkflow", workflow_id)
+
+        draft = await uow.listing_drafts.get_by_workflow(workflow_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", workflow_id)
+
+        concepts = await uow.concepts.list_for_workflow(workflow_id)
+        approved_concept = next(
+            (c for c in concepts if c.status == ConceptStatus.APPROVED),
+            concepts[0] if concepts else None,
+        )
+        slogan = None
+        concept_uses: list[str] = []
+        concept_text = ""
+        if approved_concept:
+            concept_uses = list(approved_concept.intended_product_uses or [])
+            concept_text = f"{approved_concept.description} {approved_concept.differentiation}"
+            prompts = await uow.concepts.prompts(approved_concept.id)
+            if prompts:
+                slogan = prompts[0].exact_slogan
+                if prompts[0].intended_product_uses:
+                    concept_uses.extend(prompts[0].intended_product_uses)
+
+        nodes = await etsy_gateway.get_seller_taxonomy_nodes()
+        resolver = EtsyTaxonomyResolver()
+        resolution = await resolver.resolve_with_gateway(
+            title=draft.title,
+            description=draft.description,
+            tags=draft.tags,
+            product_type="digital_png",
+            intended_product_uses=concept_uses,
+            slogan=slogan,
+            concept=concept_text,
+            nodes=nodes,
+            property_fetcher=lambda tid: etsy_gateway.get_taxonomy_properties(taxonomy_id=tid),
+        )
+
+        applied = False
+        if apply:
+            draft.taxonomy_id = resolution.taxonomy_id
+            draft.taxonomy_path = resolution.taxonomy_path
+            findings = dict(draft.ip_findings or {})
+            findings["taxonomy_selection_source"] = "auto"
+            draft.ip_findings = findings
+            applied = True
+
+        return {
+            "recommended_taxonomy_id": resolution.taxonomy_id,
+            "recommended_taxonomy_path": resolution.taxonomy_path,
+            "fit_score": resolution.confidence,
+            "fit_level": resolution.fit_result.fit if resolution.fit_result else "good",
+            "blocking_mismatch": resolution.fit_result.blocking_mismatch if resolution.fit_result else False,
+            "fit_reasons": resolution.fit_result.reasons if resolution.fit_result else [],
+            "warnings": resolution.fit_result.warnings if resolution.fit_result else [],
+            "applied": applied,
+            "current_taxonomy_id": draft.taxonomy_id,
+            "current_taxonomy_path": draft.taxonomy_path,
+        }
+

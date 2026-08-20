@@ -250,3 +250,59 @@ def test_case_3_best_available_fallback_when_no_sublimation_properties_exist() -
     assert result.fit_result.has_mismatched_required_attributes is True
     assert any("precisely matches" in w for w in result.fit_result.warnings)
 
+
+@pytest.mark.asyncio
+async def test_fake_provider_returns_taxonomy_specific_properties() -> None:
+    """Verify FakeEtsyProvider returns distinct properties depending on taxonomy_id."""
+    fake_provider = FakeEtsyProvider()
+    props_6844 = await fake_provider.get_taxonomy_properties(taxonomy_id=6844)
+    props_77 = await fake_provider.get_taxonomy_properties(taxonomy_id=77)
+    props_2078 = await fake_provider.get_taxonomy_properties(taxonomy_id=2078)
+
+    # 6844 contains papercraft craft types
+    craft_6844 = next(p for p in props_6844 if p.name == "Craft type")
+    values_6844 = {v["name"] for v in craft_6844.possible_values}
+    assert "Card making & stationery" in values_6844
+    assert "Scrapbooking" in values_6844
+
+    # 77 contains sublimation/printing craft types
+    craft_77 = next(p for p in props_77 if p.name == "Craft type")
+    values_77 = {v["name"] for v in craft_77.possible_values}
+    assert "Sublimation" in values_77
+    assert "Printing & printmaking" in values_77
+    assert "Fabric printing" in values_77
+
+    # 2078 contains wall art/framing properties
+    prop_names_2078 = {p.name for p in props_2078}
+    assert "Framing" in prop_names_2078
+    assert "Subject" in prop_names_2078
+
+
+@pytest.mark.asyncio
+async def test_property_aware_resolution_selects_digital_drawing_over_paper_clipart() -> None:
+    """End-to-end resolver test with FakeEtsyProvider for a sublimation T-shirt campaign."""
+    fake_provider = FakeEtsyProvider()
+    nodes = await fake_provider.get_seller_taxonomy_nodes()
+
+    resolver = EtsyTaxonomyResolver()
+    result = await resolver.resolve_with_gateway(
+        title="Vintage Camping Dog PNG Digital Download Sublimation Design",
+        description="High resolution transparent PNG for T-shirts, mugs, and sublimation crafts.",
+        tags=["sublimation", "tshirt graphic", "pod graphics", "transparent png"],
+        product_type="digital_png",
+        intended_product_uses=["t_shirt", "sweatshirt", "sublimation", "mug"],
+        nodes=nodes,
+        property_fetcher=lambda tid: fake_provider.get_taxonomy_properties(taxonomy_id=tid),
+    )
+
+    # Must NOT select 6844 (Clip Art with papercraft craft types)
+    assert result.taxonomy_id != 6844
+    # Must select 77 (Digital Drawing with Sublimation & Printing craft types)
+    assert result.taxonomy_id == 77
+    assert "Art & Collectibles > Drawing & Illustration > Digital" in result.taxonomy_path
+    assert result.fit_result is not None
+    assert result.fit_result.fit == "good"
+    assert result.fit_result.blocking_mismatch is False
+    assert result.fit_result.has_mismatched_required_attributes is False
+
+

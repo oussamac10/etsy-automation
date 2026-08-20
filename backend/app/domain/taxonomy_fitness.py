@@ -88,8 +88,8 @@ PAPER_ONLY_CRAFT_VALUES = frozenset(
 )
 
 
-def _extract_campaign_tokens(campaign_context: dict[str, Any]) -> set[str]:
-    """Combine and tokenize all campaign text fields."""
+def _extract_campaign_text_and_tokens(campaign_context: dict[str, Any]) -> tuple[str, set[str]]:
+    """Combine and tokenize all campaign text fields into normalized string and token set."""
     parts: list[str] = []
     for key in (
         "title",
@@ -112,7 +112,20 @@ def _extract_campaign_tokens(campaign_context: dict[str, Any]) -> set[str]:
         parts.extend([str(u).replace("_", " ") for u in intended_uses])
 
     combined = " ".join(parts).lower()
-    return set(re.findall(r"\b[a-z0-9_-]+\b", combined))
+    tokens = set(re.findall(r"\b[a-z0-9_-]+\b", combined))
+    return combined, tokens
+
+
+def _has_signal(signals: tuple[str, ...], text: str, tokens: set[str]) -> bool:
+    """Check if any signal matches either as a multi-word phrase or token."""
+    for sig in signals:
+        if " " in sig or "-" in sig:
+            if sig in text:
+                return True
+        else:
+            if sig in tokens:
+                return True
+    return False
 
 
 def is_physical_disqualified(path: str) -> bool:
@@ -139,12 +152,11 @@ def evaluate_taxonomy_fit(
     Evaluates both path relevance and real property definitions/allowed values.
     """
     path_lower = taxonomy_node.full_path.lower()
-    tokens = _extract_campaign_tokens(campaign_context)
+    norm_text, tokens = _extract_campaign_text_and_tokens(campaign_context)
 
-    # 1. Detect campaign intent deterministically
-    is_scrapbooking_paper = any(
-        k in tokens
-        for k in (
+    # 1. Detect campaign intent deterministically (supporting multi-word phrases)
+    is_scrapbooking_paper = _has_signal(
+        (
             "scrapbook",
             "scrapbooking",
             "card making",
@@ -154,12 +166,13 @@ def evaluate_taxonomy_fit(
             "planner",
             "origami",
             "ephemera",
-        )
+        ),
+        norm_text,
+        tokens,
     )
 
-    is_sublimation_apparel = any(
-        k in tokens
-        for k in (
+    is_sublimation_apparel = _has_signal(
+        (
             "sublimation",
             "shirt",
             "t-shirt",
@@ -175,14 +188,17 @@ def evaluate_taxonomy_fit(
             "apparel",
             "iron on",
             "print on demand",
-        )
+            "dtg ready",
+            "transparent png",
+        ),
+        norm_text,
+        tokens,
     )
 
     is_wall_art_print = (
         campaign_context.get("product_type") == "digital_print"
-        or any(
-            k in tokens
-            for k in (
+        or _has_signal(
+            (
                 "wall art",
                 "poster",
                 "print",
@@ -190,15 +206,16 @@ def evaluate_taxonomy_fit(
                 "printable wall art",
                 "nursery art",
                 "decor",
-            )
+            ),
+            norm_text,
+            tokens,
         )
     )
 
     is_illustration = (
         campaign_context.get("product_type") == "digital_drawing"
-        or any(
-            k in tokens
-            for k in (
+        or _has_signal(
+            (
                 "illustration",
                 "drawing",
                 "portrait",
@@ -206,7 +223,9 @@ def evaluate_taxonomy_fit(
                 "hand drawn",
                 "line art",
                 "digital illustration",
-            )
+            ),
+            norm_text,
+            tokens,
         )
     )
 
@@ -260,9 +279,9 @@ def evaluate_taxonomy_fit(
         score += 25.0
         reasons.append("Supports graphic design assets")
 
-    # 4. Properties and Allowed Values Evaluation
+    # 4. Properties and Allowed Values Evaluation (purely semantic, no hardcoded property IDs)
     craft_prop = next(
-        (p for p in taxonomy_properties if "craft" in p.name.lower() or p.property_id == 82731),
+        (p for p in taxonomy_properties if "craft" in p.name.lower()),
         None,
     )
 

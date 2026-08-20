@@ -235,3 +235,46 @@ class TestTaxonomyFitness:
             campaign_context={"title": "Custom Cat Portrait Drawing", "product_type": "digital_drawing"},
         )
         assert illustration_fit.campaign_intent == "digital_illustration"
+
+    def test_multi_word_intent_phrases(self, clip_art_node: EtsyTaxonomyNode) -> None:
+        """Verify that multi-word phrases correctly classify intent even after tokenization."""
+        # 1. Print on demand
+        fit_pod = evaluate_taxonomy_fit(
+            taxonomy_node=clip_art_node,
+            taxonomy_properties=[],
+            campaign_context={"title": "Dog Graphic", "description": "Ready for print on demand apparel and merchandise."},
+        )
+        assert fit_pod.campaign_intent == "apparel_sublimation"
+
+        # 2. Heat transfer
+        fit_ht = evaluate_taxonomy_fit(
+            taxonomy_node=clip_art_node,
+            taxonomy_properties=[],
+            campaign_context={"title": "Vintage Floral", "description": "Suitable for heat transfer vinyl on fabrics."},
+        )
+        assert fit_ht.campaign_intent == "apparel_sublimation"
+
+        # 3. Card making
+        fit_cm = evaluate_taxonomy_fit(
+            taxonomy_node=clip_art_node,
+            taxonomy_properties=[],
+            campaign_context={"title": "Floral Bundle", "description": "Perfect for card making and scrapbooking invitations."},
+        )
+        assert fit_cm.campaign_intent == "scrapbooking_paper"
+
+        # 4. Paper craft
+        fit_pc = evaluate_taxonomy_fit(
+            taxonomy_node=clip_art_node,
+            taxonomy_properties=[],
+            campaign_context={"title": "Vintage Ephemera", "description": "Elements for paper craft projects and junk journal pages."},
+        )
+        assert fit_pc.campaign_intent == "scrapbooking_paper"
+
+        # 5. Wall art
+        fit_wa = evaluate_taxonomy_fit(
+            taxonomy_node=clip_art_node,
+            taxonomy_properties=[],
+            campaign_context={"title": "Abstract Mountain Landscape", "description": "Modern printable wall art poster download."},
+        )
+        assert fit_wa.campaign_intent == "wall_art_print"
+
