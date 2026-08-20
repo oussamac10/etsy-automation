@@ -684,3 +684,66 @@ def test_pricing_safety_and_currency_resolution():
     assert resolve_listing_currency(listing_currency=None, shop_currency=None, owner_currency=None) == "USD"
 
 
+def test_build_etsy_dispatch_response_step_model():
+    """Verify _build_etsy_dispatch_response produces accurate steps for in-progress and completed states."""
+    from app.api.routes.etsy import _build_etsy_dispatch_response
+
+    wf_id = uuid.uuid4()
+
+    # 1. not_started
+    resp_none = _build_etsy_dispatch_response(wf_id, None)
+    assert resp_none.dispatch_status == "not_started"
+    assert resp_none.steps["create_listing"].status == "pending"
+    assert resp_none.steps["upload_mockups"].status == "pending"
+    assert resp_none.steps["upload_files"].status == "pending"
+
+    # 2. in_progress uploading_files
+    listing_in_progress = MagicMock(spec=ListingDraft)
+    listing_in_progress.etsy_listing_id = "4559404921"
+    listing_in_progress.etsy_listing_url = "https://www.etsy.com/listing/4559404921"
+    listing_in_progress.etsy_state = "draft"
+    listing_in_progress.etsy_shop_id = "shop-1"
+    listing_in_progress.etsy_image_ids = ["img-1", "img-2", "img-3", "img-4"]
+    listing_in_progress.etsy_file_id = None
+    listing_in_progress.etsy_file_ids = []
+    listing_in_progress.taxonomy_id = 77
+    listing_in_progress.taxonomy_path = "Digital"
+    listing_in_progress.etsy_failure_reason = None
+    listing_in_progress.etsy_last_synced_at = datetime.now(UTC)
+    listing_in_progress.etsy_dispatch_status = "uploading_file"
+
+    resp_uploading = _build_etsy_dispatch_response(wf_id, listing_in_progress)
+    assert resp_uploading.dispatch_status == "uploading_file"
+    assert resp_uploading.current_step == "upload_files"
+    assert resp_uploading.steps["create_listing"].status == "completed"
+    assert resp_uploading.steps["upload_mockups"].status == "completed"
+    assert resp_uploading.steps["upload_mockups"].uploaded_count == 4
+    assert resp_uploading.steps["upload_files"].status == "in_progress"
+
+    # 3. completed
+    listing_completed = MagicMock(spec=ListingDraft)
+    listing_completed.etsy_listing_id = "4559404921"
+    listing_completed.etsy_listing_url = "https://www.etsy.com/listing/4559404921"
+    listing_completed.etsy_state = "draft"
+    listing_completed.etsy_shop_id = "shop-1"
+    listing_completed.etsy_image_ids = ["img-1", "img-2", "img-3", "img-4"]
+    listing_completed.etsy_file_id = "file-1"
+    listing_completed.etsy_file_ids = ["file-1", "file-2"]
+    listing_completed.taxonomy_id = 77
+    listing_completed.taxonomy_path = "Digital"
+    listing_completed.etsy_failure_reason = None
+    listing_completed.etsy_last_synced_at = datetime.now(UTC)
+    listing_completed.etsy_dispatch_status = "completed"
+
+    resp_done = _build_etsy_dispatch_response(wf_id, listing_completed)
+    assert resp_done.dispatch_status == "completed"
+    assert resp_done.current_step is None
+    assert resp_done.steps["create_listing"].status == "completed"
+    assert resp_done.steps["upload_mockups"].status == "completed"
+    assert resp_done.steps["upload_mockups"].uploaded_count == 4
+    assert resp_done.steps["upload_files"].status == "completed"
+    assert resp_done.steps["upload_files"].uploaded_count == 2
+    assert resp_done.steps["apply_attributes"].status == "completed"
+
+
+
