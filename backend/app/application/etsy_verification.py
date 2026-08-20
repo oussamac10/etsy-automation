@@ -260,11 +260,13 @@ async def verify_etsy_draft_listing(
 
     # 7. Record Audit Trail
     await uow.audit.record(
-        owner_id=owner_id,
         action=AuditAction.ETSY_DRAFT_VERIFIED,
         entity_type="listing_draft",
         entity_id=listing.id,
-        details={
+        workflow_id=workflow_id,
+        actor=str(owner_id),
+        summary=f"Etsy draft verified ({verification.status.value}): {verification.summary.synced} synced, {verification.summary.warnings} warnings, {verification.summary.manual_review} manual checks.",
+        metadata={
             "workflow_id": str(workflow_id),
             "listing_id": str(listing_id),
             "status": verification.status.value,

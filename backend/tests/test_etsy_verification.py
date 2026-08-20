@@ -470,21 +470,21 @@ class TestEtsyVerificationService:
         uow.listing_drafts.update_etsy_verification.assert_awaited_once()
         # Verify audit recorded
         uow.audit.record.assert_awaited_once_with(
-            owner_id=owner_id,
             action=AuditAction.ETSY_DRAFT_VERIFIED,
             entity_type="listing_draft",
             entity_id=listing_id,
-            details=pytest.approx(
-                {
-                    "workflow_id": str(workflow_id),
-                    "listing_id": "4559404921",
-                    "status": "verified",
-                    "synced": report.summary.synced,
-                    "warnings": 0,
-                    "errors": 0,
-                    "manual_review": 3,
-                }
-            ),
+            workflow_id=workflow_id,
+            actor=str(owner_id),
+            summary=f"Etsy draft verified ({report.status.value}): {report.summary.synced} synced, {report.summary.warnings} warnings, {report.summary.manual_review} manual checks.",
+            metadata={
+                "workflow_id": str(workflow_id),
+                "listing_id": "4559404921",
+                "status": "verified",
+                "synced": report.summary.synced,
+                "warnings": 0,
+                "errors": 0,
+                "manual_review": 3,
+            },
         )
 
     @pytest.mark.asyncio
