@@ -156,13 +156,37 @@ class ListingDraftService:
                 break
 
         from app.application.brand_resolver import resolve_connected_shop_name
+        from app.domain.enums import ConceptStatus
         from app.domain.pricing import calculate_price_recommendation
         from app.domain.shop_section_resolver import suggest_shop_section_title
         from app.domain.sku_generator import generate_sku
-        from app.domain.taxonomy_properties import suggest_taxonomy_properties
         from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
 
-        tax_res = EtsyTaxonomyResolver().resolve(title=initial_title, tags=initial_tags)
+        concepts = await uow.concepts.list_for_workflow(workflow_id)
+        approved_concept = next(
+            (c for c in concepts if c.status == ConceptStatus.APPROVED),
+            concepts[0] if concepts else None,
+        )
+        slogan = None
+        concept_uses: list[str] = []
+        concept_text = ""
+        if approved_concept:
+            concept_uses = list(approved_concept.intended_product_uses or [])
+            concept_text = f"{approved_concept.description} {approved_concept.differentiation}"
+            prompts = await uow.concepts.prompts(approved_concept.id)
+            if prompts:
+                slogan = prompts[0].exact_slogan
+                if prompts[0].intended_product_uses:
+                    concept_uses.extend(prompts[0].intended_product_uses)
+
+        tax_res = EtsyTaxonomyResolver().resolve(
+            title=initial_title,
+            tags=initial_tags,
+            product_type="digital_png",
+            intended_product_uses=concept_uses,
+            slogan=slogan,
+            concept=concept_text,
+        )
 
         # 1. Resolve shop & currency
         shop_name = await resolve_connected_shop_name(uow, workflow.owner_id)
@@ -184,9 +208,7 @@ class ListingDraftService:
         # 3. Suggest shop section
         suggested_sec_name, suggested_sec_id = suggest_shop_section_title(initial_title, initial_tags)
 
-        # 4. Suggest taxonomy properties
         initial_desc = "High-resolution digital PNG download (4500x5400 px @ 300 DPI, transparent background)."
-        suggested_props = suggest_taxonomy_properties(initial_title, initial_desc, initial_tags)
 
         draft = ListingDraft(
             workflow_id=workflow_id,
@@ -200,7 +222,7 @@ class ListingDraftService:
             shop_section_id=suggested_sec_id,
             shop_section_name=suggested_sec_name,
             should_auto_renew=default_renew,
-            etsy_properties=suggested_props,
+            etsy_properties={},
             taxonomy_id=tax_res.taxonomy_id,
             taxonomy_path=tax_res.taxonomy_path,
             ip_risk_level=RiskLevel.UNKNOWN,
