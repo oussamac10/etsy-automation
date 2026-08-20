@@ -57,13 +57,38 @@ const emit = defineEmits<{
       class="py-12 text-center space-y-4"
     >
       <div class="h-12 w-12 rounded-full bg-secondary border border-border flex items-center justify-center mx-auto text-primary shadow-xs">
-        <Icon name="lucide:loader-2" class="size-6 animate-spin" aria-hidden="true" />
+        <Icon name="lucide:loader-circle" class="size-6 animate-spin" aria-hidden="true" />
       </div>
       <div class="space-y-1">
         <h4 class="text-base font-bold text-foreground">Processing Master PNG & Quality Checks</h4>
         <p class="text-xs text-muted-foreground max-w-md mx-auto">
           Running Sharp image pipeline: safe trim margin (8%), 4500×5400 px upscale @ 300 DPI, transparency verification, and slogan typography integration.
         </p>
+      </div>
+    </div>
+
+    <!-- Gate 2 Pending State (Artwork not selected yet) -->
+    <div v-else-if="!latestProductionJob" class="space-y-4">
+      <div class="rounded-xl border border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-950/20 p-5 space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-900/50 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
+            <Icon name="lucide:image" class="size-5" aria-hidden="true" />
+          </div>
+          <div class="space-y-1">
+            <h4 class="text-sm font-bold text-amber-950 dark:text-amber-200">Artwork Selection Required (Gate 2)</h4>
+            <p class="text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
+              Phase 7 PNG production requires an approved master artwork candidate. Please visit <b>Step 2 (Artwork Studio)</b> to generate, refine, and approve your design before generating the print-ready PNG and product mockups.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-3 pt-1">
+          <NuxtLink :to="{ query: { tab: 'artwork' } }">
+            <Button variant="outline" size="sm" class="gap-1.5 border-amber-300 text-amber-900 dark:text-amber-200 hover:bg-amber-100/60 font-semibold cursor-pointer">
+              <Icon name="lucide:arrow-left" class="size-3.5" aria-hidden="true" />
+              <span>Go to Artwork Studio</span>
+            </Button>
+          </NuxtLink>
+        </div>
       </div>
     </div>
   </div>
