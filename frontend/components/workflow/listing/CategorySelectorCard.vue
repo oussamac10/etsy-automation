@@ -272,9 +272,9 @@ defineExpose({
           <Badge
             v-if="activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5)"
             variant="outline"
-            class="text-2xs py-0.5 gap-1 font-mono font-semibold bg-amber-100 text-amber-950 dark:bg-amber-950/80 dark:text-amber-200 border-amber-300 dark:border-amber-700"
+            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
           >
-            <Icon name="lucide:alert-triangle" class="size-3 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <Icon name="lucide:alert-triangle" class="size-3 text-amber-500" aria-hidden="true" />
             <span>Poor fit</span>
           </Badge>
 
@@ -282,23 +282,23 @@ defineExpose({
           <Badge
             v-else-if="activeFitness && activeFitness.fit_score !== undefined && activeFitness.fit_level !== 'unknown'"
             variant="outline"
-            class="text-2xs py-0.5 gap-1 font-mono font-semibold bg-emerald-100 text-emerald-950 dark:bg-emerald-950/80 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700"
+            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
           >
-            <Icon name="lucide:sparkles" class="size-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <Icon name="lucide:sparkles" class="size-3 text-emerald-500" aria-hidden="true" />
             <span>{{ Math.round(activeFitness.fit_score * 100) }}% fit</span>
           </Badge>
 
           <!-- Source badge -->
-          <Badge v-if="props.taxonomySelectionSource === 'manual'" variant="outline" class="bg-blue-100 text-blue-950 dark:bg-blue-950/80 dark:text-blue-200 border-blue-300 dark:border-blue-700 text-2xs py-0.5 font-semibold">
+          <Badge v-if="props.taxonomySelectionSource === 'manual'" variant="outline" class="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-2xs py-0.5 font-medium">
             Manual override
           </Badge>
-          <Badge v-else-if="props.taxonomySelectionSource === 'fallback'" variant="outline" class="bg-amber-100 text-amber-950 dark:bg-amber-950/80 dark:text-amber-200 border-amber-300 dark:border-amber-700 text-2xs py-0.5 font-semibold">
+          <Badge v-else-if="props.taxonomySelectionSource === 'fallback'" variant="outline" class="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-2xs py-0.5 font-medium">
             Fallback — review required
           </Badge>
           <Badge
             v-else-if="!(activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5))"
             variant="outline"
-            class="bg-primary/10 text-primary border-primary/20 text-2xs py-0.5 font-semibold"
+            class="bg-primary/10 text-primary border-primary/20 text-2xs py-0.5 font-medium"
           >
             Auto-selected
           </Badge>
@@ -308,9 +308,9 @@ defineExpose({
       <!-- Poor fit warning callout -->
       <div
         v-if="props.taxonomyId && (activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5))"
-        class="text-[11px] text-amber-950 dark:text-amber-200 flex items-center gap-1.5 px-1 font-medium bg-amber-50/70 dark:bg-amber-950/30 p-2 rounded-md border border-amber-200 dark:border-amber-800"
+        class="text-[10px] text-foreground/80 dark:text-foreground/90 flex items-center gap-1.5 px-1 font-medium"
       >
-        <Icon name="lucide:alert-triangle" class="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+        <Icon name="lucide:alert-triangle" class="size-3 shrink-0 text-amber-500" aria-hidden="true" />
         <span>Required attributes do not match this campaign's intended use.</span>
       </div>
 
@@ -376,13 +376,13 @@ defineExpose({
                   <Badge
                     v-if="cat.fit_score !== undefined && cat.fit_score !== null"
                     variant="outline"
-                    class="font-mono text-2xs py-0 font-semibold"
+                    class="font-mono text-2xs py-0"
                     :class="
                       cat.fit_score >= 0.8
-                        ? 'bg-emerald-100 text-emerald-950 dark:bg-emerald-950/80 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700'
+                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
                         : cat.fit_score < 0.5
-                        ? 'bg-amber-100 text-amber-950 dark:bg-amber-950/80 dark:text-amber-200 border-amber-300 dark:border-amber-700'
-                        : 'bg-muted text-foreground'
+                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                        : 'bg-muted text-muted-foreground'
                     "
                   >
                     {{ Math.round(cat.fit_score * 100) }}% fit
@@ -390,11 +390,11 @@ defineExpose({
                   <Badge
                     v-else
                     variant="outline"
-                    class="text-2xs py-0 text-muted-foreground font-medium"
+                    class="text-2xs py-0 text-muted-foreground"
                   >
                     Fitness unavailable
                   </Badge>
-                  <Badge variant="outline" class="font-mono text-2xs py-0 font-medium">ID: {{ cat.id }}</Badge>
+                  <Badge variant="outline" class="font-mono text-2xs py-0">ID: {{ cat.id }}</Badge>
                   <Icon
                     v-if="selectedNode?.id === cat.id"
                     name="lucide:check"
@@ -409,14 +409,14 @@ defineExpose({
                 <span
                   v-for="(r, idx) in (cat.fit_reasons || []).slice(0, 2)"
                   :key="'r-' + idx"
-                  class="text-[10px] font-semibold text-emerald-950 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded"
+                  class="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded"
                 >
                   ✓ {{ r }}
                 </span>
                 <span
                   v-for="(w, idx) in (cat.warnings || []).slice(0, 1)"
                   :key="'w-' + idx"
-                  class="text-[10px] font-semibold text-amber-950 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800 px-1.5 py-0.5 rounded"
+                  class="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded"
                 >
                   ⚠ {{ w }}
                 </span>

@@ -293,15 +293,15 @@ const totalSelectedCount = computed(() => {
       <!-- Warning Banner for Mismatched Required Attributes -->
       <div
         v-if="fitness?.has_mismatched_required_attributes || fitness?.blocking_mismatch || (fitness?.warnings && fitness.warnings.length > 0)"
-        class="p-3.5 rounded-lg border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+        class="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         data-testid="category-attribute-mismatch-warning"
       >
         <div class="space-y-1 min-w-0">
-          <p class="font-semibold flex items-center gap-1.5 text-amber-950 dark:text-amber-100">
-            <Icon name="lucide:alert-triangle" class="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+          <p class="font-semibold flex items-center gap-1.5 text-foreground">
+            <Icon name="lucide:alert-triangle" class="size-4 shrink-0 text-amber-500" aria-hidden="true" />
             <span>Category mismatch</span>
           </p>
-          <p class="text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed font-normal">
+          <p class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
             {{ fitness?.mismatched_required_reason || fitness?.warnings?.[0] || 'Required Etsy attributes for this category do not match this campaign\'s intended use.' }}
           </p>
         </div>
@@ -310,7 +310,7 @@ const totalSelectedCount = computed(() => {
           type="button"
           variant="outline"
           size="sm"
-          class="h-8 text-xs font-semibold bg-background hover:bg-muted text-foreground border-border shrink-0 cursor-pointer self-start sm:self-auto shadow-2xs"
+          class="h-8 text-xs shrink-0 cursor-pointer self-start sm:self-auto bg-background text-foreground border-border hover:bg-muted"
           @click="emit('reviewCategory')"
         >
           <Icon name="lucide:folder-tree" class="size-3.5 mr-1 text-primary" aria-hidden="true" />
@@ -341,7 +341,7 @@ const totalSelectedCount = computed(() => {
           :key="prop.property_id"
           class="p-3.5 rounded-lg border border-border/80 bg-card/60 space-y-2.5 transition-colors"
           :class="{
-            'border-amber-300 dark:border-amber-700/60 bg-amber-50/50 dark:bg-amber-950/20': isPropertyMismatched(prop),
+            'border-amber-500/30 bg-amber-500/5': isPropertyMismatched(prop),
             'border-destructive/30 bg-destructive/5': isPropertyMissingRequired(prop),
           }"
         >
@@ -353,13 +353,13 @@ const totalSelectedCount = computed(() => {
               <Badge
                 v-if="prop.is_required"
                 variant="outline"
-                class="text-[10px] py-0 font-semibold"
+                class="text-[10px] py-0 font-medium"
                 :class="
                   isPropertyMismatched(prop)
-                    ? 'bg-amber-100 text-amber-950 dark:bg-amber-950/80 dark:text-amber-200 border-amber-300 dark:border-amber-700'
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
                     : isPropertyMissingRequired(prop)
-                    ? 'bg-red-100 text-red-950 dark:bg-red-950/80 dark:text-red-200 border-red-300 dark:border-red-700'
-                    : 'bg-emerald-100 text-emerald-950 dark:bg-emerald-950/80 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700'
+                    ? 'bg-destructive/10 text-destructive border-destructive/20'
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                 "
               >
                 * Required
@@ -370,7 +370,7 @@ const totalSelectedCount = computed(() => {
             </div>
 
             <!-- Missing / Mismatch indicator -->
-            <span v-if="isPropertyMismatched(prop)" class="text-[11px] font-semibold text-amber-950 dark:text-amber-200">
+            <span v-if="isPropertyMismatched(prop)" class="text-[11px] font-medium text-amber-600 dark:text-amber-400">
               Category mismatch
             </span>
             <span v-else-if="isPropertyMissingRequired(prop)" class="text-[11px] font-medium text-destructive">
