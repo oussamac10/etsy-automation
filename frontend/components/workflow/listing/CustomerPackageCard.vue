@@ -64,18 +64,31 @@ async function copyChecksum() {
         </CardDescription>
       </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer self-start sm:self-auto"
-        :disabled="isBuilding"
-        @click="emit('build-package')"
-      >
-        <Icon v-if="isBuilding" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
-        <Icon v-else name="lucide:refresh-cw" class="size-3.5 text-primary" aria-hidden="true" />
-        <span>{{ isBuilding ? 'Building...' : packageAsset ? 'Rebuild' : 'Build Package' }}</span>
-      </Button>
+      <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
+        <a
+          v-if="downloadUrl"
+          :href="sanitizeUrl(downloadUrl)"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium border border-border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+        >
+          <Icon name="lucide:download" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>Download ZIP</span>
+        </a>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          class="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+          :disabled="isBuilding"
+          @click="emit('build-package')"
+        >
+          <Icon v-if="isBuilding" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:refresh-cw" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>{{ isBuilding ? 'Building...' : packageAsset ? 'Rebuild' : 'Build Package' }}</span>
+        </Button>
+      </div>
     </CardHeader>
 
     <CardContent class="p-4 sm:p-5 pt-0 space-y-3 text-xs">
@@ -108,7 +121,7 @@ async function copyChecksum() {
             <Icon name="lucide:shield-check" class="size-4 text-primary shrink-0" aria-hidden="true" />
             <div>
               <p class="font-semibold text-foreground">Commercial License</p>
-              <p class="text-[11px] text-muted-foreground">Unlimited POD & physical commercial rights included</p>
+              <p class="text-[11px] text-muted-foreground">Unlimited POD &amp; physical commercial rights included</p>
             </div>
           </div>
           <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
@@ -133,19 +146,6 @@ async function copyChecksum() {
           <span>Etsy Delivery Usage: <strong class="text-foreground font-semibold">1 / 5 file slots</strong> used</span>
         </span>
         <span v-if="byteSize" class="font-mono text-[11px] font-semibold text-foreground">{{ byteSize }}</span>
-      </div>
-
-      <!-- Download Link Button -->
-      <div v-if="downloadUrl" class="pt-1">
-        <a
-          :href="sanitizeUrl(downloadUrl)"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="w-full inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-        >
-          <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
-          <span>Download Package ZIP</span>
-        </a>
       </div>
     </CardContent>
   </Card>
