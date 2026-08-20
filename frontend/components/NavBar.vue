@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { useAuthStore } from "~/stores/auth";
 import Button from "~/components/ui/Button.vue";
+import AppLogo from "~/components/AppLogo.vue";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -27,12 +28,10 @@ async function handleLogout() {
       <div class="flex items-center gap-2 sm:gap-4 md:gap-8 min-w-0">
         <NuxtLink
           to="/"
-          class="flex items-center gap-2 text-sm sm:text-base font-bold tracking-tight text-foreground hover:text-primary transition-colors group shrink-0"
+          class="flex items-center gap-2.5 text-sm sm:text-base font-bold tracking-tight text-foreground hover:text-primary transition-colors group shrink-0"
           @click="isMobileMenuOpen = false"
         >
-          <div class="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-primary text-white shadow-2xs group-hover:bg-primary-hover transition-colors">
-            <Icon name="lucide:store" class="size-3.5 sm:size-4" aria-hidden="true" />
-          </div>
+          <AppLogo sizeClass="size-7 sm:size-8" />
           <span class="inline font-bold">Marketplace Studio</span>
         </NuxtLink>
 

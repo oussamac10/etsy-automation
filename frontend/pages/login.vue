@@ -12,6 +12,7 @@ import CardContent from "~/components/ui/CardContent.vue";
 import CardFooter from "~/components/ui/CardFooter.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
+import AppLogo from "~/components/AppLogo.vue";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -48,9 +49,7 @@ async function handleLogin() {
   >
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
-        <div class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-md shadow-blue-600/20 mb-3">
-          <Icon name="lucide:store" class="size-6" aria-hidden="true" />
-        </div>
+        <AppLogo sizeClass="size-12 mb-3 inline-block drop-shadow-md" />
         <h1 class="text-2xl font-bold tracking-tight text-foreground">Marketplace Studio</h1>
         <p class="mt-1 text-sm text-muted-foreground">Autonomous research-to-draft digital product studio</p>
       </div>
