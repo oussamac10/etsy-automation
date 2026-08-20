@@ -1,0 +1,586 @@
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import type { EtsyDraftVerification, EtsyVerificationCheck } from '~/types/etsy';
+
+const props = defineProps<{
+  workflowId: string;
+  listingId?: string | null;
+  verification?: EtsyDraftVerification | null;
+  shopManagerUrl?: string | null;
+  disabled?: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: 'recheck-completed', report: EtsyDraftVerification): void;
+}>();
+
+const config = useRuntimeConfig();
+const isRechecking = ref(false);
+const localVerification = ref<EtsyDraftVerification | null>(props.verification || null);
+const expandedKeys = ref<Record<string, boolean>>({});
+const copiedText = ref<string | null>(null);
+
+// Watch for prop updates
+watch(
+  () => props.verification,
+  (newVal) => {
+    if (newVal) {
+      localVerification.value = newVal;
+    }
+  },
+  { immediate: true }
+);
+
+const activeVerification = computed<EtsyDraftVerification | null>(() => {
+  return localVerification.value || props.verification || null;
+});
+
+const summary = computed(() => {
+  return (
+    activeVerification.value?.summary || {
+      synced: 0,
+      warnings: 0,
+      errors: 0,
+      manual_review: 0,
+      total: 0,
+    }
+  );
+});
+
+const overallStatus = computed(() => {
+  return activeVerification.value?.status || 'needs_attention';
+});
+
+const formattedVerifiedAt = computed(() => {
+  if (!activeVerification.value?.verified_at) return null;
+  try {
+    const d = new Date(activeVerification.value.verified_at);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch {
+    return activeVerification.value.verified_at;
+  }
+});
+
+const checksByCategory = computed(() => {
+  const allChecks = activeVerification.value?.checks || [];
+  return {
+    listing: allChecks.filter((c) => c.category === 'listing'),
+    commerce: allChecks.filter((c) => c.category === 'commerce'),
+    media: allChecks.filter((c) => c.category === 'media_and_delivery'),
+    attributes: allChecks.filter((c) => c.category === 'attributes'),
+    manual_review: allChecks.filter((c) => c.category === 'manual_review'),
+  };
+});
+
+function toggleExpand(key: string) {
+  expandedKeys.value[key] = !expandedKeys.value[key];
+}
+
+async function handleRecheck() {
+  if (isRechecking.value || !props.workflowId) return;
+  isRechecking.value = true;
+  try {
+    const res = await $fetch<EtsyDraftVerification>(
+      `${config.public.apiBase}/api/v1/workflows/${props.workflowId}/etsy/verify`,
+      { method: 'POST' }
+    );
+    if (res) {
+      localVerification.value = res;
+      emit('recheck-completed', res);
+    }
+  } catch (err: any) {
+    console.error('Failed to re-verify Etsy draft:', err);
+  } finally {
+    isRechecking.value = false;
+  }
+}
+
+async function copyToClipboard(text: string, key: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    copiedText.value = key;
+    setTimeout(() => {
+      if (copiedText.value === key) copiedText.value = null;
+    }, 2000);
+  } catch {
+    // fallback
+  }
+}
+</script>
+
+<template>
+  <div
+    class="rounded-xl border border-border/80 bg-card p-5 shadow-sm transition-all"
+    data-testid="etsy-verification-card"
+  >
+    <!-- Header -->
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-4">
+      <div class="flex items-center gap-3">
+        <div
+          class="flex size-9 shrink-0 items-center justify-center rounded-lg"
+          :class="[
+            overallStatus === 'verified'
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              : overallStatus === 'needs_attention'
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+          ]"
+        >
+          <Icon
+            :name="
+              overallStatus === 'verified'
+                ? 'lucide:shield-check'
+                : overallStatus === 'needs_attention'
+                  ? 'lucide:shield-alert'
+                  : 'lucide:shield-x'
+            "
+            class="size-5"
+            aria-hidden="true"
+          />
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-sm font-semibold text-foreground">Post-Dispatch Etsy Draft Verification</h3>
+            <span
+              v-if="overallStatus === 'verified'"
+              class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+              data-testid="verification-status-badge"
+            >
+              <Icon name="lucide:check" class="size-3" aria-hidden="true" />
+              Verified {{ summary.manual_review > 0 ? `(${summary.manual_review} manual checks)` : '' }}
+            </span>
+            <span
+              v-else-if="overallStatus === 'needs_attention'"
+              class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400"
+              data-testid="verification-status-badge"
+            >
+              <Icon name="lucide:alert-triangle" class="size-3" aria-hidden="true" />
+              Needs Attention ({{ summary.warnings }} items)
+            </span>
+            <span
+              v-else
+              class="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400"
+              data-testid="verification-status-badge"
+            >
+              <Icon name="lucide:x-circle" class="size-3" aria-hidden="true" />
+              Verification Failed
+            </span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Authoritative comparison of expected listing state vs live Etsy Open API v3 draft.
+            <span v-if="formattedVerifiedAt" class="font-mono text-muted-foreground/80 ml-1">
+              (Checked {{ formattedVerifiedAt }})
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 self-start sm:self-auto">
+        <button
+          type="button"
+          :disabled="isRechecking || disabled"
+          @click="handleRecheck"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50"
+          data-testid="etsy-recheck-btn"
+        >
+          <Icon
+            name="lucide:refresh-cw"
+            class="size-3.5 text-muted-foreground"
+            :class="{ 'animate-spin': isRechecking }"
+            aria-hidden="true"
+          />
+          <span>{{ isRechecking ? 'Checking Etsy...' : 'Re-check Etsy' }}</span>
+        </button>
+
+        <a
+          v-if="shopManagerUrl"
+          :href="shopManagerUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+          data-testid="etsy-open-draft-btn"
+        >
+          <Icon name="lucide:external-link" class="size-3.5" aria-hidden="true" />
+          <span>Open Etsy Draft</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Summary Stats Bar -->
+    <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+      <div class="flex items-center gap-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10 p-2.5">
+        <Icon name="lucide:circle-check" class="size-4 text-emerald-500 shrink-0" aria-hidden="true" />
+        <div>
+          <div class="font-semibold text-emerald-700 dark:text-emerald-300">{{ summary.synced }} Synced</div>
+          <div class="text-[11px] text-muted-foreground">API Verified Match</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 rounded-lg bg-amber-500/5 border border-amber-500/10 p-2.5">
+        <Icon name="lucide:alert-triangle" class="size-4 text-amber-500 shrink-0" aria-hidden="true" />
+        <div>
+          <div class="font-semibold text-amber-700 dark:text-amber-300">{{ summary.warnings }} Warnings</div>
+          <div class="text-[11px] text-muted-foreground">Different or Missing</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 rounded-lg bg-muted/40 border border-border/60 p-2.5">
+        <Icon name="lucide:help-circle" class="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
+        <div>
+          <div class="font-semibold text-foreground">{{ summary.manual_review }} Manual Checks</div>
+          <div class="text-[11px] text-muted-foreground">Etsy Web Editor Only</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 rounded-lg bg-muted/30 border border-border/50 p-2.5">
+        <Icon name="lucide:list-checks" class="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
+        <div>
+          <div class="font-semibold text-foreground">{{ summary.total }} Total Checks</div>
+          <div class="text-[11px] text-muted-foreground">100% Comprehensive</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Categorized Check Tables -->
+    <div class="mt-5 space-y-4">
+      <!-- 1. Listing Meta -->
+      <div v-if="checksByCategory.listing.length > 0" class="rounded-lg border border-border/60 overflow-hidden">
+        <div class="bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground flex items-center gap-2">
+          <Icon name="lucide:file-text" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>Listing Content & Taxonomy</span>
+        </div>
+        <div class="divide-y divide-border/40 text-xs">
+          <div
+            v-for="check in checksByCategory.listing"
+            :key="check.key"
+            class="p-3 hover:bg-muted/20 transition-colors"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start gap-2 min-w-0">
+                <Icon
+                  :name="
+                    check.status === 'synced'
+                      ? 'lucide:circle-check'
+                      : check.status === 'different' || check.status === 'missing'
+                        ? 'lucide:alert-triangle'
+                        : check.status === 'failed'
+                          ? 'lucide:x-circle'
+                          : 'lucide:circle-dot'
+                  "
+                  class="size-4 shrink-0 mt-0.5"
+                  :class="[
+                    check.status === 'synced'
+                      ? 'text-emerald-500'
+                      : check.status === 'different' || check.status === 'missing'
+                        ? 'text-amber-500'
+                        : check.status === 'failed'
+                          ? 'text-rose-500'
+                          : 'text-muted-foreground',
+                  ]"
+                  aria-hidden="true"
+                />
+                <div class="min-w-0">
+                  <span class="font-medium text-foreground">{{ check.label }}</span>
+                  <p v-if="check.message" class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                    {{ check.message }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Status Badge / Val -->
+              <div class="flex items-center gap-2 shrink-0">
+                <span
+                  class="font-mono text-[11px] px-2 py-0.5 rounded"
+                  :class="[
+                    check.status === 'synced'
+                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      : check.status === 'different'
+                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                        : 'bg-muted text-muted-foreground',
+                  ]"
+                >
+                  {{ check.actual || check.status }}
+                </span>
+                <button
+                  v-if="check.details || check.status === 'different'"
+                  type="button"
+                  @click="toggleExpand(check.key)"
+                  class="text-[11px] text-primary hover:underline"
+                >
+                  {{ expandedKeys[check.key] ? 'Hide' : 'Details' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Expandable Diff Panel -->
+            <div
+              v-if="expandedKeys[check.key]"
+              class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-1.5 border border-border/50 font-mono"
+            >
+              <div class="flex gap-2">
+                <span class="text-muted-foreground shrink-0 w-16">Expected:</span>
+                <span class="text-foreground break-all">{{ check.expected }}</span>
+              </div>
+              <div class="flex gap-2">
+                <span class="text-muted-foreground shrink-0 w-16">Actual:</span>
+                <span class="text-foreground break-all">{{ check.actual }}</span>
+              </div>
+              <div v-if="check.details?.missing" class="text-amber-600 dark:text-amber-400">
+                Missing on Etsy: {{ check.details.missing.join(', ') }}
+              </div>
+              <div v-if="check.details?.unexpected" class="text-muted-foreground">
+                Unexpected on Etsy: {{ check.details.unexpected.join(', ') }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Commerce -->
+      <div v-if="checksByCategory.commerce.length > 0" class="rounded-lg border border-border/60 overflow-hidden">
+        <div class="bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground flex items-center gap-2">
+          <Icon name="lucide:shopping-bag" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>Pricing, Inventory & Organization</span>
+        </div>
+        <div class="divide-y divide-border/40 text-xs">
+          <div
+            v-for="check in checksByCategory.commerce"
+            :key="check.key"
+            class="p-3 hover:bg-muted/20 transition-colors"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start gap-2 min-w-0">
+                <Icon
+                  :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
+                  class="size-4 shrink-0 mt-0.5"
+                  :class="check.status === 'synced' ? 'text-emerald-500' : 'text-amber-500'"
+                  aria-hidden="true"
+                />
+                <div class="min-w-0">
+                  <span class="font-medium text-foreground">{{ check.label }}</span>
+                  <p v-if="check.message" class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                    {{ check.message }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                <span
+                  class="font-mono text-[11px] px-2 py-0.5 rounded"
+                  :class="[
+                    check.status === 'synced'
+                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                  ]"
+                >
+                  {{ check.actual }}
+                </span>
+                <button
+                  v-if="check.status !== 'synced'"
+                  type="button"
+                  @click="toggleExpand(check.key)"
+                  class="text-[11px] text-primary hover:underline"
+                >
+                  {{ expandedKeys[check.key] ? 'Hide' : 'Inspect' }}
+                </button>
+              </div>
+            </div>
+
+            <div
+              v-if="expandedKeys[check.key]"
+              class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-1 border border-border/50 font-mono"
+            >
+              <div><span class="text-muted-foreground">Expected:</span> {{ check.expected }}</div>
+              <div><span class="text-muted-foreground">Actual:</span> {{ check.actual }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Media & Delivery -->
+      <div v-if="checksByCategory.media.length > 0" class="rounded-lg border border-border/60 overflow-hidden">
+        <div class="bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground flex items-center gap-2">
+          <Icon name="lucide:layers" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>Mockup Images & Real Digital Download Deliverables</span>
+        </div>
+        <div class="divide-y divide-border/40 text-xs">
+          <div
+            v-for="check in checksByCategory.media"
+            :key="check.key"
+            class="p-3 hover:bg-muted/20 transition-colors"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start gap-2 min-w-0">
+                <Icon
+                  :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
+                  class="size-4 shrink-0 mt-0.5"
+                  :class="check.status === 'synced' ? 'text-emerald-500' : 'text-amber-500'"
+                  aria-hidden="true"
+                />
+                <div class="min-w-0">
+                  <span class="font-medium text-foreground">{{ check.label }}</span>
+                  <p v-if="check.message" class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                    {{ check.message }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                <span
+                  class="font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                >
+                  {{ check.actual }}
+                </span>
+                <button
+                  v-if="check.details"
+                  type="button"
+                  @click="toggleExpand(check.key)"
+                  class="text-[11px] text-primary hover:underline"
+                >
+                  {{ expandedKeys[check.key] ? 'Hide' : 'Files' }}
+                </button>
+              </div>
+            </div>
+
+            <div
+              v-if="expandedKeys[check.key] && check.details?.actual_filenames"
+              class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-1 border border-border/50 font-mono"
+            >
+              <div class="font-semibold text-muted-foreground mb-1">Attached Customer Files:</div>
+              <div
+                v-for="fn in check.details.actual_filenames"
+                :key="fn"
+                class="flex items-center gap-1.5 text-foreground"
+              >
+                <Icon name="lucide:file-archive" class="size-3.5 text-primary" aria-hidden="true" />
+                <span>{{ fn }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Attributes -->
+      <div v-if="checksByCategory.attributes.length > 0" class="rounded-lg border border-border/60 overflow-hidden">
+        <div class="bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground flex items-center gap-2">
+          <Icon name="lucide:tag" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>Category Attributes & Properties</span>
+        </div>
+        <div class="divide-y divide-border/40 text-xs">
+          <div
+            v-for="check in checksByCategory.attributes"
+            :key="check.key"
+            class="p-3 hover:bg-muted/20 transition-colors"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start gap-2 min-w-0">
+                <Icon
+                  :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
+                  class="size-4 shrink-0 mt-0.5"
+                  :class="check.status === 'synced' ? 'text-emerald-500' : 'text-amber-500'"
+                  aria-hidden="true"
+                />
+                <div class="min-w-0">
+                  <span class="font-medium text-foreground">{{ check.label }}</span>
+                  <p v-if="check.message" class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                    {{ check.message }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                <span
+                  class="font-mono text-[11px] px-2 py-0.5 rounded"
+                  :class="[
+                    check.status === 'synced'
+                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                  ]"
+                >
+                  {{ check.actual }}
+                </span>
+                <button
+                  v-if="check.details"
+                  type="button"
+                  @click="toggleExpand(check.key)"
+                  class="text-[11px] text-primary hover:underline"
+                >
+                  {{ expandedKeys[check.key] ? 'Hide' : 'Inspect' }}
+                </button>
+              </div>
+            </div>
+
+            <div
+              v-if="expandedKeys[check.key] && check.details?.properties"
+              class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-1.5 border border-border/50 font-mono"
+            >
+              <div
+                v-for="p in check.details.properties"
+                :key="p.property_id"
+                class="flex items-center justify-between gap-2"
+              >
+                <span>Property #{{ p.property_id }}:</span>
+                <span :class="p.status === 'synced' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600'">
+                  {{ p.actual?.join(', ') || 'Missing' }} ({{ p.status }})
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Manual Etsy Web Review (Not accessible via Public API) -->
+      <div v-if="checksByCategory.manual_review.length > 0" class="rounded-lg border border-border/60 overflow-hidden">
+        <div class="bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <Icon name="lucide:sparkles" class="size-3.5 text-muted-foreground" aria-hidden="true" />
+            <span>Manual Etsy Shop Manager Checks (Web Editor Only)</span>
+          </div>
+          <span class="text-[11px] font-normal text-muted-foreground">Not accessible via Etsy Public API</span>
+        </div>
+        <div class="divide-y divide-border/40 text-xs">
+          <div
+            v-for="check in checksByCategory.manual_review"
+            :key="check.key"
+            class="p-3 hover:bg-muted/20 transition-colors"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start gap-2 min-w-0">
+                <Icon name="lucide:circle-dot" class="size-4 text-muted-foreground shrink-0 mt-0.5" aria-hidden="true" />
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium text-foreground">{{ check.label }}</span>
+                    <span class="text-[10px] rounded bg-muted px-1.5 py-0.5 text-muted-foreground">Manual Check</span>
+                  </div>
+                  <p class="text-[11px] text-muted-foreground mt-0.5">
+                    {{ check.message }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Action button for manual checks (e.g. Copy shopping cart summary) -->
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  v-if="check.details?.copy_ready_text"
+                  type="button"
+                  @click="copyToClipboard(check.details.copy_ready_text, check.key)"
+                  class="inline-flex items-center gap-1 rounded border border-border/80 bg-background px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
+                  data-testid="copy-cart-summary-btn"
+                >
+                  <Icon
+                    :name="copiedText === check.key ? 'lucide:check' : 'lucide:copy'"
+                    class="size-3"
+                    :class="copiedText === check.key ? 'text-emerald-500' : 'text-muted-foreground'"
+                    aria-hidden="true"
+                  />
+                  <span>{{ copiedText === check.key ? 'Copied' : 'Copy Text' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

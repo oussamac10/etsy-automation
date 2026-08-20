@@ -1,4 +1,5 @@
 import type { Asset } from '~/types/workflow';
+import type { EtsyDraftVerification } from '~/types/etsy';
 
 export type RiskLevel = 'low' | 'medium' | 'high' | 'unknown';
 
@@ -99,6 +100,9 @@ export interface ListingDraft {
   etsy_draft_created_at?: string | null;
   etsy_last_synced_at?: string | null;
   etsy_failure_reason?: string | null;
+  etsy_verification_status?: string | null;
+  etsy_verified_at?: string | null;
+  etsy_verification_result?: EtsyDraftVerification | null;
   created_at?: string | null;
   updated_at?: string | null;
 }

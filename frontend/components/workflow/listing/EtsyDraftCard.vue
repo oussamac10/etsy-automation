@@ -10,6 +10,8 @@ import CardContent from '~/components/ui/CardContent.vue';
 import Button from '~/components/ui/Button.vue';
 import Badge from '~/components/ui/Badge.vue';
 import Alert from '~/components/ui/Alert.vue';
+import EtsyDraftVerificationCard from '~/components/workflow/listing/EtsyDraftVerificationCard.vue';
+import type { EtsyDraftVerification } from '~/types/etsy';
 
 const props = defineProps<{
   workflowId: string;
@@ -155,6 +157,16 @@ const stepStates = computed(() => {
     apply_attributes: getStep('apply_attributes'),
   };
 });
+
+const currentVerification = computed<EtsyDraftVerification | null>(() => {
+  return draftStatus.value?.verification || props.listing?.etsy_verification_result || null;
+});
+
+function handleVerificationCompleted(report: EtsyDraftVerification) {
+  if (draftStatus.value) {
+    draftStatus.value.verification = report;
+  }
+}
 
 onMounted(async () => {
   await fetchConnectionStatus();
@@ -669,6 +681,17 @@ async function copyListingId() {
               <span>All Drafts</span>
             </Button>
           </a>
+        </div>
+
+        <!-- Post-Dispatch Authoritative Verification Report -->
+        <div v-if="listingId" class="pt-2">
+          <EtsyDraftVerificationCard
+            :workflow-id="workflowId"
+            :listing-id="listingId"
+            :verification="currentVerification"
+            :shop-manager-url="listingManagerUrl"
+            @recheck-completed="handleVerificationCompleted"
+          />
         </div>
       </div>
 
