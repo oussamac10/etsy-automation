@@ -437,7 +437,7 @@ describe("WorkflowListingTab 5 Sub-Tabs Navigation & Structure", () => {
   });
 });
 
-describe("TaxonomyAttributesCard AI & Smart Suggestions", () => {
+describe("TaxonomyAttributesCard Manual Selection", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -447,33 +447,28 @@ describe("TaxonomyAttributesCard AI & Smart Suggestions", () => {
       property_id: 82731,
       name: "Craft type",
       is_required: true,
+      supports_attributes: true,
       is_multivalued: true,
       possible_values: [
         { value_id: 441908, name: "Sublimation" },
-        { value_id: 441909, name: "Card making" },
+        { value_id: 441909, name: "Printing & printmaking" },
       ],
-      suggested_value_ids: [441908],
-      suggested_values: ["Sublimation"],
     },
     {
-      property_id: 82732,
+      property_id: 99881,
       name: "Holiday",
       is_required: false,
+      supports_attributes: true,
       is_multivalued: false,
       possible_values: [
         { value_id: 551201, name: "Christmas" },
         { value_id: 551202, name: "Halloween" },
       ],
-      suggested_value_ids: [551201],
-      suggested_values: ["Christmas"],
     },
   ];
 
-  it("loads properties on mount without making any AI endpoint calls", async () => {
+  it("loads properties on mount without auto-selection, no AI buttons, and no Smart Suggest", async () => {
     const fetchMock = vi.fn().mockImplementation((url: string) => {
-      if (url.includes("taxonomy-properties/ai-suggest")) {
-        throw new Error("AI endpoint must not be called automatically on mount!");
-      }
       if (url.includes("taxonomy-properties")) {
         return Promise.resolve(mockTaxonomyProps);
       }
@@ -495,41 +490,22 @@ describe("TaxonomyAttributesCard AI & Smart Suggestions", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("Category Attributes");
+    expect(wrapper.text()).toContain("0 selected");
     expect(wrapper.text()).toContain("Craft type");
+    expect(wrapper.text()).toContain("* Required");
+    expect(wrapper.text()).toContain("Required selection missing");
     expect(wrapper.text()).toContain("Holiday");
-    // Verify AI endpoint was NEVER called
-    expect(fetchMock).not.toHaveBeenCalledWith(
-      expect.stringContaining("taxonomy-properties/ai-suggest"),
-      expect.anything()
-    );
+    expect(wrapper.text()).toContain("Optional");
+
+    // Proves NO AI buttons or Smart Suggest buttons exist
+    const buttonsText = wrapper.findAll("button").map((b) => b.text());
+    expect(buttonsText.some((t) => t.includes("AI Suggest"))).toBe(false);
+    expect(buttonsText.some((t) => t.includes("Smart Suggest"))).toBe(false);
+    expect(buttonsText.some((t) => t.includes("AI Available"))).toBe(false);
   });
 
-  it("triggers AI suggest endpoint only when user explicitly clicks the AI button", async () => {
-    const mockAiResponse = {
-      workflow_id: "wf-123",
-      taxonomy_id: 6844,
-      suggestions: [
-        {
-          property_id: 82731,
-          property_name: "Craft type",
-          value_ids: [441908],
-          values: ["Sublimation"],
-          confidence: 0.96,
-          reason: "Explicitly targets sublimation design files.",
-          is_required: true,
-          is_multivalued: true,
-          is_high_confidence: true,
-        },
-      ],
-      high_confidence_count: 1,
-      fingerprint: "abc123fp",
-      cached: false,
-    };
-
-    const fetchMock = vi.fn().mockImplementation((url: string, opts?: any) => {
-      if (url.includes("taxonomy-properties/ai-suggest")) {
-        return Promise.resolve(mockAiResponse);
-      }
+  it("supports manual selection of multivalued chips and single-valued dropdowns", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
       if (url.includes("taxonomy-properties")) {
         return Promise.resolve(mockTaxonomyProps);
       }
@@ -550,31 +526,63 @@ describe("TaxonomyAttributesCard AI & Smart Suggestions", () => {
 
     await flushPromises();
 
-    // Click "AI Suggest" button
-    const aiBtn = wrapper.findAll("button").find((b) => b.text().includes("AI Suggest"));
-    expect(aiBtn).toBeDefined();
-    await aiBtn!.trigger("click");
+    // Click Sublimation chip
+    const subChip = wrapper.findAll("button").find((b) => b.text().includes("Sublimation"));
+    expect(subChip).toBeDefined();
+    await subChip!.trigger("click");
     await flushPromises();
 
-    // Verify AI endpoint was called
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("taxonomy-properties/ai-suggest"),
-      expect.objectContaining({ method: "POST" })
-    );
+    // Emits update:etsyProperties with manual selection
+    const emitted = wrapper.emitted("update:etsyProperties");
+    expect(emitted).toBeTruthy();
+    expect(emitted![0][0]).toMatchObject({
+      "82731": {
+        property_id: 82731,
+        values: ["Sublimation"],
+        value_ids: [441908],
+      },
+    });
+  });
 
-    // Verify suggestions are displayed in UI
-    expect(wrapper.text()).toContain("AI suggestions ready for this campaign");
-    expect(wrapper.text()).toContain("96% AI High");
-    expect(wrapper.text()).toContain("Explicitly targets sublimation design files.");
+  it("Clear Optional clears unrequired properties and retains required selections", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("taxonomy-properties")) {
+        return Promise.resolve(mockTaxonomyProps);
+      }
+      return Promise.resolve({});
+    });
+    vi.stubGlobal("$fetch", fetchMock);
 
-    // Apply High-Confidence
-    const applyHighBtn = wrapper.findAll("button").find((b) => b.text().includes("Apply 1 High-Confidence"));
-    expect(applyHighBtn).toBeDefined();
-    await applyHighBtn!.trigger("click");
+    const wrapper = mount(TaxonomyAttributesCard, {
+      props: {
+        workflowId: "wf-123",
+        taxonomyId: 6844,
+        etsyProperties: {
+          "82731": { property_id: 82731, value_ids: [441908], values: ["Sublimation"] },
+          "99881": { property_id: 99881, value_ids: [551201], values: ["Christmas"] },
+        },
+      },
+      global: {
+        stubs: { Icon: { template: "<i />" } },
+      },
+    });
+
+    await flushPromises();
+    expect(wrapper.text()).toContain("2 selected");
+
+    const clearBtn = wrapper.findAll("button").find((b) => b.text().includes("Clear Optional"));
+    expect(clearBtn).toBeDefined();
+    await clearBtn!.trigger("click");
     await flushPromises();
 
-    // Emits local update
-    expect(wrapper.emitted("update:etsyProperties")).toBeTruthy();
+    const emitted = wrapper.emitted("update:etsyProperties");
+    expect(emitted).toBeTruthy();
+    const updated = emitted![emitted!.length - 1][0] as Record<string, any>;
+    // Required 82731 retained
+    expect(updated["82731"]).toBeDefined();
+    // Optional 99881 cleared
+    expect(updated["99881"]).toBeUndefined();
   });
 });
+
 

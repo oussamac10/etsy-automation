@@ -142,8 +142,6 @@ export interface TaxonomyProperty {
   supports_attributes: boolean;
   is_multivalued: boolean;
   possible_values: Array<{ value_id: number; name: string }>;
-  suggested_value_ids: number[];
-  suggested_values: string[];
 }
 
 export interface PriceRecommendation {
@@ -159,23 +157,3 @@ export interface Gate3DecisionPayload {
   acknowledged?: boolean;
 }
 
-export interface AiTaxonomyPropertySuggestionItem {
-  property_id: number;
-  property_name: string;
-  value_ids: number[];
-  values: string[];
-  confidence: number;
-  reason: string;
-  is_required: boolean;
-  is_multivalued: boolean;
-  is_high_confidence: boolean;
-}
-
-export interface AiTaxonomyAttributeSuggestionsResponse {
-  workflow_id: string;
-  taxonomy_id: number;
-  suggestions: AiTaxonomyPropertySuggestionItem[];
-  high_confidence_count: number;
-  fingerprint: string;
-  cached: boolean;
-}

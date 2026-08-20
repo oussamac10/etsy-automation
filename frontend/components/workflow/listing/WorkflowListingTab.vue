@@ -65,6 +65,7 @@ function setActiveSubTab(tab: SubTabKey) {
 
 const {
   listingDraft,
+  taxonomyProperties,
   isLoading,
   isSaving,
   isScreening,
@@ -85,6 +86,7 @@ const {
   deleteVersion,
   deleteTagFromHistory,
   decideGate3,
+  fetchTaxonomyProperties,
   updateTaxonomy,
 } = useListing();
 
@@ -322,11 +324,27 @@ const isContentReady = computed(() => {
   );
 });
 
+const missingRequiredProperties = computed(() => {
+  if (!taxonomyProperties.value || taxonomyProperties.value.length === 0) return [];
+  const saved = localEtsyProperties.value || {};
+  const missing: string[] = [];
+  for (const prop of taxonomyProperties.value) {
+    if (prop.is_required) {
+      const entry = saved[String(prop.property_id)];
+      if (!entry || !entry.values || entry.values.length === 0) {
+        missing.push(prop.name);
+      }
+    }
+  }
+  return missing;
+});
+
 const isEtsyDetailsReady = computed(() => {
   return Boolean(
     activeTaxonomyId.value &&
     localPriceMinorUnits.value &&
-    localPriceMinorUnits.value > 0
+    localPriceMinorUnits.value > 0 &&
+    missingRequiredProperties.value.length === 0
   );
 });
 
@@ -372,6 +390,18 @@ const readinessChecks = computed(() => {
       passed: Boolean(activeTaxonomyId.value),
       required: true,
       blockerMsg: 'Etsy category taxonomy ID is required.',
+    },
+    {
+      id: 'category-attributes',
+      label: missingRequiredProperties.value.length === 0
+        ? 'Category attributes valid'
+        : `${missingRequiredProperties.value.length} required attribute${missingRequiredProperties.value.length > 1 ? 's' : ''} missing`,
+      tab: 'etsy-details' as SubTabKey,
+      passed: missingRequiredProperties.value.length === 0,
+      required: true,
+      blockerMsg: missingRequiredProperties.value.length > 0
+        ? `Required Etsy category attributes missing: ${missingRequiredProperties.value.join(', ')}.`
+        : '',
     },
     {
       id: 'price',

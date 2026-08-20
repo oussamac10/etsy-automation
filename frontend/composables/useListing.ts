@@ -421,41 +421,6 @@ export function useListing() {
     }
   }
 
-  const isSuggestingAiAttributes = ref(false);
-  const aiAttributeSuggestions = ref<any[]>([]);
-  const aiAttributeSuggestionsError = ref<string | null>(null);
-
-  async function suggestAiTaxonomyProperties(workflowId: string) {
-    if (!workflowId) return null;
-    isSuggestingAiAttributes.value = true;
-    aiAttributeSuggestionsError.value = null;
-
-    try {
-      const data = await $fetch<any>(
-        `${apiBase}/api/v1/workflows/${workflowId}/listing/taxonomy-properties/ai-suggest`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            ...getCsrfHeaders(),
-          },
-          credentials: 'include',
-        }
-      );
-      aiAttributeSuggestions.value = data?.suggestions || [];
-      return data;
-    } catch (err: unknown) {
-      const msg = getApiErrorMessage(
-        err,
-        'AI suggestions are unavailable. Configure Gemini or OpenAI in Settings, or use Smart Suggestions.'
-      );
-      aiAttributeSuggestionsError.value = msg;
-      throw err;
-    } finally {
-      isSuggestingAiAttributes.value = false;
-    }
-  }
-
   return {
     listingDraft,
     shopSections,
@@ -476,9 +441,6 @@ export function useListing() {
     isCreatingSection,
     isLoadingProperties,
     isLoadingPriceRec,
-    isSuggestingAiAttributes,
-    aiAttributeSuggestions,
-    aiAttributeSuggestionsError,
     errorMessage,
     loadListing,
     updateListing,
@@ -495,7 +457,6 @@ export function useListing() {
     decideGate3,
     fetchTaxonomyCategories,
     updateTaxonomy,
-    suggestAiTaxonomyProperties,
   };
 }
 
