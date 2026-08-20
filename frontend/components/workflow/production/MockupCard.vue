@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { MockupAsset } from "~/types/mockup";
 import Badge from "~/components/ui/Badge.vue";
+import Skeleton from "~/components/ui/Skeleton.vue";
 
 defineProps<{
   asset: MockupAsset;
@@ -32,7 +33,7 @@ const emit = defineEmits<{
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
         @click="emit('preview', asset)"
       >
-      <div v-else class="text-xs text-muted-foreground">Loading mockup preview...</div>
+      <Skeleton v-else class="w-full h-full rounded-none" />
 
       <!-- Cover Badge -->
       <div class="absolute top-2 left-2 flex items-center gap-1 z-10">

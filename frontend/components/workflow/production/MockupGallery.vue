@@ -10,6 +10,7 @@ import MockupProductTabs from "~/components/workflow/production/MockupProductTab
 import MockupCard from "~/components/workflow/production/MockupCard.vue";
 import MockupEmptyState from "~/components/workflow/production/MockupEmptyState.vue";
 import MockupProductPickerModal from "~/components/workflow/production/MockupProductPickerModal.vue";
+import Skeleton from "~/components/ui/Skeleton.vue";
 
 defineProps<{
   availableTabs: string[];
@@ -18,6 +19,7 @@ defineProps<{
   currentTabMockups: MockupAsset[];
   totalMockupsCount: number;
   renderNonce: number;
+  isLoading?: boolean;
   isActionLoading?: boolean;
   actionError?: string | null;
   workflowId?: string;
@@ -84,8 +86,26 @@ function handleSelectProductFromPicker(productKey: string): void {
       </div>
     </Alert>
 
+    <!-- Loading Skeletons Grid -->
+    <div v-if="isLoading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" data-testid="mockups-loading-skeleton">
+      <div v-for="i in 3" :key="i" class="border border-border/80 rounded-xl overflow-hidden bg-card p-3 space-y-3 shadow-2xs">
+        <Skeleton class="aspect-square w-full rounded-lg" />
+        <div class="space-y-1.5">
+          <Skeleton class="h-3.5 w-32" />
+          <Skeleton class="h-3 w-20" />
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <Skeleton class="h-6 w-16 rounded-md" />
+          <div class="flex gap-1">
+            <Skeleton class="size-6 rounded" />
+            <Skeleton class="size-6 rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- When Active Mockups Exist: Show dynamic product tabs and active grid -->
-    <div v-if="availableTabs.length > 0" class="space-y-4">
+    <div v-else-if="availableTabs.length > 0" class="space-y-4">
       <MockupProductTabs
         :available-tabs="availableTabs"
         :selected-tab="selectedTab"

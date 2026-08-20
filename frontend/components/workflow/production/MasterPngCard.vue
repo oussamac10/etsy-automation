@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import Badge from "~/components/ui/Badge.vue";
 import Button from "~/components/ui/Button.vue";
+import Skeleton from "~/components/ui/Skeleton.vue";
 import { sanitizeUrl } from "~/utils/sanitize";
 
 defineProps<{
@@ -64,9 +65,12 @@ async function copyUrl(url: string | null) {
         alt="Master Production PNG"
         class="object-contain w-full h-full max-h-[280px] p-3 transition-transform duration-300 ease-out group-hover:scale-105"
       >
-      <div v-else class="text-xs text-muted-foreground flex flex-col items-center gap-1.5">
-        <Icon name="lucide:loader-2" class="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
-        <span>Loading master PNG...</span>
+      <div v-else class="w-full h-full p-6 flex flex-col items-center justify-center gap-3">
+        <Skeleton class="w-3/4 h-3/4 rounded-xl" />
+        <div class="flex items-center gap-2 text-xs text-muted-foreground">
+          <Icon name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
+          <span>Generating master PNG...</span>
+        </div>
       </div>
 
       <!-- Quick Action Overlay on Hover -->

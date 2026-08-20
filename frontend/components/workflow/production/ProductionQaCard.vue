@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import type { ProductionQaReport } from "~/types/production";
 import Badge from "~/components/ui/Badge.vue";
+import Skeleton from "~/components/ui/Skeleton.vue";
 
 const props = defineProps<{
   qaReport?: ProductionQaReport;
@@ -141,7 +142,7 @@ const passedCount = computed(() => {
     </div>
 
     <!-- 6-Grid QA Checklist (Dense & Balanced) -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 flex-1">
+    <div v-if="qaReport" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 flex-1">
       <div
         v-for="item in qaItems"
         :key="item.label"
@@ -169,6 +170,15 @@ const passedCount = computed(() => {
         <div class="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/40">
           <span class="truncate font-medium text-slate-500">{{ item.sub }}</span>
         </div>
+      </div>
+    </div>
+
+    <!-- QA Skeleton Grid Fallback -->
+    <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 flex-1" data-testid="qa-loading-skeleton">
+      <div v-for="i in 6" :key="i" class="p-3 rounded-xl bg-slate-50/60 border border-border/70 flex flex-col justify-between space-y-2">
+        <Skeleton class="h-3 w-20" />
+        <Skeleton class="h-4 w-28" />
+        <Skeleton class="h-2.5 w-full pt-1" />
       </div>
     </div>
 
