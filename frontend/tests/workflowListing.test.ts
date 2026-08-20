@@ -250,6 +250,27 @@ describe("WorkflowListingTab 5 Sub-Tabs Navigation & Structure", () => {
     expect(wrapper.findComponent(CustomerPackageCard).exists()).toBe(true);
   });
 
+  it("renders Gate 2 pending warning and hides listing forms when artwork is not yet approved", async () => {
+    const wrapper = mount(WorkflowListingTab, {
+      props: {
+        workflowId: "wf-123",
+        workflowState: "ART_REVIEW",
+      },
+      global: {
+        stubs: {
+          Icon: { template: "<i />" },
+          NuxtLink: { template: "<a><slot /></a>" },
+        },
+      },
+    });
+
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="listing-gate2-pending-warning"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Artwork Selection Required (Gate 2)");
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
+  });
+
   it("navigates to Final Review, summarizes all sections, and displays Gate 3 approval controls", async () => {
     const wrapper = mount(WorkflowListingTab, {
       props: {

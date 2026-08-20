@@ -109,9 +109,33 @@ const successMessage = ref<string | null>(null);
 const showAllReadinessChecks = ref(false);
 const categorySelectorRef = ref<{ openModal: () => void; loadFitness: () => Promise<void> } | null>(null);
 
-onMounted(async () => {
-  await loadListingData();
+const isGate2Approved = computed(() => {
+  return [
+    'ARTWORK_APPROVED',
+    'PRODUCTION',
+    'IP_REVIEW',
+    'LISTING_REVIEW',
+    'READY_FOR_ETSY_DRAFT',
+    'ETSY_DRAFT_CREATED',
+    'ETSY_DRAFT_FAILED',
+    'PUBLISHED',
+  ].includes(props.workflowState);
 });
+
+onMounted(async () => {
+  if (isGate2Approved.value) {
+    await loadListingData();
+  }
+});
+
+watch(
+  () => isGate2Approved.value,
+  async (approved) => {
+    if (approved && !listingDraft.value) {
+      await loadListingData();
+    }
+  }
+);
 
 async function loadListingData() {
   const draft = await loadListing(props.workflowId);
@@ -610,7 +634,7 @@ const subTabs = computed(() => [
       </div>
 
       <!-- Quick Summary Badges -->
-      <div v-if="listingDraft" class="flex flex-wrap items-center gap-2">
+      <div v-if="isGate2Approved && listingDraft" class="flex flex-wrap items-center gap-2">
         <Badge variant="outline" class="text-xs py-1 px-2.5 gap-1.5 font-normal bg-muted/40 shrink-0">
           <Icon name="lucide:tags" class="size-3.5 text-primary" aria-hidden="true" />
           <span>Tags: {{ localTags.length }}/13</span>
@@ -631,30 +655,55 @@ const subTabs = computed(() => [
       </div>
     </div>
 
-    <!-- Secondary Internal Navigation (5 Sub-Tabs) -->
-    <div class="flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-xl bg-muted/60 border border-border overflow-x-auto scrollbar-none" role="tablist" aria-label="Listing Preparation Steps">
-      <button
-        v-for="tab in subTabs"
-        :key="tab.key"
-        type="button"
-        role="tab"
-        :aria-selected="activeSubTab === tab.key"
-        class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer select-none"
-        :class="
-          activeSubTab === tab.key
-            ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
-            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-        "
-        @click="setActiveSubTab(tab.key)"
+    <!-- Gate 2 Artwork Selection Required Notice -->
+    <div v-if="!isGate2Approved" class="space-y-4" data-testid="listing-gate2-pending-view">
+      <div
+        class="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        data-testid="listing-gate2-pending-warning"
       >
-        <Icon :name="tab.icon" class="size-3.5 shrink-0" :class="activeSubTab === tab.key ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
-        <span>{{ tab.label }}</span>
-        <span
-          class="size-1.5 rounded-full shrink-0"
-          :class="tab.isReady ? 'bg-emerald-500' : 'bg-amber-500'"
-        />
-      </button>
+        <div class="space-y-1 min-w-0">
+          <p class="font-semibold flex items-center gap-2 text-foreground text-sm">
+            <Icon name="lucide:image" class="size-4 shrink-0 text-amber-500" aria-hidden="true" />
+            <span>Artwork Selection Required (Gate 2)</span>
+          </p>
+          <p class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
+            Etsy listing preparation, trademark screening, and customer delivery packaging require an approved master artwork candidate. Please visit <b>Step 2 (Artwork Studio)</b> to generate and approve your design before configuring listing details.
+          </p>
+        </div>
+        <NuxtLink :to="{ query: { tab: 'artwork' } }" class="shrink-0 self-start sm:self-auto">
+          <Button variant="outline" size="sm" class="gap-1.5 font-semibold bg-background text-foreground border-border hover:bg-muted cursor-pointer">
+            <Icon name="lucide:arrow-left" class="size-3.5" aria-hidden="true" />
+            <span>Go to Artwork Studio</span>
+          </Button>
+        </NuxtLink>
+      </div>
     </div>
+
+    <template v-else>
+      <!-- Secondary Internal Navigation (5 Sub-Tabs) -->
+      <div class="flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-xl bg-muted/60 border border-border overflow-x-auto scrollbar-none" role="tablist" aria-label="Listing Preparation Steps">
+        <button
+          v-for="tab in subTabs"
+          :key="tab.key"
+          type="button"
+          role="tab"
+          :aria-selected="activeSubTab === tab.key"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer select-none"
+          :class="
+            activeSubTab === tab.key
+              ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+              : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+          "
+          @click="setActiveSubTab(tab.key)"
+        >
+          <Icon :name="tab.icon" class="size-3.5 shrink-0" :class="activeSubTab === tab.key ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
+          <span>{{ tab.label }}</span>
+          <span
+            class="size-1.5 rounded-full shrink-0"
+            :class="tab.isReady ? 'bg-emerald-500' : 'bg-amber-500'"
+          />
+        </button>
+      </div>
 
     <!-- Feedback Alerts -->
     <Alert
@@ -1139,5 +1188,6 @@ const subTabs = computed(() => [
         </div>
       </section>
     </div>
+    </template>
   </div>
 </template>
