@@ -431,9 +431,6 @@ async def execute_etsy_draft_pipeline(
             validated_props = revalidate_listing_taxonomy_properties(
                 existing_properties=active_props,
                 available_properties=available_taxonomy_props,
-                title=listing.title,
-                description=listing.description,
-                tags=listing.tags,
             )
 
             for prop_id_str, prop_data in validated_props.items():

@@ -130,6 +130,7 @@ class TestLiveEtsyProvider:
                 description="High quality PNG sublimation download.",
                 tags=["moon", "celestial"],
                 price_cents=599,
+                taxonomy_id=6844,
             )
 
             resp = await provider.create_draft_listing(
