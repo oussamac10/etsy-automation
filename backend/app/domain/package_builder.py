@@ -212,28 +212,21 @@ def create_print_ready_pdf(
        (e.g., 4500x5400 px @ 300 DPI = 15x18 inches = 1080x1296 points).
     6. Embed as pure 24-bit /DeviceRGB FlateDecode image object.
     """
-    try:
-        from PIL import Image
+    from PIL import Image
 
-        img = Image.open(io.BytesIO(png_bytes))
-        w_px, h_px = img.size
+    img = Image.open(io.BytesIO(png_bytes))
+    w_px, h_px = img.size
 
-        # Composite over solid white background if image has alpha/transparency
-        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-            rgba_img = img.convert("RGBA")
-            bg = Image.new("RGBA", rgba_img.size, (255, 255, 255, 255))
-            flattened = Image.alpha_composite(bg, rgba_img).convert("RGB")
-        else:
-            flattened = img.convert("RGB")
+    # Composite over solid white background if image has alpha/transparency
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        rgba_img = img.convert("RGBA")
+        bg = Image.new("RGBA", rgba_img.size, (255, 255, 255, 255))
+        flattened = Image.alpha_composite(bg, rgba_img).convert("RGB")
+    else:
+        flattened = img.convert("RGB")
 
-        rgb_bytes = flattened.tobytes()
-        rgb_stream = zlib.compress(rgb_bytes, level=6)
-    except Exception as exc:
-        logger.warning("pillow_pdf_flattening_failed", error=str(exc))
-        detected_w, detected_h, _ = _parse_png_dimensions_and_channels(png_bytes)
-        w_px = detected_w or width_px
-        h_px = detected_h or height_px
-        rgb_stream = png_bytes
+    rgb_bytes = flattened.tobytes()
+    rgb_stream = zlib.compress(rgb_bytes, level=6)
 
     # Calculate page dimensions in points (72 points = 1 inch)
     width_pt = (w_px * 72.0) / dpi

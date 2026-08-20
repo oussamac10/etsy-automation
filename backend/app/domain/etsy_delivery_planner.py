@@ -21,8 +21,11 @@ import struct
 from typing import Final
 import zipfile
 import zlib
+import structlog
 
 from app.domain.errors import DomainError
+
+logger = structlog.get_logger(__name__)
 from app.domain.package_builder import (
     DEFAULT_HEIGHT_PX,
     DEFAULT_WIDTH_PX,
@@ -211,9 +214,9 @@ class EtsyDigitalDeliveryPlanner:
         license_doc = generate_license_text(shop_name, listing_title).encode("utf-8")
         instructions_doc = generate_instructions_text(listing_title, shop_name=shop_name).encode("utf-8")
 
-        # 3. Build Optional Print-Ready PDF
+        # 3. Build Print-Ready PDF
         pdf_bytes: bytes | None = None
-        if include_pdf and len(optimized_master) < 10 * 1024 * 1024:
+        if include_pdf:
             try:
                 pdf_bytes = create_print_ready_pdf(
                     optimized_master,
@@ -222,7 +225,8 @@ class EtsyDigitalDeliveryPlanner:
                 )
                 if len(pdf_bytes) > self.max_file_bytes:
                     pdf_bytes = None
-            except Exception:
+            except Exception as exc:
+                logger.warning("failed_generating_print_ready_pdf", error=str(exc))
                 pdf_bytes = None
 
         # ----------------------------------------------------------------------
