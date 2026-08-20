@@ -17,6 +17,7 @@ import DialogHeader from '~/components/ui/DialogHeader.vue';
 import DialogTitle from '~/components/ui/DialogTitle.vue';
 import DialogDescription from '~/components/ui/DialogDescription.vue';
 import DialogFooter from '~/components/ui/DialogFooter.vue';
+import Skeleton from '~/components/ui/Skeleton.vue';
 
 let route: any = null;
 let router: any = null;
@@ -128,10 +129,22 @@ async function handleConnect(): Promise<void> {
     </CardHeader>
 
     <CardContent class="pt-2">
-      <!-- Loading State -->
-      <div v-if="isLoading" class="text-muted-foreground text-sm animate-pulse py-4 flex items-center gap-2">
-        <Icon name="lucide:loader-circle" class="size-4 animate-spin text-primary" aria-hidden="true" />
-        <span>Loading Etsy integration status...</span>
+      <!-- Loading Skeletons -->
+      <div v-if="isLoading" class="space-y-4 py-2" data-testid="etsy-card-loading">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 p-4 rounded-xl border border-border/60">
+          <div class="space-y-2">
+            <Skeleton class="h-3 w-20" />
+            <Skeleton class="h-5 w-36" />
+          </div>
+          <div class="space-y-2">
+            <Skeleton class="h-3 w-24" />
+            <Skeleton class="h-5 w-28" />
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <Skeleton class="h-4 w-48" />
+          <Skeleton class="h-9 w-28 rounded-lg" />
+        </div>
       </div>
 
       <!-- Feedback Alerts -->

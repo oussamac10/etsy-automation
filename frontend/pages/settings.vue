@@ -369,9 +369,16 @@ onBeforeUnmount(stopCountdown);
           </CardHeader>
 
           <CardContent class="pt-2">
-            <div v-if="isTelegramLoading" class="text-muted-foreground text-sm animate-pulse py-4 flex items-center gap-2" data-testid="telegram-loading">
-              <Icon name="lucide:loader-circle" class="size-4 animate-spin text-primary" aria-hidden="true" />
-              <span>Updating Telegram settings...</span>
+            <!-- Loading Skeletons -->
+            <div v-if="isTelegramLoading" class="space-y-3 py-2" data-testid="telegram-loading">
+              <div class="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+                <Skeleton class="h-4 w-32" />
+                <Skeleton class="h-3 w-3/4" />
+                <Skeleton class="h-3 w-1/2" />
+              </div>
+              <div class="flex items-center justify-between pt-1">
+                <Skeleton class="h-9 w-36 rounded-lg" />
+              </div>
             </div>
 
             <Alert v-else-if="telegramError" variant="destructive" class="mb-4" data-testid="telegram-error">
@@ -482,9 +489,18 @@ onBeforeUnmount(stopCountdown);
           </CardHeader>
 
           <CardContent class="pt-2">
-            <div v-if="isCredentialsLoading" class="text-muted-foreground text-sm animate-pulse py-4 flex items-center gap-2">
-              <Icon name="lucide:loader-circle" class="size-4 animate-spin text-primary" aria-hidden="true" />
-              <span>Loading credentials status...</span>
+            <!-- Loading Skeletons -->
+            <div v-if="isCredentialsLoading" class="divide-y divide-border/60 py-2 space-y-4" data-testid="credentials-loading">
+              <div v-for="i in 3" :key="i" class="first:pt-0 pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="space-y-2 flex-1">
+                  <div class="flex items-center gap-2">
+                    <Skeleton class="h-4 w-20" />
+                    <Skeleton class="h-4 w-24 rounded-full" />
+                  </div>
+                  <Skeleton class="h-3 w-40" />
+                </div>
+                <Skeleton class="h-9 w-full sm:w-64 rounded-md" />
+              </div>
             </div>
 
             <Alert

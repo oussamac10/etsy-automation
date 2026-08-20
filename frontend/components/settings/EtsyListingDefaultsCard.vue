@@ -11,6 +11,7 @@ import Label from '~/components/ui/Label.vue';
 import Alert from '~/components/ui/Alert.vue';
 import AlertTitle from '~/components/ui/AlertTitle.vue';
 import AlertDescription from '~/components/ui/AlertDescription.vue';
+import Skeleton from '~/components/ui/Skeleton.vue';
 import { getApiErrorMessage, getCsrfHeaders } from '~/utils/api';
 
 const config = useRuntimeConfig();
@@ -190,9 +191,30 @@ onMounted(() => {
         @dismiss="successMessage = null"
       />
 
-      <div v-if="isLoading" class="text-muted-foreground text-xs animate-pulse py-4 flex items-center gap-2">
-        <Icon name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
-        <span>Loading listing defaults...</span>
+      <!-- Loading Skeletons -->
+      <div v-if="isLoading" class="space-y-4 py-2" data-testid="defaults-card-loading">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <Skeleton class="h-3.5 w-28" />
+              <Skeleton class="h-4 w-24 rounded" />
+            </div>
+            <Skeleton class="h-9 w-full rounded-md" />
+            <Skeleton class="h-3 w-40" />
+          </div>
+          <div class="space-y-2">
+            <Skeleton class="h-3.5 w-32" />
+            <Skeleton class="h-9 w-full rounded-md" />
+            <Skeleton class="h-3 w-48" />
+          </div>
+        </div>
+        <div class="space-y-2 pt-2 border-t border-border/40">
+          <Skeleton class="h-3.5 w-32" />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Skeleton class="h-16 rounded-lg" />
+            <Skeleton class="h-16 rounded-lg" />
+          </div>
+        </div>
       </div>
 
       <div v-else class="space-y-4">
