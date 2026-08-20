@@ -582,19 +582,26 @@ class EtsyProvider(EtsyGateway):
         """Update a specific listing property attribute on Etsy."""
         url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}/properties/{property_id}"
         headers = self._default_headers(access_token)
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        headers["Content-Type"] = "application/json"
 
-        data: dict[str, Any] = {}
+        json_body: dict[str, Any] = {}
         if value_ids:
-            data["value_ids"] = ",".join(str(vid) for vid in value_ids)
+            json_body["value_ids"] = [int(vid) for vid in value_ids]
         if values:
-            data["values"] = ",".join(values)
+            json_body["values"] = [str(val) for val in values]
 
         try:
-            await self._execute_with_retry("PUT", url, headers=headers, data=data, operation="update_listing_property")
+            await self._execute_with_retry(
+                "PUT", url, headers=headers, json_body=json_body, operation="update_listing_property"
+            )
             return True
         except Exception as exc:
-            logger.warning("etsy_update_listing_property_failed", listing_id=listing_id, property_id=property_id, error=str(exc))
+            logger.warning(
+                "etsy_update_listing_property_failed",
+                listing_id=listing_id,
+                property_id=property_id,
+                error=str(exc),
+            )
             return False
 
     async def update_listing_inventory(

@@ -74,6 +74,9 @@ def revalidate_listing_taxonomy_properties(
     if not existing_properties:
         return validated
 
+    if not available_properties:
+        return existing_properties
+
     for prop_id_str, val_entry in existing_properties.items():
         if not isinstance(val_entry, dict):
             continue

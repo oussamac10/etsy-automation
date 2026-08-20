@@ -428,9 +428,12 @@ async def execute_etsy_draft_pipeline(
                 available_taxonomy_props = []
 
             # Revalidate properties against Etsy taxonomy definitions before calling update_listing_property
-            validated_props = revalidate_listing_taxonomy_properties(
-                existing_properties=active_props,
-                available_properties=available_taxonomy_props,
+            validated_props = (
+                revalidate_listing_taxonomy_properties(
+                    existing_properties=active_props,
+                    available_properties=available_taxonomy_props,
+                )
+                or active_props
             )
 
             for prop_id_str, prop_data in validated_props.items():
