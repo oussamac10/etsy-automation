@@ -33,6 +33,53 @@ CURRENCY_MULTIPLIERS: Final[dict[str, float]] = {
 }
 
 
+def resolve_listing_currency(
+    listing_currency: str | None = None,
+    shop_currency: str | None = None,
+    owner_currency: str | None = None,
+) -> str:
+    """Resolves currency using priority: listing -> shop connection -> owner default -> USD."""
+    for candidate in (listing_currency, shop_currency, owner_currency):
+        if candidate:
+            clean = candidate.upper().strip()
+            if clean in SUPPORTED_CURRENCIES:
+                return clean
+    return "USD"
+
+
+def resolve_listing_price(
+    listing_price_minor: int | None = None,
+    owner_default_minor: int | None = None,
+    title: str | None = None,
+    tags: list[str] | None = None,
+    currency: str = "USD",
+) -> int | None:
+    """Resolves the listing price in minor units following strict precedence.
+
+    Priority:
+    1. Explicit listing price_minor_units (if set and > 0)
+    2. Owner default digital price (if set and > 0)
+    3. Deterministic pricing recommendation
+    4. None if unavailable (blocks dispatch; NEVER silently defaults to 499).
+    """
+    if listing_price_minor is not None and listing_price_minor > 0:
+        return listing_price_minor
+
+    if owner_default_minor is not None and owner_default_minor > 0:
+        return owner_default_minor
+
+    rec = calculate_price_recommendation(
+        title=title,
+        tags=tags,
+        currency=currency,
+        owner_default_minor=owner_default_minor,
+    )
+    if rec and rec.recommended_minor_units > 0:
+        return rec.recommended_minor_units
+
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class PriceRecommendation:
     """Deterministic internal pricing recommendation for a digital listing."""

@@ -1148,10 +1148,10 @@ class FakeEtsyProvider(EtsyGateway):
 
     async def get_taxonomy_properties(self, *, taxonomy_id: int) -> list[EtsyTaxonomyProperty]:
         self.call_count += 1
-        from app.domain.taxonomy_properties import STANDARD_DIGITAL_PROPERTIES
+        from app.domain.taxonomy_properties import FAKE_TEST_TAXONOMY_PROPERTIES
 
         props: list[EtsyTaxonomyProperty] = []
-        for raw in STANDARD_DIGITAL_PROPERTIES:
+        for raw in FAKE_TEST_TAXONOMY_PROPERTIES:
             props.append(
                 EtsyTaxonomyProperty(
                     property_id=int(raw["property_id"]),

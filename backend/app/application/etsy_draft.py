@@ -414,17 +414,35 @@ async def execute_etsy_draft_pipeline(
                     error=str(exc),
                 )
 
-        # Step 5: Update Taxonomy Properties/Attributes (if configured)
+        # Step 5: Validate and Update Taxonomy Properties/Attributes (if configured)
         raw_props = getattr(listing, "etsy_properties", None)
         active_props = raw_props if isinstance(raw_props, dict) else {}
-        if active_props:
-            for prop_id_str, prop_data in active_props.items():
+        property_sync_audit: dict[str, Any] = {}
+
+        if active_props and listing.taxonomy_id:
+            from app.domain.taxonomy_properties import revalidate_listing_taxonomy_properties
+
+            try:
+                available_taxonomy_props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=listing.taxonomy_id)
+            except Exception:
+                available_taxonomy_props = []
+
+            # Revalidate properties against Etsy taxonomy definitions before calling update_listing_property
+            validated_props = revalidate_listing_taxonomy_properties(
+                existing_properties=active_props,
+                available_properties=available_taxonomy_props,
+                title=listing.title,
+                description=listing.description,
+                tags=listing.tags,
+            )
+
+            for prop_id_str, prop_data in validated_props.items():
                 if isinstance(prop_data, dict):
                     pid = prop_data.get("property_id") or int(prop_id_str)
                     v_ids = prop_data.get("value_ids")
                     v_names = prop_data.get("values")
                     try:
-                        await etsy_gateway.update_listing_property(
+                        success = await etsy_gateway.update_listing_property(
                             access_token=access_token,
                             shop_id=conn.etsy_shop_id,
                             listing_id=listing_id,
@@ -432,13 +450,33 @@ async def execute_etsy_draft_pipeline(
                             value_ids=v_ids,
                             values=v_names,
                         )
-                        logger.info(
-                            "etsy_listing_property_updated",
-                            workflow_id=str(workflow_id),
-                            listing_id=listing_id,
-                            property_id=pid,
-                        )
+                        if success:
+                            property_sync_audit[str(pid)] = {
+                                "status": "synced",
+                                "synced_at": datetime.now(UTC).isoformat(),
+                            }
+                            logger.info(
+                                "etsy_listing_property_updated",
+                                workflow_id=str(workflow_id),
+                                listing_id=listing_id,
+                                property_id=pid,
+                            )
+                        else:
+                            property_sync_audit[str(pid)] = {
+                                "status": "failed",
+                                "reason": "Etsy API property update rejected call",
+                            }
+                            logger.warning(
+                                "etsy_listing_property_update_failed",
+                                workflow_id=str(workflow_id),
+                                listing_id=listing_id,
+                                property_id=pid,
+                            )
                     except Exception as exc:
+                        property_sync_audit[str(pid)] = {
+                            "status": "failed",
+                            "reason": str(exc),
+                        }
                         logger.warning(
                             "etsy_listing_property_update_skipped",
                             workflow_id=str(workflow_id),
