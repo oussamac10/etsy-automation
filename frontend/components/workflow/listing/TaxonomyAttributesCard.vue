@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import type { TaxonomyProperty } from '~/types/listing';
+import type { AiTaxonomyPropertySuggestionItem, TaxonomyProperty } from '~/types/listing';
+import { useListing } from '~/composables/useListing';
 import Card from '~/components/ui/Card.vue';
 import CardHeader from '~/components/ui/CardHeader.vue';
 import CardTitle from '~/components/ui/CardTitle.vue';
@@ -9,6 +10,7 @@ import CardContent from '~/components/ui/CardContent.vue';
 import Button from '~/components/ui/Button.vue';
 import Label from '~/components/ui/Label.vue';
 import Badge from '~/components/ui/Badge.vue';
+import Alert from '~/components/ui/Alert.vue';
 
 const props = defineProps<{
   workflowId: string;
@@ -25,14 +27,23 @@ const emit = defineEmits<{
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase ? config.public.apiBase.replace(/\/$/, '') : '';
 
+const { suggestAiTaxonomyProperties, isSuggestingAiAttributes, aiAttributeSuggestionsError } = useListing();
+
 const properties = ref<TaxonomyProperty[]>([]);
 const isLoading = ref(false);
 const showInfoTooltip = ref(false);
 const showOtherProperties = ref(false);
+const showLowConfidence = ref(false);
 
-const localPropertiesMap = ref<Record<string, { property_id: number; value_ids: number[]; values: string[] }>>(
+const localPropertiesMap = ref<Record<string, { property_id: number; value_ids: number[]; values: string[]; selection_source?: string; confidence?: number }>>(
   props.etsyProperties ? JSON.parse(JSON.stringify(props.etsyProperties)) : {}
 );
+
+// AI suggestions local state
+const aiSuggestions = ref<AiTaxonomyPropertySuggestionItem[]>([]);
+const aiSuggestionsFingerprint = ref<string | null>(null);
+const isStaleAiSuggestions = ref(false);
+const showAiPanel = ref(false);
 
 watch(
   () => props.etsyProperties,
@@ -44,8 +55,24 @@ watch(
 );
 
 watch(
+  () => props.workflowId,
+  () => {
+    // Clear temporary AI suggestions when switching campaigns
+    aiSuggestions.value = [];
+    aiSuggestionsFingerprint.value = null;
+    isStaleAiSuggestions.value = false;
+    showAiPanel.value = false;
+    loadTaxonomyProperties();
+  }
+);
+
+watch(
   () => props.taxonomyId,
   () => {
+    // Category change clears temporary pending AI suggestions without auto-calling AI
+    aiSuggestions.value = [];
+    aiSuggestionsFingerprint.value = null;
+    isStaleAiSuggestions.value = false;
     loadTaxonomyProperties();
   }
 );
@@ -65,38 +92,17 @@ const otherProperties = computed(() => {
   return properties.value.filter((p) => !recIds.has(p.property_id));
 });
 
-function applySmartSuggestions() {
-  if (!properties.value || properties.value.length === 0) return;
-  const initial: Record<string, any> = {};
+const highConfidenceAiSuggestions = computed(() => {
+  return aiSuggestions.value.filter((s) => s.confidence >= 0.85);
+});
 
-  for (const p of properties.value) {
-    if (p.suggested_values && p.suggested_values.length > 0) {
-      initial[String(p.property_id)] = {
-        property_id: p.property_id,
-        value_ids: p.suggested_value_ids ? [...p.suggested_value_ids] : [],
-        values: [...p.suggested_values],
-      };
-    }
-  }
+const mediumConfidenceAiSuggestions = computed(() => {
+  return aiSuggestions.value.filter((s) => s.confidence >= 0.65 && s.confidence < 0.85);
+});
 
-  localPropertiesMap.value = JSON.parse(JSON.stringify(initial));
-  emit('update:etsyProperties', JSON.parse(JSON.stringify(initial)));
-  emit('save');
-}
-
-function clearOptionalAttributes() {
-  const cleared: Record<string, any> = {};
-
-  for (const p of properties.value) {
-    if (p.is_required && localPropertiesMap.value[String(p.property_id)]) {
-      cleared[String(p.property_id)] = localPropertiesMap.value[String(p.property_id)];
-    }
-  }
-
-  localPropertiesMap.value = cleared;
-  emit('update:etsyProperties', cleared);
-  emit('save');
-}
+const lowConfidenceAiSuggestions = computed(() => {
+  return aiSuggestions.value.filter((s) => s.confidence < 0.65);
+});
 
 async function loadTaxonomyProperties() {
   if (!props.workflowId) return;
@@ -110,10 +116,6 @@ async function loadTaxonomyProperties() {
       }
     );
     properties.value = Array.isArray(data) ? data : [];
-
-    if (Object.keys(localPropertiesMap.value).length === 0 && properties.value.length > 0) {
-      applySmartSuggestions();
-    }
   } catch {
     properties.value = [];
   } finally {
@@ -125,14 +127,109 @@ onMounted(() => {
   loadTaxonomyProperties();
 });
 
+// 1. Explicit AI Suggestion Trigger
+async function handleTriggerAiSuggestions() {
+  if (!props.workflowId) return;
+  try {
+    const resp = await suggestAiTaxonomyProperties(props.workflowId);
+    if (resp && resp.suggestions) {
+      aiSuggestions.value = resp.suggestions;
+      aiSuggestionsFingerprint.value = resp.fingerprint;
+      isStaleAiSuggestions.value = false;
+      showAiPanel.value = true;
+    }
+  } catch {
+    // handled via aiAttributeSuggestionsError
+  }
+}
+
+// 2. Deterministic Smart Suggestions (0 tokens, free)
+function applySmartSuggestions() {
+  if (!properties.value || properties.value.length === 0) return;
+  const nextMap = { ...localPropertiesMap.value };
+
+  for (const p of properties.value) {
+    // Preserve manual selections
+    const current = nextMap[String(p.property_id)];
+    if (current && current.selection_source === 'manual') continue;
+
+    if (p.suggested_values && p.suggested_values.length > 0) {
+      nextMap[String(p.property_id)] = {
+        property_id: p.property_id,
+        value_ids: p.suggested_value_ids ? [...p.suggested_value_ids] : [],
+        values: [...p.suggested_values],
+        selection_source: 'smart',
+        confidence: 0.9,
+      };
+    }
+  }
+
+  localPropertiesMap.value = nextMap;
+  emit('update:etsyProperties', nextMap);
+}
+
+// 3. Apply Single AI Suggestion
+function applySingleAiSuggestion(sug: AiTaxonomyPropertySuggestionItem) {
+  const nextMap = { ...localPropertiesMap.value };
+  nextMap[String(sug.property_id)] = {
+    property_id: sug.property_id,
+    value_ids: [...sug.value_ids],
+    values: [...sug.values],
+    selection_source: 'ai',
+    confidence: sug.confidence,
+  };
+  localPropertiesMap.value = nextMap;
+  emit('update:etsyProperties', nextMap);
+}
+
+// 4. Apply All High-Confidence AI Suggestions (>= 0.85)
+function applyAllHighConfidenceAiSuggestions() {
+  const nextMap = { ...localPropertiesMap.value };
+
+  for (const sug of highConfidenceAiSuggestions.value) {
+    // Preserve manual selections unless user explicitly changes
+    const current = nextMap[String(sug.property_id)];
+    if (current && current.selection_source === 'manual') continue;
+
+    nextMap[String(sug.property_id)] = {
+      property_id: sug.property_id,
+      value_ids: [...sug.value_ids],
+      values: [...sug.values],
+      selection_source: 'ai',
+      confidence: sug.confidence,
+    };
+  }
+
+  localPropertiesMap.value = nextMap;
+  emit('update:etsyProperties', nextMap);
+}
+
+function clearOptionalAttributes() {
+  const cleared: Record<string, any> = {};
+
+  for (const p of properties.value) {
+    if (p.is_required && localPropertiesMap.value[String(p.property_id)]) {
+      cleared[String(p.property_id)] = localPropertiesMap.value[String(p.property_id)];
+    }
+  }
+
+  localPropertiesMap.value = cleared;
+  emit('update:etsyProperties', cleared);
+}
+
 function isValueSelected(propId: number, valName: string): boolean {
   const entry = localPropertiesMap.value[String(propId)];
   if (!entry || !entry.values) return false;
   return entry.values.includes(valName);
 }
 
-function isSuggested(prop: TaxonomyProperty, valName: string): boolean {
+function isSmartSuggested(prop: TaxonomyProperty, valName: string): boolean {
   return Boolean(prop.suggested_values && prop.suggested_values.includes(valName));
+}
+
+function isAiSuggested(propId: number, valName: string): boolean {
+  const sug = aiSuggestions.value.find((s) => s.property_id === propId);
+  return Boolean(sug && sug.values.includes(valName));
 }
 
 function toggleValue(prop: TaxonomyProperty, valName: string, valId?: number) {
@@ -170,6 +267,7 @@ function toggleValue(prop: TaxonomyProperty, valName: string, valId?: number) {
       property_id: prop.property_id,
       value_ids: valueIds,
       values: values,
+      selection_source: 'manual',
     };
   }
 
@@ -192,6 +290,7 @@ function onDropdownSelect(prop: TaxonomyProperty, event: Event) {
     property_id: prop.property_id,
     value_ids: valId ? [valId] : [],
     values: [valName],
+    selection_source: 'manual',
   };
 
   emit('update:etsyProperties', { ...localPropertiesMap.value });
@@ -230,61 +329,230 @@ const totalSelectedCount = computed(() => {
         </CardDescription>
       </div>
 
-        <div class="flex items-center gap-2 shrink-0">
-          <Button
-            v-if="properties.length > 0"
-            type="button"
-            variant="outline"
-            size="sm"
-            class="h-8 gap-1.5 text-xs font-medium cursor-pointer"
-            title="Apply high-confidence smart suggestions"
-            @click="applySmartSuggestions"
-          >
-            <Icon name="lucide:sparkles" class="size-3.5 text-primary" aria-hidden="true" />
-            <span class="hidden sm:inline">Apply Suggestions</span>
-          </Button>
+      <div class="flex items-center gap-2 shrink-0 flex-wrap self-start sm:self-auto">
+        <!-- 1. Deterministic Smart Suggestions (0 tokens, free) -->
+        <Button
+          v-if="properties.length > 0"
+          type="button"
+          variant="outline"
+          size="sm"
+          class="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+          title="Apply instant keyword-based suggestions (Free, 0 tokens)"
+          @click="applySmartSuggestions"
+        >
+          <Icon name="lucide:sparkles" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+          <span>Apply Smart Suggestions</span>
+        </Button>
 
-          <Button
-            v-if="totalSelectedCount > 0"
-            type="button"
-            variant="ghost"
-            size="sm"
-            class="h-8 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-            title="Clear optional attribute selections"
-            @click="clearOptionalAttributes"
-          >
-            Clear Optional
-          </Button>
+        <!-- 2. Explicit AI Suggestion Button -->
+        <Button
+          v-if="properties.length > 0"
+          type="button"
+          variant="outline"
+          size="sm"
+          class="h-8 gap-1.5 text-xs font-medium cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+          :disabled="isSuggestingAiAttributes"
+          title="Analyze this campaign with AI to pick from allowed Etsy values"
+          @click="handleTriggerAiSuggestions"
+        >
+          <Icon v-if="isSuggestingAiAttributes" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:brain-circuit" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>{{ isSuggestingAiAttributes ? 'Analyzing campaign...' : 'AI Suggest Attributes' }}</span>
+        </Button>
 
-          <Button
-            v-if="isDirty"
-            type="button"
-            variant="default"
-            size="sm"
-            :disabled="isSaving"
-            class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
-            @click="emit('save')"
-          >
-            <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
-            <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
-            <span>Save</span>
-          </Button>
-        </div>
+        <!-- Clear Optional -->
+        <Button
+          v-if="totalSelectedCount > 0"
+          type="button"
+          variant="ghost"
+          size="sm"
+          class="h-8 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+          title="Clear optional attribute selections"
+          @click="clearOptionalAttributes"
+        >
+          Clear Optional
+        </Button>
+
+        <!-- Save Button -->
+        <Button
+          v-if="isDirty"
+          type="button"
+          variant="default"
+          size="sm"
+          :disabled="isSaving"
+          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
+          @click="emit('save')"
+        >
+          <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
+          <span>Save</span>
+        </Button>
+      </div>
 
       <!-- Info Banner Tooltip -->
       <div v-if="showInfoTooltip" class="mt-2.5 p-3 rounded-lg bg-muted/60 border border-border text-xs text-muted-foreground space-y-1">
         <p class="font-semibold text-foreground flex items-center gap-1.5">
           <Icon name="lucide:info" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>Category Attributes Explanation</span>
+          <span>About Category Attributes</span>
         </p>
         <p class="leading-normal">
-          Category attributes are Etsy-defined details for your selected category, such as craft type, holiday, style or color.
-          They help Etsy classify the listing more precisely. Available attributes depend directly on the selected category.
+          These attributes come directly from Etsy's seller taxonomy. Smart Suggestions use deterministic keyword rules (instant &amp; free). AI Suggestions analyze this campaign's title, concept, and tags to select the best matching choices from Etsy's allowed options.
         </p>
       </div>
     </CardHeader>
 
     <CardContent class="p-4 sm:p-5 pt-0 space-y-4">
+      <!-- Error Alert -->
+      <Alert
+        v-if="aiAttributeSuggestionsError"
+        variant="destructive"
+        title="AI Attribute Suggestion"
+        :description="aiAttributeSuggestionsError"
+        dismissible
+        @dismiss="aiAttributeSuggestionsError = null"
+      />
+
+      <!-- AI Suggestions Panel (when suggestions returned) -->
+      <div
+        v-if="showAiPanel && aiSuggestions.length > 0"
+        class="p-3.5 rounded-xl bg-primary/5 border border-primary/20 space-y-3"
+      >
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-2">
+            <Icon name="lucide:brain-circuit" class="size-4 text-primary" aria-hidden="true" />
+            <span class="text-xs font-semibold text-foreground">
+              {{ aiSuggestions.length }} AI suggestions ready for this campaign
+            </span>
+            <Badge v-if="highConfidenceAiSuggestions.length" variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+              {{ highConfidenceAiSuggestions.length }} high confidence
+            </Badge>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <Button
+              v-if="highConfidenceAiSuggestions.length > 0"
+              type="button"
+              variant="default"
+              size="sm"
+              class="h-7 text-xs font-medium cursor-pointer"
+              @click="applyAllHighConfidenceAiSuggestions"
+            >
+              <Icon name="lucide:check-check" class="size-3.5" aria-hidden="true" />
+              <span>Apply {{ highConfidenceAiSuggestions.length }} High-Confidence</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+              @click="showAiPanel = false"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+
+        <!-- High & Medium Confidence Suggestion Chips / Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+          <!-- High Confidence Suggestions -->
+          <div
+            v-for="sug in highConfidenceAiSuggestions"
+            :key="sug.property_id"
+            class="p-2.5 rounded-lg bg-background border border-emerald-500/30 flex flex-col justify-between gap-2 text-xs shadow-2xs"
+          >
+            <div class="space-y-1">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-foreground truncate">{{ sug.property_name }}</span>
+                <Badge variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                  {{ Math.round(sug.confidence * 100) }}% AI High
+                </Badge>
+              </div>
+              <p class="font-mono text-xs text-foreground font-medium">
+                {{ sug.values.join(', ') }}
+              </p>
+              <p class="text-[11px] text-muted-foreground leading-normal italic">
+                "{{ sug.reason }}"
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="h-6 self-end text-xs font-medium cursor-pointer border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+              @click="applySingleAiSuggestion(sug)"
+            >
+              <span>Apply</span>
+            </Button>
+          </div>
+
+          <!-- Medium Confidence Suggestions -->
+          <div
+            v-for="sug in mediumConfidenceAiSuggestions"
+            :key="sug.property_id"
+            class="p-2.5 rounded-lg bg-background border border-amber-500/30 flex flex-col justify-between gap-2 text-xs shadow-2xs"
+          >
+            <div class="space-y-1">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-foreground truncate">{{ sug.property_name }}</span>
+                <Badge variant="outline" class="text-[10px] font-mono text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20">
+                  {{ Math.round(sug.confidence * 100) }}% AI Review
+                </Badge>
+              </div>
+              <p class="font-mono text-xs text-foreground font-medium">
+                {{ sug.values.join(', ') }}
+              </p>
+              <p class="text-[11px] text-muted-foreground leading-normal italic">
+                "{{ sug.reason }}"
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="h-6 self-end text-xs font-medium cursor-pointer border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10"
+              @click="applySingleAiSuggestion(sug)"
+            >
+              <span>Apply</span>
+            </Button>
+          </div>
+        </div>
+
+        <!-- Low Confidence Toggle (if any) -->
+        <div v-if="lowConfidenceAiSuggestions.length > 0" class="pt-1">
+          <button
+            type="button"
+            class="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
+            @click="showLowConfidence = !showLowConfidence"
+          >
+            <Icon :name="showLowConfidence ? 'lucide:chevron-down' : 'lucide:chevron-right'" class="size-3" />
+            <span>{{ lowConfidenceAiSuggestions.length }} low confidence suggestion{{ lowConfidenceAiSuggestions.length > 1 ? 's' : '' }}</span>
+          </button>
+          <div v-if="showLowConfidence" class="mt-2 space-y-2">
+            <div
+              v-for="sug in lowConfidenceAiSuggestions"
+              :key="sug.property_id"
+              class="p-2 rounded bg-muted/40 text-xs flex items-center justify-between gap-2"
+            >
+              <div>
+                <span class="font-medium text-foreground">{{ sug.property_name }}: </span>
+                <span class="text-muted-foreground">{{ sug.values.join(', ') }} ({{ Math.round(sug.confidence * 100) }}%)</span>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="h-6 px-2 text-xs cursor-pointer"
+                @click="applySingleAiSuggestion(sug)"
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Loading State Skeleton -->
       <div v-if="isLoading" class="space-y-3">
         <div class="h-10 bg-slate-100 animate-pulse rounded-lg" />
@@ -306,10 +574,16 @@ const totalSelectedCount = computed(() => {
                 <span v-if="prop.is_required" class="text-destructive font-bold" title="Required by Etsy">* Required</span>
                 <span v-else class="text-[10px] text-muted-foreground font-normal">Optional</span>
               </Label>
-              <span v-if="prop.suggested_values?.length" class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-0.5">
-                <Icon name="lucide:sparkles" class="size-3" aria-hidden="true" />
-                Suggested
-              </span>
+              <div class="flex items-center gap-1.5">
+                <span v-if="aiSuggestions.some(s => s.property_id === prop.property_id)" class="text-[10px] text-primary font-medium flex items-center gap-0.5" title="AI suggested value available">
+                  <Icon name="lucide:brain-circuit" class="size-3" aria-hidden="true" />
+                  AI Available
+                </span>
+                <span v-else-if="prop.suggested_values?.length" class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-0.5" title="Smart suggestion available">
+                  <Icon name="lucide:sparkles" class="size-3" aria-hidden="true" />
+                  Smart
+                </span>
+              </div>
             </div>
 
             <!-- Small choices <= 6: Chips -->
@@ -322,14 +596,16 @@ const totalSelectedCount = computed(() => {
                 :class="
                   isValueSelected(prop.property_id, val.name)
                     ? 'bg-primary/10 text-primary border-primary/40 font-semibold'
-                    : isSuggested(prop, val.name)
+                    : isAiSuggested(prop.property_id, val.name)
+                    ? 'bg-primary/5 text-primary border-primary/30'
+                    : isSmartSuggested(prop, val.name)
                     ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/30'
                     : 'bg-background text-muted-foreground border-border hover:bg-muted'
                 "
                 @click="toggleValue(prop, val.name, val.value_id)"
               >
                 <Icon
-                  :name="isValueSelected(prop.property_id, val.name) ? 'lucide:check' : isSuggested(prop, val.name) ? 'lucide:sparkles' : 'lucide:plus'"
+                  :name="isValueSelected(prop.property_id, val.name) ? 'lucide:check' : isAiSuggested(prop.property_id, val.name) ? 'lucide:brain-circuit' : isSmartSuggested(prop, val.name) ? 'lucide:sparkles' : 'lucide:plus'"
                   class="size-3"
                   aria-hidden="true"
                 />
@@ -350,7 +626,7 @@ const totalSelectedCount = computed(() => {
                   :key="val.value_id || val.name"
                   :value="val.name"
                 >
-                  {{ val.name }} {{ isSuggested(prop, val.name) ? '(Suggested)' : '' }}
+                  {{ val.name }} {{ isAiSuggested(prop.property_id, val.name) ? '(AI Suggested)' : isSmartSuggested(prop, val.name) ? '(Smart Suggested)' : '' }}
                 </option>
               </select>
             </div>

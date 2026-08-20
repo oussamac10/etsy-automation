@@ -354,3 +354,145 @@ describe("WorkflowListingTab 5 Sub-Tabs Navigation & Structure", () => {
     expect(etsyWrapper.findComponent(EtsyDraftCard).exists()).toBe(true);
   });
 });
+
+describe("TaxonomyAttributesCard AI & Smart Suggestions", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const mockTaxonomyProps = [
+    {
+      property_id: 82731,
+      name: "Craft type",
+      is_required: true,
+      is_multivalued: true,
+      possible_values: [
+        { value_id: 441908, name: "Sublimation" },
+        { value_id: 441909, name: "Card making" },
+      ],
+      suggested_value_ids: [441908],
+      suggested_values: ["Sublimation"],
+    },
+    {
+      property_id: 82732,
+      name: "Holiday",
+      is_required: false,
+      is_multivalued: false,
+      possible_values: [
+        { value_id: 551201, name: "Christmas" },
+        { value_id: 551202, name: "Halloween" },
+      ],
+      suggested_value_ids: [551201],
+      suggested_values: ["Christmas"],
+    },
+  ];
+
+  it("loads properties on mount without making any AI endpoint calls", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("taxonomy-properties/ai-suggest")) {
+        throw new Error("AI endpoint must not be called automatically on mount!");
+      }
+      if (url.includes("taxonomy-properties")) {
+        return Promise.resolve(mockTaxonomyProps);
+      }
+      return Promise.resolve({});
+    });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const wrapper = mount(TaxonomyAttributesCard, {
+      props: {
+        workflowId: "wf-123",
+        taxonomyId: 6844,
+        etsyProperties: {},
+      },
+      global: {
+        stubs: { Icon: { template: "<i />" } },
+      },
+    });
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Category Attributes");
+    expect(wrapper.text()).toContain("Craft type");
+    expect(wrapper.text()).toContain("Holiday");
+    // Verify AI endpoint was NEVER called
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("taxonomy-properties/ai-suggest"),
+      expect.anything()
+    );
+  });
+
+  it("triggers AI suggest endpoint only when user explicitly clicks the AI button", async () => {
+    const mockAiResponse = {
+      workflow_id: "wf-123",
+      taxonomy_id: 6844,
+      suggestions: [
+        {
+          property_id: 82731,
+          property_name: "Craft type",
+          value_ids: [441908],
+          values: ["Sublimation"],
+          confidence: 0.96,
+          reason: "Explicitly targets sublimation design files.",
+          is_required: true,
+          is_multivalued: true,
+          is_high_confidence: true,
+        },
+      ],
+      high_confidence_count: 1,
+      fingerprint: "abc123fp",
+      cached: false,
+    };
+
+    const fetchMock = vi.fn().mockImplementation((url: string, opts?: any) => {
+      if (url.includes("taxonomy-properties/ai-suggest")) {
+        return Promise.resolve(mockAiResponse);
+      }
+      if (url.includes("taxonomy-properties")) {
+        return Promise.resolve(mockTaxonomyProps);
+      }
+      return Promise.resolve({});
+    });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const wrapper = mount(TaxonomyAttributesCard, {
+      props: {
+        workflowId: "wf-123",
+        taxonomyId: 6844,
+        etsyProperties: {},
+      },
+      global: {
+        stubs: { Icon: { template: "<i />" } },
+      },
+    });
+
+    await flushPromises();
+
+    // Click "AI Suggest Attributes" button
+    const aiBtn = wrapper.findAll("button").find((b) => b.text().includes("AI Suggest Attributes"));
+    expect(aiBtn).toBeDefined();
+    await aiBtn!.trigger("click");
+    await flushPromises();
+
+    // Verify AI endpoint was called
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("taxonomy-properties/ai-suggest"),
+      expect.objectContaining({ method: "POST" })
+    );
+
+    // Verify suggestions are displayed in UI
+    expect(wrapper.text()).toContain("AI suggestions ready for this campaign");
+    expect(wrapper.text()).toContain("96% AI High");
+    expect(wrapper.text()).toContain("Explicitly targets sublimation design files.");
+
+    // Apply High-Confidence
+    const applyHighBtn = wrapper.findAll("button").find((b) => b.text().includes("Apply 1 High-Confidence"));
+    expect(applyHighBtn).toBeDefined();
+    await applyHighBtn!.trigger("click");
+    await flushPromises();
+
+    // Emits local update
+    expect(wrapper.emitted("update:etsyProperties")).toBeTruthy();
+  });
+});
+

@@ -158,3 +158,24 @@ export interface Gate3DecisionPayload {
   decision: 'approved' | 'rejected' | 'APPROVED' | 'REJECTED';
   acknowledged?: boolean;
 }
+
+export interface AiTaxonomyPropertySuggestionItem {
+  property_id: number;
+  property_name: string;
+  value_ids: number[];
+  values: string[];
+  confidence: number;
+  reason: string;
+  is_required: boolean;
+  is_multivalued: boolean;
+  is_high_confidence: boolean;
+}
+
+export interface AiTaxonomyAttributeSuggestionsResponse {
+  workflow_id: string;
+  taxonomy_id: number;
+  suggestions: AiTaxonomyPropertySuggestionItem[];
+  high_confidence_count: number;
+  fingerprint: string;
+  cached: boolean;
+}
