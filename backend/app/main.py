@@ -16,7 +16,17 @@ from starlette.responses import Response
 from app import __version__
 from app.api.dependencies import CSRF_HEADER, build_credential_cipher
 from app.api.problems import register_exception_handlers
-from app.api.routes import auth, etsy as etsy_routes, health, mockup_templates, telegram, usage, workflow, workflows
+from app.api.routes import (
+    artwork_variants,
+    auth,
+    etsy as etsy_routes,
+    health,
+    mockup_templates,
+    telegram,
+    usage,
+    workflow,
+    workflows,
+)
 from app.api.routes import settings as settings_routes
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.logging import configure_logging, get_logger
@@ -198,6 +208,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(settings_routes.router, prefix="/api/v1")
     application.include_router(workflow.router, prefix="/api/v1")
     application.include_router(workflows.router, prefix="/api/v1")
+    application.include_router(artwork_variants.router, prefix="/api/v1")
     application.include_router(mockup_templates.router, prefix="/api/v1")
     application.include_router(telegram.router, prefix="/api/v1")
     application.include_router(etsy_routes.router, prefix="/api/v1")

@@ -107,6 +107,38 @@ class CustomerPackageService:
         if pdf_bytes is not None:
             pack_files[f"{base_prefix}_Print_Ready.pdf"] = pdf_bytes
 
+        # 4b. Include any Gate-approved artwork color variants
+        from app.domain.artwork_variants import (
+            VariantStatus,
+            compute_variant_filename,
+            is_valid_artwork_variant_asset,
+        )
+
+        approved_variant_count = 0
+        for asset in assets:
+            if is_valid_artwork_variant_asset(asset.provenance):
+                p = asset.provenance or {}
+                if p.get("variant_status") == VariantStatus.APPROVED.value:
+                    try:
+                        var_bytes = await self._storage.get(asset.storage_key)
+                        if var_bytes:
+                            v_type_str = str(p.get("variant_type", "variant"))
+                            c_color_str = str(p.get("custom_color")) if p.get("custom_color") is not None else None
+                            var_filename = compute_variant_filename(
+                                base_prefix,
+                                v_type_str,
+                                custom_color=c_color_str,
+                            )
+                            optimized_var = optimize_png_deflate(var_bytes)
+                            pack_files[var_filename] = optimized_var
+                            approved_variant_count += 1
+                    except Exception as var_err:
+                        logger.warning(
+                            "package_builder_variant_skipped",
+                            asset_id=str(asset.id),
+                            error=str(var_err),
+                        )
+
         manifest = generate_checksum_manifest(pack_files).encode("utf-8")
         pack_files[f"{base_prefix}_manifest.sha256"] = manifest
 
@@ -135,6 +167,7 @@ class CustomerPackageService:
                 "filename": zip_filename,
                 "file_count": len(pack_files),
                 "has_pdf": pdf_bytes is not None,
+                "variant_count": approved_variant_count,
                 "mockup_count": 0,
             },
         )

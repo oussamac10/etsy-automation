@@ -558,3 +558,35 @@ class ReResolveTaxonomyResponse(BaseModel):
     current_taxonomy_path: str | None = None
 
 
+class CreateArtworkVariantRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    variant_type: Annotated[str, Field(pattern=r"^(dark_shirt|light_shirt|black_accent|white_accent|custom)$")]
+    custom_color: str | None = None
+    custom_instructions: str | None = None
+
+
+class ArtworkVariantResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    derived_from_id: uuid.UUID | None
+    storage_key: str
+    mime_type: str
+    byte_size: int
+    checksum_sha256: str
+    width: int | None
+    height: int | None
+    has_alpha: bool | None
+    variant_type: str
+    variant_status: str
+    title: str
+    custom_color: str | None = None
+    custom_instructions: str | None = None
+    prompt_version: str | None = None
+    url: str | None = None
+    created_at: datetime
+
+
+
