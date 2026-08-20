@@ -32,6 +32,7 @@ const {
   approveVariant,
   rejectVariant,
   deleteVariant,
+  togglePackageInclusion,
 } = useArtworkVariants();
 
 type BgMode = "transparent" | "white" | "black" | "charcoal";
@@ -147,6 +148,17 @@ async function handleReject(v: ArtworkVariantItem): Promise<void> {
   const ok = await rejectVariant(props.workflowId, v.id);
   if (ok) {
     emit("variantUpdated");
+  }
+}
+
+async function handleTogglePackageInclusion(v: ArtworkVariantItem, event: Event): Promise<void> {
+  const target = event.target as HTMLInputElement;
+  const nextVal = target.checked;
+  const ok = await togglePackageInclusion(props.workflowId, v.id, nextVal);
+  if (ok) {
+    emit("variantUpdated");
+  } else {
+    target.checked = !nextVal;
   }
 }
 
@@ -375,8 +387,67 @@ function getBgClass(bg: BgMode): string {
           </span>
         </div>
 
+        <!-- Buyer Package Inclusion Control -->
+        <div class="px-2 py-1.5 bg-white border-t border-border/60">
+          <!-- Outdated master warning -->
+          <div
+            v-if="item.source_outdated"
+            class="p-1 rounded-md border border-amber-500/30 bg-amber-500/10 text-[9.5px] leading-tight text-foreground/80 space-y-0.5"
+          >
+            <div class="flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
+              <Icon name="lucide:alert-triangle" class="size-2.5 shrink-0" aria-hidden="true" />
+              <span class="text-[9px]">Master Outdated</span>
+            </div>
+            <p class="text-[8.5px] text-muted-foreground leading-none">
+              Regenerate to package
+            </p>
+          </div>
+
+          <!-- Approved & Current: Interactive Toggle -->
+          <label
+            v-else-if="item.variant_status === 'approved'"
+            class="flex items-center justify-between gap-1 cursor-pointer select-none group"
+            :title="item.include_in_buyer_package ? 'Included in customer delivery ZIP' : 'Click to include in customer delivery ZIP'"
+          >
+            <div class="flex items-center gap-1.5 min-w-0">
+              <input
+                type="checkbox"
+                :checked="Boolean(item.include_in_buyer_package)"
+                :disabled="isActing"
+                class="size-3.5 rounded border-border text-primary focus:ring-primary/20 accent-primary cursor-pointer"
+                @change="handleTogglePackageInclusion(item, $event)"
+              >
+              <span class="text-[10px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                Include in ZIP
+              </span>
+            </div>
+            <span
+              v-if="item.include_in_buyer_package"
+              class="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0"
+            >
+              Selected
+            </span>
+          </label>
+
+          <!-- Unapproved: Disabled state -->
+          <div
+            v-else
+            class="flex items-center gap-1.5 opacity-60 cursor-not-allowed select-none"
+            title="Approve variant first to include in customer ZIP package"
+          >
+            <input
+              type="checkbox"
+              disabled
+              class="size-3.5 rounded border-border text-slate-400 cursor-not-allowed"
+            >
+            <span class="text-[10px] text-muted-foreground truncate">
+              Include in ZIP
+            </span>
+          </div>
+        </div>
+
         <!-- Card Footer Actions -->
-        <div class="p-1.5 px-2 border-t border-border/60 bg-white flex items-center justify-between gap-1.5">
+        <div class="p-1.5 px-2 border-t border-border/60 bg-slate-50/50 flex items-center justify-between gap-1.5">
           <div class="flex items-center gap-1">
             <Button
               v-if="item.variant_status !== 'approved' && item.variant_status !== 'failed'"

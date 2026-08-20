@@ -150,6 +150,42 @@ export function useArtworkVariants() {
     }
   }
 
+  async function togglePackageInclusion(
+    workflowId: string,
+    variantId: string,
+    includeInBuyerPackage: boolean
+  ): Promise<boolean> {
+    if (!workflowId || !variantId) return false;
+    isActing.value = true;
+    actionError.value = null;
+    try {
+      const headers = getCsrfHeaders();
+      headers["Content-Type"] = "application/json";
+      const updated = await $fetch<ArtworkVariantItem>(
+        `${apiBase}/api/v1/workflows/${workflowId}/artwork-variants/${variantId}`,
+        {
+          method: "PATCH",
+          headers,
+          body: { include_in_buyer_package: includeInBuyerPackage },
+          credentials: "include",
+        }
+      );
+
+      const idx = variants.value.findIndex((v) => v.id === variantId);
+      if (idx >= 0) {
+        const copy = [...variants.value];
+        copy[idx] = updated;
+        variants.value = copy;
+      }
+      return true;
+    } catch (err: unknown) {
+      actionError.value = getApiErrorMessage(err, "Failed to update buyer package inclusion.");
+      return false;
+    } finally {
+      isActing.value = false;
+    }
+  }
+
   return {
     variants,
     approvedVariants,
@@ -162,5 +198,6 @@ export function useArtworkVariants() {
     approveVariant,
     rejectVariant,
     deleteVariant,
+    togglePackageInclusion,
   };
 }

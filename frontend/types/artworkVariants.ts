@@ -45,6 +45,8 @@ export interface ArtworkVariantItem {
   custom_instructions: string | null;
   prompt_version: string | null;
   url: string | null;
+  include_in_buyer_package?: boolean;
+  source_outdated?: boolean;
   validation_report?: VariantValidationReport | null;
   created_at: string;
 }
@@ -55,4 +57,25 @@ export interface CreateArtworkVariantPayload {
   target_color?: string | null;
   darkness_threshold?: number | null;
   custom_instructions?: string | null;
+}
+
+export interface PackageFileItem {
+  type: string;
+  name: string;
+  filename: string;
+  byte_size: number;
+  included: boolean;
+  status: "ready" | "outdated" | "unapproved" | "missing" | string;
+  asset_id: string | null;
+}
+
+export interface BuyerPackagePreviewResponse {
+  workflow_id: string;
+  files: PackageFileItem[];
+  included_count: number;
+  estimated_total_bytes: number;
+  needs_rebuild: boolean;
+  etsy_files_out_of_sync: boolean;
+  package_asset?: any | null;
+  package_download_url?: string | null;
 }
