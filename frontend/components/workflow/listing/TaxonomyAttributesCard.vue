@@ -353,15 +353,8 @@ const totalSelectedCount = computed(() => {
               </Label>
               <Badge
                 v-if="prop.is_required"
-                variant="outline"
-                class="text-[10px] py-0 font-medium text-foreground"
-                :class="
-                  isPropertyMismatched(prop)
-                    ? 'bg-amber-500/10 border-amber-500/30'
-                    : isPropertyMissingRequired(prop)
-                    ? 'bg-destructive/10 text-destructive border-destructive/20'
-                    : 'bg-emerald-500/10 border-emerald-500/20'
-                "
+                :variant="isPropertyMissingRequired(prop) ? 'destructive' : isPropertyMismatched(prop) ? 'warning' : 'success'"
+                class="text-[10px] py-0 font-medium"
               >
                 * Required
               </Badge>
@@ -371,20 +364,22 @@ const totalSelectedCount = computed(() => {
             </div>
 
             <!-- Missing / Mismatch indicator -->
-            <div
+            <Badge
               v-if="isPropertyMismatched(prop)"
-              class="inline-flex items-center rounded-full px-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-2xs py-0.5 gap-1 font-mono font-medium bg-amber-500/10 text-foreground border border-amber-500/20 shadow-2xs"
+              variant="warning"
+              class="text-2xs py-0.5 gap-1 font-mono font-medium"
             >
               <Icon name="lucide:alert-triangle" class="size-3 text-amber-500" aria-hidden="true" />
               <span>Category mismatch</span>
-            </div>
-            <div
+            </Badge>
+            <Badge
               v-else-if="isPropertyMissingRequired(prop)"
-              class="inline-flex items-center rounded-full px-2.5 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-2xs py-0.5 gap-1 font-mono font-medium bg-red-500/10 text-foreground border border-red-500/20 shadow-2xs"
+              variant="destructive"
+              class="text-2xs py-0.5 gap-1 font-mono font-medium"
             >
               <Icon name="lucide:alert-circle" class="size-3 text-red-500" aria-hidden="true" />
               <span>Required selection missing</span>
-            </div>
+            </Badge>
           </div>
 
           <!-- Multi-valued Property: Tag Chips -->

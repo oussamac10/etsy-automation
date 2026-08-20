@@ -271,8 +271,8 @@ defineExpose({
           <!-- Poor fit status badge -->
           <Badge
             v-if="activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5)"
-            variant="outline"
-            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-amber-500/10 text-foreground border-amber-500/20"
+            variant="warning"
+            class="text-2xs py-0.5 gap-1 font-mono font-medium"
           >
             <Icon name="lucide:alert-triangle" class="size-3 text-amber-500" aria-hidden="true" />
             <span>Poor fit</span>
@@ -281,24 +281,24 @@ defineExpose({
           <!-- Fitness indicator for good/moderate fit -->
           <Badge
             v-else-if="activeFitness && activeFitness.fit_score !== undefined && activeFitness.fit_level !== 'unknown'"
-            variant="outline"
-            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-emerald-500/10 text-foreground border-emerald-500/20"
+            variant="success"
+            class="text-2xs py-0.5 gap-1 font-mono font-medium"
           >
             <Icon name="lucide:sparkles" class="size-3 text-emerald-500" aria-hidden="true" />
             <span>{{ Math.round(activeFitness.fit_score * 100) }}% fit</span>
           </Badge>
 
           <!-- Source badge -->
-          <Badge v-if="props.taxonomySelectionSource === 'manual'" variant="outline" class="bg-blue-500/10 text-foreground border-blue-500/20 text-2xs py-0.5 font-medium">
+          <Badge v-if="props.taxonomySelectionSource === 'manual'" variant="info" class="text-2xs py-0.5 font-medium">
             Manual override
           </Badge>
-          <Badge v-else-if="props.taxonomySelectionSource === 'fallback'" variant="outline" class="bg-amber-500/10 text-foreground border-amber-500/20 text-2xs py-0.5 font-medium">
+          <Badge v-else-if="props.taxonomySelectionSource === 'fallback'" variant="warning" class="text-2xs py-0.5 font-medium">
             Fallback — review required
           </Badge>
           <Badge
             v-else-if="!(activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5))"
-            variant="outline"
-            class="bg-primary/10 text-primary border-primary/20 text-2xs py-0.5 font-medium"
+            variant="secondary"
+            class="text-2xs py-0.5 font-medium"
           >
             Auto-selected
           </Badge>
@@ -375,15 +375,8 @@ defineExpose({
                 <div class="flex items-center gap-2 shrink-0">
                   <Badge
                     v-if="cat.fit_score !== undefined && cat.fit_score !== null"
-                    variant="outline"
+                    :variant="cat.fit_score >= 0.8 ? 'success' : cat.fit_score < 0.5 ? 'warning' : 'secondary'"
                     class="font-mono text-2xs py-0"
-                    :class="
-                      cat.fit_score >= 0.8
-                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
-                        : cat.fit_score < 0.5
-                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-                        : 'bg-muted text-muted-foreground'
-                    "
                   >
                     {{ Math.round(cat.fit_score * 100) }}% fit
                   </Badge>
@@ -406,20 +399,22 @@ defineExpose({
 
               <!-- Badges / Reasons in card item -->
               <div v-if="(cat.fit_reasons && cat.fit_reasons.length > 0) || (cat.warnings && cat.warnings.length > 0)" class="flex items-center gap-1.5 flex-wrap mt-1">
-                <span
+                <Badge
                   v-for="(r, idx) in (cat.fit_reasons || []).slice(0, 2)"
                   :key="'r-' + idx"
-                  class="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded"
+                  variant="success"
+                  class="text-[10px] px-1.5 py-0 rounded"
                 >
                   ✓ {{ r }}
-                </span>
-                <span
+                </Badge>
+                <Badge
                   v-for="(w, idx) in (cat.warnings || []).slice(0, 1)"
                   :key="'w-' + idx"
-                  class="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded"
+                  variant="warning"
+                  class="text-[10px] px-1.5 py-0 rounded"
                 >
                   ⚠ {{ w }}
-                </span>
+                </Badge>
               </div>
             </button>
 
