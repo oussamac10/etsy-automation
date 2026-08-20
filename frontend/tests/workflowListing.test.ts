@@ -583,6 +583,51 @@ describe("TaxonomyAttributesCard Manual Selection", () => {
     // Optional 99881 cleared
     expect(updated["99881"]).toBeUndefined();
   });
+
+  it("displays mismatch warning banner and emits reviewCategory when requested", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("taxonomy-properties")) {
+        return Promise.resolve(mockTaxonomyProps);
+      }
+      if (url.includes("fitness")) {
+        return Promise.resolve({
+          taxonomy_id: 6844,
+          taxonomy_path: "Craft Supplies & Tools > Clip Art",
+          fit_score: 0.35,
+          fit_reasons: [],
+          warnings: ["Required Craft type values are limited to paper/collage uses and do not match apparel/sublimation intent."],
+          has_mismatched_required_attributes: true,
+          mismatched_required_reason: "Craft type is required, but Etsy only offers paper/collage-related values for this category.",
+        });
+      }
+      return Promise.resolve({});
+    });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const wrapper = mount(TaxonomyAttributesCard, {
+      props: {
+        workflowId: "wf-123",
+        taxonomyId: 6844,
+        etsyProperties: {},
+      },
+      global: {
+        stubs: { Icon: { template: "<i />" } },
+      },
+    });
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Required Etsy attributes do not match this product's intended use");
+    expect(wrapper.text()).toContain("Craft type is required, but Etsy only offers paper/collage-related values");
+    expect(wrapper.text()).toContain("Review Category");
+
+    const reviewBtn = wrapper.findAll("button").find((b) => b.text().includes("Review Category"));
+    expect(reviewBtn).toBeDefined();
+    await reviewBtn!.trigger("click");
+
+    expect(wrapper.emitted("reviewCategory")).toBeTruthy();
+  });
 });
+
 
 

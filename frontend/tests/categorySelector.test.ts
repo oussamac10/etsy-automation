@@ -41,15 +41,64 @@ describe('CategorySelectorCard Component', () => {
     expect(wrapper.text()).toContain('2078');
   });
 
-  it('opens category selection dialog and emits updateCategory event on confirm', async () => {
-    const fetchMock = vi.fn().mockResolvedValue([
-      {
-        id: 77,
-        name: 'Digital',
-        full_path: 'Art & Collectibles > Drawing & Illustration > Digital',
-        level: 2,
+  it('renders fit badge and reasons when fitness is loaded', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('fitness')) {
+        return Promise.resolve({
+          taxonomy_id: 6844,
+          taxonomy_path: 'Craft Supplies & Tools > Canvas & Surfaces > Clip Art',
+          fit_score: 0.95,
+          fit_reasons: ['Sublimation compatible', 'Digital download'],
+          warnings: [],
+          has_mismatched_required_attributes: false,
+        });
+      }
+      return Promise.resolve([]);
+    });
+    vi.stubGlobal('$fetch', fetchMock);
+
+    const wrapper = mount(CategorySelectorCard, {
+      props: {
+        workflowId: 'wf-123',
+        taxonomyId: 6844,
       },
-    ]);
+      global: {
+        stubs: {
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    });
+
+    await flushPromises();
+    expect(wrapper.text()).toContain('95% fit');
+    expect(wrapper.text()).toContain('Compatibility:');
+    expect(wrapper.text()).toContain('Sublimation compatible');
+  });
+
+  it('opens category selection dialog and emits updateCategory event on confirm', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('fitness')) {
+        return Promise.resolve({
+          taxonomy_id: 6844,
+          taxonomy_path: 'Craft Supplies & Tools > Canvas & Surfaces > Clip Art',
+          fit_score: 0.85,
+          fit_reasons: [],
+          warnings: [],
+          has_mismatched_required_attributes: false,
+        });
+      }
+      return Promise.resolve([
+        {
+          id: 77,
+          name: 'Digital',
+          full_path: 'Art & Collectibles > Drawing & Illustration > Digital',
+          level: 2,
+          fit_score: 0.9,
+          fit_reasons: ['Optimized for digital illustration'],
+        },
+      ]);
+    });
     vi.stubGlobal('$fetch', fetchMock);
 
     const wrapper = mount(CategorySelectorCard, {
@@ -74,6 +123,7 @@ describe('CategorySelectorCard Component', () => {
 
     // Verify dialog content is rendered
     expect(wrapper.text()).toContain('Select Etsy Digital Category');
+    expect(wrapper.text()).toContain('90% fit');
 
     // Click apply category button
     const applyBtn = wrapper.findAll('button').find((b) => b.text().includes('Apply Category'));
