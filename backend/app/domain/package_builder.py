@@ -212,21 +212,56 @@ def create_print_ready_pdf(
        (e.g., 4500x5400 px @ 300 DPI = 15x18 inches = 1080x1296 points).
     6. Embed as pure 24-bit /DeviceRGB FlateDecode image object.
     """
-    from PIL import Image
+    try:
+        from PIL import Image
 
-    img = Image.open(io.BytesIO(png_bytes))
-    w_px, h_px = img.size
+        img = Image.open(io.BytesIO(png_bytes))
+        w_px, h_px = img.size
 
-    # Composite over solid white background if image has alpha/transparency
-    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-        rgba_img = img.convert("RGBA")
-        bg = Image.new("RGBA", rgba_img.size, (255, 255, 255, 255))
-        flattened = Image.alpha_composite(bg, rgba_img).convert("RGB")
-    else:
-        flattened = img.convert("RGB")
+        # Composite over solid white background if image has alpha/transparency
+        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+            rgba_img = img.convert("RGBA")
+            bg = Image.new("RGBA", rgba_img.size, (255, 255, 255, 255))
+            flattened = Image.alpha_composite(bg, rgba_img).convert("RGB")
+        else:
+            flattened = img.convert("RGB")
 
-    rgb_bytes = flattened.tobytes()
-    rgb_stream = zlib.compress(rgb_bytes, level=6)
+        raw_rgb = flattened.tobytes()
+        stride = w_px * 3
+
+        # Apply PNG Paeth adaptive prediction filter (filter type 4) to achieve compact lossless compression
+        filtered_data = bytearray()
+        prior_row = bytearray(stride)
+
+        for y in range(h_px):
+            row_offset = y * stride
+            row = raw_rgb[row_offset : row_offset + stride]
+            filtered_row = bytearray(stride + 1)
+            filtered_row[0] = 4  # Paeth filter byte
+
+            for x in range(stride):
+                left = row[x - 3] if x >= 3 else 0
+                up = prior_row[x]
+                up_left = prior_row[x - 3] if x >= 3 else 0
+                p = left + up - up_left
+                pa = abs(p - left)
+                pb = abs(p - up)
+                pc = abs(p - up_left)
+                pr = left if (pa <= pb and pa <= pc) else (up if pb <= pc else up_left)
+                filtered_row[x + 1] = (row[x] - pr) & 0xFF
+
+            filtered_data.extend(filtered_row)
+            prior_row = row
+
+        rgb_stream = zlib.compress(bytes(filtered_data), level=6)
+        decode_parms = f"/DecodeParms << /Predictor 15 /Columns {w_px} /Colors 3 /BitsPerComponent 8 >> "
+    except Exception as exc:
+        logger.warning("create_print_ready_pdf_flattening_fallback", error=str(exc))
+        detected_w, detected_h, _ = _parse_png_dimensions_and_channels(png_bytes)
+        w_px = detected_w or width_px
+        h_px = detected_h or height_px
+        rgb_stream = zlib.compress(png_bytes, level=6)
+        decode_parms = ""
 
     # Calculate page dimensions in points (72 points = 1 inch)
     width_pt = (w_px * 72.0) / dpi
@@ -239,7 +274,7 @@ def create_print_ready_pdf(
     # 2: Pages
     # 3: Page (MediaBox = [0 0 width_pt height_pt])
     # 4: Contents (q width_pt 0 0 height_pt 0 0 cm /Im1 Do Q)
-    # 5: Image XObject (/DeviceRGB, 8 bits/channel, FlateDecode)
+    # 5: Image XObject (/DeviceRGB, 8 bits/channel, FlateDecode + Predictor 15)
     objects: list[bytes] = []
 
     # 1: Catalog
@@ -265,10 +300,11 @@ def create_print_ready_pdf(
         + b"\nendstream"
     )
 
-    # 5: Image XObject (DeviceRGB, FlateDecode, 8 bits/channel, no /SMask)
+    # 5: Image XObject (DeviceRGB, FlateDecode, Predictor 15, 8 bits/channel, no /SMask)
     img_dict = (
         f"<< /Type /XObject /Subtype /Image /Width {w_px} /Height {h_px} "
         f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode "
+        f"{decode_parms}"
         f"/Length {len(rgb_stream)} >>\nstream\n"
     ).encode("ascii") + rgb_stream + b"\nendstream"
     objects.append(img_dict)

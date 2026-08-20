@@ -16,8 +16,12 @@ from app.domain.etsy_delivery_planner import (
     EtsyDigitalDeliveryPlanner,
 )
 from app.domain.package_builder import (
+    build_zip_archive,
+    create_print_ready_pdf,
+    generate_checksum_manifest,
     generate_instructions_text,
     generate_license_text,
+    optimize_png_deflate,
     sanitize_brand_slug,
     sanitize_product_title,
 )
@@ -76,27 +80,43 @@ class CustomerPackageService:
         # Resolve dynamic connected Etsy shop name
         shop_name = await resolve_connected_shop_name(uow, workflow.owner_id)
 
-        planner = EtsyDigitalDeliveryPlanner(
-            max_file_bytes=MAX_ETSY_DIGITAL_FILE_BYTES,
-            max_files_count=MAX_ETSY_DIGITAL_FILES_COUNT,
-        )
-        planned_files = planner.plan_delivery(
-            master_png_bytes=master_bytes,
-            listing_title=listing_title,
-            shop_name=shop_name,
-            master_width=master_asset.width or 4500,
-            master_height=master_asset.height or 5400,
-            include_pdf=True,
+        shop_slug = sanitize_brand_slug(shop_name, max_length=20)
+        product_slug = sanitize_product_title(listing_title, max_length=25)
+        base_prefix = f"{shop_slug}_{product_slug}"
+
+        # 1. Optimize master PNG losslessly
+        optimized_master = optimize_png_deflate(master_bytes)
+
+        # 2. Build Documentation
+        license_doc = generate_license_text(shop_name, listing_title).encode("utf-8")
+        instructions_doc = generate_instructions_text(listing_title, shop_name=shop_name).encode("utf-8")
+
+        # 3. Build Print-Ready PDF
+        pdf_bytes = create_print_ready_pdf(
+            optimized_master,
+            width_px=master_asset.width or 4500,
+            height_px=master_asset.height or 5400,
         )
 
-        # Primary customer delivery ZIP file
-        zip_file = next((f for f in planned_files if f.mime_type == "application/zip"), planned_files[0])
-        zip_bytes = zip_file.content
-        zip_sha256 = zip_file.checksum_sha256
-        storage_key = f"workflows/{workflow_id}/packages/{zip_file.filename}"
+        # 4. Assemble complete deliverables map
+        pack_files: dict[str, bytes] = {
+            f"{base_prefix}_PNG.png": optimized_master,
+            f"{base_prefix}_LICENSE.txt": license_doc,
+            f"{base_prefix}_INSTRUCTIONS.txt": instructions_doc,
+        }
+        if pdf_bytes is not None:
+            pack_files[f"{base_prefix}_Print_Ready.pdf"] = pdf_bytes
+
+        manifest = generate_checksum_manifest(pack_files).encode("utf-8")
+        pack_files[f"{base_prefix}_manifest.sha256"] = manifest
+
+        zip_bytes = build_zip_archive(pack_files)
+        zip_sha256 = hashlib.sha256(zip_bytes).hexdigest()
+        zip_filename = f"{base_prefix}_Digital_Download.zip"
+        storage_key = f"workflows/{workflow_id}/packages/{zip_filename}"
 
         # Put to S3 / MinIO
-        stored_obj = await self._storage.put(storage_key, zip_bytes, zip_file.mime_type)
+        stored_obj = await self._storage.put(storage_key, zip_bytes, "application/zip")
 
         # Check if asset record exists for this sha256
         existing_asset = await uow.assets.get_by_checksum_sha256(workflow_id, zip_sha256)
@@ -106,35 +126,33 @@ class CustomerPackageService:
         package_asset = Asset(
             workflow_id=workflow_id,
             storage_key=stored_obj.storage_key,
-            mime_type=zip_file.mime_type,
+            mime_type="application/zip",
             byte_size=len(zip_bytes),
             checksum_sha256=zip_sha256,
             provenance={
                 "kind": "customer_package",
                 "version": listing_version,
-                "filename": zip_file.filename,
-                "file_count": len(planned_files),
-                "has_pdf": True,
+                "filename": zip_filename,
+                "file_count": len(pack_files),
+                "has_pdf": pdf_bytes is not None,
                 "mockup_count": 0,
             },
         )
         await uow.assets.add(package_asset)
 
         # Update listing licence_text & customer_instructions
-        license_doc = generate_license_text(shop_name, listing_title)
-        instructions_doc = generate_instructions_text(listing_title, shop_name=shop_name)
         if listing is not None:
             await uow.listing_drafts.update(
                 listing.id,
-                licence_text=license_doc,
-                customer_instructions=instructions_doc,
+                licence_text=license_doc.decode("utf-8"),
+                customer_instructions=instructions_doc.decode("utf-8"),
             )
 
         logger.info(
             "customer_package_assembled",
             workflow_id=str(workflow_id),
             asset_id=str(package_asset.id),
-            filename=zip_file.filename,
+            filename=zip_filename,
             size=len(zip_bytes),
         )
         return package_asset
