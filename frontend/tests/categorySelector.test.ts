@@ -136,4 +136,42 @@ describe('CategorySelectorCard Component', () => {
       path: 'Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files',
     });
   });
+
+  it('renders Poor fit badge and mismatch warning when category attributes mismatch campaign intent', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('fitness')) {
+        return Promise.resolve({
+          taxonomy_id: 6844,
+          taxonomy_path: 'Craft Supplies & Tools > Canvas & Surfaces > Clip Art & Image Files',
+          fit_score: 0.3,
+          fit_level: 'poor',
+          fit_reasons: ['Required Craft type values are limited to paper/collage uses.'],
+          warnings: ['Required Craft type values are limited to paper/collage uses and do not match apparel/sublimation intent.'],
+          has_mismatched_required_attributes: true,
+          blocking_mismatch: true,
+          mismatched_required_reason: 'Craft type is required, but Etsy only offers paper/collage-related values.',
+        });
+      }
+      return Promise.resolve([]);
+    });
+    vi.stubGlobal('$fetch', fetchMock);
+
+    const wrapper = mount(CategorySelectorCard, {
+      props: {
+        workflowId: 'wf-123',
+        taxonomyId: 6844,
+      },
+      global: {
+        stubs: {
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    });
+
+    await flushPromises();
+    expect(wrapper.text()).toContain('Poor fit');
+    expect(wrapper.text()).toContain("Required attributes do not match this campaign's intended use.");
+  });
 });
+

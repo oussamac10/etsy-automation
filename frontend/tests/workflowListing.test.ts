@@ -617,17 +617,59 @@ describe("TaxonomyAttributesCard Manual Selection", () => {
 
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Required Etsy attributes do not match this product's intended use");
+    expect(wrapper.text()).toContain("Category mismatch");
     expect(wrapper.text()).toContain("Craft type is required, but Etsy only offers paper/collage-related values");
-    expect(wrapper.text()).toContain("Review Category");
+    expect(wrapper.text()).toContain("Review Etsy Category");
 
-    const reviewBtn = wrapper.findAll("button").find((b) => b.text().includes("Review Category"));
+    const reviewBtn = wrapper.findAll("button").find((b) => b.text().includes("Review Etsy Category"));
     expect(reviewBtn).toBeDefined();
     await reviewBtn!.trigger("click");
 
     expect(wrapper.emitted("reviewCategory")).toBeTruthy();
   });
+
+  it("Gate 3 displays category mismatch reason and blocks approval when category attributes mismatch", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("fitness")) {
+        return Promise.resolve({
+          taxonomy_id: 6844,
+          taxonomy_path: "Craft Supplies & Tools > Canvas & Surfaces > Clip Art & Image Files",
+          fit_score: 0.28,
+          fit_level: "poor",
+          blocking_mismatch: true,
+          has_mismatched_required_attributes: true,
+          mismatched_required_reason: "Craft type is required, but Etsy only offers paper/collage-related values for this category.",
+          fit_reasons: [],
+          warnings: ["Required Craft type values are limited to paper/collage uses."],
+        });
+      }
+      return Promise.resolve(mockDraft);
+    });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const wrapper = mount(WorkflowListingTab, {
+      props: {
+        workflowId: "wf-123",
+        workflowState: "LISTING_REVIEW",
+      },
+      global: {
+        stubs: {
+          Icon: { template: "<i />" },
+        },
+      },
+    });
+
+    await flushPromises();
+
+    // Navigate to Final Review
+    const finalReviewBtn = wrapper.findAll('[role="tab"]')[4];
+    await finalReviewBtn.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Selected Etsy category does not match this campaign's intended use.");
+  });
 });
+
 
 
 

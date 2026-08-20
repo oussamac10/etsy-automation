@@ -127,6 +127,8 @@ export interface TaxonomyCategory {
   full_path: string;
   level: number;
   fit_score?: number;
+  fit_level?: 'good' | 'moderate' | 'poor';
+  blocking_mismatch?: boolean;
   fit_reasons?: string[];
   warnings?: string[];
 }
@@ -134,11 +136,17 @@ export interface TaxonomyCategory {
 export interface TaxonomyFitness {
   taxonomy_id: number;
   taxonomy_path: string;
+  fit?: 'good' | 'moderate' | 'poor';
+  score?: number;
   fit_score: number;
+  fit_level?: 'good' | 'moderate' | 'poor';
+  blocking_mismatch?: boolean;
   fit_reasons: string[];
   warnings: string[];
   has_mismatched_required_attributes: boolean;
   mismatched_required_reason?: string | null;
+  best_available?: boolean;
+  campaign_intent?: string;
 }
 
 export interface ShopSection {

@@ -209,40 +209,50 @@ defineExpose({
           </div>
         </div>
         <div class="flex items-center gap-1.5 shrink-0 self-start sm:self-auto">
-          <!-- Fitness indicator -->
+          <!-- Poor fit status badge -->
           <Badge
-            v-if="activeFitness && activeFitness.fit_score !== undefined"
+            v-if="activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5)"
             variant="outline"
-            class="text-2xs py-0.5 gap-1 font-mono font-medium"
-            :class="
-              activeFitness.has_mismatched_required_attributes || activeFitness.fit_score < 0.5
-                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
-            "
+            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
           >
-            <Icon
-              :name="
-                activeFitness.has_mismatched_required_attributes || activeFitness.fit_score < 0.5
-                  ? 'lucide:alert-triangle'
-                  : 'lucide:sparkles'
-              "
-              class="size-3"
-              aria-hidden="true"
-            />
+            <Icon name="lucide:alert-triangle" class="size-3" aria-hidden="true" />
+            <span>Poor fit</span>
+          </Badge>
+
+          <!-- Fitness indicator for good/moderate fit -->
+          <Badge
+            v-else-if="activeFitness && activeFitness.fit_score !== undefined"
+            variant="outline"
+            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+          >
+            <Icon name="lucide:sparkles" class="size-3" aria-hidden="true" />
             <span>{{ Math.round(activeFitness.fit_score * 100) }}% fit</span>
           </Badge>
 
           <Badge v-if="props.taxonomyId && props.taxonomyId !== DEFAULT_CATEGORY_ID" variant="outline" class="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 text-2xs py-0.5">
             Manual override
           </Badge>
-          <Badge v-else variant="outline" class="bg-primary/10 text-primary border-primary/20 text-2xs py-0.5">
+          <Badge
+            v-else-if="!(activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5))"
+            variant="outline"
+            class="bg-primary/10 text-primary border-primary/20 text-2xs py-0.5"
+          >
             Recommended
           </Badge>
         </div>
       </div>
 
-      <!-- Fit reasons callout if available -->
-      <div v-if="activeFitness?.fit_reasons && activeFitness.fit_reasons.length > 0 && !activeFitness.has_mismatched_required_attributes" class="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap px-1">
+      <!-- Poor fit warning callout -->
+      <div
+        v-if="activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5)"
+        class="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1.5 px-1 font-medium"
+      >
+        <Icon name="lucide:alert-triangle" class="size-3 shrink-0" aria-hidden="true" />
+        <span>Required attributes do not match this campaign's intended use.</span>
+      </div>
+
+      <!-- Fit reasons callout if compatible -->
+      <div v-else-if="activeFitness?.fit_reasons && activeFitness.fit_reasons.length > 0" class="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap px-1">
         <span class="font-semibold text-foreground/80 uppercase tracking-wider text-[9px]">Compatibility:</span>
         <span v-for="(reason, idx) in activeFitness.fit_reasons.slice(0, 2)" :key="idx" class="inline-flex items-center gap-1">
           <span>• {{ reason }}</span>

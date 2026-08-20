@@ -127,8 +127,14 @@ function isValueSelected(propId: number, valName: string): boolean {
   return entry.values.includes(valName);
 }
 
+function isPropertyMismatched(prop: TaxonomyProperty): boolean {
+  if (!fitness.value?.has_mismatched_required_attributes && !fitness.value?.blocking_mismatch) return false;
+  return prop.is_required && (prop.name.toLowerCase().includes('craft') || prop.property_id === 82731);
+}
+
 function isPropertyMissingRequired(prop: TaxonomyProperty): boolean {
   if (!prop.is_required) return false;
+  if (isPropertyMismatched(prop)) return false;
   const entry = localPropertiesMap.value[String(prop.property_id)];
   return !entry || !entry.values || entry.values.length === 0;
 }
@@ -286,17 +292,17 @@ const totalSelectedCount = computed(() => {
 
       <!-- Warning Banner for Mismatched Required Attributes -->
       <div
-        v-if="fitness?.has_mismatched_required_attributes || (fitness?.warnings && fitness.warnings.length > 0)"
+        v-if="fitness?.has_mismatched_required_attributes || fitness?.blocking_mismatch || (fitness?.warnings && fitness.warnings.length > 0)"
         class="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         data-testid="category-attribute-mismatch-warning"
       >
         <div class="space-y-1 min-w-0">
           <p class="font-semibold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
             <Icon name="lucide:alert-triangle" class="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-            <span>Required Etsy attributes do not match this product's intended use</span>
+            <span>Category mismatch</span>
           </p>
           <p class="text-[11px] text-amber-700 dark:text-amber-300/90 leading-relaxed">
-            {{ fitness?.mismatched_required_reason || fitness?.warnings?.[0] || 'Craft type is required, but Etsy only offers paper/collage-related values for this category. Consider changing the Etsy category.' }}
+            {{ fitness?.mismatched_required_reason || fitness?.warnings?.[0] || 'Required Etsy attributes for this category do not match this campaign\'s intended use.' }}
           </p>
         </div>
 
@@ -308,7 +314,7 @@ const totalSelectedCount = computed(() => {
           @click="emit('reviewCategory')"
         >
           <Icon name="lucide:folder-tree" class="size-3.5 mr-1" aria-hidden="true" />
-          <span>Review Category</span>
+          <span>Review Etsy Category</span>
         </Button>
       </div>
 
@@ -334,7 +340,10 @@ const totalSelectedCount = computed(() => {
           v-for="prop in recommendedProperties"
           :key="prop.property_id"
           class="p-3.5 rounded-lg border border-border/80 bg-card/60 space-y-2.5 transition-colors"
-          :class="{ 'border-amber-500/30 bg-amber-500/5': isPropertyMissingRequired(prop) }"
+          :class="{
+            'border-amber-500/30 bg-amber-500/5': isPropertyMismatched(prop),
+            'border-destructive/30 bg-destructive/5': isPropertyMissingRequired(prop),
+          }"
         >
           <div class="flex items-center justify-between gap-2 flex-wrap">
             <div class="flex items-center gap-2">
@@ -346,7 +355,9 @@ const totalSelectedCount = computed(() => {
                 variant="outline"
                 class="text-[10px] py-0 font-medium"
                 :class="
-                  isPropertyMissingRequired(prop)
+                  isPropertyMismatched(prop)
+                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
+                    : isPropertyMissingRequired(prop)
                     ? 'bg-destructive/10 text-destructive border-destructive/20'
                     : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
                 "
@@ -358,8 +369,11 @@ const totalSelectedCount = computed(() => {
               </Badge>
             </div>
 
-            <!-- Missing indicator -->
-            <span v-if="isPropertyMissingRequired(prop)" class="text-[11px] font-medium text-destructive">
+            <!-- Missing / Mismatch indicator -->
+            <span v-if="isPropertyMismatched(prop)" class="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+              Category mismatch
+            </span>
+            <span v-else-if="isPropertyMissingRequired(prop)" class="text-[11px] font-medium text-destructive">
               Required selection missing
             </span>
           </div>

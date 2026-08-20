@@ -17,7 +17,7 @@ import CardHeader from '~/components/ui/CardHeader.vue';
 import CardTitle from '~/components/ui/CardTitle.vue';
 import CardContent from '~/components/ui/CardContent.vue';
 import Alert from '~/components/ui/Alert.vue';
-import type { RiskLevel } from '~/types/listing';
+import type { RiskLevel, TaxonomyFitness } from '~/types/listing';
 
 type SubTabKey = 'content' | 'etsy-details' | 'ip-compliance' | 'delivery' | 'final-review';
 
@@ -267,6 +267,39 @@ async function handleBuildPackage() {
   }
 }
 
+function getApiBase(): string {
+  try {
+    const config = useRuntimeConfig();
+    return config?.public?.apiBase ? config.public.apiBase.replace(/\/$/, '') : '';
+  } catch {
+    return '';
+  }
+}
+
+const categoryFitness = ref<TaxonomyFitness | null>(null);
+
+async function loadCategoryFitness() {
+  if (!props.workflowId) return;
+  try {
+    const apiBase = getApiBase();
+    const data = await $fetch<TaxonomyFitness>(
+      `${apiBase}/api/v1/workflows/${props.workflowId}/listing/taxonomy/fitness`,
+      {
+        headers: { Accept: 'application/json' },
+        credentials: 'include',
+      }
+    );
+    categoryFitness.value = data || null;
+  } catch {
+    categoryFitness.value = null;
+  }
+}
+
+onMounted(() => {
+  loadListingData();
+  loadCategoryFitness();
+});
+
 async function handleUpdateCategory(payload: { id: number; path: string }) {
   successMessage.value = null;
   try {
@@ -274,6 +307,7 @@ async function handleUpdateCategory(payload: { id: number; path: string }) {
     if (updated) {
       localTaxonomyId.value = updated.taxonomy_id || payload.id;
       localTaxonomyPath.value = updated.taxonomy_path || payload.path;
+      await loadCategoryFitness();
       successMessage.value = 'Etsy seller category updated successfully.';
       setTimeout(() => {
         successMessage.value = null;
@@ -340,12 +374,21 @@ const missingRequiredProperties = computed(() => {
   return missing;
 });
 
+const isCategoryMismatch = computed(() => {
+  return Boolean(
+    categoryFitness.value?.has_mismatched_required_attributes ||
+    categoryFitness.value?.blocking_mismatch ||
+    (categoryFitness.value?.fit_score !== undefined && categoryFitness.value.fit_score < 0.5)
+  );
+});
+
 const isEtsyDetailsReady = computed(() => {
   return Boolean(
     activeTaxonomyId.value &&
     localPriceMinorUnits.value &&
     localPriceMinorUnits.value > 0 &&
-    missingRequiredProperties.value.length === 0
+    missingRequiredProperties.value.length === 0 &&
+    !isCategoryMismatch.value
   );
 });
 
@@ -394,14 +437,18 @@ const readinessChecks = computed(() => {
     },
     {
       id: 'category-attributes',
-      label: missingRequiredProperties.value.length === 0
+      label: isCategoryMismatch.value
+        ? 'Selected Etsy category mismatch'
+        : missingRequiredProperties.value.length === 0
         ? 'Category attributes valid'
         : `${missingRequiredProperties.value.length} required attribute${missingRequiredProperties.value.length > 1 ? 's' : ''} missing`,
       tab: 'etsy-details' as SubTabKey,
-      passed: missingRequiredProperties.value.length === 0,
+      passed: missingRequiredProperties.value.length === 0 && !isCategoryMismatch.value,
       required: true,
-      blockerMsg: missingRequiredProperties.value.length > 0
-        ? `Required Etsy category attributes missing: ${missingRequiredProperties.value.join(', ')}.`
+      blockerMsg: isCategoryMismatch.value
+        ? 'Selected Etsy category does not match this campaign\'s intended use.'
+        : missingRequiredProperties.value.length > 0
+        ? `Required Etsy attribute must be selected: ${missingRequiredProperties.value.join(', ')}.`
         : '',
     },
     {
