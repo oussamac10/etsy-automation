@@ -272,7 +272,7 @@ class ArtworkVariantService:
             raise ArtworkVariantError("Target asset is not an artwork color variant.")
 
         storage_key = asset.storage_key
-        await uow.assets.delete(asset.id)
+        await uow.assets.delete(asset)
         await uow.commit()
 
         try:

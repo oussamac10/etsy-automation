@@ -227,7 +227,7 @@ class TestArtworkVariantService:
             uow=uow,
         )
 
-        uow.assets.delete.assert_called_once_with(variant_id)
+        uow.assets.delete.assert_called_once_with(variant_asset)
         storage.delete.assert_called_once_with(variant_asset.storage_key)
 
 

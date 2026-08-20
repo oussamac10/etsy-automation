@@ -141,7 +141,7 @@ async function confirmDelete(): Promise<void> {
     variantToDelete.value = null;
     emit("variantUpdated");
   } else {
-    deleteError.value = "Failed to delete variant.";
+    deleteError.value = actionError.value || "Failed to delete variant.";
   }
   isDeleting.value = false;
 }

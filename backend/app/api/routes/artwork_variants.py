@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.dependencies import CipherDep, CurrentUser, SettingsDep, StorageDep, UowDep
 from app.api.schemas import ArtworkVariantResponse, CreateArtworkVariantRequest
@@ -241,7 +241,7 @@ async def delete_artwork_variant_endpoint(
     user: CurrentUser,
     uow: UowDep,
     storage: StorageDep,
-) -> None:
+) -> Response:
     service = ArtworkVariantService(storage, FakeImageProvider())
     try:
         await service.delete_variant(
@@ -260,3 +260,4 @@ async def delete_artwork_variant_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(err),
         )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
