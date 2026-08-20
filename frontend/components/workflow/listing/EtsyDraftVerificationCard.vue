@@ -132,7 +132,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
             overallStatus === 'verified'
               ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
               : overallStatus === 'needs_attention'
-                ? 'border-amber-200 bg-amber-50 text-amber-700'
+                ? 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
                 : 'border-rose-200 bg-rose-50 text-rose-700',
           ]"
         >
@@ -217,10 +217,10 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
         </div>
       </div>
 
-      <div class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-        <Icon name="lucide:alert-triangle" class="size-4 text-amber-700 shrink-0" aria-hidden="true" />
+      <div class="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+        <Icon name="lucide:alert-triangle" class="size-4 text-amber-500 shrink-0" aria-hidden="true" />
         <div>
-          <div class="font-semibold text-amber-700 font-mono">{{ summary.warnings }} Warnings</div>
+          <div class="font-semibold text-foreground font-mono">{{ summary.warnings }} Warnings</div>
           <div class="text-[11px] text-muted-foreground">Different or Missing</div>
         </div>
       </div>

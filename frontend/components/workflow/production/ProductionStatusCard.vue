@@ -69,26 +69,25 @@ const emit = defineEmits<{
 
     <!-- Gate 2 Pending State (Artwork not selected yet) -->
     <div v-else-if="!latestProductionJob" class="space-y-4">
-      <div class="rounded-xl border border-amber-200 bg-amber-50/50 dark:border-amber-900/40 dark:bg-amber-950/20 p-5 space-y-4">
-        <div class="flex items-start gap-3">
-          <div class="h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-900/50 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
-            <Icon name="lucide:image" class="size-5" aria-hidden="true" />
-          </div>
-          <div class="space-y-1">
-            <h4 class="text-sm font-bold text-amber-950 dark:text-amber-200">Artwork Selection Required (Gate 2)</h4>
-            <p class="text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
-              Phase 7 PNG production requires an approved master artwork candidate. Please visit <b>Step 2 (Artwork Studio)</b> to generate, refine, and approve your design before generating the print-ready PNG and product mockups.
-            </p>
-          </div>
+      <div
+        class="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        data-testid="gate-2-pending-warning"
+      >
+        <div class="space-y-1 min-w-0">
+          <p class="font-semibold flex items-center gap-2 text-foreground text-sm">
+            <Icon name="lucide:image" class="size-4 shrink-0 text-amber-500" aria-hidden="true" />
+            <span>Artwork Selection Required (Gate 2)</span>
+          </p>
+          <p class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
+            Phase 7 PNG production requires an approved master artwork candidate. Please visit <b>Step 2 (Artwork Studio)</b> to generate, refine, and approve your design before generating the print-ready PNG and product mockups.
+          </p>
         </div>
-        <div class="flex items-center justify-end gap-3 pt-1">
-          <NuxtLink :to="{ query: { tab: 'artwork' } }">
-            <Button variant="outline" size="sm" class="gap-1.5 border-amber-300 text-amber-900 dark:text-amber-200 hover:bg-amber-100/60 font-semibold cursor-pointer">
-              <Icon name="lucide:arrow-left" class="size-3.5" aria-hidden="true" />
-              <span>Go to Artwork Studio</span>
-            </Button>
-          </NuxtLink>
-        </div>
+        <NuxtLink :to="{ query: { tab: 'artwork' } }" class="shrink-0 self-start sm:self-auto">
+          <Button variant="outline" size="sm" class="gap-1.5 font-semibold bg-background text-foreground border-border hover:bg-muted cursor-pointer">
+            <Icon name="lucide:arrow-left" class="size-3.5" aria-hidden="true" />
+            <span>Go to Artwork Studio</span>
+          </Button>
+        </NuxtLink>
       </div>
     </div>
   </div>

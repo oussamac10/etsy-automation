@@ -449,13 +449,13 @@ async function clearAllAiIdeas() {
                   v-if="workflowId"
                   variant="outline"
                   size="sm"
-                  class="h-6.5 text-[11px] font-bold border-amber-300 bg-amber-50/60 hover:bg-amber-100 text-amber-900 gap-1 cursor-pointer px-2 shadow-2xs"
+                  class="h-6.5 text-[11px] font-bold border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-foreground gap-1 cursor-pointer px-2 shadow-2xs"
                   :disabled="isGeneratingIdeas"
                   @click="handleGenerateAiIdeas"
                 >
                   <Icon
                     :name="isGeneratingIdeas ? 'lucide:loader-2' : 'lucide:sparkles'"
-                    class="size-3"
+                    class="size-3 text-amber-500"
                     :class="{ 'animate-spin': isGeneratingIdeas }"
                     aria-hidden="true"
                   />
@@ -478,7 +478,7 @@ async function clearAllAiIdeas() {
               >
                 <button
                   type="button"
-                  class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-white border border-amber-300 text-muted-foreground hover:text-red-600 hover:border-red-400 hover:bg-red-50 flex items-center justify-center shadow-xs transition-colors z-10 cursor-pointer"
+                  class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-white border border-border text-muted-foreground hover:text-red-600 hover:border-red-400 hover:bg-red-50 flex items-center justify-center shadow-xs transition-colors z-10 cursor-pointer"
                   title="Remove this recommendation"
                   @click.stop="removeAiIdea(item.key)"
                 >
@@ -487,10 +487,10 @@ async function clearAllAiIdeas() {
 
                 <button
                   type="button"
-                  class="w-full h-full p-2.5 rounded-xl border border-amber-300/80 bg-amber-50/50 hover:bg-amber-100/70 hover:border-amber-400 flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer text-center min-h-[6.25rem]"
+                  class="w-full h-full p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/50 flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer text-center min-h-[6.25rem]"
                   @click="emit('select', item.key)"
                 >
-                  <div class="h-8 w-8 rounded-lg bg-amber-200/70 group-hover:bg-amber-500 flex items-center justify-center text-amber-900 group-hover:text-white transition-colors shrink-0">
+                  <div class="h-8 w-8 rounded-lg bg-amber-500/20 group-hover:bg-amber-500 flex items-center justify-center text-amber-500 group-hover:text-white transition-colors shrink-0">
                     <Icon :name="item.icon" class="size-4" aria-hidden="true" />
                   </div>
                   <span class="text-xs font-bold text-foreground line-clamp-2 leading-tight break-words px-0.5 text-center" :title="item.label">
@@ -558,7 +558,7 @@ async function clearAllAiIdeas() {
             >
               <button
                 type="button"
-                class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-white border border-amber-300 text-muted-foreground hover:text-red-600 hover:border-red-400 hover:bg-red-50 flex items-center justify-center shadow-xs transition-colors z-10 cursor-pointer"
+                class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-white border border-border text-muted-foreground hover:text-red-600 hover:border-red-400 hover:bg-red-50 flex items-center justify-center shadow-xs transition-colors z-10 cursor-pointer"
                 title="Remove this idea"
                 @click.stop="removeAiIdea(item.key)"
               >
@@ -567,10 +567,10 @@ async function clearAllAiIdeas() {
 
               <button
                 type="button"
-                class="w-full h-full p-2.5 rounded-xl border border-amber-300/80 bg-amber-50/50 hover:bg-amber-100/70 hover:border-amber-400 flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer text-center min-h-[6.25rem]"
+                class="w-full h-full p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/50 flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer text-center min-h-[6.25rem]"
                 @click="emit('select', item.key)"
               >
-                <div class="h-8 w-8 rounded-lg bg-amber-200/70 group-hover:bg-amber-500 flex items-center justify-center text-amber-900 group-hover:text-white transition-colors shrink-0">
+                <div class="h-8 w-8 rounded-lg bg-amber-500/20 group-hover:bg-amber-500 flex items-center justify-center text-amber-500 group-hover:text-white transition-colors shrink-0">
                   <Icon :name="item.icon" class="size-4" aria-hidden="true" />
                 </div>
                 <span class="text-xs font-bold text-foreground line-clamp-2 leading-tight break-words px-0.5 text-center" :title="item.label">

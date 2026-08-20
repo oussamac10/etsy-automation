@@ -328,8 +328,8 @@ function handleKeyDown(e: KeyboardEvent) {
           <Icon name="lucide:circle-alert" class="size-3" aria-hidden="true" />
           <span>{{ inputError }}</span>
         </p>
-        <p v-else-if="restoreNotice" class="text-[11px] text-amber-700 font-medium flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-md border border-amber-200">
-          <Icon name="lucide:triangle-alert" class="size-3.5 text-amber-600 shrink-0" aria-hidden="true" />
+        <p v-else-if="restoreNotice" class="text-[11px] text-foreground font-medium flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1.5 rounded-md border border-amber-500/30">
+          <Icon name="lucide:alert-triangle" class="size-3.5 text-amber-500 shrink-0" aria-hidden="true" />
           <span>{{ restoreNotice }}</span>
         </p>
         <p v-else-if="!isComplete" class="text-[11px] text-muted-foreground flex items-center gap-1">
