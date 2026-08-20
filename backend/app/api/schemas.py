@@ -568,6 +568,12 @@ class CreateArtworkVariantRequest(BaseModel):
     custom_instructions: str | None = None
 
 
+class UpdateArtworkVariantPackageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    include_in_buyer_package: bool
+
+
 class ArtworkVariantResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -588,8 +594,32 @@ class ArtworkVariantResponse(BaseModel):
     custom_instructions: str | None = None
     prompt_version: str | None = None
     url: str | None = None
+    include_in_buyer_package: bool = False
+    source_outdated: bool = False
     validation_report: dict[str, Any] | None = None
     created_at: datetime
+
+
+class PackageFileItem(BaseModel):
+    type: str
+    name: str
+    filename: str
+    byte_size: int
+    included: bool
+    status: str
+    asset_id: str | None = None
+
+
+class BuyerPackagePreviewResponse(BaseModel):
+    workflow_id: uuid.UUID
+    files: list[PackageFileItem]
+    included_count: int
+    estimated_total_bytes: int
+    needs_rebuild: bool
+    etsy_files_out_of_sync: bool
+    package_asset: AssetResponse | None = None
+    package_download_url: str | None = None
+
 
 
 

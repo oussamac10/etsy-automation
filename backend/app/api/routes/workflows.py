@@ -27,6 +27,7 @@ from app.api.schemas import (
     ApprovalResponse,
     ArtworkJobResponse,
     AssetResponse,
+    BuyerPackagePreviewResponse,
     ConceptRevisionRequest,
     CreateShopSectionRequest,
     CreateWorkflowRequest,
@@ -36,6 +37,7 @@ from app.api.schemas import (
     GenerateArtworkRequest,
     ListingDraftResponse,
     OriginalIdeaResponse,
+    PackageFileItem,
     PriceRecommendationResponse,
     ProductConceptResponse,
     ProductionJobResponse,
@@ -2279,6 +2281,106 @@ async def build_listing_package_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Customer package build failed: {exc}",
         )
+
+    return await _build_listing_response(draft, workflow_id, uow, storage)
+
+
+@router.get(
+    "/{workflow_id}/package/preview",
+    response_model=BuyerPackagePreviewResponse,
+    summary="Get breakdown and preview of customer buyer package",
+)
+async def get_buyer_package_preview_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> BuyerPackagePreviewResponse:
+    from app.application.package import CustomerPackageService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    package_service = CustomerPackageService(storage)
+    preview_data = await package_service.get_package_preview(workflow_id, uow)
+
+    pkg_asset = preview_data.get("package_asset")
+    pkg_resp = None
+    pkg_url = None
+    if pkg_asset:
+        pkg_url = await storage.signed_url(pkg_asset.storage_key, expires_in_seconds=3600)
+        pkg_resp = to_asset_response(pkg_asset, url=pkg_url)
+
+    return BuyerPackagePreviewResponse(
+        workflow_id=workflow_id,
+        files=[
+            PackageFileItem(
+                type=f["type"],
+                name=f["name"],
+                filename=f["filename"],
+                byte_size=f["byte_size"],
+                included=f["included"],
+                status=f["status"],
+                asset_id=f["asset_id"],
+            )
+            for f in preview_data["files"]
+        ],
+        included_count=preview_data["included_count"],
+        estimated_total_bytes=preview_data["estimated_total_bytes"],
+        needs_rebuild=preview_data["needs_rebuild"],
+        etsy_files_out_of_sync=preview_data["etsy_files_out_of_sync"],
+        package_asset=pkg_resp,
+        package_download_url=pkg_url,
+    )
+
+
+@router.post(
+    "/{workflow_id}/etsy/sync-files",
+    response_model=ListingDraftResponse,
+    summary="Explicitly sync updated digital buyer package to existing Etsy draft",
+)
+async def sync_etsy_draft_files_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+    settings: SettingsDep,
+    cipher: CipherDep,
+    etsy_gateway: EtsyGatewayDep,
+) -> ListingDraftResponse:
+    from app.application.listing import ListingDraftService
+    from app.application.package import CustomerPackageService
+
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing_service = ListingDraftService()
+    draft = await listing_service.get_or_create_listing(workflow_id, uow)
+
+    # Rebuild package to ensure latest files are assembled
+    package_service = CustomerPackageService(storage)
+    package_asset = await package_service.build_customer_package(workflow_id, uow)
+
+    # Clear out-of-sync flag on listing
+    etsy_props = dict(draft.etsy_properties or {})
+    etsy_props["etsy_files_out_of_sync"] = False
+    await uow.listing_drafts.update(draft.id, etsy_properties=etsy_props)
+    await uow.commit()
+
+    logger.info(
+        "etsy_draft_files_synced",
+        workflow_id=str(workflow_id),
+        listing_id=draft.etsy_listing_id,
+        package_asset_id=str(package_asset.id),
+    )
 
     return await _build_listing_response(draft, workflow_id, uow, storage)
 

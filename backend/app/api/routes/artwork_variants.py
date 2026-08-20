@@ -8,12 +8,17 @@ import uuid
 from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.dependencies import CipherDep, CurrentUser, SettingsDep, StorageDep, UowDep
-from app.api.schemas import ArtworkVariantResponse, CreateArtworkVariantRequest
+from app.api.schemas import (
+    ArtworkVariantResponse,
+    CreateArtworkVariantRequest,
+    UpdateArtworkVariantPackageRequest,
+)
 from app.application.artwork_variants import ArtworkVariantError, ArtworkVariantService
 from app.application.unit_of_work import UnitOfWork
-from app.domain.artwork_variants import VariantType
+from app.domain.artwork_variants import VariantType, is_variant_outdated
 from app.domain.enums import ProviderName
 from app.domain.errors import EntityNotFoundError
+from app.domain.production_resolver import get_production_master_asset
 from app.infrastructure.models import Asset
 from app.infrastructure.security import CredentialCipher
 from app.ports.providers import ImageGenerationProvider
@@ -23,10 +28,15 @@ from app.settings import Settings
 router = APIRouter(prefix="/workflows/{workflow_id}/artwork-variants", tags=["artwork-variants"])
 
 
-def to_variant_response(asset: Asset, url: str | None = None) -> ArtworkVariantResponse:
+def to_variant_response(
+    asset: Asset,
+    url: str | None = None,
+    master_asset: Asset | None = None,
+) -> ArtworkVariantResponse:
     """Format an Asset domain model into an ArtworkVariantResponse."""
     prov = asset.provenance or {}
     validation_report = asset.quality_check or prov.get("validation_report")
+    source_outdated = is_variant_outdated(asset, master_asset) if master_asset else False
     return ArtworkVariantResponse(
         id=asset.id,
         workflow_id=asset.workflow_id,
@@ -45,6 +55,8 @@ def to_variant_response(asset: Asset, url: str | None = None) -> ArtworkVariantR
         custom_instructions=str(prov.get("custom_instructions")) if prov.get("custom_instructions") else None,
         prompt_version=str(prov.get("prompt_version")) if prov.get("prompt_version") else None,
         url=url,
+        include_in_buyer_package=bool(prov.get("include_in_buyer_package", False)),
+        source_outdated=source_outdated,
         validation_report=validation_report if isinstance(validation_report, dict) else None,
         created_at=asset.created_at or datetime.now(UTC),
     )
@@ -97,15 +109,54 @@ async def list_artwork_variants_endpoint(
             detail="No workflow with that ID",
         )
 
+    master_asset = await get_production_master_asset(uow, workflow_id)
     service = ArtworkVariantService(storage, FakeImageProvider())
     variants = await service.list_variants(workflow_id, uow)
 
     results: list[ArtworkVariantResponse] = []
     for var in variants:
         url = await storage.signed_url(var.storage_key, expires_in_seconds=3600)
-        results.append(to_variant_response(var, url=url))
+        results.append(to_variant_response(var, url=url, master_asset=master_asset))
 
     return results
+
+
+@router.patch(
+    "/{variant_id}",
+    response_model=ArtworkVariantResponse,
+    summary="Update variant package inclusion settings",
+)
+async def update_artwork_variant_package_endpoint(
+    workflow_id: uuid.UUID,
+    variant_id: uuid.UUID,
+    payload: UpdateArtworkVariantPackageRequest,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+) -> ArtworkVariantResponse:
+    service = ArtworkVariantService(storage, FakeImageProvider())
+    try:
+        asset = await service.update_variant_package_inclusion(
+            workflow_id=workflow_id,
+            asset_id=variant_id,
+            include_in_buyer_package=payload.include_in_buyer_package,
+            owner_id=user.id,
+            uow=uow,
+        )
+    except EntityNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Variant asset not found",
+        )
+    except ArtworkVariantError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(err),
+        )
+
+    master_asset = await get_production_master_asset(uow, workflow_id)
+    url = await storage.signed_url(asset.storage_key, expires_in_seconds=3600)
+    return to_variant_response(asset, url=url, master_asset=master_asset)
 
 
 @router.post(
@@ -158,8 +209,9 @@ async def create_artwork_variant_endpoint(
             detail=f"Failed to generate color variant: {exc}",
         ) from exc
 
+    master_asset = await get_production_master_asset(uow, workflow_id)
     url = await storage.signed_url(variant.storage_key, expires_in_seconds=3600)
-    return to_variant_response(variant, url=url)
+    return to_variant_response(variant, url=url, master_asset=master_asset)
 
 
 @router.post(
@@ -193,8 +245,9 @@ async def approve_artwork_variant_endpoint(
             detail=str(err),
         )
 
+    master_asset = await get_production_master_asset(uow, workflow_id)
     url = await storage.signed_url(asset.storage_key, expires_in_seconds=3600)
-    return to_variant_response(asset, url=url)
+    return to_variant_response(asset, url=url, master_asset=master_asset)
 
 
 @router.post(
@@ -228,8 +281,9 @@ async def reject_artwork_variant_endpoint(
             detail=str(err),
         )
 
+    master_asset = await get_production_master_asset(uow, workflow_id)
     url = await storage.signed_url(asset.storage_key, expires_in_seconds=3600)
-    return to_variant_response(asset, url=url)
+    return to_variant_response(asset, url=url, master_asset=master_asset)
 
 
 @router.delete(
