@@ -415,6 +415,11 @@ async def execute_etsy_draft_pipeline(
                 )
 
         # Step 5: Validate and Update Taxonomy Properties/Attributes (if configured)
+        await uow.listing_drafts.update_etsy_dispatch_status(
+            listing.id, status="applying_attributes"
+        )
+        await uow.commit()
+
         raw_props = getattr(listing, "etsy_properties", None)
         active_props = raw_props if isinstance(raw_props, dict) else {}
         property_sync_audit: dict[str, Any] = {}
@@ -807,6 +812,11 @@ async def reconcile_etsy_draft(
         listing.etsy_last_synced_at = now
         if remote_listing.state:
             listing.etsy_state = remote_listing.state
+        if (
+            listing.etsy_dispatch_status != "completed"
+            and (listing.etsy_file_ids or listing.etsy_file_id)
+        ):
+            listing.etsy_dispatch_status = "completed"
         await uow.commit()
         return ReconciliationResult(
             workflow_id=workflow_id,

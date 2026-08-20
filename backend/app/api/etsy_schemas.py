@@ -32,14 +32,24 @@ class EtsyConnectionStatusResponse(BaseModel):
     last_refreshed_at: datetime | None = Field(default=None, description="Last successful token refresh timestamp.")
 
 
+class EtsyDispatchStepInfo(BaseModel):
+    """Details for an individual step in the Etsy dispatch pipeline."""
+
+    status: str = Field(default="pending", description="pending, in_progress, completed, failed, skipped")
+    uploaded_count: int = Field(default=0, description="Count of items successfully uploaded.")
+    total_count: int | None = Field(default=None, description="Total items planned.")
+    error: str | None = Field(default=None, description="Error detail if step failed.")
+
+
 class EtsyDraftDispatchResponse(BaseModel):
     """Status of the Etsy draft creation and asset upload operation."""
 
     workflow_id: uuid.UUID = Field(..., description="Workflow ID.")
     dispatch_status: str = Field(
         ...,
-        description="Status: not_started, queued, creating_listing, uploading_images, uploading_file, completed, draft_removed, failed.",
+        description="Status: not_started, queued, creating_listing, uploading_images, uploading_files, applying_attributes, completed, draft_removed, failed.",
     )
+    current_step: str | None = Field(default=None, description="Current executing dispatch step name.")
     etsy_listing_id: str | None = Field(default=None, description="Created Etsy listing ID.")
     etsy_listing_url: str | None = Field(
         default=None, description="Direct URL to edit draft in Etsy Shop Manager."
@@ -53,3 +63,6 @@ class EtsyDraftDispatchResponse(BaseModel):
     taxonomy_path: str | None = Field(default=None, description="Etsy seller taxonomy category full path.")
     error_message: str | None = Field(default=None, description="Human-readable error details if dispatch failed.")
     last_synced_at: datetime | None = Field(default=None, description="Last successful sync timestamp.")
+    steps: dict[str, EtsyDispatchStepInfo] = Field(
+        default_factory=dict, description="Status of individual dispatch steps."
+    )
