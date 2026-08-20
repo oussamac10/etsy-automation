@@ -9,6 +9,7 @@ import CustomerPackageCard from './CustomerPackageCard.vue';
 import PricingInventoryCard from './PricingInventoryCard.vue';
 import ShopOrganizationCard from './ShopOrganizationCard.vue';
 import TaxonomyAttributesCard from './TaxonomyAttributesCard.vue';
+import EtsyDraftCard from './EtsyDraftCard.vue';
 import Button from '~/components/ui/Button.vue';
 import Badge from '~/components/ui/Badge.vue';
 import Alert from '~/components/ui/Alert.vue';
@@ -61,8 +62,11 @@ const localShopSectionName = ref<string | null>(null);
 const localShouldAutoRenew = ref<boolean>(false);
 const localEtsyProperties = ref<Record<string, any>>({});
 const localPrimaryMockupAssetId = ref<string | null>(null);
+const localTaxonomyId = ref<number>(6844);
+const localTaxonomyPath = ref<string>('Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files');
 const warningAcknowledged = ref(false);
 const successMessage = ref<string | null>(null);
+const showAllReadinessChecks = ref(false);
 
 onMounted(async () => {
   await loadListingData();
@@ -83,6 +87,8 @@ async function loadListingData() {
     localShouldAutoRenew.value = draft.should_auto_renew ?? false;
     localEtsyProperties.value = draft.etsy_properties ? JSON.parse(JSON.stringify(draft.etsy_properties)) : {};
     localPrimaryMockupAssetId.value = draft.primary_mockup_asset_id || null;
+    localTaxonomyId.value = draft.taxonomy_id || 6844;
+    localTaxonomyPath.value = draft.taxonomy_path || 'Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files';
     warningAcknowledged.value = draft.ip_acknowledged_at !== null && draft.ip_acknowledged_at !== undefined;
   }
 }
@@ -120,6 +126,8 @@ async function handleSave() {
       localShouldAutoRenew.value = updated.should_auto_renew ?? false;
       localEtsyProperties.value = updated.etsy_properties ? JSON.parse(JSON.stringify(updated.etsy_properties)) : {};
       localPrimaryMockupAssetId.value = updated.primary_mockup_asset_id || null;
+      localTaxonomyId.value = updated.taxonomy_id || localTaxonomyId.value;
+      localTaxonomyPath.value = updated.taxonomy_path || localTaxonomyPath.value;
       successMessage.value = 'Listing configuration and metadata saved successfully.';
       setTimeout(() => {
         successMessage.value = null;
@@ -223,6 +231,8 @@ async function handleUpdateCategory(payload: { id: number; path: string }) {
   try {
     const updated = await updateTaxonomy(props.workflowId, payload.id, payload.path);
     if (updated) {
+      localTaxonomyId.value = updated.taxonomy_id || payload.id;
+      localTaxonomyPath.value = updated.taxonomy_path || payload.path;
       successMessage.value = 'Etsy seller category updated successfully.';
       setTimeout(() => {
         successMessage.value = null;
@@ -262,9 +272,11 @@ const riskLevel = computed<RiskLevel>(() => {
 const isHighRisk = computed(() => riskLevel.value === 'high');
 const isWarning = computed(() => riskLevel.value === 'medium');
 
-// Deterministic Readiness Checklist & Blocker Messages
+// Deterministic Readiness Checklist & Blocker Messages (Fixes single source of truth category bug)
+const activeTaxonomyId = computed(() => listingDraft.value?.taxonomy_id || localTaxonomyId.value);
+
 const readinessChecks = computed(() => {
-  const checks = [
+  return [
     {
       id: 'title',
       label: 'Title valid (1 - 140 chars)',
@@ -289,7 +301,7 @@ const readinessChecks = computed(() => {
     {
       id: 'category',
       label: 'Etsy seller category selected',
-      passed: Boolean(listingDraft.value?.taxonomy_id),
+      passed: Boolean(activeTaxonomyId.value),
       required: true,
       blockerMsg: 'Etsy category taxonomy ID is required.',
     },
@@ -317,8 +329,6 @@ const readinessChecks = computed(() => {
         : 'Warning level IP screening requires user acknowledgement.',
     },
   ];
-
-  return checks;
 });
 
 const totalPassedChecks = computed(() => readinessChecks.value.filter((c) => c.passed).length);
@@ -358,7 +368,7 @@ const formattedPriceDisplay = computed(() => {
 
 <template>
   <div class="space-y-6">
-    <!-- Top Header Banner & Quick Readiness Chips -->
+    <!-- Top Header Banner & Compact Status Pills -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-5 rounded-xl bg-card border border-border shadow-xs">
       <div class="space-y-1">
         <h2 class="text-base font-bold text-foreground flex items-center gap-2">
@@ -366,34 +376,39 @@ const formattedPriceDisplay = computed(() => {
           <span>Prepare your Etsy draft</span>
         </h2>
         <p class="text-xs text-muted-foreground">
-          Review search metadata, Etsy settings, intellectual-property screening and buyer delivery before creating the Etsy draft.
+          Review search metadata, Etsy settings, IP screening and buyer delivery before creating the Etsy draft.
         </p>
       </div>
 
-      <!-- Quick Readiness Summary Chips -->
+      <!-- Compact Status Pills -->
       <div v-if="listingDraft" class="flex flex-wrap items-center gap-2">
-        <Badge variant="outline" class="text-xs py-1 px-2.5 gap-1.5 font-normal bg-muted/40">
+        <Badge variant="outline" class="text-xs py-1 px-2.5 gap-1.5 font-normal bg-muted/40 shrink-0">
           <Icon name="lucide:tags" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>SEO: {{ localTags.length }}/13 tags</span>
+          <span>SEO: {{ localTags.length }}/13</span>
         </Badge>
 
-        <Badge variant="outline" class="text-xs py-1 px-2.5 gap-1.5 font-normal bg-muted/40">
+        <Badge variant="outline" class="text-xs py-1 px-2.5 gap-1.5 font-normal bg-muted/40 shrink-0">
+          <Icon name="lucide:folder-tree" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+          <span>Category: Ready</span>
+        </Badge>
+
+        <Badge variant="outline" class="text-xs py-1 px-2.5 gap-1.5 font-normal bg-muted/40 shrink-0">
           <Icon name="lucide:tag" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
           <span>Price: {{ formattedPriceDisplay }}</span>
         </Badge>
 
         <Badge
           variant="outline"
-          class="text-xs py-1 px-2.5 gap-1.5 font-normal"
+          class="text-xs py-1 px-2.5 gap-1.5 font-normal shrink-0"
           :class="isHighRisk ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20' : isWarning ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'"
         >
           <Icon name="lucide:shield-check" class="size-3.5" aria-hidden="true" />
-          <span>IP Risk: {{ riskLevel.toUpperCase() }}</span>
+          <span>IP: {{ riskLevel.toUpperCase() }}</span>
         </Badge>
 
         <Badge
           variant="outline"
-          class="text-xs py-1 px-2.5 gap-1.5 font-medium"
+          class="text-xs py-1 px-2.5 gap-1.5 font-medium shrink-0"
           :class="canApprove ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'"
         >
           <Icon :name="canApprove ? 'lucide:check-circle-2' : 'lucide:alert-circle'" class="size-3.5" aria-hidden="true" />
@@ -427,79 +442,147 @@ const formattedPriceDisplay = computed(() => {
       <div class="h-36 bg-slate-100 animate-pulse rounded-xl" />
     </div>
 
-    <!-- Main Content Grid -->
+    <!-- Main Content Grid with Independent Main and Sidebar Columns (Zero Whitespace Gaps) -->
     <div v-else-if="listingDraft" class="space-y-6">
-      <!-- 2-Column Responsive Grid (~65% Left / ~35% Right) -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <!-- Left Column (~65% = 8 cols on desktop): Listing Copy, Category & Attributes -->
-        <div class="lg:col-span-8 space-y-6">
-          <CategorySelectorCard
-            :workflow-id="workflowId"
-            :taxonomy-id="listingDraft.taxonomy_id"
-            :taxonomy-path="listingDraft.taxonomy_path"
-            :is-updating="isUpdatingTaxonomy"
-            @update-category="handleUpdateCategory"
-          />
+        <!-- Main Column (~65-70% = 8 cols on desktop): Grouped Listing Content, Etsy Classification, Pricing & Organization -->
+        <main class="lg:col-span-8 space-y-6">
+          <!-- Section 1: Listing Content -->
+          <div class="space-y-4">
+            <div class="flex items-center gap-2 text-xs font-bold text-foreground uppercase tracking-wider px-1">
+              <Icon name="lucide:file-text" class="size-4 text-primary" aria-hidden="true" />
+              <span>Listing Content</span>
+            </div>
 
-          <TaxonomyAttributesCard
-            :workflow-id="workflowId"
-            :taxonomy-id="listingDraft.taxonomy_id"
-            :etsy-properties="localEtsyProperties"
-            :is-saving="isSaving"
-            @update:etsy-properties="localEtsyProperties = $event"
-            @save="handleSave"
-          />
+            <ListingEditorCard
+              :title="localTitle"
+              :description="localDescription"
+              :ai-disclosure="listingDraft.ai_disclosure"
+              :version="listingDraft.version"
+              :is-saving="isSaving"
+              :is-generating-seo="isGeneratingSeo"
+              :has-unsaved-changes="isListingCopyDirty"
+              :history="listingDraft.history"
+              :is-restoring-version="isRestoringVersion"
+              :is-deleting-version="isDeletingVersion"
+              @update:title="localTitle = $event"
+              @update:description="localDescription = $event"
+              @save="handleSave"
+              @generate-seo="handleGenerateSeo"
+              @restore-version="handleRestoreVersion"
+              @delete-version="handleDeleteVersion"
+            />
 
-          <ListingEditorCard
-            :title="localTitle"
-            :description="localDescription"
-            :ai-disclosure="listingDraft.ai_disclosure"
-            :version="listingDraft.version"
-            :is-saving="isSaving"
-            :is-generating-seo="isGeneratingSeo"
-            :has-unsaved-changes="isListingCopyDirty"
-            :history="listingDraft.history"
-            :is-restoring-version="isRestoringVersion"
-            :is-deleting-version="isDeletingVersion"
-            @update:title="localTitle = $event"
-            @update:description="localDescription = $event"
-            @save="handleSave"
-            @generate-seo="handleGenerateSeo"
-            @restore-version="handleRestoreVersion"
-            @delete-version="handleDeleteVersion"
-          />
+            <TagEditorCard
+              :tags="localTags"
+              :tag-history="listingDraft?.tag_history || []"
+              :is-saving="isSaving"
+              :is-deleting-tag-history="isDeletingTagHistory"
+              :has-unsaved-changes="isTagsDirty"
+              @update:tags="localTags = $event"
+              @save="handleSave"
+              @delete-history-tag="handleDeleteHistoryTag"
+            />
+          </div>
 
-          <TagEditorCard
-            :tags="localTags"
-            :tag-history="listingDraft?.tag_history || []"
-            :is-saving="isSaving"
-            :is-deleting-tag-history="isDeletingTagHistory"
-            :has-unsaved-changes="isTagsDirty"
-            @update:tags="localTags = $event"
-            @save="handleSave"
-            @delete-history-tag="handleDeleteHistoryTag"
-          />
-        </div>
+          <!-- Section 2: Etsy Classification -->
+          <div class="space-y-4 pt-2">
+            <div class="flex items-center gap-2 text-xs font-bold text-foreground uppercase tracking-wider px-1">
+              <Icon name="lucide:folder-tree" class="size-4 text-primary" aria-hidden="true" />
+              <span>Etsy Classification</span>
+            </div>
 
-        <!-- Right Sidebar (~35% = 4 cols on desktop): Readiness Summary, Pricing, Organization, IP Risk, Customer Package -->
-        <div class="lg:col-span-4 space-y-6">
-          <!-- Readiness Checklist Summary Card -->
-          <div class="p-4 rounded-xl bg-card border border-border shadow-xs space-y-3">
+            <CategorySelectorCard
+              :workflow-id="workflowId"
+              :taxonomy-id="activeTaxonomyId"
+              :taxonomy-path="localTaxonomyPath"
+              :is-updating="isUpdatingTaxonomy"
+              @update-category="handleUpdateCategory"
+            />
+
+            <TaxonomyAttributesCard
+              :workflow-id="workflowId"
+              :taxonomy-id="activeTaxonomyId"
+              :etsy-properties="localEtsyProperties"
+              :is-saving="isSaving"
+              @update:etsy-properties="localEtsyProperties = $event"
+              @save="handleSave"
+            />
+          </div>
+
+          <!-- Section 3: Pricing & Organization -->
+          <div class="space-y-4 pt-2">
+            <div class="flex items-center gap-2 text-xs font-bold text-foreground uppercase tracking-wider px-1">
+              <Icon name="lucide:tag" class="size-4 text-primary" aria-hidden="true" />
+              <span>Pricing &amp; Organization</span>
+            </div>
+
+            <PricingInventoryCard
+              :workflow-id="workflowId"
+              :price-minor-units="localPriceMinorUnits"
+              :currency="localCurrency"
+              :quantity="localQuantity"
+              :sku="localSku"
+              :is-saving="isSaving"
+              @update:price-minor-units="localPriceMinorUnits = $event"
+              @update:currency="localCurrency = $event"
+              @update:quantity="localQuantity = $event"
+              @update:sku="localSku = $event"
+              @save="handleSave"
+            />
+
+            <ShopOrganizationCard
+              :workflow-id="workflowId"
+              :shop-section-id="localShopSectionId"
+              :shop-section-name="localShopSectionName"
+              :should-auto-renew="localShouldAutoRenew"
+              :is-saving="isSaving"
+              @update:shop-section-id="localShopSectionId = $event"
+              @update:shop-section-name="localShopSectionName = $event"
+              @update:should-auto-renew="localShouldAutoRenew = $event"
+              @save="handleSave"
+            />
+          </div>
+        </main>
+
+        <!-- Right Sidebar (~30-35% = 4 cols on desktop): Flowing independently (Order: 1. Readiness -> 2. IP -> 3. Delivery -> 4. Etsy Draft) -->
+        <aside class="lg:col-span-4 space-y-6">
+          <!-- Compact Review Status / Readiness Checklist Card -->
+          <div class="p-4 rounded-xl bg-card border border-border shadow-xs space-y-3" data-testid="readiness-summary-card">
             <div class="flex items-center justify-between">
               <h3 class="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Icon name="lucide:clipboard-check" class="size-4 text-primary" aria-hidden="true" />
-                <span>Readiness Checklist</span>
+                <span>Review Status</span>
               </h3>
               <Badge variant="outline" class="text-[10px] font-mono font-semibold" :class="canApprove ? 'text-emerald-700 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-700 bg-amber-500/10 border-amber-500/20'">
                 {{ totalPassedChecks }}/{{ totalRequiredChecks }} Ready
               </Badge>
             </div>
 
-            <div class="space-y-1.5 text-xs">
+            <!-- Compact Collapsed Summary -->
+            <div class="p-2.5 rounded-lg bg-muted/40 border border-border text-xs space-y-1">
+              <p class="font-semibold text-foreground flex items-center gap-1.5">
+                <Icon :name="canApprove ? 'lucide:check-circle-2' : 'lucide:alert-circle'" class="size-3.5" :class="canApprove ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'" aria-hidden="true" />
+                <span>{{ canApprove ? 'All required checks complete' : `${blockers.length} item${blockers.length > 1 ? 's' : ''} need attention` }}</span>
+              </p>
+              <p v-if="!canApprove" class="text-[11px] text-muted-foreground">
+                {{ blockers[0] }}
+              </p>
+              <button
+                type="button"
+                class="text-[11px] font-medium text-primary hover:underline pt-1 cursor-pointer"
+                @click="showAllReadinessChecks = !showAllReadinessChecks"
+              >
+                {{ showAllReadinessChecks ? 'Hide checks' : 'View all checks' }}
+              </button>
+            </div>
+
+            <!-- Detailed Checks List (when expanded) -->
+            <div v-if="showAllReadinessChecks" class="space-y-1.5 text-xs pt-1 border-t border-border/50">
               <div
                 v-for="check in readinessChecks"
                 :key="check.id"
-                class="flex items-center justify-between py-1 px-2 rounded border"
+                class="flex items-center justify-between py-1 px-2 rounded border text-xs"
                 :class="check.passed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-900 dark:text-emerald-200' : 'bg-muted/40 border-border text-muted-foreground'"
               >
                 <span class="flex items-center gap-2 truncate">
@@ -518,32 +601,7 @@ const formattedPriceDisplay = computed(() => {
             </div>
           </div>
 
-          <PricingInventoryCard
-            :workflow-id="workflowId"
-            :price-minor-units="localPriceMinorUnits"
-            :currency="localCurrency"
-            :quantity="localQuantity"
-            :sku="localSku"
-            :is-saving="isSaving"
-            @update:price-minor-units="localPriceMinorUnits = $event"
-            @update:currency="localCurrency = $event"
-            @update:quantity="localQuantity = $event"
-            @update:sku="localSku = $event"
-            @save="handleSave"
-          />
-
-          <ShopOrganizationCard
-            :workflow-id="workflowId"
-            :shop-section-id="localShopSectionId"
-            :shop-section-name="localShopSectionName"
-            :should-auto-renew="localShouldAutoRenew"
-            :is-saving="isSaving"
-            @update:shop-section-id="localShopSectionId = $event"
-            @update:shop-section-name="localShopSectionName = $event"
-            @update:should-auto-renew="localShouldAutoRenew = $event"
-            @save="handleSave"
-          />
-
+          <!-- Card 2: Trademark / IP Risk -->
           <IpRiskCard
             :risk-level="riskLevel"
             :findings="listingDraft.ip_findings"
@@ -555,6 +613,7 @@ const formattedPriceDisplay = computed(() => {
             @rescreen="handleRescreen"
           />
 
+          <!-- Card 3: Buyer Delivery Package -->
           <CustomerPackageCard
             :package-asset="listingDraft.package_asset"
             :download-url="listingDraft.package_download_url"
@@ -562,7 +621,14 @@ const formattedPriceDisplay = computed(() => {
             :is-building="isBuildingPackage"
             @build-package="handleBuildPackage"
           />
-        </div>
+
+          <!-- Card 4: Etsy Draft State Machine Card -->
+          <EtsyDraftCard
+            :workflow-id="workflowId"
+            :workflow-state="workflowState"
+            :listing="listingDraft"
+          />
+        </aside>
       </div>
 
       <!-- Sticky Gate 3 Decision Bar -->

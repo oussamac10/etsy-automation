@@ -156,12 +156,15 @@ describe("WorkflowListingTab UI Components", () => {
     expect(wrapper.findComponent(IpRiskCard).exists()).toBe(true);
     expect(wrapper.findComponent(CustomerPackageCard).exists()).toBe(true);
 
-    // Verify tag count rendered
-    expect(wrapper.text()).toContain("13 / 13 tags");
-    // Verify risk cleared
-    expect(wrapper.text()).toContain("Cleared");
-    // Verify disclaimer
-    expect(wrapper.text()).toContain("not legal advice");
+    // Verify risk level summary
+    expect(wrapper.text()).toContain("Low Risk");
+
+    // Toggle details to view full disclaimer
+    const viewDetailsBtn = wrapper.findAll('button').find((b) => b.text().includes('View Details'));
+    if (viewDetailsBtn) {
+      await viewDetailsBtn.trigger('click');
+    }
+    expect(wrapper.text()).toContain("not replace full legal clearance");
     // Verify Gate 3 decision bar
     expect(wrapper.text()).toContain("Gate 3: Listing & IP Approval");
   });

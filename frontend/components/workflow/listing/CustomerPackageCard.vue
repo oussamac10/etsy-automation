@@ -5,6 +5,7 @@ import CardHeader from '~/components/ui/CardHeader.vue';
 import CardTitle from '~/components/ui/CardTitle.vue';
 import CardDescription from '~/components/ui/CardDescription.vue';
 import CardContent from '~/components/ui/CardContent.vue';
+import Button from '~/components/ui/Button.vue';
 import Badge from '~/components/ui/Badge.vue';
 import type { Asset } from '~/types/workflow';
 import { sanitizeUrl } from '~/utils/sanitize';
@@ -33,14 +34,6 @@ const byteSize = computed(() => {
 
 const checksum = computed(() => props.packageAsset?.checksum_sha256 || null);
 
-const downloadFilename = computed(() => {
-  const prov = props.packageAsset?.provenance as Record<string, unknown> | undefined;
-  if (prov?.filename && typeof prov.filename === 'string') {
-    return prov.filename;
-  }
-  return 'customer_digital_download.zip';
-});
-
 async function copyChecksum() {
   if (!checksum.value) return;
   try {
@@ -56,140 +49,109 @@ async function copyChecksum() {
 </script>
 
 <template>
-  <Card class="border-border shadow-xs overflow-hidden">
-    <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
-      <div class="space-y-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <CardTitle class="text-base font-semibold flex items-center gap-2">
-            <Icon name="lucide:package-check" class="size-4.5 text-primary" aria-hidden="true" />
-            <span>Customer ZIP Download Package</span>
-          </CardTitle>
-          <Badge v-if="packageAsset" variant="success" class="text-[10px] font-mono font-bold">
-            {{ byteSize }}
-          </Badge>
-          <Badge v-else variant="outline" class="text-[10px] font-medium text-muted-foreground">
-            Ready on Approval
-          </Badge>
+  <Card class="border-border bg-card shadow-xs overflow-hidden" data-testid="customer-package-card">
+    <CardHeader class="p-4 sm:p-5 pb-3">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+            <Icon name="lucide:package-check" class="size-4" aria-hidden="true" />
+          </div>
+          <div class="min-w-0">
+            <CardTitle class="text-sm font-semibold tracking-tight flex items-center gap-2">
+              <span>Buyer Delivery Package</span>
+              <Badge v-if="packageAsset" variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                Ready
+              </Badge>
+            </CardTitle>
+            <CardDescription class="text-xs text-muted-foreground truncate">
+              Digital deliverables packaged for Etsy buyer download.
+            </CardDescription>
+          </div>
         </div>
-        <CardDescription class="text-xs">
-          Complete digital delivery ZIP archive packaged identically for direct Etsy buyer download.
-        </CardDescription>
-      </div>
 
-      <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
-        <button
-          v-if="!packageAsset"
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
+          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
           :disabled="isBuilding"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
           @click="emit('build-package')"
         >
-          <Icon :name="isBuilding ? 'lucide:loader-circle' : 'lucide:box'" :class="['size-3.5', isBuilding ? 'animate-spin' : '']" aria-hidden="true" />
-          <span>{{ isBuilding ? 'Compiling ZIP...' : 'Build Package' }}</span>
-        </button>
-
-        <template v-else>
-          <button
-            type="button"
-            :disabled="isBuilding"
-            title="Rebuild ZIP package"
-            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-50"
-            @click="emit('build-package')"
-          >
-            <Icon :name="isBuilding ? 'lucide:loader-circle' : 'lucide:refresh-cw'" :class="['size-3.5', isBuilding ? 'animate-spin' : '']" aria-hidden="true" />
-            <span class="hidden sm:inline">{{ isBuilding ? 'Rebuilding...' : 'Rebuild' }}</span>
-          </button>
-
-          <a
-            v-if="downloadUrl"
-            :href="sanitizeUrl(downloadUrl)"
-            target="_blank"
-            rel="noopener noreferrer"
-            :download="downloadFilename"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
-          >
-            <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
-            <span>Download ZIP</span>
-          </a>
-        </template>
+          <Icon v-if="isBuilding" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:refresh-cw" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>{{ isBuilding ? 'Building...' : packageAsset ? 'Rebuild' : 'Build Package' }}</span>
+        </Button>
       </div>
     </CardHeader>
 
-    <CardContent class="space-y-3.5 pt-0">
-      <!-- Archive Manifest Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-        <!-- Master PNG Item -->
-        <div class="p-3 bg-slate-50/90 border border-slate-200/90 rounded-xl flex items-center gap-3 transition-all hover:bg-white hover:shadow-2xs">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0 border border-indigo-100/80">
-            <Icon name="lucide:file-image" class="size-5" aria-hidden="true" />
-          </div>
-          <div class="space-y-0.5 min-w-0 flex-1">
-            <div class="flex items-center justify-between gap-1">
-              <p class="font-semibold text-slate-900 truncate text-xs">Master Artwork</p>
-              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 font-bold">PNG</span>
+    <CardContent class="p-4 sm:p-5 pt-0 space-y-3 text-xs">
+      <!-- Deliverables Clean Vertical List -->
+      <div class="space-y-2">
+        <div class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <Icon name="lucide:file-image" class="size-4 text-primary shrink-0" aria-hidden="true" />
+            <div>
+              <p class="font-semibold text-foreground">Master Artwork PNG</p>
+              <p class="text-[11px] text-muted-foreground">4500 × 5400 px • Transparent background (300 DPI)</p>
             </div>
-            <p class="text-[10px] text-slate-500 truncate">4500×5400 px • 300 DPI • Transparent</p>
           </div>
+          <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
         </div>
 
-        <!-- Print-Ready PDF Item -->
-        <div class="p-3 bg-slate-50/90 border border-slate-200/90 rounded-xl flex items-center gap-3 transition-all hover:bg-white hover:shadow-2xs">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-600 shrink-0 border border-red-100/80">
-            <Icon name="lucide:file-text" class="size-5" aria-hidden="true" />
-          </div>
-          <div class="space-y-0.5 min-w-0 flex-1">
-            <div class="flex items-center justify-between gap-1">
-              <p class="font-semibold text-slate-900 truncate text-xs">Print-Ready Document</p>
-              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-red-50 text-red-700 font-bold">PDF</span>
+        <div class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <Icon name="lucide:file-text" class="size-4 text-primary shrink-0" aria-hidden="true" />
+            <div>
+              <p class="font-semibold text-foreground">Print-Ready Vector PDF</p>
+              <p class="text-[11px] text-muted-foreground">15 × 18 in • Vector artwork PDF file</p>
             </div>
-            <p class="text-[10px] text-slate-500 truncate">Scale-preserved layout • 300 DPI</p>
           </div>
+          <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
         </div>
 
-        <!-- Commercial License Item -->
-        <div class="p-3 bg-slate-50/90 border border-slate-200/90 rounded-xl flex items-center gap-3 transition-all hover:bg-white hover:shadow-2xs">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shrink-0 border border-emerald-100/80">
-            <Icon name="lucide:shield-check" class="size-5" aria-hidden="true" />
-          </div>
-          <div class="space-y-0.5 min-w-0 flex-1">
-            <div class="flex items-center justify-between gap-1">
-              <p class="font-semibold text-slate-900 truncate text-xs">Commercial License</p>
-              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold">TXT</span>
+        <div class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <Icon name="lucide:shield-check" class="size-4 text-primary shrink-0" aria-hidden="true" />
+            <div>
+              <p class="font-semibold text-foreground">Commercial License</p>
+              <p class="text-[11px] text-muted-foreground">Unlimited POD & physical commercial rights included</p>
             </div>
-            <p class="text-[10px] text-slate-500 truncate">Commercial terms & POD permissions</p>
           </div>
+          <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
         </div>
 
-        <!-- Instructions & Sizing Item -->
-        <div class="p-3 bg-slate-50/90 border border-slate-200/90 rounded-xl flex items-center gap-3 transition-all hover:bg-white hover:shadow-2xs">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 shrink-0 border border-amber-100/80">
-            <Icon name="lucide:scroll-text" class="size-5" aria-hidden="true" />
-          </div>
-          <div class="space-y-0.5 min-w-0 flex-1">
-            <div class="flex items-center justify-between gap-1">
-              <p class="font-semibold text-slate-900 truncate text-xs">Sizing & Instructions</p>
-              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 font-bold">TXT</span>
+        <div class="p-2.5 rounded-lg bg-muted/40 border border-border/70 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <Icon name="lucide:book-open" class="size-4 text-primary shrink-0" aria-hidden="true" />
+            <div>
+              <p class="font-semibold text-foreground">Sizing &amp; Print Guide</p>
+              <p class="text-[11px] text-muted-foreground">Comprehensive heat press &amp; sublimation instructions</p>
             </div>
-            <p class="text-[10px] text-slate-500 truncate">Apparel sizing guide & usage steps</p>
           </div>
+          <Icon name="lucide:check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
         </div>
       </div>
 
-      <!-- SHA-256 Checksum -->
-      <div v-if="checksum" class="flex items-center justify-between p-2.5 bg-slate-100/80 border border-slate-200 rounded-lg text-[11px] font-mono text-slate-700">
-        <div class="flex items-center gap-1.5 truncate mr-2">
-          <Icon name="lucide:fingerprint" class="size-3.5 text-slate-400 shrink-0" aria-hidden="true" />
-          <span class="text-slate-500 select-none text-[10px] font-sans font-semibold">SHA-256:</span>
-          <span class="truncate text-[10px]">{{ checksum }}</span>
-        </div>
-        <button
-          type="button"
-          class="text-primary hover:text-primary-hover font-sans text-[10px] font-semibold shrink-0 cursor-pointer flex items-center gap-1 focus-visible:outline-none"
-          @click="copyChecksum"
+      <!-- Etsy File Usage Stats -->
+      <div class="pt-2 border-t border-border/50 flex items-center justify-between text-muted-foreground">
+        <span class="flex items-center gap-1.5">
+          <Icon name="lucide:hard-drive" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>Etsy Delivery Usage: <strong class="text-foreground font-semibold">1 / 5 file slots</strong> used</span>
+        </span>
+        <span v-if="byteSize" class="font-mono text-[11px] font-semibold text-foreground">{{ byteSize }}</span>
+      </div>
+
+      <!-- Download Link Button -->
+      <div v-if="downloadUrl" class="pt-1">
+        <a
+          :href="sanitizeUrl(downloadUrl)"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="w-full inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
         >
-          <Icon :name="copied ? 'lucide:check' : 'lucide:copy'" class="size-3" aria-hidden="true" />
-          <span>{{ copied ? 'Copied' : 'Copy' }}</span>
-        </button>
+          <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
+          <span>Download Package ZIP</span>
+        </a>
       </div>
     </CardContent>
   </Card>
