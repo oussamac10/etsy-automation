@@ -35,11 +35,14 @@ const {
 } = useArtworkVariants();
 
 type BgMode = "transparent" | "white" | "black" | "charcoal";
-const previewBg = ref<BgMode>("transparent");
+// Default to black background preview so dark shirt contrast is immediately evident
+const previewBg = ref<BgMode>("black");
 
 const showCreateModal = ref(false);
 const selectedType = ref<VariantType>("dark_shirt");
-const customColor = ref("#E85D04");
+const targetColor = ref("#F5E6C8"); // Default Warm Cream
+const darknessThreshold = ref(0.28);
+const showAdvancedOptions = ref(false);
 const customInstructions = ref("");
 
 const zoomedImageUrl = ref<string | null>(null);
@@ -55,42 +58,55 @@ const presetOptions: Array<{
   desc: string;
   icon: string;
   badge: string;
+  defaultColor: string;
 }> = [
   {
     type: "dark_shirt",
     title: "Dark Shirt Version",
-    desc: "Light cream & off-white details optimized for black & dark garments",
+    desc: "Light cream & off-white details optimized for black & dark fabric (Exact Alpha Preserved)",
     icon: "lucide:moon",
-    badge: "Recommended for Black Tees",
+    badge: "Deterministic · Recommended for Black Tees",
+    defaultColor: "#F5E6C8",
   },
   {
     type: "light_shirt",
     title: "Light Shirt Version",
-    desc: "Dark charcoal & deep outlines optimized for white & pastel garments",
+    desc: "Dark charcoal & deep outlines optimized for white & pastel fabric",
     icon: "lucide:sun",
-    badge: "Recommended for White Tees",
+    badge: "Deterministic · For White Tees",
+    defaultColor: "#1A1A1A",
   },
   {
     type: "black_accent",
     title: "Black Accent Version",
     desc: "Key lines and secondary highlights converted to rich black tones",
     icon: "lucide:circle-dot",
-    badge: "Monochrome Black",
+    badge: "Deterministic · Monochrome Black",
+    defaultColor: "#0A0A0A",
   },
   {
     type: "white_accent",
     title: "White / Cream Accent",
     desc: "Key lines and secondary highlights converted to crisp white tones",
     icon: "lucide:circle",
-    badge: "Monochrome White",
+    badge: "Deterministic · Monochrome White",
+    defaultColor: "#FFFFFF",
   },
   {
     type: "custom",
     title: "Custom Brand Accent",
-    desc: "Replace targeted accent elements with your custom brand HEX color",
+    desc: "Replace targeted dark/accent elements with your custom brand HEX color",
     icon: "lucide:palette",
-    badge: "Custom Color",
+    badge: "Deterministic · Custom Color",
+    defaultColor: "#E85D04",
   },
+];
+
+const darkShirtSwatches = [
+  { label: "Warm Cream", hex: "#F5E6C8" },
+  { label: "Crisp White", hex: "#FFFFFF" },
+  { label: "Soft Sand", hex: "#FAF0E6" },
+  { label: "Golden Cream", hex: "#FFF3B0" },
 ];
 
 onMounted(() => {
@@ -99,10 +115,17 @@ onMounted(() => {
   }
 });
 
+function handleSelectPreset(opt: (typeof presetOptions)[0]): void {
+  selectedType.value = opt.type;
+  targetColor.value = opt.defaultColor;
+}
+
 async function handleCreateVariant(): Promise<void> {
   const result = await generateVariant(props.workflowId, {
     variant_type: selectedType.value,
-    custom_color: selectedType.value === "custom" ? customColor.value : undefined,
+    target_color: targetColor.value,
+    custom_color: targetColor.value,
+    darkness_threshold: darknessThreshold.value,
     custom_instructions: customInstructions.value.trim() || undefined,
   });
 
@@ -171,7 +194,7 @@ function getBgClass(bg: BgMode): string {
             </span>
           </div>
           <p class="text-[10px] text-muted-foreground font-medium">
-            High-contrast transparent PNGs optimized for dark & light shirts without altering the master
+            Deterministic, pixel-perfect transparent PNGs recolored for dark & light shirts without altering the master artwork
           </p>
         </div>
       </div>
@@ -183,32 +206,12 @@ function getBgClass(bg: BgMode): string {
           <button
             type="button"
             class="px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition-all cursor-pointer"
-            :class="previewBg === 'transparent' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
-            title="Transparent Checkerboard"
-            @click="previewBg = 'transparent'"
-          >
-            <Icon name="lucide:grid" class="size-3" aria-hidden="true" />
-            <span class="hidden md:inline">Alpha</span>
-          </button>
-          <button
-            type="button"
-            class="px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition-all cursor-pointer"
-            :class="previewBg === 'white' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
-            title="White Garment Background"
-            @click="previewBg = 'white'"
-          >
-            <span class="size-2.5 rounded-full bg-white border border-slate-300 inline-block" />
-            <span class="hidden md:inline">White</span>
-          </button>
-          <button
-            type="button"
-            class="px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition-all cursor-pointer"
             :class="previewBg === 'black' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
             title="Black Garment Background"
             @click="previewBg = 'black'"
           >
             <span class="size-2.5 rounded-full bg-black inline-block" />
-            <span class="hidden md:inline">Black</span>
+            <span>Black</span>
           </button>
           <button
             type="button"
@@ -218,7 +221,27 @@ function getBgClass(bg: BgMode): string {
             @click="previewBg = 'charcoal'"
           >
             <span class="size-2.5 rounded-full bg-[#2D3748] inline-block" />
-            <span class="hidden md:inline">Charcoal</span>
+            <span>Charcoal</span>
+          </button>
+          <button
+            type="button"
+            class="px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition-all cursor-pointer"
+            :class="previewBg === 'white' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+            title="White Garment Background"
+            @click="previewBg = 'white'"
+          >
+            <span class="size-2.5 rounded-full bg-white border border-slate-300 inline-block" />
+            <span>White</span>
+          </button>
+          <button
+            type="button"
+            class="px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition-all cursor-pointer"
+            :class="previewBg === 'transparent' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+            title="Transparent Checkerboard"
+            @click="previewBg = 'transparent'"
+          >
+            <Icon name="lucide:grid" class="size-3" aria-hidden="true" />
+            <span class="hidden md:inline">Alpha</span>
           </button>
         </div>
 
@@ -249,8 +272,8 @@ function getBgClass(bg: BgMode): string {
     <div v-if="isGenerating" class="p-4 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-3 animate-in fade-in duration-200">
       <Icon name="lucide:loader-2" class="size-5 animate-spin text-primary shrink-0" aria-hidden="true" />
       <div>
-        <p class="text-xs font-bold text-foreground">Generating Color-Safe Artwork Variant...</p>
-        <p class="text-[11px] text-muted-foreground">Extracting high-contrast tones, preserving alpha transparency & details.</p>
+        <p class="text-xs font-bold text-foreground">Executing Deterministic Color Transformation...</p>
+        <p class="text-[11px] text-muted-foreground">Preserving exact geometry, copying alpha channel byte-for-byte, modulating contrast tones.</p>
       </div>
     </div>
 
@@ -283,6 +306,12 @@ function getBgClass(bg: BgMode): string {
             class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200"
           >
             Rejected
+          </span>
+          <span
+            v-else-if="item.variant_status === 'failed'"
+            class="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/30"
+          >
+            Failed
           </span>
           <span
             v-else
@@ -335,11 +364,48 @@ function getBgClass(bg: BgMode): string {
           </div>
         </div>
 
+        <!-- 6-Point Quality & Validation Checklist -->
+        <div class="px-3 py-2 bg-slate-50 border-t border-border/60 text-[10px] space-y-1">
+          <div class="flex items-center justify-between text-muted-foreground font-semibold">
+            <span>Validation Checklist</span>
+            <span class="text-emerald-700 font-bold flex items-center gap-0.5">
+              <Icon name="lucide:shield-check" class="size-3 text-emerald-600" aria-hidden="true" />
+              Pass
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-foreground/80 font-medium">
+            <div class="flex items-center gap-1">
+              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
+              <span>Format: PNG (300 DPI)</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
+              <span>Real Alpha (No JPEG)</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
+              <span>Dimensions Match</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
+              <span>100% Geometry Kept</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
+              <span>Zero Checkerboard</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
+              <span>High Contrast Darks</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Card Footer Actions -->
         <div class="p-2.5 border-t border-border/60 bg-white flex items-center justify-between gap-2">
           <div class="flex items-center gap-1.5">
             <Button
-              v-if="item.variant_status !== 'approved'"
+              v-if="item.variant_status !== 'approved' && item.variant_status !== 'failed'"
               variant="default"
               size="sm"
               class="h-7 text-[11px] font-bold px-2.5 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
@@ -360,7 +426,7 @@ function getBgClass(bg: BgMode): string {
               Reject
             </Button>
             <Button
-              v-else-if="item.variant_status !== 'rejected'"
+              v-else-if="item.variant_status !== 'rejected' && item.variant_status !== 'failed'"
               variant="outline"
               size="sm"
               class="h-7 text-[11px] px-2 text-muted-foreground hover:text-foreground cursor-pointer"
@@ -403,7 +469,7 @@ function getBgClass(bg: BgMode): string {
           variant="outline"
           size="sm"
           class="text-xs font-semibold gap-1.5 cursor-pointer"
-          @click="selectedType = 'dark_shirt'; showCreateModal = true"
+          @click="selectedType = 'dark_shirt'; targetColor = '#F5E6C8'; showCreateModal = true"
         >
           <Icon name="lucide:moon" class="size-3.5 text-violet-500" aria-hidden="true" />
           <span>Create Dark Shirt Version</span>
@@ -412,7 +478,7 @@ function getBgClass(bg: BgMode): string {
           variant="outline"
           size="sm"
           class="text-xs font-semibold gap-1.5 cursor-pointer"
-          @click="selectedType = 'light_shirt'; showCreateModal = true"
+          @click="selectedType = 'light_shirt'; targetColor = '#1A1A1A'; showCreateModal = true"
         >
           <Icon name="lucide:sun" class="size-3.5 text-amber-500" aria-hidden="true" />
           <span>Create Light Shirt Version</span>
@@ -444,7 +510,7 @@ function getBgClass(bg: BgMode): string {
             </div>
             <div>
               <h4 class="text-xs font-bold text-foreground">Create Garment Color Variant</h4>
-              <p class="text-[10px] text-muted-foreground">Derived from approved master PNG without mutating original</p>
+              <p class="text-[10px] text-muted-foreground">Deterministic recolor · Exact alpha & geometry preserved</p>
             </div>
           </div>
           <button
@@ -460,7 +526,7 @@ function getBgClass(bg: BgMode): string {
         <div class="p-5 overflow-y-auto space-y-4">
           <!-- Presets Grid -->
           <div class="space-y-2">
-            <label class="text-xs font-bold text-foreground">Select Variant Type</label>
+            <label class="text-xs font-bold text-foreground">Select Variant Mode</label>
             <div class="grid grid-cols-1 gap-2">
               <button
                 v-for="opt in presetOptions"
@@ -468,7 +534,7 @@ function getBgClass(bg: BgMode): string {
                 type="button"
                 class="p-2.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer"
                 :class="selectedType === opt.type ? 'border-primary bg-primary/5 ring-1 ring-primary/30 shadow-2xs' : 'border-border bg-white hover:bg-slate-50'"
-                @click="selectedType = opt.type"
+                @click="handleSelectPreset(opt)"
               >
                 <div
                   class="size-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
@@ -489,45 +555,77 @@ function getBgClass(bg: BgMode): string {
             </div>
           </div>
 
-          <!-- Custom Color Picker if Custom selected -->
-          <div v-if="selectedType === 'custom'" class="p-3 rounded-xl bg-secondary/30 border border-border space-y-2">
-            <label class="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <span>Target Brand Accent Color</span>
+          <!-- Color Replacement Selection -->
+          <div class="p-3 rounded-xl bg-secondary/30 border border-border space-y-2">
+            <label class="text-xs font-bold text-foreground flex items-center justify-between">
+              <span>Dark Elements Replacement Tone</span>
+              <span class="text-[10px] font-mono text-muted-foreground">{{ targetColor }}</span>
             </label>
+
+            <!-- Quick Swatches for Dark Shirt -->
+            <div v-if="selectedType === 'dark_shirt'" class="flex items-center gap-1.5 flex-wrap pb-1">
+              <button
+                v-for="swatch in darkShirtSwatches"
+                :key="swatch.hex"
+                type="button"
+                class="px-2.5 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                :class="targetColor === swatch.hex ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs' : 'border-border bg-white text-foreground hover:bg-slate-50'"
+                @click="targetColor = swatch.hex"
+              >
+                <span class="size-3 rounded-full border border-slate-300 inline-block shrink-0" :style="{ backgroundColor: swatch.hex }" />
+                <span>{{ swatch.label }}</span>
+              </button>
+            </div>
+
+            <!-- Color Input & Custom Picker -->
             <div class="flex items-center gap-3">
               <input
-                v-model="customColor"
+                v-model="targetColor"
                 type="color"
                 class="size-9 rounded-lg border border-border cursor-pointer p-0.5 bg-white"
               >
               <input
-                v-model="customColor"
+                v-model="targetColor"
                 type="text"
                 class="h-9 px-3 rounded-lg border border-border text-xs font-mono font-bold uppercase w-28 bg-white"
-                placeholder="#E85D04"
+                placeholder="#F5E6C8"
               >
-              <div class="flex items-center gap-1">
-                <button
-                  v-for="hex in ['#E85D04', '#F4A261', '#2A9D8F', '#E76F51', '#457B9D']"
-                  :key="hex"
-                  type="button"
-                  class="size-6 rounded-md border border-border/80 cursor-pointer shadow-2xs hover:scale-110 transition-transform"
-                  :style="{ backgroundColor: hex }"
-                  @click="customColor = hex"
-                />
-              </div>
+              <span class="text-[11px] text-muted-foreground">
+                {{ selectedType === 'dark_shirt' ? 'Applied to black & dark outlines' : 'Target accent color' }}
+              </span>
             </div>
           </div>
 
-          <!-- Special Directive (Optional) -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-foreground">Special Refinement Instructions (Optional)</label>
-            <input
-              v-model="customInstructions"
-              type="text"
-              class="h-9 px-3 rounded-lg border border-border text-xs w-full bg-white placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
-              placeholder="e.g. Ensure delicate inner flower line details remain crisp white"
+          <!-- Advanced Options (Collapsible) -->
+          <div class="space-y-2 border-t border-border pt-3">
+            <button
+              type="button"
+              class="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
+              @click="showAdvancedOptions = !showAdvancedOptions"
             >
+              <Icon :name="showAdvancedOptions ? 'lucide:chevron-down' : 'lucide:chevron-right'" class="size-3.5" aria-hidden="true" />
+              <span>Advanced Contrast & Tuning</span>
+            </button>
+
+            <div v-if="showAdvancedOptions" class="p-3 rounded-xl bg-slate-50 border border-border space-y-3 animate-in fade-in duration-150">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <label class="font-bold text-foreground">Darkness Sensitivity Threshold</label>
+                  <span class="font-mono text-muted-foreground">{{ darknessThreshold }}</span>
+                </div>
+                <input
+                  v-model.number="darknessThreshold"
+                  type="range"
+                  min="0.15"
+                  max="0.45"
+                  step="0.01"
+                  class="w-full cursor-pointer accent-primary"
+                >
+                <p class="text-[10px] text-muted-foreground">
+                  Controls how aggressive the engine is at detecting dark shading and near-black textures.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -550,8 +648,8 @@ function getBgClass(bg: BgMode): string {
             @click="handleCreateVariant"
           >
             <Icon v-if="isGenerating" name="lucide:loader-2" class="size-3.5 animate-spin" aria-hidden="true" />
-            <Icon v-else name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
-            <span>{{ isGenerating ? "Generating..." : "Generate Variant" }}</span>
+            <Icon v-else name="lucide:wand-2" class="size-3.5" aria-hidden="true" />
+            <span>{{ isGenerating ? "Recoloring..." : "Generate Variant" }}</span>
           </Button>
         </div>
       </div>

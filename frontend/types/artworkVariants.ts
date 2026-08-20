@@ -12,6 +12,21 @@ export type VariantStatus =
   | "rejected"
   | "failed";
 
+export interface VariantValidationReport {
+  is_valid: boolean;
+  format?: string;
+  mode?: string;
+  width?: number;
+  height?: number;
+  has_real_alpha?: boolean;
+  min_alpha?: number;
+  checkerboard_free?: boolean;
+  source_composition_preserved?: boolean;
+  target_color?: string;
+  method?: string;
+  error?: string;
+}
+
 export interface ArtworkVariantItem {
   id: string;
   workflow_id: string;
@@ -30,11 +45,14 @@ export interface ArtworkVariantItem {
   custom_instructions: string | null;
   prompt_version: string | null;
   url: string | null;
+  validation_report?: VariantValidationReport | null;
   created_at: string;
 }
 
 export interface CreateArtworkVariantPayload {
   variant_type: VariantType | string;
   custom_color?: string | null;
+  target_color?: string | null;
+  darkness_threshold?: number | null;
   custom_instructions?: string | null;
 }

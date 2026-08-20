@@ -29,10 +29,17 @@ const mockVariants = [
     variant_type: "dark_shirt",
     variant_status: "ready",
     title: "Dark Shirt Version",
-    custom_color: null,
+    custom_color: "#F5E6C8",
     custom_instructions: null,
-    prompt_version: "color-variant-v1",
+    prompt_version: "color-variant-v2-deterministic",
     url: "https://storage.test/dark_shirt.png",
+    validation_report: {
+      is_valid: true,
+      format: "image/png",
+      has_real_alpha: true,
+      checkerboard_free: true,
+      source_composition_preserved: true,
+    },
     created_at: "2026-08-20T12:00:00Z",
   },
   {
@@ -49,10 +56,17 @@ const mockVariants = [
     variant_type: "light_shirt",
     variant_status: "approved",
     title: "Light Shirt Version",
-    custom_color: null,
+    custom_color: "#1A1A1A",
     custom_instructions: null,
-    prompt_version: "color-variant-v1",
+    prompt_version: "color-variant-v2-deterministic",
     url: "https://storage.test/light_shirt.png",
+    validation_report: {
+      is_valid: true,
+      format: "image/png",
+      has_real_alpha: true,
+      checkerboard_free: true,
+      source_composition_preserved: true,
+    },
     created_at: "2026-08-20T12:05:00Z",
   },
 ];
@@ -103,7 +117,7 @@ describe("ArtworkVariantsCard component", () => {
     vi.stubGlobal("$fetch", vi.fn().mockResolvedValue(mockVariants));
   });
 
-  it("renders variant cards and background preview toggles", async () => {
+  it("renders variant cards and background preview toggles with black default", async () => {
     const wrapper = mount(ArtworkVariantsCard, {
       props: {
         workflowId: "wf-123",
@@ -125,6 +139,12 @@ describe("ArtworkVariantsCard component", () => {
     // Check variant titles
     expect(wrapper.text()).toContain("Dark Shirt Version");
     expect(wrapper.text()).toContain("Light Shirt Version");
+
+    // Check validation checklist items
+    expect(wrapper.text()).toContain("Validation Checklist");
+    expect(wrapper.text()).toContain("Format: PNG (300 DPI)");
+    expect(wrapper.text()).toContain("Real Alpha (No JPEG)");
+    expect(wrapper.text()).toContain("Zero Checkerboard");
 
     // Check status tags
     expect(wrapper.text()).toContain("Ready for Review");
