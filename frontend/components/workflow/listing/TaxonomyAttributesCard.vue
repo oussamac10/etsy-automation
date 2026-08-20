@@ -233,10 +233,13 @@ const totalSelectedCount = computed(() => {
         <CardTitle class="text-sm font-semibold flex items-center gap-2 flex-wrap">
           <Icon name="lucide:sliders-horizontal" class="size-4 text-primary" aria-hidden="true" />
           <span>Category Attributes</span>
-          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/60 shadow-2xs">
-            <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <Badge
+            :variant="totalSelectedCount > 0 ? 'success' : 'secondary'"
+            class="text-[10px] font-mono font-medium"
+          >
+            <span v-if="totalSelectedCount > 0" class="size-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" aria-hidden="true" />
             {{ totalSelectedCount }} selected
-          </span>
+          </Badge>
           <button
             type="button"
             class="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
