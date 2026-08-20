@@ -2246,6 +2246,11 @@ async def generate_listing_seo_endpoint(
     response_model=ListingDraftResponse,
     summary="Build and assemble customer ZIP download package (Zero LLM tokens)",
 )
+@router.post(
+    "/{workflow_id}/package/build",
+    response_model=ListingDraftResponse,
+    summary="Build and assemble customer ZIP download package (Zero LLM tokens)",
+)
 async def build_listing_package_endpoint(
     workflow_id: uuid.UUID,
     user: CurrentUser,

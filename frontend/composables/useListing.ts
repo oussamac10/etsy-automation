@@ -267,7 +267,7 @@ export function useListing() {
 
     try {
       const data = await $fetch<ListingDraft>(
-        `${apiBase}/api/v1/workflows/${workflowId}/package/build`,
+        `${apiBase}/api/v1/workflows/${workflowId}/listing/package`,
         {
           method: 'POST',
           headers: {
