@@ -147,7 +147,7 @@ async function copyToClipboard(text: string, key: string) {
             <h3 class="text-sm font-semibold text-foreground">Post-Dispatch Etsy Draft Verification</h3>
             <span
               v-if="overallStatus === 'verified'"
-              class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+              class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold font-mono text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 self-start sm:self-auto"
               data-testid="verification-status-badge"
             >
               <Icon name="lucide:check" class="size-3" aria-hidden="true" />
@@ -155,7 +155,7 @@ async function copyToClipboard(text: string, key: string) {
             </span>
             <span
               v-else-if="overallStatus === 'needs_attention'"
-              class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400"
+              class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold font-mono text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-300 self-start sm:self-auto"
               data-testid="verification-status-badge"
             >
               <Icon name="lucide:alert-triangle" class="size-3" aria-hidden="true" />
@@ -163,7 +163,7 @@ async function copyToClipboard(text: string, key: string) {
             </span>
             <span
               v-else
-              class="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400"
+              class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold font-mono text-rose-700 dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-300 self-start sm:self-auto"
               data-testid="verification-status-badge"
             >
               <Icon name="lucide:x-circle" class="size-3" aria-hidden="true" />
@@ -201,10 +201,10 @@ async function copyToClipboard(text: string, key: string) {
 
     <!-- Summary Stats Bar -->
     <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-      <div class="flex items-center gap-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10 p-2.5">
-        <Icon name="lucide:circle-check" class="size-4 text-emerald-500 shrink-0" aria-hidden="true" />
+      <div class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-800/40 dark:bg-emerald-950/30">
+        <Icon name="lucide:circle-check" class="size-4 text-emerald-700 dark:text-emerald-300 shrink-0" aria-hidden="true" />
         <div>
-          <div class="font-semibold text-emerald-700 dark:text-emerald-300">{{ summary.synced }} Synced</div>
+          <div class="font-semibold text-emerald-700 dark:text-emerald-300 font-mono">{{ summary.synced }} Synced</div>
           <div class="text-[11px] text-muted-foreground">API Verified Match</div>
         </div>
       </div>
@@ -263,11 +263,11 @@ async function copyToClipboard(text: string, key: string) {
                   class="size-4 shrink-0 mt-0.5"
                   :class="[
                     check.status === 'synced'
-                      ? 'text-emerald-500'
+                      ? 'text-emerald-700 dark:text-emerald-300'
                       : check.status === 'different' || check.status === 'missing'
-                        ? 'text-amber-500'
+                        ? 'text-amber-600 dark:text-amber-400'
                         : check.status === 'failed'
-                          ? 'text-rose-500'
+                          ? 'text-rose-600 dark:text-rose-400'
                           : 'text-muted-foreground',
                   ]"
                   aria-hidden="true"
@@ -283,13 +283,13 @@ async function copyToClipboard(text: string, key: string) {
               <!-- Status Badge / Val -->
               <div class="flex items-center gap-2 shrink-0">
                 <span
-                  class="font-mono text-[11px] px-2 py-0.5 rounded"
+                  class="font-mono text-[11px] px-2 py-0.5 rounded border"
                   :class="[
                     check.status === 'synced'
-                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold'
                       : check.status === 'different'
-                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                        : 'bg-muted text-muted-foreground',
+                        ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-300 font-semibold'
+                        : 'border-transparent bg-muted text-muted-foreground',
                   ]"
                 >
                   {{ check.actual || check.status }}
@@ -346,7 +346,7 @@ async function copyToClipboard(text: string, key: string) {
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0 mt-0.5"
-                  :class="check.status === 'synced' ? 'text-emerald-500' : 'text-amber-500'"
+                  :class="check.status === 'synced' ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-400'"
                   aria-hidden="true"
                 />
                 <div class="min-w-0">
@@ -359,11 +359,11 @@ async function copyToClipboard(text: string, key: string) {
 
               <div class="flex items-center gap-2 shrink-0">
                 <span
-                  class="font-mono text-[11px] px-2 py-0.5 rounded"
+                  class="font-mono text-[11px] px-2 py-0.5 rounded border"
                   :class="[
                     check.status === 'synced'
-                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold'
+                      : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-300 font-semibold',
                   ]"
                 >
                   {{ check.actual }}
@@ -407,7 +407,7 @@ async function copyToClipboard(text: string, key: string) {
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0 mt-0.5"
-                  :class="check.status === 'synced' ? 'text-emerald-500' : 'text-amber-500'"
+                  :class="check.status === 'synced' ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-400'"
                   aria-hidden="true"
                 />
                 <div class="min-w-0">
@@ -420,7 +420,7 @@ async function copyToClipboard(text: string, key: string) {
 
               <div class="flex items-center gap-2 shrink-0">
                 <span
-                  class="font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  class="font-mono text-[11px] px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold"
                 >
                   {{ check.actual }}
                 </span>
@@ -470,7 +470,7 @@ async function copyToClipboard(text: string, key: string) {
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0 mt-0.5"
-                  :class="check.status === 'synced' ? 'text-emerald-500' : 'text-amber-500'"
+                  :class="check.status === 'synced' ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-400'"
                   aria-hidden="true"
                 />
                 <div class="min-w-0">
@@ -483,11 +483,11 @@ async function copyToClipboard(text: string, key: string) {
 
               <div class="flex items-center gap-2 shrink-0">
                 <span
-                  class="font-mono text-[11px] px-2 py-0.5 rounded"
+                  class="font-mono text-[11px] px-2 py-0.5 rounded border"
                   :class="[
                     check.status === 'synced'
-                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold'
+                      : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-300 font-semibold',
                   ]"
                 >
                   {{ check.actual }}
@@ -517,7 +517,7 @@ async function copyToClipboard(text: string, key: string) {
                   <span
                     :class="
                       p.status === 'synced'
-                        ? 'text-emerald-600 dark:text-emerald-400'
+                        ? 'text-emerald-700 dark:text-emerald-300 font-semibold'
                         : 'text-amber-600 dark:text-amber-400'
                     "
                   >
