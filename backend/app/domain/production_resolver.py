@@ -9,6 +9,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 from app.application.unit_of_work import UnitOfWork
 from app.infrastructure.models import Asset
@@ -76,7 +77,14 @@ async def get_production_master_asset(
 
     # 2. Inspect workflow assets for master.png or etsy-png-standard profile (non-mockup)
     assets = await uow.assets.list_for_workflow(workflow_id)
-    sorted_assets = sorted(assets, key=lambda a: a.created_at or datetime.min, reverse=True)
+
+    def _sort_key(a: Any) -> float:
+        dt = getattr(a, "created_at", None)
+        if dt is None:
+            return 0.0
+        return dt.timestamp() if hasattr(dt, "timestamp") else 0.0
+
+    sorted_assets = sorted(assets, key=_sort_key, reverse=True)
     master_asset = next(
         (
             a

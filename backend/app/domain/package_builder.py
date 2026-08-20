@@ -18,7 +18,7 @@ import io
 import os
 import re
 import struct
-from typing import Final
+from typing import Any, Final
 import zipfile
 import zlib
 import structlog
@@ -406,6 +406,85 @@ any issue unzipping or opening your files:
 Support: Contact {display_shop} through Etsy Messages.
 ================================================================================
 """
+
+
+def generate_variant_aware_readme(
+    listing_title: str,
+    shop_name: str = "Digital Art Studio",
+    included_variants: list[dict[str, Any]] | None = None,
+) -> str:
+    """Generate customer README.txt dynamically based on the included artwork files."""
+    display_shop = (shop_name or "Digital Art Studio").strip()
+    clean_title = sanitize_display_title(listing_title)
+
+    sections: list[str] = [
+        "DIGITAL DOWNLOAD & USAGE GUIDE",
+        "=" * 80,
+        f"Product: {clean_title}",
+        f"Shop: {display_shop}",
+        "",
+        "INCLUDED ARTWORK FILES:",
+        "-" * 80,
+    ]
+
+    items = included_variants or [{"type": "original", "title": "Original Version", "filename": "Original.png"}]
+    for idx, v in enumerate(items, start=1):
+        v_type = str(v.get("type", "original")).lower()
+        v_name = v.get("title") or v.get("name") or "Artwork File"
+        v_file = v.get("filename") or ""
+
+        if v_type in ("original", "master", "master_png"):
+            desc = "Recommended for white, pastel, and light-colored garments/products."
+        elif v_type in ("dark_shirt", "dark"):
+            desc = (
+                "Optimized for black, charcoal, and dark-colored garments.\n"
+                "   Dark outlines and deep shadow details have been converted to high-contrast warm cream tones\n"
+                "   so every detail stays crisp and clearly visible on dark fabric."
+            )
+        elif v_type in ("light_shirt", "light"):
+            desc = (
+                "Optimized for white, cream, and light-colored garments.\n"
+                "   Light highlights have been modulated to deep charcoal outlines for maximum clarity."
+            )
+        elif v_type in ("black_accent", "black"):
+            desc = "Monochrome black accent edition with deep outlines for high-contrast presentation."
+        elif v_type in ("white_accent", "white"):
+            desc = "Monochrome white/cream accent edition designed for dark fabric and apparel."
+        elif v_type in ("custom",):
+            color = v.get("custom_color") or "custom color"
+            desc = f"Custom color edition tailored with {color} accent elements."
+        else:
+            desc = "Special edition color variant."
+
+        file_label = f" ({v_file})" if v_file else ""
+        sections.append(f"{idx}. {v_name}{file_label}")
+        sections.append(f"   {desc}\n")
+
+    sections.extend([
+        "FILE SPECIFICATIONS (ALL ARTWORK):",
+        "-" * 80,
+        "- Resolution: 4500 x 5400 Pixels (High-Resolution Print Quality)",
+        "- Print Density: 300 DPI (Dots Per Inch)",
+        "- Format: PNG with Transparent Background (sRGB Color Profile)",
+        "- Suitable for: DTG (Direct-to-Garment), Sublimation, Screen Printing, Cricut/Silhouette craft transfers",
+        "",
+        "HOW TO USE YOUR FILES:",
+        "-" * 80,
+        "1. Unzip the downloaded package (Right-click > Extract All on Windows, or double-click on Mac).",
+        "2. Open the selected PNG variant in your design, rip, or cutter software (Photoshop, Illustrator, Canva, Cricut Design Space).",
+        "3. Choose the appropriate artwork version for your garment color (e.g. Dark Shirt on black tees).",
+        "4. Conduct a small test print before mass production to verify printer settings.",
+        "",
+        "IMPORTANT:",
+        "-" * 80,
+        "Always verify your printer, heat press, and substrate color settings before final production.",
+        "",
+        f"Need assistance? Contact {display_shop} via Etsy Messages.",
+        "=" * 80,
+        "",
+    ])
+
+    return "\n".join(sections)
 
 
 def generate_instructions_text(listing_title: str, shop_name: str = "Digital Art Studio") -> str:

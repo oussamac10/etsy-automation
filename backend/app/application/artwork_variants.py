@@ -18,6 +18,7 @@ from app.domain.artwork_variants import (
     VariantType,
     filter_workflow_artwork_variants,
     is_valid_artwork_variant_asset,
+    is_variant_outdated,
     recolor_artwork_variant,
     sanitize_hex_color,
     validate_artwork_variant,
@@ -259,3 +260,54 @@ class ArtworkVariantService:
             await self._storage.delete(storage_key)
         except Exception as del_err:
             logger.warning("failed_deleting_variant_storage", storage_key=storage_key, error=str(del_err))
+
+    async def update_variant_package_inclusion(
+        self,
+        *,
+        workflow_id: uuid.UUID,
+        asset_id: uuid.UUID,
+        include_in_buyer_package: bool,
+        owner_id: uuid.UUID,
+        uow: UnitOfWork,
+    ) -> Asset:
+        """Update whether an approved, current variant is included in the buyer deliverable ZIP package."""
+        workflow = await uow.workflows.get(workflow_id)
+        if workflow is None or workflow.owner_id != owner_id:
+            raise EntityNotFoundError("ProductWorkflow", workflow_id)
+
+        asset = await uow.assets.get(asset_id)
+        if asset is None or asset.workflow_id != workflow_id:
+            raise EntityNotFoundError("Asset", asset_id)
+
+        if not is_valid_artwork_variant_asset(asset.provenance):
+            raise ArtworkVariantError("Target asset is not an artwork color variant.")
+
+        updated_prov = dict(asset.provenance or {})
+
+        # Validation Rule: Only approved variants can be included
+        if include_in_buyer_package:
+            if updated_prov.get("variant_status") != VariantStatus.APPROVED.value:
+                raise ArtworkVariantError(
+                    "Only approved variants can be included in the buyer package. Approve the variant first."
+                )
+
+            # Check if source master is current
+            master_asset = await get_production_master_asset(uow, workflow_id)
+            if is_variant_outdated(asset, master_asset):
+                raise ArtworkVariantError(
+                    "This variant was generated from an older master artwork. Regenerate before including it in the buyer package."
+                )
+
+        updated_prov["include_in_buyer_package"] = bool(include_in_buyer_package)
+        updated_prov["buyer_package_updated_at"] = datetime.now(UTC).isoformat()
+        asset.provenance = updated_prov
+
+        await uow.commit()
+        logger.info(
+            "artwork_variant_package_inclusion_updated",
+            workflow_id=str(workflow_id),
+            variant_id=str(asset.id),
+            include_in_buyer_package=include_in_buyer_package,
+        )
+        return asset
+

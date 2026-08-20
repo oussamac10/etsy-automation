@@ -429,21 +429,45 @@ def filter_workflow_artwork_variants(assets: list[Any]) -> list[Any]:
     return sorted(variants, key=_sort_key)
 
 
-def compute_variant_filename(base_prefix: str, variant_type: VariantType | str, custom_color: str | None = None) -> str:
-    """Compute a clean filename for inclusion in the customer ZIP bundle."""
+def compute_variant_filename(
+    base_prefix: str,
+    variant_type: VariantType | str,
+    custom_color: str | None = None,
+) -> str:
+    """Compute a clean, customer-safe filename for inclusion in the deliverable package."""
     vt = variant_type.value if isinstance(variant_type, VariantType) else str(variant_type)
-    if vt == VariantType.DARK_SHIRT.value:
+    if vt in (VariantType.DARK_SHIRT.value, "dark_shirt"):
         type_suffix = "Dark_Shirt"
-    elif vt == VariantType.LIGHT_SHIRT.value:
+    elif vt in (VariantType.LIGHT_SHIRT.value, "light_shirt"):
         type_suffix = "Light_Shirt"
-    elif vt == VariantType.BLACK_ACCENT.value:
+    elif vt in (VariantType.BLACK_ACCENT.value, "black_accent"):
         type_suffix = "Black_Accent"
-    elif vt == VariantType.WHITE_ACCENT.value:
+    elif vt in (VariantType.WHITE_ACCENT.value, "white_accent"):
         type_suffix = "White_Accent"
-    elif vt == VariantType.CUSTOM.value:
+    elif vt in (VariantType.CUSTOM.value, "custom"):
         clean_hex = sanitize_hex_color(custom_color, default="#E85D04").replace("#", "")
         type_suffix = f"Custom_{clean_hex}"
+    elif vt in ("original", "master", "master_png"):
+        type_suffix = "Original"
     else:
         type_suffix = "Variant"
 
-    return f"{base_prefix}_PNG_{type_suffix}.png"
+    return f"{base_prefix}_{type_suffix}.png"
+
+
+def is_variant_outdated(variant_asset: Any, current_master_asset: Any | None) -> bool:
+    """Check if a variant was derived from an older master PNG that has since been replaced."""
+    if current_master_asset is None:
+        return False
+    if getattr(variant_asset, "derived_from_id", None) is None:
+        return False
+    return str(variant_asset.derived_from_id) != str(current_master_asset.id)
+
+
+def is_variant_eligible_for_package(variant_asset: Any, current_master_asset: Any | None) -> bool:
+    """Check if a variant is approved and current, eligible for packaging."""
+    prov = getattr(variant_asset, "provenance", None) or {}
+    if prov.get("variant_status") != VariantStatus.APPROVED.value:
+        return False
+    return not is_variant_outdated(variant_asset, current_master_asset)
+
