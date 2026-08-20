@@ -202,6 +202,31 @@ async function handleConnect(): Promise<void> {
             </div>
           </div>
 
+          <!-- Missing shops_w Scope Upgrade Notice -->
+          <div
+            v-if="connectionStatus?.connected && !connectionStatus.granted_scopes?.includes('shops_w')"
+            class="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground/80"
+          >
+            <Icon name="lucide:alert-circle" class="size-4 shrink-0 text-amber-500 mt-0.5" aria-hidden="true" />
+            <div class="space-y-1.5 flex-1">
+              <div class="font-semibold text-foreground">Update Shop Permissions to Enable Shop Section Creation</div>
+              <div class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
+                Your Etsy account was connected before shop section creation permissions were added. Reconnect your shop to grant the <code class="font-mono text-2xs px-1 py-0.5 rounded bg-background/50 border border-border">shops_w</code> scope so the app can create new sections on Etsy.
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                class="mt-1 gap-1.5 cursor-pointer border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs h-7"
+                :disabled="isConnecting"
+                @click="handleConnect"
+              >
+                <Icon v-if="isConnecting" name="lucide:loader-circle" class="size-3 animate-spin" aria-hidden="true" />
+                <Icon v-else name="lucide:rotate-ccw" class="size-3" aria-hidden="true" />
+                <span>Reconnect Etsy with Updated Permissions</span>
+              </Button>
+            </div>
+          </div>
+
           <!-- Strict Safety Guarantee Notice -->
           <div class="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
             <Icon name="lucide:shield-check" class="size-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
@@ -210,6 +235,7 @@ async function handleConnect(): Promise<void> {
               This application only creates <strong>draft listings</strong> with mockup previews and customer ZIP download bundles. It will never automatically activate, publish, or modify live active listings.
             </div>
           </div>
+
 
           <div class="flex items-center justify-between pt-2">
             <Button
