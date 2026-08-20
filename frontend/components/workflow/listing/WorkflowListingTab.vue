@@ -962,19 +962,22 @@ const subTabs = computed(() => [
         <!-- Sticky Gate 3 Decision Bar (Only in Final Review) -->
         <div
           v-if="!isApproved"
-          class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-border rounded-xl p-3.5 sm:p-4 shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 sticky bottom-3 sm:bottom-4 z-10"
+          class="bg-card/95 backdrop-blur-md border border-border/80 rounded-xl p-3.5 sm:p-4 shadow-lg ring-1 ring-black/5 dark:ring-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 sticky bottom-3 sm:bottom-4 z-10"
         >
           <div class="space-y-1 text-center sm:text-left min-w-0">
-            <h3 class="text-sm font-bold text-foreground flex items-center justify-center sm:justify-start gap-2">
-              <Icon name="lucide:door-open" class="size-4 text-primary" aria-hidden="true" />
+            <h3 class="text-sm font-semibold text-foreground flex items-center justify-center sm:justify-start gap-2">
+              <Icon name="lucide:shield-check" class="size-4 text-primary shrink-0" aria-hidden="true" />
               <span>Gate 3: Listing &amp; IP Approval</span>
             </h3>
-            <p v-if="canApprove" class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-              ✓ All checks passed. Ready to approve for Etsy draft creation.
-            </p>
-            <p v-else class="text-xs text-amber-600 dark:text-amber-400 font-medium">
-              ⚠ {{ blockers.length }} issue{{ blockers.length > 1 ? 's' : '' }} need attention: {{ blockers[0]?.blockerMsg }}
-            </p>
+            <div v-if="canApprove" class="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-muted-foreground">
+              <Icon name="lucide:circle-check" class="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+              <span class="text-foreground font-medium">All checks passed.</span>
+              <span>Ready to approve for Etsy draft creation.</span>
+            </div>
+            <div v-else class="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+              <Icon name="lucide:triangle-alert" class="size-3.5 shrink-0" aria-hidden="true" />
+              <span>{{ blockers.length }} issue{{ blockers.length > 1 ? 's' : '' }} need attention: {{ blockers[0]?.blockerMsg }}</span>
+            </div>
           </div>
 
           <div class="flex items-center gap-2 sm:gap-3 justify-stretch sm:justify-end shrink-0">
@@ -983,7 +986,7 @@ const subTabs = computed(() => [
               variant="outline"
               size="sm"
               :disabled="isDecidingGate"
-              class="text-xs h-9 px-3 gap-1.5 cursor-pointer text-muted-foreground hover:text-destructive flex-1 sm:flex-initial justify-center"
+              class="text-xs h-9 px-3.5 gap-1.5 cursor-pointer text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 flex-1 sm:flex-initial justify-center transition-colors"
               @click="handleReject"
             >
               <Icon name="lucide:x-circle" class="size-4" aria-hidden="true" />
@@ -997,7 +1000,7 @@ const subTabs = computed(() => [
               variant="destructive"
               size="sm"
               disabled
-              class="text-xs h-9 px-4 gap-1.5 opacity-70 cursor-not-allowed flex-1 sm:flex-initial justify-center"
+              class="text-xs h-9 px-4 gap-1.5 opacity-80 cursor-not-allowed flex-1 sm:flex-initial justify-center shadow-xs"
             >
               <Icon name="lucide:shield-ban" class="size-4" aria-hidden="true" />
               <span>Approval Blocked</span>
@@ -1010,7 +1013,7 @@ const subTabs = computed(() => [
               variant="default"
               size="sm"
               :disabled="!canApprove || isDecidingGate"
-              class="text-xs h-9 px-4 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer flex-1 sm:flex-initial justify-center"
+              class="text-xs h-9 px-4 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer flex-1 sm:flex-initial justify-center shadow-xs"
               @click="handleApprove"
             >
               <Icon v-if="isDecidingGate" name="lucide:loader-circle" class="size-4 animate-spin" aria-hidden="true" />
@@ -1025,7 +1028,7 @@ const subTabs = computed(() => [
               variant="default"
               size="sm"
               :disabled="!canApprove || isDecidingGate"
-              class="text-xs h-9 px-4 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex-1 sm:flex-initial justify-center"
+              class="text-xs h-9 px-4 gap-1.5 font-medium cursor-pointer shadow-xs flex-1 sm:flex-initial justify-center"
               @click="handleApprove"
             >
               <Icon v-if="isDecidingGate" name="lucide:loader-circle" class="size-4 animate-spin" aria-hidden="true" />
