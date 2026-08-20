@@ -1058,7 +1058,14 @@ const subTabs = computed(() => [
             <CardContent class="p-4 pt-1 space-y-2 text-xs">
               <div class="flex items-center justify-between">
                 <span class="text-muted-foreground">Deliverables:</span>
-                <span class="font-semibold text-emerald-600 dark:text-emerald-400">4 / 4 files configured</span>
+                <span v-if="isDeliveryReady" class="font-semibold text-foreground flex items-center gap-1.5">
+                  <Icon name="lucide:check-circle-2" class="size-3.5 text-emerald-500" aria-hidden="true" />
+                  <span>ZIP Package Ready (4 files)</span>
+                </span>
+                <span v-else class="font-medium text-muted-foreground flex items-center gap-1">
+                  <Icon name="lucide:clock" class="size-3.5 text-muted-foreground" aria-hidden="true" />
+                  <span>4 files (Needs build)</span>
+                </span>
               </div>
               <p class="text-[11px] text-muted-foreground">
                 Master PNG (4500x5400 px), Vector PDF, Commercial License, Print Guide
