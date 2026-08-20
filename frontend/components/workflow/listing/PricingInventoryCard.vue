@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import type { PriceRecommendation } from '~/types/listing';
+import { generateFrontendSku } from '~/utils/sku';
 import Card from '~/components/ui/Card.vue';
 import CardHeader from '~/components/ui/CardHeader.vue';
 import CardTitle from '~/components/ui/CardTitle.vue';
@@ -13,6 +14,7 @@ import Badge from '~/components/ui/Badge.vue';
 
 const props = defineProps<{
   workflowId: string;
+  title?: string | null;
   priceMinorUnits?: number | null;
   currency?: string | null;
   quantity?: number | null;
@@ -73,7 +75,9 @@ watch(
 watch(
   () => props.sku,
   (newVal) => {
-    if (newVal !== undefined && newVal !== null) localSku.value = newVal;
+    if (newVal !== undefined && newVal !== null) {
+      localSku.value = newVal;
+    }
   }
 );
 
@@ -114,7 +118,16 @@ async function loadRecommendation() {
 
 onMounted(() => {
   loadRecommendation();
+  if (!localSku.value) {
+    localSku.value = generateFrontendSku(props.title, props.workflowId);
+    emit('update:sku', localSku.value);
+  }
 });
+
+function handleGenerateSku() {
+  localSku.value = generateFrontendSku(props.title, props.workflowId);
+  emit('update:sku', localSku.value);
+}
 
 function applyRecommendation() {
   if (!recommendation.value) return;
@@ -210,13 +223,18 @@ const isDirty = computed(() => {
             <Label for="listing-price" class="text-xs font-semibold text-foreground">
               Digital Listing Price
             </Label>
+            <!-- Currency Selector -->
             <div class="flex items-center gap-1">
               <button
                 v-for="curr in SUPPORTED_CURRENCIES"
                 :key="curr.code"
                 type="button"
-                class="px-1.5 py-0.5 text-[11px] rounded font-mono transition-colors cursor-pointer"
-                :class="localCurrency === curr.code ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground hover:bg-muted'"
+                class="px-1.5 py-0.5 text-[10px] rounded font-mono transition-colors cursor-pointer"
+                :class="
+                  localCurrency === curr.code
+                    ? 'bg-primary text-primary-foreground font-bold shadow-2xs'
+                    : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+                "
                 @click="onCurrencySelect(curr.code)"
               >
                 {{ curr.code }}
@@ -225,16 +243,18 @@ const isDirty = computed(() => {
           </div>
 
           <div class="relative flex items-center">
-            <span class="absolute left-3 text-xs font-medium text-muted-foreground">{{ currencySymbol }}</span>
+            <span class="absolute left-3 text-sm font-semibold text-muted-foreground">
+              {{ currencySymbol }}
+            </span>
             <Input
               id="listing-price"
               v-model="localPriceDecimal"
               type="number"
               step="0.01"
               min="0.20"
-              max="1000"
+              max="50000.00"
               placeholder="4.99"
-              class="pl-7 pr-3 h-9 text-sm font-mono font-medium"
+              class="pl-7 h-9 text-sm font-semibold font-mono"
               @change="onPriceChange"
               @blur="onPriceChange"
             />
@@ -243,10 +263,13 @@ const isDirty = computed(() => {
 
         <!-- Quantity Input -->
         <div class="space-y-1.5">
-          <Label for="listing-quantity" class="text-xs font-semibold text-foreground flex items-center justify-between">
-            <span>Stock Quantity</span>
-            <span class="text-[11px] text-muted-foreground font-normal">Digital Instant</span>
-          </Label>
+          <div class="flex items-center justify-between">
+            <Label for="listing-quantity" class="text-xs font-semibold text-foreground">
+              Stock Quantity
+            </Label>
+            <span class="text-[11px] text-muted-foreground">Digital Instant</span>
+          </div>
+
           <Input
             id="listing-quantity"
             v-model.number="localQuantity"
@@ -302,27 +325,39 @@ const isDirty = computed(() => {
 
       <!-- SKU Input -->
       <div class="space-y-1.5 pt-1 border-t border-border/40">
-        <Label for="listing-sku" class="text-xs font-semibold text-foreground flex items-center justify-between">
-          <span class="flex items-center gap-1.5">
+        <div class="flex items-center justify-between">
+          <Label for="listing-sku" class="text-xs font-semibold text-foreground flex items-center gap-1.5">
             <span>Internal SKU</span>
             <span class="text-[11px] text-muted-foreground font-normal" title="SKU is your internal product identifier. Buyers do not need it.">(Internal product ID)</span>
-          </span>
-          <Badge variant="outline" class="text-[10px] font-mono font-medium text-muted-foreground">Auto-generated</Badge>
-        </Label>
+          </Label>
+
+          <button
+            type="button"
+            class="text-[11px] text-primary hover:underline cursor-pointer font-medium flex items-center gap-1"
+            title="Auto-generate a clean SKU"
+            @click="handleGenerateSku"
+          >
+            <Icon name="lucide:sparkles" class="size-3" aria-hidden="true" />
+            <span>Auto-generate</span>
+          </button>
+        </div>
+
         <div class="relative flex items-center">
           <Input
             id="listing-sku"
             v-model="localSku"
             type="text"
-            placeholder="NCP-RETRO-CHRISTMAS-A1B2"
+            placeholder="e.g. NCP-ART-A1B2"
             maxlength="64"
             class="h-9 pr-16 text-xs font-mono tracking-wide"
+            @input="emit('update:sku', localSku)"
             @change="onSkuChange"
             @blur="onSkuChange"
           />
           <button
             type="button"
             class="absolute right-2 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors cursor-pointer flex items-center gap-1"
+            title="Copy SKU to clipboard"
             @click="copySku"
           >
             <Icon :name="skuCopied ? 'lucide:check' : 'lucide:copy'" class="size-3" aria-hidden="true" />

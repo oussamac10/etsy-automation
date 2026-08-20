@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useListing } from '~/composables/useListing';
+import { generateFrontendSku } from '~/utils/sku';
 import ListingEditorCard from './ListingEditorCard.vue';
 import TagEditorCard from './TagEditorCard.vue';
 import IpRiskCard from './IpRiskCard.vue';
@@ -118,7 +119,7 @@ async function loadListingData() {
     localPriceMinorUnits.value = draft.price_minor_units ?? 499;
     localCurrency.value = draft.currency || 'USD';
     localQuantity.value = draft.quantity ?? 999;
-    localSku.value = draft.sku || '';
+    localSku.value = draft.sku || generateFrontendSku(draft.title, props.workflowId);
     localShopSectionId.value = draft.shop_section_id || null;
     localShopSectionName.value = draft.shop_section_name || null;
     localShouldAutoRenew.value = draft.should_auto_renew ?? false;
@@ -670,6 +671,7 @@ const subTabs = computed(() => [
           <div class="lg:col-span-6 space-y-6">
             <PricingInventoryCard
               :workflow-id="workflowId"
+              :title="localTitle"
               :price-minor-units="localPriceMinorUnits"
               :currency="localCurrency"
               :quantity="localQuantity"
