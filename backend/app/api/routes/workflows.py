@@ -2413,6 +2413,8 @@ async def get_listing_taxonomy_categories_endpoint(
             full_path=n.full_path,
             level=n.level,
             fit_score=fit.score,
+            fit_level=fit.fit,
+            blocking_mismatch=fit.blocking_mismatch,
             fit_reasons=fit.reasons,
             warnings=fit.warnings,
         )
@@ -2500,11 +2502,17 @@ async def get_listing_taxonomy_fitness_endpoint(
     return TaxonomyFitnessResponse(
         taxonomy_id=taxonomy_id,
         taxonomy_path=taxonomy_path,
+        fit=fit.fit,
+        score=fit.score,
         fit_score=fit.score,
+        fit_level=fit.fit,
+        blocking_mismatch=fit.blocking_mismatch,
         fit_reasons=fit.reasons,
         warnings=fit.warnings,
         has_mismatched_required_attributes=fit.has_mismatched_required_attributes,
         mismatched_required_reason=fit.mismatched_required_reason,
+        best_available=fit.best_available,
+        campaign_intent=fit.campaign_intent,
     )
 
 

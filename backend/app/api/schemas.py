@@ -474,6 +474,8 @@ class TaxonomyCategoryResponse(BaseModel):
     full_path: str
     level: int
     fit_score: float | None = None
+    fit_level: str | None = None
+    blocking_mismatch: bool = False
     fit_reasons: list[str] = []
     warnings: list[str] = []
 
@@ -481,11 +483,17 @@ class TaxonomyCategoryResponse(BaseModel):
 class TaxonomyFitnessResponse(BaseModel):
     taxonomy_id: int
     taxonomy_path: str
-    fit_score: float
+    fit: str = "good"
+    score: float = 1.0
+    fit_score: float = 1.0
+    fit_level: str = "good"
+    blocking_mismatch: bool = False
     fit_reasons: list[str] = []
     warnings: list[str] = []
     has_mismatched_required_attributes: bool = False
     mismatched_required_reason: str | None = None
+    best_available: bool = False
+    campaign_intent: str = "apparel_sublimation"
 
 
 class ShopSectionResponse(BaseModel):
