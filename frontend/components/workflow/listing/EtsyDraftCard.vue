@@ -361,7 +361,7 @@ async function copyListingId() {
             :class="[
               currentStatus === 'creating_listing'
                 ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
-                : currentStatus !== 'queued'
+                : ['uploading_images', 'uploading_file', 'completed'].includes(currentStatus)
                   ? 'bg-secondary border-border text-foreground font-medium'
                   : 'bg-background border-border text-muted-foreground',
             ]"
@@ -370,11 +370,18 @@ async function copyListingId() {
               :name="
                 currentStatus === 'creating_listing'
                   ? 'lucide:loader-circle'
-                  : currentStatus !== 'queued'
+                  : ['uploading_images', 'uploading_file', 'completed'].includes(currentStatus)
                     ? 'lucide:circle-check'
                     : 'lucide:circle'
               "
-              :class="['size-4 shrink-0', currentStatus === 'creating_listing' ? 'animate-spin text-primary' : (currentStatus !== 'queued' ? 'text-emerald-600' : '')]"
+              :class="[
+                'size-4 shrink-0',
+                currentStatus === 'creating_listing'
+                  ? 'animate-spin text-primary'
+                  : ['uploading_images', 'uploading_file', 'completed'].includes(currentStatus)
+                    ? 'text-emerald-600'
+                    : '',
+              ]"
               aria-hidden="true"
             />
             <span>1. Create Listing</span>
@@ -399,7 +406,14 @@ async function copyListingId() {
                     ? 'lucide:circle-check'
                     : 'lucide:circle'
               "
-              :class="['size-4 shrink-0', currentStatus === 'uploading_images' ? 'animate-spin text-primary' : (['uploading_file', 'completed'].includes(currentStatus) ? 'text-emerald-600' : '')]"
+              :class="[
+                'size-4 shrink-0',
+                currentStatus === 'uploading_images'
+                  ? 'animate-spin text-primary'
+                  : ['uploading_file', 'completed'].includes(currentStatus)
+                    ? 'text-emerald-600'
+                    : '',
+              ]"
               aria-hidden="true"
             />
             <span>2. Upload Mockups</span>
@@ -424,7 +438,14 @@ async function copyListingId() {
                     ? 'lucide:circle-check'
                     : 'lucide:circle'
               "
-              :class="['size-4 shrink-0', currentStatus === 'uploading_file' ? 'animate-spin text-primary' : (currentStatus === 'completed' ? 'text-emerald-600' : '')]"
+              :class="[
+                'size-4 shrink-0',
+                currentStatus === 'uploading_file'
+                  ? 'animate-spin text-primary'
+                  : currentStatus === 'completed'
+                    ? 'text-emerald-600'
+                    : '',
+              ]"
               aria-hidden="true"
             />
             <span>3. Upload Digital Files</span>
