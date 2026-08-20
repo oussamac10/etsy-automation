@@ -241,7 +241,7 @@ defineExpose({
       >
         <div class="space-y-0.5">
           <p class="font-medium text-foreground">No category selected</p>
-          <p class="text-2xs text-muted-foreground">Select an Etsy seller category to configure taxonomy attributes for this campaign.</p>
+          <p class="text-[11px] text-muted-foreground">Select an Etsy seller category to configure taxonomy attributes for this campaign.</p>
         </div>
         <Button
           variant="outline"
@@ -262,7 +262,7 @@ defineExpose({
             <p class="font-medium text-foreground truncate" :title="currentPath">
               {{ currentPath }}
             </p>
-            <p class="text-2xs text-muted-foreground mt-0.5">
+            <p class="text-[11px] text-muted-foreground mt-0.5">
               Taxonomy ID: <code class="font-mono text-foreground font-semibold">{{ currentId }}</code> • Item Type: <span class="font-medium text-foreground">Digital Download</span>
             </p>
           </div>
@@ -272,7 +272,7 @@ defineExpose({
           <Badge
             v-if="activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5)"
             variant="warning"
-            class="text-2xs py-0.5 gap-1 font-mono font-medium"
+            class="text-[10px] py-0.5 gap-1 font-mono font-medium"
           >
             <Icon name="lucide:alert-triangle" class="size-3 text-amber-500" aria-hidden="true" />
             <span>Poor fit</span>
@@ -282,23 +282,23 @@ defineExpose({
           <Badge
             v-else-if="activeFitness && activeFitness.fit_score !== undefined && activeFitness.fit_level !== 'unknown'"
             variant="success"
-            class="text-2xs py-0.5 gap-1 font-mono font-medium"
+            class="text-[10px] py-0.5 gap-1 font-mono font-medium"
           >
             <Icon name="lucide:sparkles" class="size-3 text-emerald-500" aria-hidden="true" />
             <span>{{ Math.round(activeFitness.fit_score * 100) }}% fit</span>
           </Badge>
 
           <!-- Source badge -->
-          <Badge v-if="props.taxonomySelectionSource === 'manual'" variant="info" class="text-2xs py-0.5 font-medium">
+          <Badge v-if="props.taxonomySelectionSource === 'manual'" variant="info" class="text-[10px] py-0.5 font-medium">
             Manual override
           </Badge>
-          <Badge v-else-if="props.taxonomySelectionSource === 'fallback'" variant="warning" class="text-2xs py-0.5 font-medium">
+          <Badge v-else-if="props.taxonomySelectionSource === 'fallback'" variant="warning" class="text-[10px] py-0.5 font-medium">
             Fallback — review required
           </Badge>
           <Badge
             v-else-if="!(activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5))"
             variant="secondary"
-            class="text-2xs py-0.5 font-medium"
+            class="text-[10px] py-0.5 font-medium"
           >
             Auto-selected
           </Badge>
@@ -346,11 +346,11 @@ defineExpose({
         </div>
 
         <div class="space-y-2">
-          <div class="flex items-center justify-between text-2xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+          <div class="flex items-center justify-between text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
             <span>{{ searchQuery ? 'Search Results' : 'Recommended Digital Categories' }}</span>
-            <span v-if="isLoadingResults" class="flex items-center gap-1 text-primary">
-              <Icon name="lucide:loader-2" class="size-3 animate-spin" aria-hidden="true" />
-              Searching...
+            <span v-if="isLoadingResults" class="flex items-center gap-1 text-primary normal-case font-medium text-[10px]">
+              <Icon name="lucide:loader-circle" class="size-2.5 animate-spin" aria-hidden="true" />
+              Loading categories...
             </span>
           </div>
 
@@ -370,24 +370,24 @@ defineExpose({
               <div class="flex items-center justify-between gap-3 w-full">
                 <div class="min-w-0">
                   <p class="font-medium text-foreground truncate">{{ cat.name }}</p>
-                  <p class="text-2xs text-muted-foreground truncate">{{ cat.full_path }}</p>
+                  <p class="text-[10px] text-muted-foreground truncate">{{ cat.full_path }}</p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                   <Badge
                     v-if="cat.fit_score !== undefined && cat.fit_score !== null"
                     :variant="cat.fit_score >= 0.8 ? 'success' : cat.fit_score < 0.5 ? 'warning' : 'secondary'"
-                    class="font-mono text-2xs py-0"
+                    class="font-mono text-[10px] py-0"
                   >
                     {{ Math.round(cat.fit_score * 100) }}% fit
                   </Badge>
                   <Badge
                     v-else
                     variant="outline"
-                    class="text-2xs py-0 text-muted-foreground"
+                    class="text-[10px] py-0 text-muted-foreground"
                   >
                     Fitness unavailable
                   </Badge>
-                  <Badge variant="outline" class="font-mono text-2xs py-0">ID: {{ cat.id }}</Badge>
+                  <Badge variant="outline" class="font-mono text-[10px] py-0">ID: {{ cat.id }}</Badge>
                   <Icon
                     v-if="selectedNode?.id === cat.id"
                     name="lucide:check"
