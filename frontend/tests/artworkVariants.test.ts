@@ -156,16 +156,18 @@ describe("ArtworkVariantsCard component", () => {
     expect(wrapper.text()).toContain("Dark Shirt Version");
     expect(wrapper.text()).toContain("Light Shirt Version");
 
-    // Check Include in ZIP controls
-    expect(wrapper.text()).toContain("Include in ZIP");
+    // Check Include in Buyer Package controls
+    expect(wrapper.text()).toContain("Include in Buyer Package");
 
-    // Check validation checklist strip
-    expect(wrapper.text()).toContain("PNG (300 DPI)");
-    expect(wrapper.text()).toContain("Real Alpha");
+    // Check 6-point validation checklist
+    expect(wrapper.text()).toContain("Validation Checklist");
+    expect(wrapper.text()).toContain("Format: PNG (300 DPI)");
+    expect(wrapper.text()).toContain("Real Alpha (No JPEG)");
+    expect(wrapper.text()).toContain("Zero Checkerboard");
     expect(wrapper.text()).toContain("Pass");
 
     // Check status tags
-    expect(wrapper.text()).toContain("Ready");
+    expect(wrapper.text()).toContain("Ready for Review");
     expect(wrapper.text()).toContain("Approved");
 
     // Check background toggle buttons
