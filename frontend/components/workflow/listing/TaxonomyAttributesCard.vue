@@ -370,17 +370,17 @@ const totalSelectedCount = computed(() => {
             <Badge
               v-if="isPropertyMismatched(prop)"
               variant="warning"
-              class="text-2xs py-0.5 gap-1 font-mono font-medium"
+              class="text-[9px] px-1.5 py-0 gap-1 font-mono font-medium"
             >
-              <Icon name="lucide:alert-triangle" class="size-3 text-amber-500" aria-hidden="true" />
+              <Icon name="lucide:alert-triangle" class="size-2.5 text-amber-500 shrink-0" aria-hidden="true" />
               <span>Category mismatch</span>
             </Badge>
             <Badge
               v-else-if="isPropertyMissingRequired(prop)"
               variant="destructive"
-              class="text-2xs py-0.5 gap-1 font-mono font-medium"
+              class="text-[9px] px-1.5 py-0 gap-1 font-mono font-medium"
             >
-              <Icon name="lucide:alert-circle" class="size-3 text-red-500" aria-hidden="true" />
+              <Icon name="lucide:alert-circle" class="size-2.5 text-red-500 shrink-0" aria-hidden="true" />
               <span>Required selection missing</span>
             </Badge>
           </div>
