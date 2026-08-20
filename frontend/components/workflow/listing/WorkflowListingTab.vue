@@ -618,10 +618,10 @@ const subTabs = computed(() => [
 
         <Badge
           variant="outline"
-          class="text-xs py-1 px-2.5 gap-1.5 font-medium shrink-0"
-          :class="canApprove ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'"
+          class="text-xs py-1 px-2.5 gap-1.5 font-medium shrink-0 text-foreground"
+          :class="canApprove ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-amber-500/10 border-amber-500/20'"
         >
-          <Icon :name="canApprove ? 'lucide:check-circle-2' : 'lucide:alert-circle'" class="size-3.5" aria-hidden="true" />
+          <Icon :name="canApprove ? 'lucide:check-circle-2' : 'lucide:alert-circle'" class="size-3.5" :class="canApprove ? 'text-emerald-500' : 'text-amber-500'" aria-hidden="true" />
           <span>Readiness: {{ totalPassedChecks }}/{{ totalRequiredChecks }}</span>
         </Badge>
       </div>
@@ -692,8 +692,8 @@ const subTabs = computed(() => [
           </div>
           <Badge
             variant="outline"
-            class="self-start sm:self-auto text-xs font-mono"
-            :class="isContentReady ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'"
+            class="self-start sm:self-auto text-xs font-mono text-foreground"
+            :class="isContentReady ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-amber-500/10 border-amber-500/20'"
           >
             {{ isContentReady ? 'Ready' : 'Needs attention' }}
           </Badge>
@@ -745,8 +745,8 @@ const subTabs = computed(() => [
           </div>
           <Badge
             variant="outline"
-            class="self-start sm:self-auto text-xs font-mono"
-            :class="isEtsyDetailsReady ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'"
+            class="self-start sm:self-auto text-xs font-mono text-foreground"
+            :class="isEtsyDetailsReady ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-amber-500/10 border-amber-500/20'"
           >
             {{ isEtsyDetailsReady ? 'Ready' : 'Needs attention' }}
           </Badge>
@@ -825,8 +825,8 @@ const subTabs = computed(() => [
           </div>
           <Badge
             variant="outline"
-            class="self-start sm:self-auto text-xs font-mono"
-            :class="isHighRisk ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20' : isWarning ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'"
+            class="self-start sm:self-auto text-xs font-mono text-foreground"
+            :class="isHighRisk ? 'bg-red-500/10 border-red-500/20' : isWarning ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'"
           >
             {{ riskLevel.toUpperCase() }} RISK
           </Badge>
@@ -857,8 +857,8 @@ const subTabs = computed(() => [
           </div>
           <Badge
             variant="outline"
-            class="self-start sm:self-auto text-xs font-mono"
-            :class="isDeliveryReady ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-muted text-muted-foreground border-border'"
+            class="self-start sm:self-auto text-xs font-mono text-foreground"
+            :class="isDeliveryReady ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-muted text-muted-foreground border-border'"
           >
             {{ isDeliveryReady ? 'Ready' : 'Needs Build' }}
           </Badge>
@@ -978,8 +978,8 @@ const subTabs = computed(() => [
                 <span class="text-muted-foreground">Screening Result:</span>
                 <Badge
                   variant="outline"
-                  class="text-[10px] font-mono font-semibold"
-                  :class="isHighRisk ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20' : isWarning ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'"
+                  class="text-[10px] font-mono text-foreground"
+                  :class="isHighRisk ? 'bg-red-500/10 border-red-500/20' : isWarning ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'"
                 >
                   {{ riskLevel.toUpperCase() }} RISK
                 </Badge>
@@ -1030,8 +1030,8 @@ const subTabs = computed(() => [
             </div>
             <Badge
               variant="outline"
-              class="text-xs font-mono font-semibold"
-              :class="canApprove ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'"
+              class="text-xs font-mono text-foreground"
+              :class="canApprove ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-amber-500/10 border-amber-500/20'"
             >
               {{ canApprove ? 'Ready for Approval' : `${blockers.length} issues need attention` }}
             </Badge>
@@ -1064,7 +1064,7 @@ const subTabs = computed(() => [
                 >
                   Fix
                 </Button>
-                <Badge v-else variant="outline" class="text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/20 bg-emerald-500/10">
+                <Badge v-else variant="outline" class="text-[10px] text-foreground border-emerald-500/20 bg-emerald-500/10">
                   Passed
                 </Badge>
               </div>

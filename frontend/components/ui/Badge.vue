@@ -8,16 +8,16 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-white shadow-2xs",
+        default: "border-transparent bg-primary text-primary-foreground shadow-2xs",
         secondary: "border-border bg-secondary text-secondary-foreground",
-        destructive: "border-red-200 bg-red-50 text-red-700",
-        outline: "border-border text-secondary-foreground bg-white",
-        success: "border-emerald-200 bg-emerald-50 text-emerald-700",
-        warning: "border-amber-200 bg-amber-50 text-amber-700",
-        info: "border-blue-200 bg-blue-50 text-blue-700",
-        accent: "border-violet-200 bg-violet-50 text-violet-700",
-        purple: "border-violet-200 bg-violet-50 text-violet-700",
-        etsy: "border-orange-200 bg-orange-50 text-[#F1641E] font-bold",
+        destructive: "border-red-500/20 bg-red-500/10 text-foreground dark:text-foreground",
+        outline: "border-border text-foreground bg-white dark:bg-card",
+        success: "border-emerald-500/20 bg-emerald-500/10 text-foreground dark:text-foreground",
+        warning: "border-amber-500/20 bg-amber-500/10 text-foreground dark:text-foreground",
+        info: "border-blue-500/20 bg-blue-500/10 text-foreground dark:text-foreground",
+        accent: "border-violet-500/20 bg-violet-500/10 text-foreground dark:text-foreground",
+        purple: "border-violet-500/20 bg-violet-500/10 text-foreground dark:text-foreground",
+        etsy: "border-orange-500/20 bg-orange-500/10 text-foreground font-bold",
       },
     },
     defaultVariants: {

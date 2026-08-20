@@ -92,13 +92,13 @@ const reasons = computed<string[]>(() => {
           <span>Trademark Screening</span>
           <Badge
             variant="outline"
-            class="text-[10px] font-mono font-semibold"
+            class="text-[10px] font-mono text-foreground"
             :class="
               isHighRisk
-                ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20'
+                ? 'bg-red-500/10 border-red-500/20'
                 : isWarning
-                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+                ? 'bg-amber-500/10 border-amber-500/20'
+                : 'bg-emerald-500/10 border-emerald-500/20'
             "
           >
             {{ riskLevel.toUpperCase() }} RISK

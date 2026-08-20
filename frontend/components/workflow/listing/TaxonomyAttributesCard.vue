@@ -353,13 +353,13 @@ const totalSelectedCount = computed(() => {
               <Badge
                 v-if="prop.is_required"
                 variant="outline"
-                class="text-[10px] py-0 font-medium"
+                class="text-[10px] py-0 font-medium text-foreground"
                 :class="
                   isPropertyMismatched(prop)
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                    ? 'bg-amber-500/10 border-amber-500/30'
                     : isPropertyMissingRequired(prop)
                     ? 'bg-destructive/10 text-destructive border-destructive/20'
-                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                    : 'bg-emerald-500/10 border-emerald-500/20'
                 "
               >
                 * Required

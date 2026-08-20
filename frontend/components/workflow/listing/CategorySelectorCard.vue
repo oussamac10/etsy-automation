@@ -272,7 +272,7 @@ defineExpose({
           <Badge
             v-if="activeFitness?.has_mismatched_required_attributes || activeFitness?.blocking_mismatch || (activeFitness?.fit_score !== undefined && activeFitness.fit_score < 0.5)"
             variant="outline"
-            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-amber-500/10 text-foreground border-amber-500/20"
           >
             <Icon name="lucide:alert-triangle" class="size-3 text-amber-500" aria-hidden="true" />
             <span>Poor fit</span>
@@ -282,17 +282,17 @@ defineExpose({
           <Badge
             v-else-if="activeFitness && activeFitness.fit_score !== undefined && activeFitness.fit_level !== 'unknown'"
             variant="outline"
-            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+            class="text-2xs py-0.5 gap-1 font-mono font-medium bg-emerald-500/10 text-foreground border-emerald-500/20"
           >
             <Icon name="lucide:sparkles" class="size-3 text-emerald-500" aria-hidden="true" />
             <span>{{ Math.round(activeFitness.fit_score * 100) }}% fit</span>
           </Badge>
 
           <!-- Source badge -->
-          <Badge v-if="props.taxonomySelectionSource === 'manual'" variant="outline" class="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-2xs py-0.5 font-medium">
+          <Badge v-if="props.taxonomySelectionSource === 'manual'" variant="outline" class="bg-blue-500/10 text-foreground border-blue-500/20 text-2xs py-0.5 font-medium">
             Manual override
           </Badge>
-          <Badge v-else-if="props.taxonomySelectionSource === 'fallback'" variant="outline" class="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-2xs py-0.5 font-medium">
+          <Badge v-else-if="props.taxonomySelectionSource === 'fallback'" variant="outline" class="bg-amber-500/10 text-foreground border-amber-500/20 text-2xs py-0.5 font-medium">
             Fallback — review required
           </Badge>
           <Badge
