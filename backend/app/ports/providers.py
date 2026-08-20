@@ -200,9 +200,13 @@ class EtsyShopSection:
 class EtsyTaxonomyProperty:
     property_id: int
     name: str
+    display_name: str | None = None
     is_required: bool = False
     supports_attributes: bool = False
+    supports_variations: bool = False
     is_multivalued: bool = False
+    max_values_allowed: int | None = None
+    scales: list[dict[str, Any]] = field(default_factory=list)
     possible_values: list[dict[str, Any]] = field(default_factory=list)
 
 

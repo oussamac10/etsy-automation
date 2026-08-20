@@ -62,7 +62,7 @@ class EtsyProvider(EtsyGateway):
         self._client = client
         self._taxonomy_cache: list[EtsyTaxonomyNode] | None = None
         self._taxonomy_cache_time: float = 0.0
-        self._taxonomy_properties_cache: dict[int, list[EtsyTaxonomyProperty]] = {}
+        self._taxonomy_properties_cache: dict[int, tuple[float, list[EtsyTaxonomyProperty]]] = {}
 
     def _default_headers(self, access_token: str | None = None) -> dict[str, str]:
         api_header_value = (
@@ -536,8 +536,13 @@ class EtsyProvider(EtsyGateway):
 
     async def get_taxonomy_properties(self, *, taxonomy_id: int) -> list[EtsyTaxonomyProperty]:
         """Fetch official Etsy taxonomy properties/attributes for a category node."""
+        import time
+
+        now = time.time()
         if taxonomy_id in self._taxonomy_properties_cache:
-            return self._taxonomy_properties_cache[taxonomy_id]
+            cached_time, cached_props = self._taxonomy_properties_cache[taxonomy_id]
+            if now - cached_time < 86400:  # 24 hour TTL
+                return cached_props
 
         url = f"{self._base_url}/application/seller-taxonomy/nodes/{taxonomy_id}/properties"
         headers = self._default_headers()
@@ -553,17 +558,33 @@ class EtsyProvider(EtsyGateway):
                     for v in raw_values
                     if v.get("value_id") is not None
                 ]
+                raw_scales = item.get("scales", [])
+                parsed_scales = [
+                    {
+                        "scale_id": int(s.get("scale_id", 0)),
+                        "display_name": str(s.get("display_name", "")),
+                        "description": str(s.get("description", "")),
+                    }
+                    for s in raw_scales
+                    if s.get("scale_id") is not None
+                ]
+                raw_max = item.get("max_values_allowed")
+                max_allowed = int(raw_max) if raw_max is not None else None
                 properties.append(
                     EtsyTaxonomyProperty(
                         property_id=int(item.get("property_id", 0)),
                         name=str(item.get("name", "")),
+                        display_name=str(item.get("display_name")) if item.get("display_name") else None,
                         is_required=bool(item.get("is_required", False)),
                         supports_attributes=bool(item.get("supports_attributes", False)),
+                        supports_variations=bool(item.get("supports_variations", False)),
                         is_multivalued=bool(item.get("is_multivalued", False)),
+                        max_values_allowed=max_allowed,
+                        scales=parsed_scales,
                         possible_values=parsed_values,
                     )
                 )
-            self._taxonomy_properties_cache[taxonomy_id] = properties
+            self._taxonomy_properties_cache[taxonomy_id] = (now, properties)
             return properties
         except Exception as exc:
             logger.warning("etsy_get_taxonomy_properties_failed", taxonomy_id=taxonomy_id, error=str(exc))

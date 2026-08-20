@@ -2833,18 +2833,86 @@ async def get_listing_taxonomy_properties_endpoint(
     except Exception:
         props = []
 
+    from app.domain.taxonomy_properties import filter_listing_attribute_properties
+
+    eligible_props = filter_listing_attribute_properties(props)
+
     responses: list[TaxonomyPropertyResponse] = []
-    for p in props:
+    for p in eligible_props:
+        p_dict = p if isinstance(p, dict) else (p.to_dict() if hasattr(p, "to_dict") else {})
+        p_id = p_dict.get("property_id") if p_dict else getattr(p, "property_id", 0)
+        p_name = p_dict.get("name") if p_dict else getattr(p, "name", "")
+        p_display_name = p_dict.get("display_name") if p_dict else getattr(p, "display_name", None)
+        p_req = p_dict.get("is_required") if p_dict else getattr(p, "is_required", False)
+        p_attr = p_dict.get("supports_attributes") if p_dict else getattr(p, "supports_attributes", True)
+        p_var = p_dict.get("supports_variations") if p_dict else getattr(p, "supports_variations", False)
+        p_multi = p_dict.get("is_multivalued") if p_dict else getattr(p, "is_multivalued", False)
+        p_max = p_dict.get("max_values_allowed") if p_dict else getattr(p, "max_values_allowed", None)
+        p_scales = p_dict.get("scales") if p_dict else getattr(p, "scales", [])
+        p_vals = p_dict.get("possible_values") if p_dict else getattr(p, "possible_values", [])
+
         responses.append(
             TaxonomyPropertyResponse(
-                property_id=p.property_id,
-                name=p.name,
-                is_required=p.is_required,
-                supports_attributes=p.supports_attributes,
-                is_multivalued=p.is_multivalued,
-                possible_values=p.possible_values,
+                property_id=int(p_id or 0),
+                name=str(p_name),
+                display_name=str(p_display_name) if p_display_name else None,
+                is_required=bool(p_req),
+                supports_attributes=bool(p_attr),
+                supports_variations=bool(p_var),
+                is_multivalued=bool(p_multi),
+                max_values_allowed=int(p_max) if p_max is not None else None,
+                scales=list(p_scales or []),
+                possible_values=list(p_vals or []),
             )
         )
     return responses
+
+
+@router.post(
+    "/{workflow_id}/listing/taxonomy-properties/reconcile",
+    response_model=ListingDraftResponse,
+    summary="Reconcile and purge invalid/stale taxonomy properties for listing draft",
+)
+async def reconcile_listing_taxonomy_properties_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    storage: StorageDep,
+    etsy_gateway: EtsyGatewayDep,
+) -> ListingDraftResponse:
+    """Validate saved listing attributes against current category, remove stale/ineligible selections."""
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No listing draft found for this workflow",
+        )
+
+    if listing.taxonomy_id:
+        from app.domain.taxonomy_properties import revalidate_listing_taxonomy_properties
+
+        try:
+            props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=listing.taxonomy_id)
+        except Exception:
+            props = []
+
+        validated_properties = revalidate_listing_taxonomy_properties(
+            existing_properties=listing.etsy_properties,
+            available_properties=props,
+        )
+        updated = await uow.listing_drafts.update(
+            listing.id,
+            etsy_properties=validated_properties,
+        )
+        await uow.commit()
+    return await _build_listing_response(listing, workflow_id, uow, storage)
+
 
 
