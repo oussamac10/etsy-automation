@@ -11,6 +11,7 @@ import TaxonomyAttributesCard from "../components/workflow/listing/TaxonomyAttri
 import PricingInventoryCard from "../components/workflow/listing/PricingInventoryCard.vue";
 import ShopOrganizationCard from "../components/workflow/listing/ShopOrganizationCard.vue";
 import EtsyDraftCard from "../components/workflow/listing/EtsyDraftCard.vue";
+import WorkflowStageNav from "../components/workflow/WorkflowStageNav.vue";
 import { useListing } from "../composables/useListing";
 import type { ListingDraft } from "../types/listing";
 
@@ -352,6 +353,87 @@ describe("WorkflowListingTab 5 Sub-Tabs Navigation & Structure", () => {
 
     await flushPromises();
     expect(etsyWrapper.findComponent(EtsyDraftCard).exists()).toBe(true);
+  });
+
+  it("hides '5. Etsy Dispatch' tab in WorkflowStageNav until Gate 3 is approved, then shows it", async () => {
+    // 1. In LISTING_REVIEW: 5. Etsy Dispatch tab MUST be hidden
+    const unapprovedNav = mount(WorkflowStageNav, {
+      props: {
+        activeTab: "listing",
+        workflowState: "LISTING_REVIEW",
+        conceptsCount: 3,
+        candidatesCount: 4,
+        productionStatus: "SUCCEEDED",
+      },
+      global: {
+        stubs: {
+          Icon: { template: "<i />" },
+        },
+      },
+    });
+
+    expect(unapprovedNav.text()).toContain("4. Listing & IP Review");
+    expect(unapprovedNav.text()).not.toContain("5. Etsy Dispatch");
+    expect(unapprovedNav.text()).not.toContain("5. Etsy");
+
+    // 2. In READY_FOR_ETSY_DRAFT (Gate 3 approved): 5. Etsy Dispatch tab MUST be visible
+    const approvedNav = mount(WorkflowStageNav, {
+      props: {
+        activeTab: "etsy",
+        workflowState: "READY_FOR_ETSY_DRAFT",
+        conceptsCount: 3,
+        candidatesCount: 4,
+        productionStatus: "SUCCEEDED",
+      },
+      global: {
+        stubs: {
+          Icon: { template: "<i />" },
+        },
+      },
+    });
+
+    expect(approvedNav.text()).toContain("5. Etsy Dispatch");
+  });
+
+  it("emits approved event on Gate 3 approval to trigger redirect to Etsy Dispatch tab", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, opts?: any) => {
+      if (url.includes("/approvals")) {
+        return Promise.resolve({
+          ...mockDraft,
+          workflow_state: "READY_FOR_ETSY_DRAFT",
+        });
+      }
+      return Promise.resolve(mockDraft);
+    });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const wrapper = mount(WorkflowListingTab, {
+      props: {
+        workflowId: "wf-123",
+        workflowState: "LISTING_REVIEW",
+      },
+      global: {
+        stubs: {
+          Icon: { template: "<i />" },
+        },
+      },
+    });
+
+    await flushPromises();
+
+    // Switch to Final Review sub-tab
+    const finalReviewBtn = wrapper.findAll('[role="tab"]')[4];
+    await finalReviewBtn.trigger("click");
+    await flushPromises();
+
+    // Find and click Approve button
+    const approveBtn = wrapper.findAll("button").find((b) => b.text().includes("Approve for Etsy Draft"));
+    expect(approveBtn).toBeDefined();
+    await approveBtn!.trigger("click");
+    await flushPromises();
+
+    // Verify approved event was emitted
+    expect(wrapper.emitted("approved")).toBeTruthy();
   });
 });
 

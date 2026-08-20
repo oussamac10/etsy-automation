@@ -319,7 +319,11 @@ async function loadData(silent = false): Promise<void> {
 
     // Initial intelligent tab selection if not explicitly set in URL query
     if (!route.query?.tab && !silent) {
-      if (wf.state === "ART_REVIEW" || wf.state === "ART_GENERATION" || wf.state === "ART_QUEUED" || wf.state === "IDEA_APPROVED") {
+      if (wf.state === "READY_FOR_ETSY_DRAFT" || wf.state === "ETSY_DRAFT_CREATED" || wf.state === "PUBLISHED") {
+        activeTab.value = "etsy";
+      } else if (wf.state === "IP_REVIEW" || wf.state === "LISTING_REVIEW") {
+        activeTab.value = "listing";
+      } else if (wf.state === "ART_REVIEW" || wf.state === "ART_GENERATION" || wf.state === "ART_QUEUED" || wf.state === "IDEA_APPROVED") {
         activeTab.value = "artwork";
       } else if (wf.state === "ARTWORK_APPROVED" || wf.state === "PRODUCTION" || wf.state === "PRODUCTION_FAILED" || latestProductionJob.value?.status === "SUCCEEDED") {
         activeTab.value = "production";

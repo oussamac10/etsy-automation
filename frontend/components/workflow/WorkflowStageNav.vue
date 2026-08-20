@@ -57,6 +57,8 @@ const isProductionActive = computed(() => {
 const isGate3Done = computed(() => {
   return [
     "READY_FOR_ETSY_DRAFT",
+    "ETSY_DRAFT_CREATED",
+    "ETSY_DRAFT_FAILED",
     "PUBLISHED",
   ].includes(props.workflowState);
 });
@@ -184,8 +186,9 @@ const isListingActive = computed(() => {
       </Badge>
     </button>
 
-    <!-- Tab 6: Etsy Dispatch -->
+    <!-- Tab 6: Etsy Dispatch (Only visible once Gate 3 is approved) -->
     <button
+      v-if="isGate3Done"
       type="button"
       class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       :class="
