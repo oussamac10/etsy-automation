@@ -1094,18 +1094,6 @@ const subTabs = computed(() => [
           </div>
 
           <div class="flex items-center gap-2 sm:gap-3 justify-stretch sm:justify-end shrink-0">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              :disabled="isDecidingGate"
-              class="text-xs h-9 px-3.5 gap-1.5 cursor-pointer text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30 flex-1 sm:flex-initial justify-center transition-colors"
-              @click="handleReject"
-            >
-              <Icon name="lucide:x-circle" class="size-4" aria-hidden="true" />
-              <span>Reject</span>
-            </Button>
-
             <!-- High Risk Blocked Button -->
             <Button
               v-if="isHighRisk"
