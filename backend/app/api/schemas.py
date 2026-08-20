@@ -563,6 +563,8 @@ class CreateArtworkVariantRequest(BaseModel):
 
     variant_type: Annotated[str, Field(pattern=r"^(dark_shirt|light_shirt|black_accent|white_accent|custom)$")]
     custom_color: str | None = None
+    target_color: str | None = None
+    darkness_threshold: float | None = None
     custom_instructions: str | None = None
 
 
@@ -586,6 +588,7 @@ class ArtworkVariantResponse(BaseModel):
     custom_instructions: str | None = None
     prompt_version: str | None = None
     url: str | None = None
+    validation_report: dict[str, Any] | None = None
     created_at: datetime
 
 

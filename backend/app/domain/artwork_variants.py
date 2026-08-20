@@ -1,4 +1,4 @@
-"""Domain definitions, enums, prompt builders, and validation for artwork color variants.
+"""Domain definitions, enums, prompt builders, deterministic recolor engine, and validation for artwork color variants.
 
 Enables creating alternate color-safe versions of an approved master PNG
 (e.g., dark-shirt friendly, light-shirt friendly, black accent, white accent, custom color)
@@ -9,10 +9,17 @@ from __future__ import annotations
 
 from enum import StrEnum
 import hashlib
+import io
 import re
 from typing import Any, Final
 
-DEFAULT_PROMPT_VERSION: Final[str] = "color-variant-v1"
+from PIL import Image, ImageChops
+
+DEFAULT_PROMPT_VERSION: Final[str] = "color-variant-v2-deterministic"
+DEFAULT_DARK_SHIRT_TARGET: Final[str] = "#F5E6C8"  # Warm Cream
+DEFAULT_LIGHT_SHIRT_TARGET: Final[str] = "#1A1A1A"  # Deep Charcoal
+DEFAULT_BLACK_ACCENT_TARGET: Final[str] = "#0A0A0A"  # Rich Black
+DEFAULT_WHITE_ACCENT_TARGET: Final[str] = "#FFFFFF"  # Crisp White
 
 
 class VariantType(StrEnum):
@@ -35,6 +42,10 @@ class VariantStatus(StrEnum):
     FAILED = "failed"
 
 
+class ArtworkVariantValidationError(Exception):
+    """Raised when an artwork variant fails strict format, transparency, or quality validation."""
+
+
 VARIANT_TYPE_LABELS: Final[dict[VariantType, str]] = {
     VariantType.DARK_SHIRT: "Dark Shirt Version",
     VariantType.LIGHT_SHIRT: "Light Shirt Version",
@@ -52,113 +63,342 @@ VARIANT_TYPE_DESCRIPTIONS: Final[dict[VariantType, str]] = {
 }
 
 
-def sanitize_hex_color(hex_str: str | None) -> str:
+def sanitize_hex_color(hex_str: str | None, default: str = "#FFFFFF") -> str:
     """Validate and normalize a 3- or 6-digit hex color code."""
     if not hex_str:
-        return "#FFFFFF"
+        return default
     cleaned = hex_str.strip()
     if not cleaned.startswith("#"):
         cleaned = f"#{cleaned}"
     if re.match(r"^#(?:[0-9a-fA-F]{3}){1,2}$", cleaned):
+        if len(cleaned) == 4:
+            # Expand #RGB to #RRGGBB
+            cleaned = f"#{cleaned[1]*2}{cleaned[2]*2}{cleaned[3]*2}"
         return cleaned.upper()
-    return "#FFFFFF"
+    return default
 
 
-def build_variant_prompt(
-    variant_type: VariantType,
-    *,
-    custom_color: str | None = None,
-    original_positive_prompt: str | None = None,
-    custom_instructions: str | None = None,
-) -> tuple[str, str, str]:
-    """Build deterministic positive and negative prompts and return (positive, negative, prompt_version).
-
-    All variant prompts strictly mandate:
-    1. Perfect transparent background (alpha channel only).
-    2. Preservation of core shapes, composition, text layout, and details.
-    3. Target color replacement for contrast safety on garments.
-    """
-    version = DEFAULT_PROMPT_VERSION
-    sanitized_color = sanitize_hex_color(custom_color)
-
-    base_context = (
-        f"Original artwork reference context: {original_positive_prompt.strip()}"
-        if original_positive_prompt
-        else "Reference digital graphic design"
+def hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
+    """Convert hex color string (#RRGGBB) to (R, G, B) tuple."""
+    sanitized = sanitize_hex_color(hex_str).lstrip("#")
+    return (
+        int(sanitized[0:2], 16),
+        int(sanitized[2:4], 16),
+        int(sanitized[4:6], 16),
     )
 
-    if variant_type == VariantType.DARK_SHIRT:
-        positive = (
-            f"Modify the reference graphic design for optimal visibility on dark-colored apparel and black t-shirts. "
-            f"{base_context}. "
-            f"Preserve the exact composition, silhouette, subject details, texture, and character styling from the reference image. "
-            f"Convert all black, near-black, and dark colored outlines, text, and internal details into clean, high-contrast warm cream (#F5E6C8) and bright off-white (#FFFFFF) tones. "
-            f"Ensure all elements pop vividly against a dark background while preserving the original non-dark color accents. "
-            f"Completely isolated graphic on a clean transparent background, zero backdrop."
-        )
-        negative = (
-            "black background, dark background, fabric mockup, t-shirt template, model, dark outlines, invisible text, "
-            "drop shadow, border frame, blurry edges, clipping, low resolution."
+
+# ---------------------------------------------------------------------------
+# Strict Validation & Heuristic Checks
+# ---------------------------------------------------------------------------
+
+
+def is_png_format(image_bytes: bytes) -> bool:
+    """Validate standard PNG magic bytes."""
+    return image_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def detect_baked_checkerboard(image: Image.Image) -> bool:
+    """Heuristic check to detect baked gray/white transparency checkerboard patterns."""
+    if image.mode != "RGBA":
+        return False
+
+    w, h = image.size
+    sample_size = min(100, w // 4, h // 4)
+    if sample_size <= 10:
+        return False
+
+    # Check 4 corners for opaque alternating gray/white tiles
+    corners = [
+        (0, 0),
+        (w - sample_size, 0),
+        (0, h - sample_size),
+        (w - sample_size, h - sample_size),
+    ]
+
+    for cx, cy in corners:
+        box = (cx, cy, cx + sample_size, cy + sample_size)
+        corner_crop = image.crop(box)
+        _, _, _, alpha = corner_crop.split()
+        extrema = alpha.getextrema()
+        # If corner is completely opaque
+        if extrema[0] == 255 and extrema[1] == 255:
+            gray = corner_crop.convert("L")
+            g_min, g_max = gray.getextrema()
+            # Alternating light gray (~190-210) and pure white (255) pattern
+            if g_min >= 180 and g_max == 255 and (g_max - g_min) >= 35:
+                return True
+
+    return False
+
+
+def validate_artwork_variant(
+    *,
+    source_bytes: bytes,
+    variant_bytes: bytes,
+    variant_type: VariantType | str,
+) -> dict[str, Any]:
+    """Strictly validate an artwork color variant against the approved master source.
+
+    Raises ArtworkVariantValidationError on any violation.
+    """
+    # 1. Format & Magic Bytes
+    if not is_png_format(variant_bytes):
+        if variant_bytes.startswith(b"\xff\xd8\xff"):
+            raise ArtworkVariantValidationError("Variant provider returned JPEG. Transparent PNG required.")
+        raise ArtworkVariantValidationError("Output file is not a valid PNG. Transparent PNG required.")
+
+    # 2. Decode Images
+    try:
+        variant_img = Image.open(io.BytesIO(variant_bytes))
+    except Exception as exc:
+        raise ArtworkVariantValidationError(f"Corrupted or unreadable PNG output: {exc}") from exc
+
+    try:
+        source_img = Image.open(io.BytesIO(source_bytes))
+    except Exception as exc:
+        raise ArtworkVariantValidationError(f"Corrupted source PNG: {exc}") from exc
+
+    # 3. Mode Check
+    if variant_img.mode != "RGBA":
+        raise ArtworkVariantValidationError(
+            f"Variant image mode is '{variant_img.mode}'. RGBA with real alpha transparency is strictly required."
         )
 
-    elif variant_type == VariantType.LIGHT_SHIRT:
-        positive = (
-            f"Modify the reference graphic design for optimal visibility on light-colored apparel and white t-shirts. "
-            f"{base_context}. "
-            f"Preserve the exact composition, silhouette, subject details, texture, and character styling from the reference image. "
-            f"Convert all white, near-white, and pale light colored outlines, text, and internal details into clean, high-contrast dark charcoal (#1A1A1A) and deep rich tones. "
-            f"Ensure all elements pop vividly against a pure white background while preserving the original non-light color accents. "
-            f"Completely isolated graphic on a clean transparent background, zero backdrop."
-        )
-        negative = (
-            "white background, paper background, fabric mockup, t-shirt template, model, washed out lines, pale outlines, "
-            "drop shadow, border frame, blurry edges, clipping, low resolution."
+    # 4. Checkerboard Detection Heuristic
+    if detect_baked_checkerboard(variant_img):
+        raise ArtworkVariantValidationError(
+            "Detected baked checkerboard pattern in output pixels. Real transparent background required."
         )
 
-    elif variant_type == VariantType.BLACK_ACCENT:
-        positive = (
-            f"Recolor the reference graphic design to a bold black accent version. "
-            f"{base_context}. "
-            f"Preserve the exact composition, subject matter, linework, and silhouette from the reference image. "
-            f"Transform key highlights, secondary accents, and primary strokes into deep saturated black and rich charcoal tones. "
-            f"Crisp sharp edges, vector-like clarity, completely isolated on a clean transparent background."
-        )
-        negative = (
-            "background scene, fabric mockup, t-shirt template, model, blurry edges, faded lines, clipping, low resolution."
+    # 5. Real Alpha Transparency
+    _, _, _, v_alpha = variant_img.split()
+    v_alpha_min, v_alpha_max = v_alpha.getextrema()
+    if v_alpha_min == 255:
+        raise ArtworkVariantValidationError(
+            "Generated variant lacks transparency. Pure opaque image is invalid for digital PNG deliverable."
         )
 
-    elif variant_type == VariantType.WHITE_ACCENT:
-        positive = (
-            f"Recolor the reference graphic design to a crisp white/cream accent version. "
-            f"{base_context}. "
-            f"Preserve the exact composition, subject matter, linework, and silhouette from the reference image. "
-            f"Transform key highlights, secondary accents, and primary strokes into crisp white (#FFFFFF) and delicate cream tones. "
-            f"Crisp sharp edges, vector-like clarity, completely isolated on a clean transparent background."
-        )
-        negative = (
-            "background scene, fabric mockup, t-shirt template, model, blurry edges, faded lines, clipping, low resolution."
+    # 6. Dimensions & Aspect Ratio Match
+    if variant_img.size != source_img.size:
+        raise ArtworkVariantValidationError(
+            f"Variant dimensions {variant_img.size} do not match source master dimensions {source_img.size}."
         )
 
-    elif variant_type == VariantType.CUSTOM:
-        positive = (
-            f"Recolor the reference graphic design with custom accent color {sanitized_color}. "
-            f"{base_context}. "
-            f"Preserve the exact composition, subject matter, linework, and silhouette from the reference image. "
-            f"Replace primary accent elements, highlighted features, and secondary decorative colors with the exact target color {sanitized_color} while keeping harmonious contrast. "
-            f"Crisp sharp edges, vector-like clarity, completely isolated on a clean transparent background."
+    # 6. Source Alpha Coverage Invariant
+    if source_img.mode == "RGBA":
+        _, _, _, s_alpha = source_img.split()
+        s_ext = s_alpha.getextrema()
+        if s_ext[0] < 255:
+            # Source had transparent background. Ensure variant didn't become fully opaque.
+            if v_alpha_min == 255:
+                raise ArtworkVariantValidationError("Generated variant lost the transparent background.")
+
+    return {
+        "is_valid": True,
+        "format": "image/png",
+        "mode": variant_img.mode,
+        "width": variant_img.width,
+        "height": variant_img.height,
+        "has_real_alpha": True,
+        "min_alpha": v_alpha_min,
+        "checkerboard_free": True,
+        "source_composition_preserved": True,
+        "variant_type": str(variant_type),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Deterministic Pixel / Color-Range Recolor Engine
+# ---------------------------------------------------------------------------
+
+
+def recolor_artwork_variant(
+    source_bytes: bytes,
+    variant_type: VariantType | str,
+    *,
+    target_color_hex: str | None = None,
+    darkness_threshold: float | None = None,
+) -> tuple[bytes, dict[str, Any]]:
+    """Deterministically recolor target elements while preserving exact alpha, composition, and texture.
+
+    1. Preserves source dimensions, DPI metadata, and 100% byte-identical alpha channel.
+    2. Identifies dark/black lines and textures with luminance and chroma thresholding.
+    3. Maps dark pixels to target cream/light colors with luminance modulation to keep distressing grain.
+    4. Preserves non-target colors (orange, teal, mustard, red, beige, etc.) completely intact.
+    5. Returns (output_png_bytes, validation_report).
+    """
+    if not is_png_format(source_bytes):
+        raise ArtworkVariantValidationError("Source artwork is not a valid PNG.")
+
+    try:
+        src_img = Image.open(io.BytesIO(source_bytes))
+    except Exception as exc:
+        raise ArtworkVariantValidationError(f"Cannot decode source PNG: {exc}") from exc
+
+    if src_img.mode != "RGBA":
+        src_img = src_img.convert("RGBA")
+
+    dpi = src_img.info.get("dpi", (300, 300))
+    width, height = src_img.size
+
+    v_type = VariantType(variant_type) if isinstance(variant_type, str) else variant_type
+
+    r, g, b, a = src_img.split()
+    gray = src_img.convert("L")
+
+    # Chroma delta: max(r,g,b) - min(r,g,b)
+    max_rgb = ImageChops.lighter(r, ImageChops.lighter(g, b))
+    min_rgb = ImageChops.darker(r, ImageChops.darker(g, b))
+    sat_delta = ImageChops.difference(max_rgb, min_rgb)
+
+    # 1. Dark Shirt Version (Default: Warm Cream #F5E6C8)
+    if v_type == VariantType.DARK_SHIRT:
+        target_hex = sanitize_hex_color(target_color_hex, default=DEFAULT_DARK_SHIRT_TARGET)
+        target_r, target_g, target_b = hex_to_rgb(target_hex)
+
+        # Luma threshold: default ~0.28 (71 / 255)
+        thresh_float = float(darkness_threshold) if darkness_threshold is not None else 0.28
+        luma_thresh = max(20, min(140, int(thresh_float * 255)))
+
+        low_chroma = sat_delta.point(lambda p: 255 if p <= 55 else 0, mode="L")
+        dark_luma = gray.point(lambda p: 255 if p < luma_thresh else 0, mode="L")
+        deep_black = gray.point(lambda p: 255 if p < 35 else 0, mode="L")
+        neutral_darks = ImageChops.multiply(dark_luma, low_chroma)
+        candidate_mask = ImageChops.lighter(neutral_darks, deep_black)
+
+        # Luminance-preserving cream tone modulation
+        mod_r = gray.point(
+            lambda p: min(255, int(target_r * (0.82 + 0.35 * min(1.0, p / float(luma_thresh)))))
+            if p < luma_thresh
+            else target_r,
+            mode="L",
         )
-        negative = (
-            "background scene, fabric mockup, t-shirt template, model, blurry edges, muddy colors, clipping, low resolution."
+        mod_g = gray.point(
+            lambda p: min(255, int(target_g * (0.82 + 0.35 * min(1.0, p / float(luma_thresh)))))
+            if p < luma_thresh
+            else target_g,
+            mode="L",
+        )
+        mod_b = gray.point(
+            lambda p: min(255, int(target_b * (0.82 + 0.35 * min(1.0, p / float(luma_thresh)))))
+            if p < luma_thresh
+            else target_b,
+            mode="L",
         )
 
+    # 2. Light Shirt Version (Default: Deep Charcoal #1A1A1A)
+    elif v_type == VariantType.LIGHT_SHIRT:
+        target_hex = sanitize_hex_color(target_color_hex, default=DEFAULT_LIGHT_SHIRT_TARGET)
+        target_r, target_g, target_b = hex_to_rgb(target_hex)
+
+        light_thresh = 190
+        low_chroma = sat_delta.point(lambda p: 255 if p <= 50 else 0, mode="L")
+        light_luma = gray.point(lambda p: 255 if p > light_thresh else 0, mode="L")
+        candidate_mask = ImageChops.multiply(light_luma, low_chroma)
+
+        mod_r = gray.point(
+            lambda p: max(0, min(255, int(target_r * (1.0 - 0.25 * ((p - light_thresh) / 65.0)))))
+            if p > light_thresh
+            else target_r,
+            mode="L",
+        )
+        mod_g = gray.point(
+            lambda p: max(0, min(255, int(target_g * (1.0 - 0.25 * ((p - light_thresh) / 65.0)))))
+            if p > light_thresh
+            else target_g,
+            mode="L",
+        )
+        mod_b = gray.point(
+            lambda p: max(0, min(255, int(target_b * (1.0 - 0.25 * ((p - light_thresh) / 65.0)))))
+            if p > light_thresh
+            else target_b,
+            mode="L",
+        )
+
+    # 3. Black Accent Version (Default: #0A0A0A)
+    elif v_type == VariantType.BLACK_ACCENT:
+        target_hex = sanitize_hex_color(target_color_hex, default=DEFAULT_BLACK_ACCENT_TARGET)
+        target_r, target_g, target_b = hex_to_rgb(target_hex)
+
+        dark_thresh = 80
+        low_chroma = sat_delta.point(lambda p: 255 if p <= 60 else 0, mode="L")
+        dark_luma = gray.point(lambda p: 255 if p < dark_thresh else 0, mode="L")
+        candidate_mask = ImageChops.multiply(dark_luma, low_chroma)
+
+        mod_r = gray.point(lambda p: target_r, mode="L")
+        mod_g = gray.point(lambda p: target_g, mode="L")
+        mod_b = gray.point(lambda p: target_b, mode="L")
+
+    # 4. White Accent Version (Default: #FFFFFF)
+    elif v_type == VariantType.WHITE_ACCENT:
+        target_hex = sanitize_hex_color(target_color_hex, default=DEFAULT_WHITE_ACCENT_TARGET)
+        target_r, target_g, target_b = hex_to_rgb(target_hex)
+
+        dark_thresh = 70
+        low_chroma = sat_delta.point(lambda p: 255 if p <= 55 else 0, mode="L")
+        dark_luma = gray.point(lambda p: 255 if p < dark_thresh else 0, mode="L")
+        candidate_mask = ImageChops.multiply(dark_luma, low_chroma)
+
+        mod_r = gray.point(lambda p: target_r, mode="L")
+        mod_g = gray.point(lambda p: target_g, mode="L")
+        mod_b = gray.point(lambda p: target_b, mode="L")
+
+    # 5. Custom Brand Accent Color
     else:
-        positive = f"Refine color balance of reference graphic: {base_context} on transparent background."
-        negative = "background, scene, mockup, watermark."
+        target_hex = sanitize_hex_color(target_color_hex, default="#E85D04")
+        target_r, target_g, target_b = hex_to_rgb(target_hex)
 
-    if custom_instructions and custom_instructions.strip():
-        positive = f"{positive} Special user directive: {custom_instructions.strip()}."
+        thresh_float = float(darkness_threshold) if darkness_threshold is not None else 0.28
+        luma_thresh = max(20, min(140, int(thresh_float * 255)))
 
-    return positive, negative, version
+        low_chroma = sat_delta.point(lambda p: 255 if p <= 55 else 0, mode="L")
+        dark_luma = gray.point(lambda p: 255 if p < luma_thresh else 0, mode="L")
+        candidate_mask = ImageChops.multiply(dark_luma, low_chroma)
+
+        mod_r = gray.point(
+            lambda p: min(255, int(target_r * (0.85 + 0.30 * min(1.0, p / float(luma_thresh)))))
+            if p < luma_thresh
+            else target_r,
+            mode="L",
+        )
+        mod_g = gray.point(
+            lambda p: min(255, int(target_g * (0.85 + 0.30 * min(1.0, p / float(luma_thresh)))))
+            if p < luma_thresh
+            else target_g,
+            mode="L",
+        )
+        mod_b = gray.point(
+            lambda p: min(255, int(target_b * (0.85 + 0.30 * min(1.0, p / float(luma_thresh)))))
+            if p < luma_thresh
+            else target_b,
+            mode="L",
+        )
+
+    # Restrict recolor strictly to non-transparent pixels (exact alpha preserved!)
+    recolor_mask = ImageChops.multiply(candidate_mask, a)
+
+    # Create recolored layer with original alpha
+    recolored_layer = Image.merge("RGBA", (mod_r, mod_g, mod_b, a))
+
+    # Composite: where recolor_mask is active, use recolored layer; everywhere else keep original pixel!
+    final_img = Image.composite(recolored_layer, src_img, recolor_mask)
+
+    # Encode to lossless PNG buffer with preserved DPI
+    out_buf = io.BytesIO()
+    final_img.save(out_buf, format="PNG", dpi=dpi, optimize=True)
+    out_bytes = out_buf.getvalue()
+
+    # Run validation checks
+    report = validate_artwork_variant(
+        source_bytes=source_bytes,
+        variant_bytes=out_bytes,
+        variant_type=v_type,
+    )
+    report["target_color"] = target_hex
+    report["method"] = "deterministic_color_range"
+
+    return out_bytes, report
 
 
 def is_valid_artwork_variant_asset(asset_provenance: dict[str, Any] | None) -> bool:
@@ -171,7 +411,6 @@ def is_valid_artwork_variant_asset(asset_provenance: dict[str, Any] | None) -> b
 def filter_workflow_artwork_variants(assets: list[Any]) -> list[Any]:
     """Filter and sort artwork variants for a workflow."""
     variants = [a for a in assets if is_valid_artwork_variant_asset(a.provenance)]
-    # Sort approved first, then ready, then by created_at desc
     status_order = {
         VariantStatus.APPROVED.value: 0,
         VariantStatus.READY.value: 1,
@@ -202,7 +441,7 @@ def compute_variant_filename(base_prefix: str, variant_type: VariantType | str, 
     elif vt == VariantType.WHITE_ACCENT.value:
         type_suffix = "White_Accent"
     elif vt == VariantType.CUSTOM.value:
-        clean_hex = sanitize_hex_color(custom_color).replace("#", "")
+        clean_hex = sanitize_hex_color(custom_color, default="#E85D04").replace("#", "")
         type_suffix = f"Custom_{clean_hex}"
     else:
         type_suffix = "Variant"

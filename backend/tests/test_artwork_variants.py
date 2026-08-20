@@ -1,13 +1,15 @@
-"""Unit and integration tests for Dark-Shirt / Light-Shirt Color Variant Generation."""
+"""Unit, integration, and regression tests for Deterministic Artwork Color Variant Engine and Quality Validation."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import io
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
+from PIL import Image, ImageDraw
 
 from app.api.routes.artwork_variants import (
     approve_artwork_variant_endpoint,
@@ -21,56 +23,57 @@ from app.api.schemas import CreateArtworkVariantRequest
 from app.application.artwork_variants import ArtworkVariantError, ArtworkVariantService
 from app.application.package import CustomerPackageService
 from app.domain.artwork_variants import (
+    DEFAULT_DARK_SHIRT_TARGET,
+    ArtworkVariantValidationError,
     VariantStatus,
     VariantType,
-    build_variant_prompt,
     compute_variant_filename,
+    detect_baked_checkerboard,
     filter_workflow_artwork_variants,
+    is_png_format,
     is_valid_artwork_variant_asset,
+    recolor_artwork_variant,
     sanitize_hex_color,
+    validate_artwork_variant,
 )
 from app.infrastructure.models import Asset, ListingDraft, ProductWorkflow, User
-from app.ports.providers import ImageCandidate, ImageResponse
 from app.providers.fake import FakeImageProvider
+
+
+def _create_sample_master_png() -> bytes:
+    """Create a realistic sample RGBA master PNG with transparent background, black lines, and vibrant colors."""
+    img = Image.new("RGBA", (800, 800), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    # 1. Black outline & text (10, 10, 10, 255)
+    draw.rectangle([50, 50, 200, 200], fill=(10, 10, 10, 255))
+    # 2. Dark brown vintage line (40, 30, 20, 255)
+    draw.rectangle([250, 50, 400, 200], fill=(40, 30, 20, 255))
+    # 3. Vibrant Orange petal (240, 100, 20, 255)
+    draw.rectangle([450, 50, 600, 200], fill=(240, 100, 20, 255))
+    # 4. Vibrant Teal leaf (20, 160, 150, 255)
+    draw.rectangle([50, 250, 200, 400], fill=(20, 160, 150, 255))
+    # 5. Crisp White highlight (255, 255, 255, 255)
+    draw.rectangle([250, 250, 400, 400], fill=(255, 255, 255, 255))
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", dpi=(300, 300))
+    return buf.getvalue()
 
 
 class TestArtworkVariantsDomain:
     def test_sanitize_hex_color(self) -> None:
         assert sanitize_hex_color("#FF5733") == "#FF5733"
         assert sanitize_hex_color("FF5733") == "#FF5733"
-        assert sanitize_hex_color("#fff") == "#FFF"
+        assert sanitize_hex_color("#fff") == "#FFFFFF"
         assert sanitize_hex_color("invalid") == "#FFFFFF"
         assert sanitize_hex_color(None) == "#FFFFFF"
 
-    def test_build_variant_prompt_dark_shirt(self) -> None:
-        pos, neg, version = build_variant_prompt(
-            VariantType.DARK_SHIRT,
-            original_positive_prompt="A cozy sleeping fox on transparent background",
-        )
-        assert "dark-colored apparel and black t-shirts" in pos
-        assert "warm cream" in pos or "#F5E6C8" in pos
-        assert "transparent background" in pos
-        assert "black background" in neg
-        assert version == "color-variant-v1"
-
-    def test_build_variant_prompt_light_shirt(self) -> None:
-        pos, neg, version = build_variant_prompt(
-            VariantType.LIGHT_SHIRT,
-            original_positive_prompt="A cozy sleeping fox on transparent background",
-        )
-        assert "light-colored apparel and white t-shirts" in pos
-        assert "dark charcoal" in pos or "#1A1A1A" in pos
-        assert "transparent background" in pos
-        assert "white background" in neg
-
-    def test_build_variant_prompt_custom_color(self) -> None:
-        pos, neg, version = build_variant_prompt(
-            VariantType.CUSTOM,
-            custom_color="#E85D04",
-            original_positive_prompt="Vintage sunset graphic",
-        )
-        assert "#E85D04" in pos
-        assert "custom accent color" in pos
+    def test_is_png_format(self) -> None:
+        png_bytes = _create_sample_master_png()
+        assert is_png_format(png_bytes) is True
+        assert is_png_format(b"\xff\xd8\xff\xe0\x00\x10JFIF") is False
+        assert is_png_format(b"RIFF....WEBP") is False
 
     def test_is_valid_artwork_variant_asset(self) -> None:
         assert is_valid_artwork_variant_asset({"kind": "artwork_variant", "variant_type": "dark_shirt"}) is True
@@ -101,6 +104,124 @@ class TestArtworkVariantsDomain:
         assert filtered[1] == v2
 
 
+class TestDeterministicRecolorEngine:
+    def test_recolor_dark_shirt_preserves_alpha_and_colors(self) -> None:
+        master_bytes = _create_sample_master_png()
+        variant_bytes, report = recolor_artwork_variant(
+            source_bytes=master_bytes,
+            variant_type=VariantType.DARK_SHIRT,
+            target_color_hex=DEFAULT_DARK_SHIRT_TARGET,
+        )
+
+        assert is_png_format(variant_bytes) is True
+        assert report["is_valid"] is True
+        assert report["has_real_alpha"] is True
+        assert report["checkerboard_free"] is True
+
+        out_img = Image.open(io.BytesIO(variant_bytes))
+        src_img = Image.open(io.BytesIO(master_bytes))
+
+        assert out_img.size == src_img.size
+        assert out_img.mode == "RGBA"
+
+        # 1. Byte-identical alpha channel
+        _, _, _, src_a = src_img.split()
+        _, _, _, out_a = out_img.split()
+        assert out_a.tobytes() == src_a.tobytes()
+
+        # 2. Transparent background preserved
+        assert out_img.getpixel((10, 10)) == (0, 0, 0, 0)
+
+        # 3. Black line recolored to warm cream
+        recolored_black = out_img.getpixel((100, 100))
+        assert recolored_black[0] > 190  # R
+        assert recolored_black[1] > 180  # G
+        assert recolored_black[2] > 150  # B
+        assert recolored_black[3] == 255  # Alpha intact
+
+        # 4. Vibrant orange preserved exactly
+        orange_pixel = out_img.getpixel((500, 100))
+        assert orange_pixel == (240, 100, 20, 255)
+
+        # 5. Vibrant teal preserved exactly
+        teal_pixel = out_img.getpixel((100, 300))
+        assert teal_pixel == (20, 160, 150, 255)
+
+    def test_recolor_light_shirt_recolors_white_to_charcoal(self) -> None:
+        master_bytes = _create_sample_master_png()
+        variant_bytes, report = recolor_artwork_variant(
+            source_bytes=master_bytes,
+            variant_type=VariantType.LIGHT_SHIRT,
+        )
+
+        out_img = Image.open(io.BytesIO(variant_bytes))
+
+        # White highlight (250, 250) recolored to dark charcoal
+        charcoal_pixel = out_img.getpixel((300, 300))
+        assert charcoal_pixel[0] < 50
+        assert charcoal_pixel[1] < 50
+        assert charcoal_pixel[2] < 50
+        assert charcoal_pixel[3] == 255
+
+        # Vibrant orange preserved
+        assert out_img.getpixel((500, 100)) == (240, 100, 20, 255)
+
+
+class TestVariantValidationGuards:
+    def test_reject_jpeg_format_with_explicit_error(self) -> None:
+        master_bytes = _create_sample_master_png()
+        jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xff\xdb"
+
+        with pytest.raises(ArtworkVariantValidationError, match="Variant provider returned JPEG. Transparent PNG required."):
+            validate_artwork_variant(
+                source_bytes=master_bytes,
+                variant_bytes=jpeg_bytes,
+                variant_type=VariantType.DARK_SHIRT,
+            )
+
+    def test_reject_missing_alpha_with_explicit_error(self) -> None:
+        master_bytes = _create_sample_master_png()
+
+        # Create opaque RGB image without alpha
+        opaque_img = Image.new("RGBA", (800, 800), (255, 255, 255, 255))
+        buf = io.BytesIO()
+        opaque_img.save(buf, format="PNG")
+        opaque_png_bytes = buf.getvalue()
+
+        with pytest.raises(ArtworkVariantValidationError, match="Generated variant lacks transparency"):
+            validate_artwork_variant(
+                source_bytes=master_bytes,
+                variant_bytes=opaque_png_bytes,
+                variant_type=VariantType.DARK_SHIRT,
+            )
+
+    def test_reject_baked_checkerboard_pattern(self) -> None:
+        # Create an image with baked gray/white checkerboard in corner
+        w, h = 800, 800
+        img = Image.new("RGBA", (w, h), (255, 255, 255, 255))
+        draw = ImageDraw.Draw(img)
+
+        # Draw alternating gray/white 10x10 squares in corner (0,0) to (100,100)
+        for y in range(0, 100, 10):
+            for x in range(0, 100, 10):
+                color = (204, 204, 204, 255) if ((x // 10 + y // 10) % 2 == 0) else (255, 255, 255, 255)
+                draw.rectangle([x, y, x + 9, y + 9], fill=color)
+
+        assert detect_baked_checkerboard(img) is True
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        checker_bytes = buf.getvalue()
+
+        master_bytes = _create_sample_master_png()
+        with pytest.raises(ArtworkVariantValidationError, match="Detected baked checkerboard pattern"):
+            validate_artwork_variant(
+                source_bytes=master_bytes,
+                variant_bytes=checker_bytes,
+                variant_type=VariantType.DARK_SHIRT,
+            )
+
+
 class TestArtworkVariantService:
     @pytest.mark.asyncio
     async def test_generate_variant_creates_derived_asset(self) -> None:
@@ -112,12 +233,14 @@ class TestArtworkVariantService:
         workflow.id = workflow_id
         workflow.owner_id = owner_id
 
+        master_bytes = _create_sample_master_png()
+
         master_asset = MagicMock(spec=Asset)
         master_asset.id = master_asset_id
         master_asset.workflow_id = workflow_id
         master_asset.storage_key = "production/wf/master.png"
-        master_asset.width = 4500
-        master_asset.height = 5400
+        master_asset.width = 800
+        master_asset.height = 800
         master_asset.mime_type = "image/png"
         master_asset.provenance = {"profile": "etsy-png-standard"}
 
@@ -131,7 +254,7 @@ class TestArtworkVariantService:
         uow.commit = AsyncMock()
 
         storage = MagicMock()
-        storage.get = AsyncMock(return_value=b"\x89PNG\r\n\x1a\nfake-master-bytes")
+        storage.get = AsyncMock(return_value=master_bytes)
         storage.put = AsyncMock(return_value=MagicMock(storage_key=f"workflows/{workflow_id}/variants/1/dark_shirt.png"))
 
         fake_provider = FakeImageProvider()
@@ -150,6 +273,7 @@ class TestArtworkVariantService:
         assert variant.provenance["kind"] == "artwork_variant"
         assert variant.provenance["variant_type"] == "dark_shirt"
         assert variant.provenance["variant_status"] == VariantStatus.READY.value
+        assert variant.quality_check["is_valid"] is True
         uow.assets.add.assert_called_once()
         uow.commit.assert_called_once()
 
@@ -245,12 +369,14 @@ class TestArtworkVariantRoutes:
         workflow.id = workflow_id
         workflow.owner_id = owner_id
 
+        master_bytes = _create_sample_master_png()
+
         master_asset = MagicMock(spec=Asset)
         master_asset.id = master_id
         master_asset.workflow_id = workflow_id
         master_asset.storage_key = "production/wf/master.png"
-        master_asset.width = 4500
-        master_asset.height = 5400
+        master_asset.width = 800
+        master_asset.height = 800
         master_asset.mime_type = "image/png"
         master_asset.provenance = {"profile": "etsy-png-standard"}
 
@@ -264,7 +390,7 @@ class TestArtworkVariantRoutes:
         uow.commit = AsyncMock()
 
         storage = MagicMock()
-        storage.get = AsyncMock(return_value=b"\x89PNG\r\n\x1a\nmaster-bytes")
+        storage.get = AsyncMock(return_value=master_bytes)
         storage.put = AsyncMock(return_value=MagicMock(storage_key=f"workflows/{workflow_id}/variants/1/dark_shirt.png"))
         storage.signed_url = AsyncMock(return_value="https://storage.test/dark_shirt.png")
 
@@ -272,7 +398,7 @@ class TestArtworkVariantRoutes:
         settings.provider_mode = "fake"
 
         # 1. Create Variant
-        req = CreateArtworkVariantRequest(variant_type="dark_shirt")
+        req = CreateArtworkVariantRequest(variant_type="dark_shirt", target_color="#F5E6C8")
         resp = await create_artwork_variant_endpoint(
             workflow_id=workflow_id,
             payload=req,
@@ -294,8 +420,8 @@ class TestArtworkVariantRoutes:
         variant_asset.storage_key = "workflows/1/variants/1/dark.png"
         variant_asset.byte_size = 1234
         variant_asset.checksum_sha256 = "a" * 64
-        variant_asset.width = 4500
-        variant_asset.height = 5400
+        variant_asset.width = 800
+        variant_asset.height = 800
         variant_asset.has_alpha = True
         variant_asset.mime_type = "image/png"
         variant_asset.created_at = datetime.now(UTC)
@@ -306,6 +432,7 @@ class TestArtworkVariantRoutes:
             "variant_status": "ready",
             "title": "Dark Shirt Version",
         }
+        variant_asset.quality_check = {"is_valid": True}
 
         uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset, variant_asset])
         list_resp = await list_artwork_variants_endpoint(
@@ -342,8 +469,8 @@ class TestCustomerPackageWithVariants:
         master_asset.id = master_id
         master_asset.workflow_id = workflow_id
         master_asset.storage_key = "production/wf/master.png"
-        master_asset.width = 4500
-        master_asset.height = 5400
+        master_asset.width = 800
+        master_asset.height = 800
         master_asset.mime_type = "image/png"
         master_asset.created_at = datetime(2026, 1, 1, tzinfo=UTC)
         master_asset.provenance = {"profile": "etsy-png-standard"}
@@ -387,11 +514,7 @@ class TestCustomerPackageWithVariants:
         uow.owner_settings.get_for_user = AsyncMock(return_value=None)
 
         storage = MagicMock()
-        # Return 1x1 valid PNG bytes
-        valid_png = (
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4"
-            b"\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa745a\x00\x00\x00\x00IEND\xaeB`\x82"
-        )
+        valid_png = _create_sample_master_png()
         storage.get = AsyncMock(return_value=valid_png)
         storage.put = AsyncMock(return_value=MagicMock(storage_key="workflows/wf/packages/pkg.zip"))
 

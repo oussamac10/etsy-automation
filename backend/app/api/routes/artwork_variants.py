@@ -26,6 +26,7 @@ router = APIRouter(prefix="/workflows/{workflow_id}/artwork-variants", tags=["ar
 def to_variant_response(asset: Asset, url: str | None = None) -> ArtworkVariantResponse:
     """Format an Asset domain model into an ArtworkVariantResponse."""
     prov = asset.provenance or {}
+    validation_report = asset.quality_check or prov.get("validation_report")
     return ArtworkVariantResponse(
         id=asset.id,
         workflow_id=asset.workflow_id,
@@ -44,6 +45,7 @@ def to_variant_response(asset: Asset, url: str | None = None) -> ArtworkVariantR
         custom_instructions=str(prov.get("custom_instructions")) if prov.get("custom_instructions") else None,
         prompt_version=str(prov.get("prompt_version")) if prov.get("prompt_version") else None,
         url=url,
+        validation_report=validation_report if isinstance(validation_report, dict) else None,
         created_at=asset.created_at or datetime.now(UTC),
     )
 
@@ -136,7 +138,7 @@ async def create_artwork_variant_endpoint(
             workflow_id=workflow_id,
             owner_id=user.id,
             variant_type=VariantType(payload.variant_type),
-            custom_color=payload.custom_color,
+            custom_color=payload.target_color or payload.custom_color,
             custom_instructions=payload.custom_instructions,
             uow=uow,
         )

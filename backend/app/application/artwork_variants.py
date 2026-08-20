@@ -13,12 +13,14 @@ from app.application.unit_of_work import UnitOfWork
 from app.domain.artwork_variants import (
     DEFAULT_PROMPT_VERSION,
     VARIANT_TYPE_LABELS,
+    ArtworkVariantValidationError,
     VariantStatus,
     VariantType,
-    build_variant_prompt,
     filter_workflow_artwork_variants,
     is_valid_artwork_variant_asset,
+    recolor_artwork_variant,
     sanitize_hex_color,
+    validate_artwork_variant,
 )
 from app.domain.errors import DomainError, EntityNotFoundError
 from app.domain.production_resolver import get_production_master_asset
@@ -102,50 +104,27 @@ class ArtworkVariantService:
         if not master_bytes:
             raise ArtworkVariantError("Failed to load master PNG bytes from storage.")
 
-        # 2. Extract original positive prompt if available
-        original_prompt_text: str | None = None
-        concepts = await uow.concepts.list_for_workflow(workflow_id)
-        if concepts:
-            prompts = await uow.concepts.prompts(concepts[0].id)
-            if prompts:
-                original_prompt_text = prompts[-1].positive_prompt
-
-        # 3. Build deterministic variant prompt
-        positive_prompt, negative_prompt, prompt_version = build_variant_prompt(
-            v_type,
-            custom_color=sanitized_color,
-            original_positive_prompt=original_prompt_text,
-            custom_instructions=custom_instructions,
-        )
-
-        # 4. Generate image using image provider with reference image
+        # 2. Deterministic Pixel/Color-Range Recolor Engine (Exact Alpha & Composition Preserved)
         variant_asset_id = uuid.uuid4()
         idempotency_key = f"variant-{workflow_id}-{master_asset.id}-{v_type.value}-{variant_asset_id.hex[:8]}"
 
-        img_request = ImageRequest(
-            positive_prompt=positive_prompt,
-            negative_prompt=negative_prompt,
-            width=master_asset.width or 4500,
-            height=master_asset.height or 5400,
-            quality="high",
-            idempotency_key=idempotency_key,
-            output_format="png",
-            transparent_background=True,
-            candidate_count=1,
-            reference_image_bytes=master_bytes,
-            reference_image_mime_type="image/png",
-            strength=0.25,
-        )
+        try:
+            variant_bytes, validation_report = recolor_artwork_variant(
+                source_bytes=master_bytes,
+                variant_type=v_type,
+                target_color_hex=sanitized_color,
+            )
+        except ArtworkVariantValidationError as val_err:
+            logger.error("artwork_variant_validation_failed", error=str(val_err), workflow_id=str(workflow_id))
+            raise ArtworkVariantError(f"Validation failed: {val_err}") from val_err
+        except Exception as exc:
+            logger.error("artwork_variant_recolor_failed", error=str(exc), workflow_id=str(workflow_id))
+            raise ArtworkVariantError(f"Failed to recolor artwork: {exc}") from exc
 
-        img_response = await self._image_provider.generate(img_request)
-        if not img_response.candidates or not img_response.image_bytes:
-            raise ArtworkVariantError("Image provider returned empty result for color variant.")
-
-        variant_bytes = img_response.image_bytes
-        variant_mime = img_response.mime_type or "image/png"
+        variant_mime = "image/png"
         variant_sha256 = hashlib.sha256(variant_bytes).hexdigest()
 
-        # 5. Store in S3 under workflow variants directory
+        # 3. Store in S3 under workflow variants directory
         storage_key = f"workflows/{workflow_id}/variants/{variant_asset_id}/{v_type.value}.png"
         stored_obj = await self._storage.put(storage_key, variant_bytes, content_type=variant_mime)
 
@@ -156,15 +135,16 @@ class ArtworkVariantService:
             "variant_type": v_type.value,
             "variant_status": VariantStatus.READY.value,
             "title": variant_title,
-            "custom_color": sanitized_color,
+            "custom_color": sanitized_color or validation_report.get("target_color"),
             "custom_instructions": custom_instructions,
-            "prompt_version": prompt_version,
+            "prompt_version": DEFAULT_PROMPT_VERSION,
             "source_asset_id": str(master_asset.id),
-            "generated_model": img_response.model,
+            "generated_model": "deterministic_recolor_engine_v2",
             "idempotency_key": idempotency_key,
+            "validation_report": validation_report,
         }
 
-        # 6. Persist new derived Asset row
+        # 4. Persist new derived Asset row
         variant_asset = Asset(
             id=variant_asset_id,
             workflow_id=workflow_id,
@@ -174,11 +154,11 @@ class ArtworkVariantService:
             mime_type=variant_mime,
             byte_size=len(variant_bytes),
             checksum_sha256=variant_sha256,
-            width=master_asset.width or 4500,
-            height=master_asset.height or 5400,
+            width=validation_report.get("width") or master_asset.width or 4500,
+            height=validation_report.get("height") or master_asset.height or 5400,
             has_alpha=True,
             has_transparent_pixels=True,
-            quality_check={"dimensions_ok": True, "transparency_ok": True},
+            quality_check=validation_report,
             provenance=provenance_data,
         )
         await uow.assets.add(variant_asset)
