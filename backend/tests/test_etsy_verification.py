@@ -583,3 +583,64 @@ class TestEtsyVerificationService:
         assert "404" in report.error_message
         # Verify reconciliation was invoked and cleared draft state
         uow.listing_drafts.clear_etsy_draft_state.assert_awaited_once()
+
+    def test_materials_removed_on_etsy_reported_as_different(self) -> None:
+        """When a material is removed on Etsy, verification reports 'different' with missing material item."""
+        expected_properties = {
+            "148789511893": {
+                "property_id": 148789511893,
+                "property_name": "Materials",
+                "values": ["Canvas", "Paper"],
+            }
+        }
+        res = compare_etsy_draft(
+            workflow_id="wf-101",
+            listing_id="4559404921",
+            expected_title="Title",
+            expected_description="Desc",
+            expected_tags=["tag"],
+            expected_price_minor=499,
+            expected_currency="EUR",
+            expected_quantity=999,
+            expected_sku="SKU",
+            expected_taxonomy_id=77,
+            expected_taxonomy_path="Digital",
+            expected_shop_section_id=None,
+            expected_shop_section_name=None,
+            expected_should_auto_renew=False,
+            expected_properties=expected_properties,
+            expected_mockup_count=1,
+            expected_file_count=1,
+            expected_filenames=["file.zip"],
+            expected_ai_disclosure=None,
+            expected_shopping_cart_summary=None,
+            actual_listing={
+                "listing_id": 4559404921,
+                "state": "draft",
+                "title": "Title",
+                "description": "Desc",
+                "tags": ["tag"],
+                "price": {"amount": 499, "divisor": 100, "currency_code": "EUR"},
+                "quantity": 999,
+                "sku": "SKU",
+                "taxonomy_id": 77,
+                "who_made": "i_did",
+                "when_made": "2020_2026",
+                "listing_type": "download",
+                "is_supply": False,
+                "materials": ["Canvas"],  # User removed 'Paper' on Etsy
+            },
+            actual_inventory=None,
+            actual_images=[{"listing_image_id": "img-1", "rank": 1}],
+            actual_files=[{"listing_file_id": "f-1", "filename": "file.zip", "rank": 1}],
+            actual_properties=[{"property_id": 148789511893, "property_name": "Materials", "values": ["Canvas"]}],
+        )
+
+        assert res.status == EtsyOverallVerificationStatus.NEEDS_ATTENTION
+        attr_check = next(c for c in res.checks if c.key == "attributes")
+        assert attr_check.status == EtsyVerificationCheckStatus.DIFFERENT
+        assert "Paper" in attr_check.message
+        prop_item = attr_check.details["properties"][0]
+        assert prop_item["status"] == "different"
+        assert prop_item["missing"] == ["Paper"]
+

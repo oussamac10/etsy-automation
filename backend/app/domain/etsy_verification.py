@@ -607,19 +607,39 @@ def compare_etsy_draft(
                 )
             )
 
-    # 13. Category Attributes / Properties
+    # 13. Category Attributes / Properties & Materials
     expected_props = expected_properties or {}
     actual_props_map: dict[int, list[str]] = {}
+    actual_props_names: dict[int, str] = {}
+
     if actual_properties:
         for p in actual_properties:
-            pid = p.get("property_id")
-            if pid is not None:
-                actual_props_map[int(pid)] = [str(v) for v in p.get("values", [])]
+            pid_raw = p.get("property_id")
+            if pid_raw is not None:
+                try:
+                    p_int = int(pid_raw)
+                    raw_v = p.get("values") or []
+                    actual_props_map[p_int] = [str(v) for v in raw_v if v is not None]
+                    if p.get("property_name"):
+                        actual_props_names[p_int] = str(p["property_name"])
+                except ValueError:
+                    pass
+
+    # If Etsy listing returns top-level materials array, map it to common Material property IDs
+    raw_materials = actual_listing.get("materials")
+    if isinstance(raw_materials, list) and raw_materials:
+        mat_strings = [str(m) for m in raw_materials if m]
+        # Common Etsy Material property IDs: 148789511893 (digital/graphics), 148789511892, etc.
+        for common_mat_pid in (148789511893, 148789511892, 506):
+            if common_mat_pid not in actual_props_map or not actual_props_map[common_mat_pid]:
+                actual_props_map[common_mat_pid] = mat_strings
+                actual_props_names[common_mat_pid] = "Materials"
 
     total_expected_props = len(expected_props)
     if total_expected_props > 0:
         matched_props = 0
         prop_details: list[dict[str, Any]] = []
+        diff_summaries: list[str] = []
 
         for p_id_str, val in expected_props.items():
             try:
@@ -627,41 +647,91 @@ def compare_etsy_draft(
             except ValueError:
                 continue
 
-            exp_vals = val if isinstance(val, list) else [val]
-            exp_vals_str = [str(v) for v in exp_vals if v is not None]
-
-            act_vals = actual_props_map.get(pid, [])
-            # Check overlap
-            if set(exp_vals_str).issubset(set(act_vals)) and act_vals:
-                matched_props += 1
-                prop_details.append({"property_id": pid, "status": "synced", "expected": exp_vals_str, "actual": act_vals})
-            elif act_vals:
-                prop_details.append({"property_id": pid, "status": "different", "expected": exp_vals_str, "actual": act_vals})
+            # Extract expected values and property display name
+            prop_name: str | None = None
+            if isinstance(val, dict):
+                prop_name = val.get("property_name") or val.get("name") or val.get("display_name")
+                if "values" in val and isinstance(val["values"], list):
+                    exp_vals = [str(v) for v in val["values"] if v is not None]
+                elif "value" in val and val["value"] is not None:
+                    exp_vals = [str(val["value"])]
+                else:
+                    exp_vals = []
+            elif isinstance(val, list):
+                exp_vals = [str(v) for v in val if v is not None]
+            elif val is not None:
+                exp_vals = [str(val)]
             else:
-                prop_details.append({"property_id": pid, "status": "missing", "expected": exp_vals_str, "actual": []})
+                exp_vals = []
+
+            resolved_name = prop_name or actual_props_names.get(pid) or f"Property #{pid}"
+
+            # If this is materials property (e.g. 148789511893) and actual_props_map is empty, check raw materials
+            act_vals = list(actual_props_map.get(pid, []))
+            if not act_vals and "material" in resolved_name.lower() and isinstance(raw_materials, list):
+                act_vals = [str(m) for m in raw_materials if m]
+
+            exp_norm = {v.lower().strip(): v for v in exp_vals if v.strip()}
+            act_norm = {a.lower().strip(): a for a in act_vals if a.strip()}
+
+            missing_on_etsy = [orig for key, orig in exp_norm.items() if key not in act_norm]
+            extra_on_etsy = [orig for key, orig in act_norm.items() if key not in exp_norm]
+
+            if set(exp_norm.keys()) == set(act_norm.keys()) and exp_norm:
+                matched_props += 1
+                prop_details.append({
+                    "property_id": pid,
+                    "property_name": resolved_name,
+                    "status": "synced",
+                    "expected": exp_vals,
+                    "actual": act_vals,
+                })
+            elif act_vals:
+                diff_msg = f"{resolved_name} (Missing on Etsy: {', '.join(missing_on_etsy)})" if missing_on_etsy else f"{resolved_name} differs"
+                diff_summaries.append(diff_msg)
+                prop_details.append({
+                    "property_id": pid,
+                    "property_name": resolved_name,
+                    "status": "different",
+                    "expected": exp_vals,
+                    "actual": act_vals,
+                    "missing": missing_on_etsy,
+                    "unexpected": extra_on_etsy,
+                })
+            else:
+                diff_summaries.append(f"{resolved_name} (missing completely on Etsy)")
+                prop_details.append({
+                    "property_id": pid,
+                    "property_name": resolved_name,
+                    "status": "missing",
+                    "expected": exp_vals,
+                    "actual": [],
+                    "missing": exp_vals,
+                })
 
         if matched_props == total_expected_props:
             checks.append(
                 EtsyVerificationCheck(
                     key="attributes",
-                    label="Category Attributes",
+                    label="Category Attributes & Materials",
                     category="attributes",
                     status=EtsyVerificationCheckStatus.SYNCED,
                     expected=f"{total_expected_props} / {total_expected_props} configured",
-                    actual=f"{matched_props} / {total_expected_props} verified",
+                    actual=f"{matched_props} / {total_expected_props} verified on Etsy",
                     details={"properties": prop_details},
                 )
             )
         else:
+            diff_text = "; ".join(diff_summaries[:3])
             checks.append(
                 EtsyVerificationCheck(
                     key="attributes",
-                    label="Category Attributes",
+                    label="Category Attributes & Materials",
                     category="attributes",
                     status=EtsyVerificationCheckStatus.DIFFERENT,
                     expected=f"{total_expected_props} configured",
-                    actual=f"{matched_props} / {total_expected_props} verified",
-                    message=f"{total_expected_props - matched_props} attributes differ or missing on Etsy.",
+                    actual=f"{matched_props} / {total_expected_props} verified on Etsy",
+                    message=f"{total_expected_props - matched_props} attribute(s) differ on Etsy: {diff_text}.",
                     details={"properties": prop_details},
                 )
             )
