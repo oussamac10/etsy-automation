@@ -125,8 +125,9 @@ class Settings(BaseSettings):
         default="http://localhost:3000/settings", alias="ETSY_FRONTEND_REDIRECT_URL"
     )
     etsy_scopes: str = Field(
-        default="listings_r listings_w shops_r", alias="ETSY_SCOPES"
+        default="listings_r listings_w shops_r shops_w", alias="ETSY_SCOPES"
     )
+
 
     @field_validator("etsy_redirect_uri", mode="before")
     @classmethod

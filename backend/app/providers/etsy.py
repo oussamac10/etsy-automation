@@ -623,12 +623,16 @@ class EtsyProvider(EtsyGateway):
 
         response = await self._execute_with_retry("POST", url, headers=headers, data=data, operation="create_shop_section")
         payload = response.json()
+        if isinstance(payload, dict) and "results" in payload and isinstance(payload["results"], list) and len(payload["results"]) > 0:
+            payload = payload["results"][0]
+
         return EtsyShopSection(
             shop_section_id=str(payload.get("shop_section_id", "")),
             title=str(payload.get("title", title)),
             rank=int(payload.get("rank", 0)),
             active_listing_count=0,
         )
+
 
     async def get_taxonomy_properties(self, *, taxonomy_id: int) -> list[EtsyTaxonomyProperty]:
         """Fetch official Etsy taxonomy properties/attributes for a category node."""
