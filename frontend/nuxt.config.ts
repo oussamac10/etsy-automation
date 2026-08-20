@@ -56,6 +56,10 @@ export default defineNuxtConfig({
             "Autonomous research-to-draft digital product studio with human approval at every gate.",
         },
       ],
+      link: [
+        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+        { rel: "alternate icon", type: "image/x-icon", href: "/favicon.ico" },
+      ],
     },
   },
 });
