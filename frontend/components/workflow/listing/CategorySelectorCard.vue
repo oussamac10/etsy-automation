@@ -242,8 +242,8 @@ defineExpose({
       </div>
 
       <!-- Fit reasons callout if available -->
-      <div v-if="activeFitness?.fit_reasons && activeFitness.fit_reasons.length > 0 && !activeFitness.has_mismatched_required_attributes" class="text-2xs text-muted-foreground flex items-center gap-1.5 flex-wrap px-1">
-        <span class="font-medium text-foreground">Compatibility:</span>
+      <div v-if="activeFitness?.fit_reasons && activeFitness.fit_reasons.length > 0 && !activeFitness.has_mismatched_required_attributes" class="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap px-1">
+        <span class="font-semibold text-foreground/80 uppercase tracking-wider text-[9px]">Compatibility:</span>
         <span v-for="(reason, idx) in activeFitness.fit_reasons.slice(0, 2)" :key="idx" class="inline-flex items-center gap-1">
           <span>• {{ reason }}</span>
         </span>
