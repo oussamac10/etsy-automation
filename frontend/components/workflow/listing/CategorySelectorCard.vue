@@ -47,25 +47,18 @@ const RECOMMENDED_CATEGORIES: TaxonomyCategory[] = [
     name: 'Digital',
     full_path: 'Art & Collectibles > Drawing & Illustration > Digital',
     level: 2,
-    fit_score: 0.9,
-    fit_reasons: ['Supports digital illustration and artwork'],
   },
   {
     id: 2078,
     name: 'Digital Prints',
     full_path: 'Art & Collectibles > Prints > Digital Prints',
     level: 2,
-    fit_score: 0.85,
-    fit_reasons: ['Optimized for printable designs and posters'],
   },
   {
     id: 6844,
     name: 'Clip Art & Image Files',
     full_path: 'Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files',
     level: 3,
-    fit_score: 0.35,
-    fit_reasons: ['Digital download compatible'],
-    warnings: ['Required Craft type is paper-oriented'],
   },
 ];
 
@@ -393,6 +386,13 @@ defineExpose({
                     "
                   >
                     {{ Math.round(cat.fit_score * 100) }}% fit
+                  </Badge>
+                  <Badge
+                    v-else
+                    variant="outline"
+                    class="text-2xs py-0 text-muted-foreground"
+                  >
+                    Fitness unavailable
                   </Badge>
                   <Badge variant="outline" class="font-mono text-2xs py-0">ID: {{ cat.id }}</Badge>
                   <Icon
