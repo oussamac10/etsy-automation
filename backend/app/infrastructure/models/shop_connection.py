@@ -64,6 +64,11 @@ class ShopConnection(UuidMixin, TimestampMixin, Base):
     )
 
     @property
+    def shop_id(self) -> str:
+        """Alias for etsy_shop_id."""
+        return self.etsy_shop_id
+
+    @property
     def is_connected(self) -> bool:
         """True if the shop connection is actively connected and not disconnected/revoked."""
         return self.connection_status in {"connected", "refresh_required"}

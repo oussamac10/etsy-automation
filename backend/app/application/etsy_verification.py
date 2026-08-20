@@ -81,7 +81,8 @@ async def verify_etsy_draft_listing(
 
     # 2. Check Shop Connection & Decrypt Token
     conn = await uow.shop_connections.get_by_user_id(owner_id)
-    if conn is None or not conn.is_connected or not conn.shop_id:
+    shop_id = getattr(conn, "etsy_shop_id", None) or getattr(conn, "shop_id", None)
+    if conn is None or not conn.is_connected or not shop_id:
         summary = EtsyVerificationSummary(errors=1, total=1)
         report = EtsyDraftVerification(
             workflow_id=str(workflow_id),
@@ -139,11 +140,11 @@ async def verify_etsy_draft_listing(
 
     # 3. Concurrently Fetch Remote Etsy Resources
     fetch_tasks = [
-        etsy_gateway.get_listing_details(access_token=access_token, shop_id=conn.shop_id, listing_id=listing_id),
+        etsy_gateway.get_listing_details(access_token=access_token, shop_id=shop_id, listing_id=listing_id),
         etsy_gateway.get_listing_inventory(access_token=access_token, listing_id=listing_id),
         etsy_gateway.get_listing_images(access_token=access_token, listing_id=listing_id),
-        etsy_gateway.get_listing_files(access_token=access_token, shop_id=conn.shop_id, listing_id=listing_id),
-        etsy_gateway.get_listing_properties(access_token=access_token, shop_id=conn.shop_id, listing_id=listing_id),
+        etsy_gateway.get_listing_files(access_token=access_token, shop_id=shop_id, listing_id=listing_id),
+        etsy_gateway.get_listing_properties(access_token=access_token, shop_id=shop_id, listing_id=listing_id),
     ]
 
     results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
