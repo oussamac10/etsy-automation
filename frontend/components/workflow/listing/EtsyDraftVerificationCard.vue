@@ -111,6 +111,25 @@ async function copyToClipboard(text: string, key: string) {
     // fallback
   }
 }
+
+function getCheckBadgeText(check: EtsyVerificationCheck): string {
+  if (check.status === 'synced') {
+    if (['title', 'description', 'item_metadata', 'category'].includes(check.key) || (check.actual && check.actual.length > 25)) {
+      return 'Synced';
+    }
+    return check.actual || 'Synced';
+  }
+  if (check.status === 'different') {
+    return 'Different';
+  }
+  if (check.status === 'missing') {
+    return 'Missing';
+  }
+  if (check.status === 'failed') {
+    return 'Failed';
+  }
+  return check.actual || check.status;
+}
 </script>
 
 <template>
@@ -266,7 +285,7 @@ async function copyToClipboard(text: string, key: string) {
                   class="size-4 shrink-0 mt-0.5"
                   :class="[
                     check.status === 'synced'
-                      ? 'text-emerald-700 dark:text-emerald-300'
+                      ? 'text-emerald-700'
                       : check.status === 'different' || check.status === 'missing'
                         ? 'text-amber-600 dark:text-amber-400'
                         : check.status === 'failed'
@@ -280,6 +299,9 @@ async function copyToClipboard(text: string, key: string) {
                   <p v-if="check.message" class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
                     {{ check.message }}
                   </p>
+                  <p v-else-if="check.key === 'title' && check.expected" class="text-[11px] text-muted-foreground truncate max-w-[260px] sm:max-w-[420px] mt-0.5 font-normal">
+                    {{ check.expected }}
+                  </p>
                 </div>
               </div>
 
@@ -289,10 +311,10 @@ async function copyToClipboard(text: string, key: string) {
                   :variant="check.status === 'synced' ? 'success' : check.status === 'different' ? 'warning' : 'secondary'"
                   class="font-mono text-[11px]"
                 >
-                  {{ check.actual || (check.status === 'synced' ? 'Synced' : check.status) }}
+                  {{ getCheckBadgeText(check) }}
                 </Badge>
                 <button
-                  v-if="check.details || check.status === 'different'"
+                  v-if="check.details || check.status === 'different' || check.key === 'title' || check.key === 'description'"
                   type="button"
                   @click="toggleExpand(check.key)"
                   class="text-[11px] text-primary hover:underline"
@@ -359,10 +381,10 @@ async function copyToClipboard(text: string, key: string) {
                   :variant="check.status === 'synced' ? 'success' : 'warning'"
                   class="font-mono text-[11px]"
                 >
-                  {{ check.actual }}
+                  {{ getCheckBadgeText(check) }}
                 </Badge>
                 <button
-                  v-if="check.status !== 'synced'"
+                  v-if="check.status !== 'synced' || check.details"
                   type="button"
                   @click="toggleExpand(check.key)"
                   class="text-[11px] text-primary hover:underline"
@@ -416,7 +438,7 @@ async function copyToClipboard(text: string, key: string) {
                   variant="success"
                   class="font-mono text-[11px]"
                 >
-                  {{ check.actual }}
+                  {{ getCheckBadgeText(check) }}
                 </Badge>
                 <button
                   v-if="check.details"
@@ -480,7 +502,7 @@ async function copyToClipboard(text: string, key: string) {
                   :variant="check.status === 'synced' ? 'success' : 'warning'"
                   class="font-mono text-[11px]"
                 >
-                  {{ check.actual }}
+                  {{ getCheckBadgeText(check) }}
                 </Badge>
                 <button
                   v-if="check.details"
