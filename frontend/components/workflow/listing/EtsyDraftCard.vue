@@ -227,7 +227,7 @@ async function copyListingId() {
             <CardTitle class="text-base font-semibold flex items-center gap-2">
               <span>Etsy Listing Dispatch</span>
               <span
-                v-if="connectionStatus?.connected && (connectionStatus.shop_name || props.listing.etsy_shop_id)"
+                v-if="connectionStatus?.connected && (connectionStatus.shop_name || props.listing?.etsy_shop_id)"
                 class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-normal rounded-md bg-muted text-foreground border border-border"
               >
                 <span class="size-1.5 rounded-full bg-emerald-500" />

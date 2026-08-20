@@ -272,7 +272,7 @@ const isDirty = computed(() => {
           <div class="flex items-center gap-1.5">
             <Icon name="lucide:sparkles" class="size-3.5 text-primary" aria-hidden="true" />
             <span class="text-xs font-semibold text-foreground">
-              AI Recommendation: {{ recommendation.formatted_price }}
+              Smart Recommended Price: {{ recommendation.formatted_price }}
             </span>
           </div>
 
@@ -284,7 +284,7 @@ const isDirty = computed(() => {
             @click="applyRecommendation"
           >
             <Icon name="lucide:check" class="size-3 text-primary" aria-hidden="true" />
-            <span>Use recommended</span>
+            <span>Use recommendation</span>
           </Button>
         </div>
 
@@ -307,8 +307,11 @@ const isDirty = computed(() => {
       <!-- SKU Input -->
       <div class="space-y-1.5 pt-1 border-t border-border/40">
         <Label for="listing-sku" class="text-xs font-semibold text-foreground flex items-center justify-between">
-          <span>Internal SKU</span>
-          <span class="text-[11px] text-muted-foreground font-normal">Auto-generated</span>
+          <span class="flex items-center gap-1.5">
+            <span>Internal SKU</span>
+            <span class="text-[11px] text-muted-foreground font-normal" title="SKU is your internal product identifier. Buyers do not need it.">(Internal product ID)</span>
+          </span>
+          <Badge variant="outline" class="text-[10px] font-mono font-medium text-muted-foreground">Auto-generated</Badge>
         </Label>
         <div class="relative flex items-center">
           <Input

@@ -32,6 +32,8 @@ const apiBase = config.public.apiBase ? config.public.apiBase.replace(/\/$/, '')
 const properties = ref<TaxonomyProperty[]>([]);
 const isLoading = ref(false);
 const activeTab = ref<string>('');
+const showInfoTooltip = ref(false);
+
 const localPropertiesMap = ref<Record<string, { property_id: number; value_ids: number[]; values: string[] }>>(
   props.etsyProperties ? JSON.parse(JSON.stringify(props.etsyProperties)) : {}
 );
@@ -52,34 +54,38 @@ watch(
   }
 );
 
-function applyAiSuggestions() {
+function applySmartSuggestions() {
   if (!properties.value || properties.value.length === 0) return;
   const initial: Record<string, any> = {};
 
   for (const p of properties.value) {
-    let valsToSelect: string[] = [];
-    let idsToSelect: number[] = [];
-
+    // Only select properties where high-confidence smart suggestions exist
     if (p.suggested_values && p.suggested_values.length > 0) {
-      valsToSelect = [...p.suggested_values];
-      idsToSelect = p.suggested_value_ids ? [...p.suggested_value_ids] : [];
-    } else if (p.possible_values && p.possible_values.length > 0) {
-      const firstVal = p.possible_values[0];
-      valsToSelect = [firstVal.name];
-      if (firstVal.value_id) idsToSelect = [firstVal.value_id];
-    }
-
-    if (valsToSelect.length > 0) {
       initial[String(p.property_id)] = {
         property_id: p.property_id,
-        value_ids: idsToSelect,
-        values: valsToSelect,
+        value_ids: p.suggested_value_ids ? [...p.suggested_value_ids] : [],
+        values: [...p.suggested_values],
       };
     }
   }
 
   localPropertiesMap.value = JSON.parse(JSON.stringify(initial));
   emit('update:etsyProperties', JSON.parse(JSON.stringify(initial)));
+  emit('save');
+}
+
+function clearOptionalAttributes() {
+  const cleared: Record<string, any> = {};
+
+  // Preserve only required properties
+  for (const p of properties.value) {
+    if (p.is_required && localPropertiesMap.value[String(p.property_id)]) {
+      cleared[String(p.property_id)] = localPropertiesMap.value[String(p.property_id)];
+    }
+  }
+
+  localPropertiesMap.value = cleared;
+  emit('update:etsyProperties', cleared);
   emit('save');
 }
 
@@ -100,9 +106,9 @@ async function loadTaxonomyProperties() {
       activeTab.value = String(properties.value[0].property_id);
     }
 
-    // Auto-select AI recommended properties if no selections saved yet
+    // Auto-apply high-confidence suggestions if no properties are saved yet
     if (Object.keys(localPropertiesMap.value).length === 0 && properties.value.length > 0) {
-      applyAiSuggestions();
+      applySmartSuggestions();
     }
   } catch {
     properties.value = [];
@@ -121,7 +127,7 @@ function isValueSelected(propId: number, valName: string): boolean {
   return entry.values.includes(valName);
 }
 
-function isAiSuggested(prop: TaxonomyProperty, valName: string): boolean {
+function isSuggested(prop: TaxonomyProperty, valName: string): boolean {
   return Boolean(prop.suggested_values && prop.suggested_values.includes(valName));
 }
 
@@ -174,6 +180,10 @@ function toggleValue(prop: TaxonomyProperty, valName: string, valId?: number) {
 const isDirty = computed(() => {
   return JSON.stringify(localPropertiesMap.value) !== JSON.stringify(props.etsyProperties || {});
 });
+
+const totalSelectedCount = computed(() => {
+  return Object.values(localPropertiesMap.value).reduce((acc, curr) => acc + (curr.values?.length || 0), 0);
+});
 </script>
 
 <template>
@@ -188,11 +198,19 @@ const isDirty = computed(() => {
             <CardTitle class="text-sm font-semibold tracking-tight flex items-center gap-2">
               <span>Category Attributes</span>
               <Badge variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                AI Auto-Selected
+                Smart Suggested
               </Badge>
+              <button
+                type="button"
+                class="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                title="Category attributes info"
+                @click="showInfoTooltip = !showInfoTooltip"
+              >
+                <Icon name="lucide:info" class="size-3.5" aria-hidden="true" />
+              </button>
             </CardTitle>
             <CardDescription class="text-xs text-muted-foreground truncate">
-              Etsy category properties automatically populated by AI for max search visibility.
+              Etsy-supported category attributes suggested from your listing content.
             </CardDescription>
           </div>
         </div>
@@ -204,11 +222,23 @@ const isDirty = computed(() => {
             variant="outline"
             size="sm"
             class="h-8 gap-1.5 text-xs font-medium cursor-pointer"
-            title="Auto-select AI recommended choices for all attributes"
-            @click="applyAiSuggestions"
+            title="Apply high-confidence smart suggestions"
+            @click="applySmartSuggestions"
           >
             <Icon name="lucide:sparkles" class="size-3.5 text-primary" aria-hidden="true" />
-            <span class="hidden sm:inline">AI Auto-Fill</span>
+            <span class="hidden sm:inline">Apply Suggestions</span>
+          </Button>
+
+          <Button
+            v-if="totalSelectedCount > 0"
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="h-8 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            title="Clear optional attribute selections"
+            @click="clearOptionalAttributes"
+          >
+            Clear Optional
           </Button>
 
           <Button
@@ -217,7 +247,7 @@ const isDirty = computed(() => {
             variant="default"
             size="sm"
             :disabled="isSaving"
-            class="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+            class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
             @click="emit('save')"
           >
             <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
@@ -225,6 +255,18 @@ const isDirty = computed(() => {
             <span>Save</span>
           </Button>
         </div>
+      </div>
+
+      <!-- Info Banner Tooltip -->
+      <div v-if="showInfoTooltip" class="mt-2.5 p-3 rounded-lg bg-muted/60 border border-border text-xs text-muted-foreground space-y-1">
+        <p class="font-semibold text-foreground flex items-center gap-1.5">
+          <Icon name="lucide:info" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>What are Category Attributes?</span>
+        </p>
+        <p class="leading-normal">
+          Category attributes are Etsy-defined details for your selected category, such as craft type, holiday, style or color.
+          They help Etsy understand the listing more precisely. Available attributes depend directly on the selected category.
+        </p>
       </div>
     </CardHeader>
 
@@ -243,7 +285,7 @@ const isDirty = computed(() => {
               v-for="prop in properties"
               :key="prop.property_id"
               :value="String(prop.property_id)"
-              class="text-xs px-2.5 py-1 gap-1.5 shrink-0"
+              class="text-xs px-2.5 py-1 gap-1.5 shrink-0 cursor-pointer"
             >
               <span>{{ prop.name }}</span>
               <span v-if="prop.is_required" class="text-destructive font-bold">*</span>
@@ -271,13 +313,13 @@ const isDirty = computed(() => {
               <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
                 <span v-if="prop.suggested_values?.length" class="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                   <Icon name="lucide:sparkles" class="size-3" aria-hidden="true" />
-                  AI Suggested: {{ prop.suggested_values.join(', ') }}
+                  Suggested: {{ prop.suggested_values.join(', ') }}
                 </span>
                 <span>{{ prop.is_multivalued ? '(Multi-select)' : '(Single select)' }}</span>
               </div>
             </div>
 
-            <!-- Attribute Pills -->
+            <!-- Attribute Value Options -->
             <div v-if="prop.possible_values && prop.possible_values.length > 0" class="flex flex-wrap gap-1.5 pt-1">
               <button
                 v-for="val in prop.possible_values"
@@ -287,24 +329,24 @@ const isDirty = computed(() => {
                 :class="
                   isValueSelected(prop.property_id, val.name)
                     ? 'bg-primary/10 text-primary border-primary/40 font-semibold'
-                    : isAiSuggested(prop, val.name)
+                    : isSuggested(prop, val.name)
                     ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
                     : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted'
                 "
                 @click="toggleValue(prop, val.name, val.value_id)"
               >
                 <Icon
-                  :name="isValueSelected(prop.property_id, val.name) ? 'lucide:check' : isAiSuggested(prop, val.name) ? 'lucide:sparkles' : 'lucide:plus'"
+                  :name="isValueSelected(prop.property_id, val.name) ? 'lucide:check' : isSuggested(prop, val.name) ? 'lucide:sparkles' : 'lucide:plus'"
                   class="size-3"
-                  :class="isAiSuggested(prop, val.name) && !isValueSelected(prop.property_id, val.name) ? 'text-emerald-600 dark:text-emerald-400' : ''"
+                  :class="isSuggested(prop, val.name) && !isValueSelected(prop.property_id, val.name) ? 'text-emerald-600 dark:text-emerald-400' : ''"
                   aria-hidden="true"
                 />
                 <span>{{ val.name }}</span>
                 <span
-                  v-if="isAiSuggested(prop, val.name) && !isValueSelected(prop.property_id, val.name)"
+                  v-if="isSuggested(prop, val.name) && !isValueSelected(prop.property_id, val.name)"
                   class="text-[9px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/20 px-1 py-0.2 rounded"
                 >
-                  AI
+                  Suggested
                 </span>
               </button>
             </div>
@@ -314,9 +356,9 @@ const isDirty = computed(() => {
 
       <!-- Empty / Fallback State -->
       <div v-else class="text-center py-4 px-3 bg-muted/40 border border-dashed border-border rounded-lg space-y-1">
-        <p class="text-xs font-semibold text-foreground">Standard Digital Graphic Attributes</p>
+        <p class="text-xs font-semibold text-foreground">Category Attributes</p>
         <p class="text-[11px] text-muted-foreground">
-          Selected taxonomy category accepts standard digital formats (Sublimation, Printing).
+          These options come directly from Etsy for the selected category.
         </p>
       </div>
     </CardContent>

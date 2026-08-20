@@ -148,7 +148,7 @@ watch(searchQuery, (newQuery) => {
     <CardContent class="p-4 sm:p-5 pt-0">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border/70 text-xs">
         <div class="flex items-start gap-2.5 min-w-0">
-          <Icon name="lucide:check-circle-2" class="size-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
+          <Icon name="lucide:check-circle-2" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
           <div class="min-w-0">
             <p class="font-medium text-foreground truncate" :title="currentPath">
               {{ currentPath }}
@@ -158,9 +158,14 @@ watch(searchQuery, (newQuery) => {
             </p>
           </div>
         </div>
-        <Badge variant="outline" class="bg-primary/5 text-primary border-primary/20 shrink-0 self-start sm:self-auto text-2xs py-0.5">
-          Digital Deliverable
-        </Badge>
+        <div class="flex items-center gap-1.5 shrink-0 self-start sm:self-auto">
+          <Badge v-if="props.taxonomyId && props.taxonomyId !== DEFAULT_CATEGORY_ID" variant="outline" class="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 text-2xs py-0.5">
+            Manual override
+          </Badge>
+          <Badge v-else variant="outline" class="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-2xs py-0.5">
+            Smart match
+          </Badge>
+        </div>
       </div>
     </CardContent>
 
