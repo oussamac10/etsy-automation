@@ -50,23 +50,32 @@ const isGate3Approved = computed(() => {
   return ['READY_FOR_ETSY_DRAFT', 'ETSY_DRAFT_CREATED', 'PUBLISHED'].includes(props.workflowState);
 });
 
+const isFailed = computed(() => {
+  return currentStatus.value === 'failed';
+});
+
+const listingId = computed(() => {
+  if (isDraftRemoved.value) return null;
+  return draftStatus.value?.etsy_listing_id || props.listing?.etsy_listing_id || null;
+});
+
 const isCompleted = computed(() => {
   if (isDraftRemoved.value) return false;
   return (
     currentStatus.value === 'completed' ||
-    (props.workflowState === 'ETSY_DRAFT_CREATED' && Boolean(listingId.value))
+    (props.workflowState === 'ETSY_DRAFT_CREATED' &&
+      Boolean(listingId.value) &&
+      !['queued', 'creating_listing', 'uploading_images', 'uploading_file', 'uploading_files', 'applying_attributes'].includes(currentStatus.value))
   );
 });
 
 const isInProgress = computed(() => {
+  if (isDraftRemoved.value || isCompleted.value || isFailed.value) return false;
   return (
-    ['queued', 'creating_listing', 'uploading_images', 'uploading_file'].includes(currentStatus.value) ||
-    isDispatching.value
+    ['queued', 'creating_listing', 'uploading_images', 'uploading_file', 'uploading_files', 'applying_attributes'].includes(
+      currentStatus.value
+    ) || isDispatching.value
   );
-});
-
-const isFailed = computed(() => {
-  return currentStatus.value === 'failed';
 });
 
 const failureReason = computed(() => {
@@ -78,17 +87,16 @@ const failureReason = computed(() => {
   );
 });
 
-const listingId = computed(() => {
-  if (isDraftRemoved.value) return null;
-  return draftStatus.value?.etsy_listing_id || props.listing?.etsy_listing_id || null;
-});
-
 const mockupCount = computed(() => {
   return props.listing?.etsy_image_ids?.length || draftStatus.value?.etsy_image_ids?.length || 0;
 });
 
 const digitalFilesCount = computed(() => {
-  return props.listing?.etsy_file_ids?.length || draftStatus.value?.etsy_file_ids?.length || (props.listing?.etsy_file_id || draftStatus.value?.etsy_file_id ? 1 : 0);
+  return (
+    props.listing?.etsy_file_ids?.length ||
+    draftStatus.value?.etsy_file_ids?.length ||
+    (props.listing?.etsy_file_id || draftStatus.value?.etsy_file_id ? 1 : 0)
+  );
 });
 
 const listingManagerUrl = computed(() => {
@@ -100,10 +108,66 @@ const draftListingsUrl = computed(() => {
   return 'https://www.etsy.com/your/shops/me/tools/listings/state:draft';
 });
 
+const stepStates = computed(() => {
+  const status = currentStatus.value;
+  const stepsData = draftStatus.value?.steps;
+
+  const getStep = (key: 'create_listing' | 'upload_mockups' | 'upload_files' | 'apply_attributes') => {
+    if (stepsData && stepsData[key]) {
+      return stepsData[key].status;
+    }
+    if (isCompleted.value) return 'completed';
+    if (isDraftRemoved.value) return 'pending';
+
+    if (key === 'create_listing') {
+      if (listingId.value) return 'completed';
+      if (status === 'creating_listing' || status === 'queued') return 'in_progress';
+      if (status === 'failed') return 'failed';
+      return 'pending';
+    }
+    if (key === 'upload_mockups') {
+      if (['uploading_file', 'uploading_files', 'applying_attributes', 'completed'].includes(status)) return 'completed';
+      if (status === 'uploading_images') return 'in_progress';
+      if (status === 'failed' && listingId.value && mockupCount.value === 0) return 'failed';
+      if (mockupCount.value > 0 && isCompleted.value) return 'completed';
+      return 'pending';
+    }
+    if (key === 'upload_files') {
+      if (['applying_attributes', 'completed'].includes(status)) return 'completed';
+      if (status === 'uploading_file' || status === 'uploading_files') return 'in_progress';
+      if (status === 'failed' && mockupCount.value > 0 && digitalFilesCount.value === 0) return 'failed';
+      if (digitalFilesCount.value > 0 && isCompleted.value) return 'completed';
+      return 'pending';
+    }
+    if (key === 'apply_attributes') {
+      if (status === 'completed') return 'completed';
+      if (status === 'applying_attributes') return 'in_progress';
+      if (status === 'failed' && digitalFilesCount.value > 0) return 'failed';
+      return 'pending';
+    }
+    return 'pending';
+  };
+
+  return {
+    create_listing: getStep('create_listing'),
+    upload_mockups: getStep('upload_mockups'),
+    upload_files: getStep('upload_files'),
+    apply_attributes: getStep('apply_attributes'),
+  };
+});
+
 onMounted(async () => {
   await fetchConnectionStatus();
   if (isInProgress.value) {
-    startPolling();
+    const updated = await fetchDraftStatus(props.workflowId);
+    if (updated?.dispatch_status === 'completed') {
+      emit('draft-created');
+      startReconciliationPolling();
+    } else if (updated?.dispatch_status === 'draft_removed') {
+      emit('draft-created');
+    } else {
+      startPolling();
+    }
   } else if (props.workflowState === 'ETSY_DRAFT_CREATED' || isCompleted.value || Boolean(listingId.value)) {
     // Reconcile on page load
     const updated = await fetchDraftStatus(props.workflowId);
@@ -121,7 +185,7 @@ onBeforeUnmount(() => {
 });
 
 watch(currentStatus, (newStatus) => {
-  if (['queued', 'creating_listing', 'uploading_images', 'uploading_file'].includes(newStatus)) {
+  if (['queued', 'creating_listing', 'uploading_images', 'uploading_file', 'uploading_files', 'applying_attributes'].includes(newStatus)) {
     startPolling();
   } else if (newStatus === 'completed') {
     stopPolling();
@@ -274,7 +338,7 @@ async function copyListingId() {
           data-testid="etsy-badge-progress"
         >
           <Icon name="lucide:loader-circle" class="size-3 animate-spin" aria-hidden="true" />
-          <span>Dispatching...</span>
+          <span>Creating Draft</span>
         </Badge>
         <Badge
           v-else-if="isFailed"
@@ -283,7 +347,7 @@ async function copyListingId() {
           data-testid="etsy-badge-failed"
         >
           <Icon name="lucide:circle-alert" class="size-3" aria-hidden="true" />
-          <span>Dispatch Failed</span>
+          <span>Draft Failed</span>
         </Badge>
         <Badge
           v-else-if="!isGate3Approved"
@@ -343,117 +407,181 @@ async function copyListingId() {
         </template>
       </Alert>
 
-      <!-- In-Progress Steps Stepper -->
+      <!-- Steps Stepper (Visible during progress and after completion) -->
       <div
-        v-if="isInProgress"
+        v-if="isInProgress || isCompleted || (isFailed && listingId)"
         class="bg-muted/40 border border-border rounded-xl p-4 space-y-3"
         data-testid="etsy-dispatching-progress"
       >
         <div class="flex items-center justify-between text-xs font-semibold text-foreground">
-          <span>Dispatching Draft to Etsy Open API v3...</span>
-          <span class="font-mono text-primary animate-pulse">In Progress</span>
+          <span v-if="isCompleted">Etsy draft created successfully.</span>
+          <span v-else-if="isInProgress">Dispatching Draft to Etsy Open API v3...</span>
+          <span v-else>Etsy draft dispatch stopped.</span>
+
+          <span v-if="isCompleted" class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
+            <Icon name="lucide:circle-check" class="size-3.5" aria-hidden="true" />
+            <span>Complete</span>
+          </span>
+          <span v-else-if="isInProgress" class="font-mono text-primary animate-pulse">In Progress</span>
+          <span v-else class="font-mono text-destructive">Failed</span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
           <!-- Step 1: Listing Creation -->
           <div
             class="flex items-center gap-2 p-2.5 rounded-lg border transition-colors"
             :class="[
-              currentStatus === 'creating_listing'
+              stepStates.create_listing === 'in_progress'
                 ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
-                : ['uploading_images', 'uploading_file', 'completed'].includes(currentStatus)
+                : stepStates.create_listing === 'completed'
                   ? 'bg-secondary border-border text-foreground font-medium'
-                  : 'bg-background border-border text-muted-foreground',
+                  : stepStates.create_listing === 'failed'
+                    ? 'bg-destructive/10 border-destructive/30 text-destructive font-semibold'
+                    : 'bg-background border-border text-muted-foreground',
             ]"
           >
             <Icon
               :name="
-                currentStatus === 'creating_listing'
+                stepStates.create_listing === 'in_progress'
                   ? 'lucide:loader-circle'
-                  : ['uploading_images', 'uploading_file', 'completed'].includes(currentStatus)
+                  : stepStates.create_listing === 'completed'
                     ? 'lucide:circle-check'
-                    : 'lucide:circle'
+                    : stepStates.create_listing === 'failed'
+                      ? 'lucide:circle-alert'
+                      : 'lucide:circle'
               "
               :class="[
                 'size-4 shrink-0',
-                currentStatus === 'creating_listing'
+                stepStates.create_listing === 'in_progress'
                   ? 'animate-spin text-primary'
-                  : ['uploading_images', 'uploading_file', 'completed'].includes(currentStatus)
-                    ? 'text-emerald-600'
-                    : '',
+                  : stepStates.create_listing === 'completed'
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : stepStates.create_listing === 'failed'
+                      ? 'text-destructive'
+                      : 'text-muted-foreground/40',
               ]"
               aria-hidden="true"
             />
-            <span>1. Create Listing</span>
+            <span class="truncate">1. Create Listing</span>
           </div>
 
           <!-- Step 2: Upload Mockups -->
           <div
             class="flex items-center gap-2 p-2.5 rounded-lg border transition-colors"
             :class="[
-              currentStatus === 'uploading_images'
+              stepStates.upload_mockups === 'in_progress'
                 ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
-                : ['uploading_file', 'completed'].includes(currentStatus)
+                : stepStates.upload_mockups === 'completed'
                   ? 'bg-secondary border-border text-foreground font-medium'
-                  : 'bg-background border-border text-muted-foreground',
+                  : stepStates.upload_mockups === 'failed'
+                    ? 'bg-destructive/10 border-destructive/30 text-destructive font-semibold'
+                    : 'bg-background border-border text-muted-foreground',
             ]"
           >
             <Icon
               :name="
-                currentStatus === 'uploading_images'
+                stepStates.upload_mockups === 'in_progress'
                   ? 'lucide:loader-circle'
-                  : ['uploading_file', 'completed'].includes(currentStatus)
+                  : stepStates.upload_mockups === 'completed'
                     ? 'lucide:circle-check'
-                    : 'lucide:circle'
+                    : stepStates.upload_mockups === 'failed'
+                      ? 'lucide:circle-alert'
+                      : 'lucide:circle'
               "
               :class="[
                 'size-4 shrink-0',
-                currentStatus === 'uploading_images'
+                stepStates.upload_mockups === 'in_progress'
                   ? 'animate-spin text-primary'
-                  : ['uploading_file', 'completed'].includes(currentStatus)
-                    ? 'text-emerald-600'
-                    : '',
+                  : stepStates.upload_mockups === 'completed'
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : stepStates.upload_mockups === 'failed'
+                      ? 'text-destructive'
+                      : 'text-muted-foreground/40',
               ]"
               aria-hidden="true"
             />
-            <span>2. Upload Mockups</span>
+            <span class="truncate">2. Upload Mockups</span>
           </div>
 
           <!-- Step 3: Upload Digital Files -->
           <div
             class="flex items-center gap-2 p-2.5 rounded-lg border transition-colors"
             :class="[
-              currentStatus === 'uploading_file'
+              stepStates.upload_files === 'in_progress'
                 ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
-                : currentStatus === 'completed'
+                : stepStates.upload_files === 'completed'
                   ? 'bg-secondary border-border text-foreground font-medium'
-                  : 'bg-background border-border text-muted-foreground',
+                  : stepStates.upload_files === 'failed'
+                    ? 'bg-destructive/10 border-destructive/30 text-destructive font-semibold'
+                    : 'bg-background border-border text-muted-foreground',
             ]"
           >
             <Icon
               :name="
-                currentStatus === 'uploading_file'
+                stepStates.upload_files === 'in_progress'
                   ? 'lucide:loader-circle'
-                  : currentStatus === 'completed'
+                  : stepStates.upload_files === 'completed'
                     ? 'lucide:circle-check'
-                    : 'lucide:circle'
+                    : stepStates.upload_files === 'failed'
+                      ? 'lucide:circle-alert'
+                      : 'lucide:circle'
               "
               :class="[
                 'size-4 shrink-0',
-                currentStatus === 'uploading_file'
+                stepStates.upload_files === 'in_progress'
                   ? 'animate-spin text-primary'
-                  : currentStatus === 'completed'
-                    ? 'text-emerald-600'
-                    : '',
+                  : stepStates.upload_files === 'completed'
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : stepStates.upload_files === 'failed'
+                      ? 'text-destructive'
+                      : 'text-muted-foreground/40',
               ]"
               aria-hidden="true"
             />
-            <span>3. Upload Digital Files</span>
+            <span class="truncate">3. Upload Digital Files</span>
+          </div>
+
+          <!-- Step 4: Apply Attributes -->
+          <div
+            class="flex items-center gap-2 p-2.5 rounded-lg border transition-colors"
+            :class="[
+              stepStates.apply_attributes === 'in_progress'
+                ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
+                : stepStates.apply_attributes === 'completed'
+                  ? 'bg-secondary border-border text-foreground font-medium'
+                  : stepStates.apply_attributes === 'failed'
+                    ? 'bg-destructive/10 border-destructive/30 text-destructive font-semibold'
+                    : 'bg-background border-border text-muted-foreground',
+            ]"
+          >
+            <Icon
+              :name="
+                stepStates.apply_attributes === 'in_progress'
+                  ? 'lucide:loader-circle'
+                  : stepStates.apply_attributes === 'completed'
+                    ? 'lucide:circle-check'
+                    : stepStates.apply_attributes === 'failed'
+                      ? 'lucide:circle-alert'
+                      : 'lucide:circle'
+              "
+              :class="[
+                'size-4 shrink-0',
+                stepStates.apply_attributes === 'in_progress'
+                  ? 'animate-spin text-primary'
+                  : stepStates.apply_attributes === 'completed'
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : stepStates.apply_attributes === 'failed'
+                      ? 'text-destructive'
+                      : 'text-muted-foreground/40',
+              ]"
+              aria-hidden="true"
+            />
+            <span class="truncate">4. Apply Attributes</span>
           </div>
         </div>
       </div>
 
-      <!-- Completed Success Panel -->
+      <!-- Completed Success Stats Grid & Actions -->
       <div v-if="isCompleted" class="space-y-3" data-testid="etsy-completed-panel">
         <!-- Compact Refined Stats Grid -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-muted/30 border border-border/80 p-3 rounded-lg text-xs">
@@ -471,7 +599,11 @@ async function copyListingId() {
                 title="Copy Listing ID"
                 @click="copyListingId"
               >
-                <Icon :name="copied ? 'lucide:check' : 'lucide:copy'" class="size-3 text-muted-foreground hover:text-foreground" aria-hidden="true" />
+                <Icon
+                  :name="copied ? 'lucide:check' : 'lucide:copy'"
+                  class="size-3 text-muted-foreground hover:text-foreground"
+                  aria-hidden="true"
+                />
               </button>
             </div>
           </div>
@@ -498,7 +630,7 @@ async function copyListingId() {
             <span class="text-[11px] text-muted-foreground">Customer Files</span>
             <span class="text-xs font-medium text-foreground inline-flex items-center gap-1 mt-0.5 truncate">
               <Icon name="lucide:file-check" class="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
-              <span class="truncate">{{ digitalFilesCount > 1 ? `${digitalFilesCount} Real Files` : 'Digital Product Attached' }}</span>
+              <span class="truncate">{{ digitalFilesCount > 1 ? `${digitalFilesCount} Real Files Attached` : 'Digital Product Attached' }}</span>
             </span>
           </div>
         </div>
