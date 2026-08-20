@@ -95,10 +95,10 @@ const reasons = computed<string[]>(() => {
             class="text-[10px] font-mono font-semibold"
             :class="
               isHighRisk
-                ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20'
+                ? 'bg-red-100 text-red-950 dark:bg-red-950/80 dark:text-red-200 border-red-300 dark:border-red-700'
                 : isWarning
-                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+                ? 'bg-amber-100 text-amber-950 dark:bg-amber-950/80 dark:text-amber-200 border-amber-300 dark:border-amber-700'
+                : 'bg-emerald-100 text-emerald-950 dark:bg-emerald-950/80 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700'
             "
           >
             {{ riskLevel.toUpperCase() }} RISK
@@ -141,9 +141,9 @@ const reasons = computed<string[]>(() => {
         class="p-3 rounded-lg border text-xs space-y-1.5"
         :class="
           isHighRisk
-            ? 'bg-red-500/10 border-red-500/20'
+            ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'
             : isWarning
-            ? 'bg-amber-500/10 border-amber-500/20'
+            ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
             : 'bg-muted/40 border-border'
         "
       >
@@ -170,8 +170,8 @@ const reasons = computed<string[]>(() => {
       </div>
 
       <!-- Warning Acknowledgement Checkbox (only shown for Medium Risk) -->
-      <div v-if="isWarning && !acknowledgedAt" class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs space-y-2">
-        <p class="font-semibold text-amber-900 dark:text-amber-200">Owner Acknowledgement Required</p>
+      <div v-if="isWarning && !acknowledgedAt" class="p-3.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-xs space-y-2">
+        <p class="font-semibold text-amber-950 dark:text-amber-100">Owner Acknowledgement Required</p>
         <label class="flex items-start gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -179,7 +179,7 @@ const reasons = computed<string[]>(() => {
             :checked="warningAcknowledged"
             @change="emit('update:warningAcknowledged', ($event.target as HTMLInputElement).checked)"
           />
-          <span class="text-[11px] text-amber-950 dark:text-amber-100 leading-normal">
+          <span class="text-[11px] text-amber-900 dark:text-amber-200 leading-normal font-medium">
             I acknowledge this automated screening is preliminary and does not constitute legal clearance advice.
           </span>
         </label>
