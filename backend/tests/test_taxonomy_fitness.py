@@ -7,6 +7,7 @@ import pytest
 from app.domain.taxonomy_fitness import (
     TaxonomyFitResult,
     evaluate_taxonomy_fit,
+    evaluate_taxonomy_attribute_fit,
     is_physical_disqualified,
 )
 from app.ports.providers import EtsyTaxonomyNode, EtsyTaxonomyProperty
@@ -94,66 +95,59 @@ def printing_sublimation_properties() -> list[EtsyTaxonomyProperty]:
 class TestTaxonomyFitness:
     """Test suite for evaluate_taxonomy_fit."""
 
-    def test_sublimation_campaign_penalizes_paper_only_required_craft_type(
+    def test_case_1_sublimation_campaign_penalizes_paper_only_required_craft_type(
         self,
         clip_art_node: EtsyTaxonomyNode,
+        digital_graphic_node: EtsyTaxonomyNode,
         paper_only_properties: list[EtsyTaxonomyProperty],
+        printing_sublimation_properties: list[EtsyTaxonomyProperty],
     ) -> None:
         campaign = {
-            "title": "Vintage Retro Mushroom PNG Sublimation T-shirt Design",
+            "title": "Retro Camping Dog PNG Sublimation Design",
             "description": "High resolution transparent PNG for shirts, mugs, and sublimation printing.",
-            "tags": ["sublimation shirt", "tshirt graphic", "dtg transfer", "transparent png"],
+            "tags": ["sublimation", "tshirt png", "pod graphics"],
             "product_type": "digital_png",
-            "intended_product_uses": ["t_shirt", "sweatshirt", "sublimation", "pod"],
+            "intended_product_uses": ["t_shirt", "sweatshirt", "sublimation"],
         }
 
-        fit = evaluate_taxonomy_fit(
+        # Candidate A (paper-only craft types)
+        fit_a = evaluate_taxonomy_attribute_fit(
             taxonomy_node=clip_art_node,
             taxonomy_properties=paper_only_properties,
             campaign_context=campaign,
         )
 
-        assert fit.has_mismatched_required_attributes is True
-        assert fit.score <= 0.45
-        assert any("paper/collage" in w.lower() for w in fit.warnings)
-        assert fit.mismatched_required_reason is not None
-        assert "paper/collage" in fit.mismatched_required_reason.lower()
+        assert fit_a.fit == "poor"
+        assert fit_a.blocking_mismatch is True
+        assert fit_a.has_mismatched_required_attributes is True
+        assert fit_a.score <= 0.35
+        assert fit_a.campaign_intent == "apparel_sublimation"
+        assert any("paper/collage" in r.lower() for r in fit_a.reasons)
+        assert any("sublimation and apparel" in r.lower() for r in fit_a.reasons)
 
-    def test_sublimation_campaign_boosts_printing_sublimation_category(
-        self,
-        digital_graphic_node: EtsyTaxonomyNode,
-        printing_sublimation_properties: list[EtsyTaxonomyProperty],
-    ) -> None:
-        campaign = {
-            "title": "Vintage Retro Mushroom PNG Sublimation T-shirt Design",
-            "description": "High resolution transparent PNG for shirts, mugs, and sublimation printing.",
-            "tags": ["sublimation shirt", "tshirt graphic", "dtg transfer", "transparent png"],
-            "product_type": "digital_png",
-            "intended_product_uses": ["t_shirt", "sweatshirt", "sublimation", "pod"],
-        }
-
-        fit = evaluate_taxonomy_fit(
+        # Candidate B (printing & sublimation craft types)
+        fit_b = evaluate_taxonomy_attribute_fit(
             taxonomy_node=digital_graphic_node,
             taxonomy_properties=printing_sublimation_properties,
             campaign_context=campaign,
         )
 
-        assert fit.has_mismatched_required_attributes is False
-        assert fit.score >= 0.85
-        assert any("sublimation and printing" in r.lower() for r in fit.reasons)
-        assert len(fit.warnings) == 0
+        assert fit_b.fit == "good"
+        assert fit_b.blocking_mismatch is False
+        assert fit_b.score >= 0.85
+        assert fit_b.score > fit_a.score
 
-    def test_scrapbooking_campaign_prefers_paper_craft_category(
+    def test_case_2_scrapbooking_campaign_prefers_paper_craft_category(
         self,
         clip_art_node: EtsyTaxonomyNode,
         paper_only_properties: list[EtsyTaxonomyProperty],
     ) -> None:
         campaign = {
-            "title": "Vintage Victorian Scrapbook Ephemera Paper Clipart",
+            "title": "Vintage Floral Scrapbooking PNG",
             "description": "Digital junk journal paper craft elements and card making kit.",
-            "tags": ["scrapbooking", "paper craft", "junk journal", "card making", "ephemera"],
+            "tags": ["scrapbooking", "card making", "ephemera"],
             "product_type": "digital_png",
-            "intended_product_uses": ["scrapbooking", "card_making", "paper_craft"],
+            "intended_product_uses": ["scrapbooking", "card_making"],
         }
 
         fit = evaluate_taxonomy_fit(
@@ -162,8 +156,11 @@ class TestTaxonomyFitness:
             campaign_context=campaign,
         )
 
+        assert fit.fit == "good"
+        assert fit.blocking_mismatch is False
         assert fit.has_mismatched_required_attributes is False
         assert fit.score >= 0.85
+        assert fit.campaign_intent == "scrapbooking_paper"
         assert any("scrapbooking and papercraft" in r.lower() for r in fit.reasons)
 
     def test_physical_category_disqualified(
@@ -183,6 +180,8 @@ class TestTaxonomyFitness:
 
         assert is_physical_disqualified(physical_plates_node.full_path) is True
         assert fit.score == 0.0
+        assert fit.fit == "poor"
+        assert fit.blocking_mismatch is True
         assert fit.has_mismatched_required_attributes is True
         assert any("disqualified" in w.lower() for w in fit.warnings)
 
@@ -216,4 +215,23 @@ class TestTaxonomyFitness:
         )
 
         assert fit.score >= 0.80
+        assert fit.fit == "good"
+        assert fit.blocking_mismatch is False
         assert fit.has_mismatched_required_attributes is False
+
+    def test_intent_classification_signals(self, clip_art_node: EtsyTaxonomyNode) -> None:
+        # Wall art
+        wall_art_fit = evaluate_taxonomy_fit(
+            taxonomy_node=clip_art_node,
+            taxonomy_properties=[],
+            campaign_context={"title": "Nursery Wall Art Poster", "product_type": "digital_print"},
+        )
+        assert wall_art_fit.campaign_intent == "wall_art_print"
+
+        # Illustration
+        illustration_fit = evaluate_taxonomy_fit(
+            taxonomy_node=clip_art_node,
+            taxonomy_properties=[],
+            campaign_context={"title": "Custom Cat Portrait Drawing", "product_type": "digital_drawing"},
+        )
+        assert illustration_fit.campaign_intent == "digital_illustration"

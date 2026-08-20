@@ -200,3 +200,53 @@ async def test_resolver_uses_cache_during_gateway_resolution() -> None:
     assert fetch_count == 1
     assert res2.taxonomy_id == 333
 
+
+def test_case_3_best_available_fallback_when_no_sublimation_properties_exist() -> None:
+    """When all candidate digital categories only have paper-oriented craft types,
+
+    resolver returns the best legitimate digital category, marks best_available = True,
+    includes a warning, and does NOT invent fake values.
+    """
+    from app.ports.providers import EtsyTaxonomyProperty
+
+    candidate_a = EtsyTaxonomyNode(
+        id=6844,
+        level=3,
+        name="Clip Art & Image Files",
+        full_path="Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files",
+    )
+
+    props_map = {
+        6844: [
+            EtsyTaxonomyProperty(
+                property_id=82731,
+                name="Craft type",
+                is_required=True,
+                supports_attributes=True,
+                is_multivalued=True,
+                possible_values=[
+                    {"value_id": 1, "name": "Card making & stationery"},
+                    {"value_id": 2, "name": "Collage"},
+                    {"value_id": 3, "name": "Kids' crafts"},
+                    {"value_id": 4, "name": "Scrapbooking"},
+                ],
+            )
+        ]
+    }
+
+    resolver = EtsyTaxonomyResolver()
+    result = resolver.resolve(
+        title="Retro Camping Dog PNG Sublimation Design",
+        tags=["sublimation", "tshirt png", "pod graphics"],
+        product_type="digital_png",
+        intended_product_uses=["t_shirt", "sweatshirt", "sublimation"],
+        nodes=[candidate_a],
+        properties_map=props_map,
+    )
+
+    assert result.taxonomy_id == 6844
+    assert result.fit_result is not None
+    assert result.fit_result.best_available is True
+    assert result.fit_result.has_mismatched_required_attributes is True
+    assert any("precisely matches" in w for w in result.fit_result.warnings)
+

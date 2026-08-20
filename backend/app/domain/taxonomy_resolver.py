@@ -111,6 +111,21 @@ class EtsyTaxonomyResolver:
             if scored_candidates:
                 scored_candidates.sort(key=lambda x: x[0], reverse=True)
                 best_score, best_node, best_fit = scored_candidates[0]
+                if best_fit.has_mismatched_required_attributes:
+                    warnings = list(best_fit.warnings)
+                    if not any("precisely matches" in w for w in warnings):
+                        warnings.append("Etsy does not currently expose a Craft type that precisely matches this product's intended use.")
+                    best_fit = TaxonomyFitResult(
+                        score=best_fit.score,
+                        fit=best_fit.fit,
+                        blocking_mismatch=best_fit.blocking_mismatch,
+                        reasons=best_fit.reasons,
+                        warnings=warnings,
+                        has_mismatched_required_attributes=best_fit.has_mismatched_required_attributes,
+                        mismatched_required_reason=best_fit.mismatched_required_reason,
+                        best_available=True,
+                        campaign_intent=best_fit.campaign_intent,
+                    )
                 return TaxonomyResolution(
                     taxonomy_id=best_node.id,
                     taxonomy_path=best_node.full_path,
