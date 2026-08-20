@@ -40,3 +40,5 @@ def test_openapi_document_is_generated(settings: Settings) -> None:
     document = client.get("/api/openapi.json").json()
     assert "/api/health" in document["paths"]
     assert "/api/v1/workflow" in document["paths"]
+    assert "/api/v1/workflows/{workflow_id}/gates/listing" in document["paths"]
+    assert "/api/v1/workflows/{workflow_id}/gates/gate-3/decision" in document["paths"]

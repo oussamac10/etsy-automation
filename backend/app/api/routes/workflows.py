@@ -2283,6 +2283,11 @@ async def build_listing_package_endpoint(
     response_model=ListingDraftResponse,
     summary="Submit Gate 3 human decision (Approve / Reject)",
 )
+@router.post(
+    "/{workflow_id}/gates/gate-3/decision",
+    response_model=ListingDraftResponse,
+    summary="Submit Gate 3 human decision (Approve / Reject)",
+)
 async def decide_gate3_endpoint(
     workflow_id: uuid.UUID,
     payload: Gate3DecisionRequest,
