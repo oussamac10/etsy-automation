@@ -278,17 +278,17 @@ function getBgClass(bg: BgMode): string {
     </div>
 
     <!-- Variants Grid -->
-    <div v-if="variants.length > 0" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div v-if="variants.length > 0" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
       <div
         v-for="item in variants"
         :key="item.id"
         class="border border-border/80 rounded-xl overflow-hidden bg-slate-50/50 hover:shadow-xs transition-all flex flex-col justify-between"
       >
         <!-- Card Top Bar -->
-        <div class="p-3 pb-2 flex items-center justify-between gap-2 border-b border-border/60 bg-white">
-          <div class="flex items-center gap-1.5 truncate">
-            <span class="text-xs font-bold text-foreground truncate">{{ item.title }}</span>
-            <Badge v-if="item.custom_color" variant="outline" class="text-[9px] px-1.5 py-0 font-mono">
+        <div class="p-2 px-2.5 pb-1.5 flex items-center justify-between gap-1 border-b border-border/60 bg-white">
+          <div class="flex items-center gap-1 truncate">
+            <span class="text-xs font-bold text-foreground truncate" :title="item.title">{{ item.title }}</span>
+            <Badge v-if="item.custom_color" variant="outline" class="text-[9px] px-1 py-0 font-mono">
               {{ item.custom_color }}
             </Badge>
           </div>
@@ -296,55 +296,55 @@ function getBgClass(bg: BgMode): string {
           <!-- Status Badge -->
           <span
             v-if="item.variant_status === 'approved'"
-            class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200"
+            class="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200 shrink-0"
           >
             <Icon name="lucide:check" class="size-2.5" aria-hidden="true" />
             Approved
           </span>
           <span
             v-else-if="item.variant_status === 'rejected'"
-            class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200"
+            class="inline-flex items-center gap-0.5 text-[9px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200 shrink-0"
           >
             Rejected
           </span>
           <span
             v-else-if="item.variant_status === 'failed'"
-            class="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/30"
+            class="inline-flex items-center gap-0.5 text-[9px] font-semibold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full border border-destructive/30 shrink-0"
           >
             Failed
           </span>
           <span
             v-else
-            class="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30"
+            class="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-700 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/30 shrink-0"
           >
-            Ready for Review
+            Ready
           </span>
         </div>
 
         <!-- Image Preview Frame with Interactive Background -->
         <div
-          class="relative group w-full h-[200px] overflow-hidden flex items-center justify-center p-3 transition-colors duration-200"
+          class="relative group w-full h-[125px] overflow-hidden flex items-center justify-center p-2 transition-colors duration-200"
           :class="getBgClass(previewBg)"
         >
           <img
             v-if="item.url"
             :src="item.url"
             :alt="item.title"
-            class="object-contain max-h-[170px] w-full transition-transform duration-200 group-hover:scale-105"
+            class="object-contain max-h-[105px] w-full transition-transform duration-200 group-hover:scale-105"
           >
-          <div v-else class="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-            <Icon name="lucide:image" class="size-8 animate-pulse text-slate-300" />
-            <span class="text-[11px]">Loading variant preview...</span>
+          <div v-else class="flex flex-col items-center justify-center gap-1.5 text-muted-foreground">
+            <Icon name="lucide:image" class="size-6 animate-pulse text-slate-300" />
+            <span class="text-[10px]">Loading preview...</span>
           </div>
 
           <!-- Hover Overlay -->
           <div
             v-if="item.url"
-            class="absolute inset-0 bg-black/40 backdrop-blur-2xs opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center gap-2"
+            class="absolute inset-0 bg-black/40 backdrop-blur-2xs opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center justify-center gap-1.5"
           >
             <button
               type="button"
-              class="h-7 px-2.5 rounded-md bg-white/95 hover:bg-white text-slate-900 text-[11px] font-semibold shadow-xs flex items-center gap-1 cursor-pointer"
+              class="h-6 px-2 rounded-md bg-white/95 hover:bg-white text-slate-900 text-[10px] font-semibold shadow-xs flex items-center gap-1 cursor-pointer"
               title="Inspect Zoom"
               @click="zoomedImageUrl = item.url; zoomedTitle = item.title"
             >
@@ -356,7 +356,7 @@ function getBgClass(bg: BgMode): string {
               target="_blank"
               rel="noopener noreferrer"
               :download="`${item.title.toLowerCase().replace(/\\s+/g, '_')}_300dpi.png`"
-              class="h-7 w-7 rounded-md bg-white/95 hover:bg-white text-slate-900 flex items-center justify-center shadow-xs cursor-pointer"
+              class="h-6 w-6 rounded-md bg-white/95 hover:bg-white text-slate-900 flex items-center justify-center shadow-xs cursor-pointer"
               title="Download Variant PNG"
             >
               <Icon name="lucide:download" class="size-3" aria-hidden="true" />
@@ -364,62 +364,36 @@ function getBgClass(bg: BgMode): string {
           </div>
         </div>
 
-        <!-- 6-Point Quality & Validation Checklist -->
-        <div class="px-3 py-2 bg-slate-50 border-t border-border/60 text-[10px] space-y-1">
-          <div class="flex items-center justify-between text-muted-foreground font-semibold">
-            <span>Validation Checklist</span>
-            <span class="text-emerald-700 font-bold flex items-center gap-0.5">
-              <Icon name="lucide:shield-check" class="size-3 text-emerald-600" aria-hidden="true" />
-              Pass
-            </span>
+        <!-- Quality & Validation Checklist Strip -->
+        <div class="px-2 py-1 bg-slate-50 border-t border-border/60 flex items-center justify-between text-[10px]">
+          <div class="flex items-center gap-1 text-muted-foreground font-medium truncate" title="Validation: PNG 300 DPI · Real Alpha · Zero Checkerboard">
+            <Icon name="lucide:shield-check" class="size-3 text-emerald-600 shrink-0" aria-hidden="true" />
+            <span class="truncate text-[10px]">PNG (300 DPI) · Real Alpha</span>
           </div>
-          <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-foreground/80 font-medium">
-            <div class="flex items-center gap-1">
-              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
-              <span>Format: PNG (300 DPI)</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
-              <span>Real Alpha (No JPEG)</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
-              <span>Dimensions Match</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
-              <span>100% Geometry Kept</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
-              <span>Zero Checkerboard</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <Icon name="lucide:check" class="size-2.5 text-emerald-600 shrink-0" />
-              <span>High Contrast Darks</span>
-            </div>
-          </div>
+          <span class="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200/60 shrink-0 ml-1">
+            Pass
+          </span>
         </div>
 
         <!-- Card Footer Actions -->
-        <div class="p-2.5 border-t border-border/60 bg-white flex items-center justify-between gap-2">
-          <div class="flex items-center gap-1.5">
+        <div class="p-1.5 px-2 border-t border-border/60 bg-white flex items-center justify-between gap-1.5">
+          <div class="flex items-center gap-1">
             <Button
               v-if="item.variant_status !== 'approved' && item.variant_status !== 'failed'"
               variant="default"
               size="sm"
-              class="h-7 text-[11px] font-bold px-2.5 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+              class="h-6 text-[10px] font-bold px-2 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
               :disabled="isActing"
               @click="handleApprove(item)"
             >
-              <Icon name="lucide:check" class="size-3" aria-hidden="true" />
+              <Icon name="lucide:check" class="size-2.5" aria-hidden="true" />
               <span>Approve</span>
             </Button>
             <Button
               v-if="item.variant_status === 'approved'"
               variant="outline"
               size="sm"
-              class="h-7 text-[11px] px-2 text-muted-foreground hover:text-foreground cursor-pointer"
+              class="h-6 text-[10px] px-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
               :disabled="isActing"
               @click="handleReject(item)"
             >
@@ -429,7 +403,7 @@ function getBgClass(bg: BgMode): string {
               v-else-if="item.variant_status !== 'rejected' && item.variant_status !== 'failed'"
               variant="outline"
               size="sm"
-              class="h-7 text-[11px] px-2 text-muted-foreground hover:text-foreground cursor-pointer"
+              class="h-6 text-[10px] px-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
               :disabled="isActing"
               @click="handleReject(item)"
             >
@@ -439,12 +413,12 @@ function getBgClass(bg: BgMode): string {
 
           <button
             type="button"
-            class="h-7 w-7 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors cursor-pointer"
+            class="h-6 w-6 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors cursor-pointer"
             title="Delete Variant"
             :disabled="isActing"
             @click="openDeleteModal(item)"
           >
-            <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
+            <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
           </button>
         </div>
       </div>
