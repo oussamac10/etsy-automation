@@ -308,8 +308,8 @@ const totalSelectedCount = computed(() => {
 <template>
   <Card class="border-border bg-card shadow-xs" data-testid="taxonomy-attributes-card">
     <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
-      <div>
-        <CardTitle class="text-base font-semibold flex items-center gap-2 flex-wrap">
+      <div class="space-y-0.5">
+        <CardTitle class="text-sm font-semibold flex items-center gap-2 flex-wrap">
           <Icon name="lucide:sliders-horizontal" class="size-4 text-primary" aria-hidden="true" />
           <span>Category Attributes</span>
           <Badge variant="outline" class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
@@ -329,19 +329,19 @@ const totalSelectedCount = computed(() => {
         </CardDescription>
       </div>
 
-      <div class="flex items-center gap-2 shrink-0 flex-wrap self-start sm:self-auto">
+      <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
         <!-- 1. Deterministic Smart Suggestions (0 tokens, free) -->
         <Button
           v-if="properties.length > 0"
           type="button"
           variant="outline"
           size="sm"
-          class="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+          class="h-8 px-2.5 gap-1.5 text-xs font-medium cursor-pointer"
           title="Apply instant keyword-based suggestions (Free, 0 tokens)"
           @click="applySmartSuggestions"
         >
           <Icon name="lucide:sparkles" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-          <span>Apply Smart Suggestions</span>
+          <span>Smart Suggest</span>
         </Button>
 
         <!-- 2. Explicit AI Suggestion Button -->
@@ -350,14 +350,14 @@ const totalSelectedCount = computed(() => {
           type="button"
           variant="outline"
           size="sm"
-          class="h-8 gap-1.5 text-xs font-medium cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
+          class="h-8 px-2.5 gap-1.5 text-xs font-medium cursor-pointer border-primary/30 hover:border-primary/60 text-primary"
           :disabled="isSuggestingAiAttributes"
           title="Analyze this campaign with AI to pick from allowed Etsy values"
           @click="handleTriggerAiSuggestions"
         >
           <Icon v-if="isSuggestingAiAttributes" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
           <Icon v-else name="lucide:brain-circuit" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>{{ isSuggestingAiAttributes ? 'Analyzing campaign...' : 'AI Suggest Attributes' }}</span>
+          <span>{{ isSuggestingAiAttributes ? 'Analyzing...' : 'AI Suggest' }}</span>
         </Button>
 
         <!-- Clear Optional -->
@@ -370,7 +370,7 @@ const totalSelectedCount = computed(() => {
           title="Clear optional attribute selections"
           @click="clearOptionalAttributes"
         >
-          Clear Optional
+          Clear
         </Button>
 
         <!-- Save Button -->
@@ -380,7 +380,7 @@ const totalSelectedCount = computed(() => {
           variant="default"
           size="sm"
           :disabled="isSaving"
-          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
+          class="h-8 px-3 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
           @click="emit('save')"
         >
           <Icon v-if="isSaving" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />

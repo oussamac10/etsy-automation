@@ -550,8 +550,8 @@ describe("TaxonomyAttributesCard AI & Smart Suggestions", () => {
 
     await flushPromises();
 
-    // Click "AI Suggest Attributes" button
-    const aiBtn = wrapper.findAll("button").find((b) => b.text().includes("AI Suggest Attributes"));
+    // Click "AI Suggest" button
+    const aiBtn = wrapper.findAll("button").find((b) => b.text().includes("AI Suggest"));
     expect(aiBtn).toBeDefined();
     await aiBtn!.trigger("click");
     await flushPromises();
