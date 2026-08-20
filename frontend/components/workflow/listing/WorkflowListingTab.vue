@@ -401,13 +401,6 @@ const isApproved = computed(() => {
             @save="handleSave"
           />
 
-          <EtsyDraftCard
-            :workflow-id="workflowId"
-            :workflow-state="workflowState"
-            :listing="listingDraft"
-            @draft-created="loadListingData"
-          />
-
           <IpRiskCard
             :risk-level="riskLevel"
             :findings="listingDraft.ip_findings"

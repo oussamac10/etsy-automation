@@ -19,6 +19,7 @@ import WorkflowConceptsTab from "~/components/workflow/WorkflowConceptsTab.vue";
 import WorkflowArtworkTab from "~/components/workflow/WorkflowArtworkTab.vue";
 import WorkflowProductionTab from "~/components/workflow/WorkflowProductionTab.vue";
 import WorkflowListingTab from "~/components/workflow/listing/WorkflowListingTab.vue";
+import WorkflowEtsyTab from "~/components/workflow/listing/WorkflowEtsyTab.vue";
 import WorkflowPromptModal from "~/components/workflow/WorkflowPromptModal.vue";
 import WorkflowRefineModal from "~/components/workflow/WorkflowRefineModal.vue";
 
@@ -428,6 +429,11 @@ async function handleDecideGate(
   } catch {
     pageError.value = "Failed to submit decision.";
   }
+}
+
+async function handleListingApproved(): Promise<void> {
+  await loadData(true);
+  setActiveTab("etsy");
 }
 
 async function handleScreenConceptTrademark(conceptId: string): Promise<void> {
@@ -907,8 +913,15 @@ onBeforeUnmount(stopPolling);
               v-else-if="activeTab === 'listing'"
               :workflow-id="workflow.id"
               :workflow-state="workflow.state"
-              @approved="() => loadData(true)"
+              @approved="handleListingApproved"
               @rejected="() => loadData(true)"
+            />
+
+            <!-- Tab: Etsy Dispatch -->
+            <WorkflowEtsyTab
+              v-else-if="activeTab === 'etsy'"
+              :workflow-id="workflow.id"
+              :workflow-state="workflow.state"
             />
           </div>
         </transition>

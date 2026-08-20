@@ -183,5 +183,29 @@ const isListingActive = computed(() => {
         Gate 3
       </Badge>
     </button>
+
+    <!-- Tab 6: Etsy Dispatch -->
+    <button
+      type="button"
+      class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      :class="
+        activeTab === 'etsy'
+          ? 'bg-slate-900 text-white shadow-xs'
+          : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+      "
+      @click="emit('update:activeTab', 'etsy')"
+    >
+      <Icon v-if="workflowState === 'ETSY_DRAFT_CREATED'" name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
+      <Icon v-else name="lucide:store" class="size-3.5 sm:size-4 text-muted-foreground" aria-hidden="true" />
+      <span class="hidden sm:inline">5. Etsy Dispatch</span>
+      <span class="sm:hidden">5. Etsy</span>
+      <Badge
+        v-if="workflowState === 'ETSY_DRAFT_CREATED'"
+        variant="success"
+        class="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider"
+      >
+        Drafted
+      </Badge>
+    </button>
   </nav>
 </template>

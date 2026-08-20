@@ -23,3 +23,16 @@ export function validateTag(tag: string, existingTags: string[]): { isValid: boo
   }
   return { isValid: true };
 }
+
+export function formatCurrencyAmount(minorUnits: number, currency = 'USD'): string {
+  const symbolMap: Record<string, string> = {
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    CAD: 'CA$',
+    AUD: 'AU$',
+  };
+  const symbol = symbolMap[currency.toUpperCase()] || '$';
+  const decimal = (minorUnits / 100).toFixed(2);
+  return `${symbol}${decimal}`;
+}

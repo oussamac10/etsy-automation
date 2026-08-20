@@ -14,7 +14,7 @@ import Alert from '~/components/ui/Alert.vue';
 const props = defineProps<{
   workflowId: string;
   workflowState: string;
-  listing: ListingDraft;
+  listing?: ListingDraft | null;
 }>();
 
 const emit = defineEmits<{
@@ -39,7 +39,7 @@ let isReconcilingInProgress = false;
 const copied = ref(false);
 
 const currentStatus = computed(() => {
-  return draftStatus.value?.dispatch_status || props.listing.etsy_dispatch_status || 'not_started';
+  return draftStatus.value?.dispatch_status || props.listing?.etsy_dispatch_status || 'not_started';
 });
 
 const isDraftRemoved = computed(() => {
@@ -73,22 +73,22 @@ const failureReason = computed(() => {
   return (
     errorMessage.value ||
     draftStatus.value?.error_message ||
-    props.listing.etsy_failure_reason ||
+    props.listing?.etsy_failure_reason ||
     'The Etsy dispatch process encountered an issue. Please verify shop connection and retry.'
   );
 });
 
 const listingId = computed(() => {
   if (isDraftRemoved.value) return null;
-  return draftStatus.value?.etsy_listing_id || props.listing.etsy_listing_id || null;
+  return draftStatus.value?.etsy_listing_id || props.listing?.etsy_listing_id || null;
 });
 
 const mockupCount = computed(() => {
-  return props.listing.etsy_image_ids?.length || draftStatus.value?.etsy_image_ids?.length || 0;
+  return props.listing?.etsy_image_ids?.length || draftStatus.value?.etsy_image_ids?.length || 0;
 });
 
 const digitalFilesCount = computed(() => {
-  return props.listing.etsy_file_ids?.length || draftStatus.value?.etsy_file_ids?.length || (props.listing.etsy_file_id || draftStatus.value?.etsy_file_id ? 1 : 0);
+  return props.listing?.etsy_file_ids?.length || draftStatus.value?.etsy_file_ids?.length || (props.listing?.etsy_file_id || draftStatus.value?.etsy_file_id ? 1 : 0);
 });
 
 const listingManagerUrl = computed(() => {
