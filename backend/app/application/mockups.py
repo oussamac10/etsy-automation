@@ -272,6 +272,7 @@ class MockupCompositionService:
             target_asset.checksum_sha256 = mock_sha256
             target_asset.width = out_w
             target_asset.height = out_h
+            target_asset.derived_from_id = master_asset.derived_from_id or master_asset.id
             target_asset.provenance = provenance_data
             await self.uow.session.flush()
         else:
@@ -279,7 +280,7 @@ class MockupCompositionService:
                 id=mockup_id,
                 workflow_id=workflow_id,
                 artwork_job_id=None,
-                derived_from_id=master_asset.id,
+                derived_from_id=master_asset.derived_from_id or master_asset.id,
                 storage_key=mockup_storage_key,
                 mime_type="image/jpeg",
                 byte_size=len(composited_bytes),

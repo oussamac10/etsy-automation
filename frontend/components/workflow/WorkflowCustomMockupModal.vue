@@ -94,10 +94,10 @@ const isCompositing = ref(false);
 const compositeError = ref<string | null>(null);
 
 const { variants, fetchVariants: fetchArtworkVariants } = useArtworkVariants();
-const selectedArtworkSourceId = ref<string | null>(null);
+const selectedArtworkSourceId = ref<string>("master");
 
 const activeArtworkImageUrl = computed<string | null>(() => {
-  if (selectedArtworkSourceId.value && selectedArtworkSourceId.value !== props.masterAssetId) {
+  if (selectedArtworkSourceId.value && selectedArtworkSourceId.value !== "master" && selectedArtworkSourceId.value !== props.masterAssetId) {
     const found = variants.value.find((v) => v.id === selectedArtworkSourceId.value);
     if (found?.url) return found.url;
   }
@@ -250,9 +250,8 @@ watch(
       isCroppingMode.value = false;
 
       if (props.workflowId) {
-        fetchArtworkVariants(props.workflowId);
+        await fetchArtworkVariants(props.workflowId);
       }
-      selectedArtworkSourceId.value = props.masterAssetId || null;
 
       if (props.editingAsset) {
         // Editing existing mockup
@@ -260,6 +259,18 @@ watch(
         selectedTemplateId.value = prov?.template_id || null;
         templateName.value = prov?.template_name || "";
         isCover.value = Boolean(prov?.is_cover);
+
+        // Retain the specific artwork source (variant or master) that this mockup was composited with
+        if (
+          prov?.source_asset_id &&
+          String(prov.source_asset_id) !== props.masterAssetId &&
+          variants.value.some((v) => v.id === String(prov.source_asset_id))
+        ) {
+          selectedArtworkSourceId.value = String(prov.source_asset_id);
+        } else {
+          selectedArtworkSourceId.value = "master";
+        }
+
         if (prov?.placement) {
           leftPct.value = Math.round((prov.placement.left_pct ?? 0.25) * 100);
           topPct.value = Math.round((prov.placement.top_pct ?? 0.25) * 100);
@@ -275,6 +286,7 @@ watch(
         }
       } else {
         // Fresh creation
+        selectedArtworkSourceId.value = "master";
         selectedTemplateId.value = null;
         templateName.value = "";
         isCover.value = false;
@@ -305,7 +317,12 @@ async function handleGenerateMockup(): Promise<void> {
 
   try {
     const headers = getCsrfHeaders();
-    headers["Content-Type"] = "application/json";
+    const chosenArtworkId =
+      selectedArtworkSourceId.value &&
+      selectedArtworkSourceId.value !== "master" &&
+      selectedArtworkSourceId.value !== props.masterAssetId
+        ? selectedArtworkSourceId.value
+        : props.masterAssetId || undefined;
 
     const payload: Record<string, unknown> = {
       workflow_id: props.workflowId,
@@ -320,7 +337,7 @@ async function handleGenerateMockup(): Promise<void> {
       },
       is_cover: isCover.value,
       target_asset_id: props.editingAsset?.id || undefined,
-      master_asset_id: selectedArtworkSourceId.value || props.masterAssetId || undefined,
+      master_asset_id: chosenArtworkId,
     };
 
     if (activeSubTab.value === "library" && selectedTemplateId.value) {
@@ -562,7 +579,7 @@ async function handleGenerateMockup(): Promise<void> {
                   v-model="selectedArtworkSourceId"
                   class="h-7 text-xs px-2 py-0.5 rounded-lg border border-border bg-white font-medium text-foreground cursor-pointer focus:outline-hidden"
                 >
-                  <option :value="masterAssetId">Original Master PNG</option>
+                  <option value="master">Original Master PNG</option>
                   <option
                     v-for="v in variants"
                     :key="v.id"
