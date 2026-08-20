@@ -122,13 +122,13 @@ async function copyToClipboard(text: string, key: string) {
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-4">
       <div class="flex items-center gap-3">
         <div
-          class="flex size-9 shrink-0 items-center justify-center rounded-lg"
+          class="flex size-9 shrink-0 items-center justify-center rounded-lg border"
           :class="[
             overallStatus === 'verified'
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
               : overallStatus === 'needs_attention'
-                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                ? 'border-amber-200 bg-amber-50 text-amber-700'
+                : 'border-rose-200 bg-rose-50 text-rose-700',
           ]"
         >
           <Icon
@@ -204,18 +204,18 @@ async function copyToClipboard(text: string, key: string) {
 
     <!-- Summary Stats Bar -->
     <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-      <div class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-800/40 dark:bg-emerald-950/30">
-        <Icon name="lucide:circle-check" class="size-4 text-emerald-700 dark:text-emerald-300 shrink-0" aria-hidden="true" />
+      <div class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
+        <Icon name="lucide:circle-check" class="size-4 text-emerald-700 shrink-0" aria-hidden="true" />
         <div>
-          <div class="font-semibold text-emerald-700 dark:text-emerald-300 font-mono">{{ summary.synced }} Synced</div>
+          <div class="font-semibold text-emerald-700 font-mono">{{ summary.synced }} Synced</div>
           <div class="text-[11px] text-muted-foreground">API Verified Match</div>
         </div>
       </div>
 
-      <div class="flex items-center gap-2 rounded-lg bg-amber-500/5 border border-amber-500/10 p-2.5">
-        <Icon name="lucide:alert-triangle" class="size-4 text-amber-500 shrink-0" aria-hidden="true" />
+      <div class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+        <Icon name="lucide:alert-triangle" class="size-4 text-amber-700 shrink-0" aria-hidden="true" />
         <div>
-          <div class="font-semibold text-amber-700 dark:text-amber-300">{{ summary.warnings }} Warnings</div>
+          <div class="font-semibold text-amber-700 font-mono">{{ summary.warnings }} Warnings</div>
           <div class="text-[11px] text-muted-foreground">Different or Missing</div>
         </div>
       </div>
