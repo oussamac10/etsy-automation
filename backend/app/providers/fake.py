@@ -1021,6 +1021,170 @@ class FakeEtsyProvider(EtsyGateway):
             url=f"https://www.etsy.com/listing/{listing_id}",
         )
 
+    async def get_listing_details(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> dict[str, Any] | None:
+        self.call_count += 1
+        if self.revoked_token:
+            raise ProviderError(
+                kind=ProviderErrorKind.AUTHENTICATION,
+                provider="etsy",
+                operation="get_listing_details",
+                message="OAuth token revoked.",
+            )
+        if self.get_listing_rate_limited:
+            raise ProviderError(
+                kind=ProviderErrorKind.RATE_LIMITED,
+                provider="etsy",
+                operation="get_listing_details",
+                message="Etsy API rate limit reached (429).",
+                retry_after_seconds=5.0,
+            )
+        if self.get_listing_server_error:
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider="etsy",
+                operation="get_listing_details",
+                message="Etsy remote server error (503).",
+            )
+        if self.get_listing_timeout:
+            raise ProviderError(
+                kind=ProviderErrorKind.RETRYABLE,
+                provider="etsy",
+                operation="get_listing_details",
+                message="Etsy request timed out.",
+            )
+        if listing_id in self.deleted_listing_ids:
+            return None
+
+        for item in self.created_listings:
+            if item["listing_id"] == listing_id:
+                sec_id = item.get("shop_section_id")
+                return {
+                    "listing_id": int(listing_id) if listing_id.isdigit() else 4559404921,
+                    "shop_id": int(shop_id) if shop_id.isdigit() else 12345,
+                    "title": item.get("title", ""),
+                    "description": item.get("description", ""),
+                    "state": "draft",
+                    "quantity": item.get("quantity", 999),
+                    "sku": item.get("sku"),
+                    "shop_section_id": int(sec_id) if sec_id and str(sec_id).isdigit() else None,
+                    "should_auto_renew": item.get("should_auto_renew", False),
+                    "taxonomy_id": item.get("taxonomy_id", 77),
+                    "tags": item.get("tags", []),
+                    "who_made": item.get("who_made", "i_did"),
+                    "when_made": item.get("when_made", "2020_2026"),
+                    "listing_type": item.get("item_type", "download"),
+                    "is_supply": item.get("is_supply", False),
+                    "price": {
+                        "amount": item.get("price_cents", 499),
+                        "divisor": 100,
+                        "currency_code": item.get("currency", "USD"),
+                    },
+                    "url": f"https://www.etsy.com/listing/{listing_id}",
+                }
+
+        return {
+            "listing_id": int(listing_id) if listing_id.isdigit() else 4559404921,
+            "shop_id": int(shop_id) if shop_id.isdigit() else 12345,
+            "title": "Etsy Draft Listing",
+            "description": "Download description.",
+            "state": "draft",
+            "quantity": 999,
+            "sku": "NCP-COZY-FALL-6125",
+            "shop_section_id": None,
+            "should_auto_renew": False,
+            "taxonomy_id": 77,
+            "tags": [f"tag_{i}" for i in range(13)],
+            "who_made": "i_did",
+            "when_made": "2020_2026",
+            "listing_type": "download",
+            "is_supply": False,
+            "price": {"amount": 499, "divisor": 100, "currency_code": "USD"},
+            "url": f"https://www.etsy.com/listing/{listing_id}",
+        }
+
+    async def get_listing_inventory(
+        self, *, access_token: str, listing_id: str
+    ) -> dict[str, Any] | None:
+        self.call_count += 1
+        sku = None
+        qty = 999
+        price_cents = 499
+        for inv in self.updated_inventory:
+            if inv["listing_id"] == listing_id:
+                sku = inv.get("sku")
+                qty = inv.get("quantity", 999)
+                price_cents = inv.get("price_cents", 499)
+        if not sku:
+            for it in self.created_listings:
+                if it["listing_id"] == listing_id and it.get("sku"):
+                    sku = it["sku"]
+                    qty = it.get("quantity", 999)
+                    price_cents = it.get("price_cents", 499)
+        return {
+            "products": [
+                {
+                    "product_id": 1,
+                    "sku": sku,
+                    "offerings": [
+                        {
+                            "price": {"amount": price_cents, "divisor": 100, "currency_code": "USD"},
+                            "quantity": qty,
+                            "is_enabled": True,
+                        }
+                    ],
+                }
+            ]
+        }
+
+    async def get_listing_images(
+        self, *, access_token: str, listing_id: str
+    ) -> list[EtsyImageResponse]:
+        self.call_count += 1
+        return [
+            EtsyImageResponse(
+                listing_image_id=im["listing_image_id"],
+                listing_id=im["listing_id"],
+                rank=im.get("rank", idx + 1),
+                url=f"https://i.etsystatic.com/img/{im['listing_image_id']}.jpg",
+            )
+            for idx, im in enumerate(self.uploaded_images)
+            if im["listing_id"] == listing_id
+        ]
+
+    async def get_listing_files(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> list[EtsyFileResponse]:
+        self.call_count += 1
+        return [
+            EtsyFileResponse(
+                listing_file_id=f["listing_file_id"],
+                listing_id=f["listing_id"],
+                rank=f.get("rank", idx + 1),
+                filename=f.get("filename", "package.zip"),
+                filesize=f.get("filesize", 1024),
+            )
+            for idx, f in enumerate(self.uploaded_files)
+            if f["listing_id"] == listing_id
+        ]
+
+    async def get_listing_properties(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> list[dict[str, Any]]:
+        self.call_count += 1
+        return [
+            {
+                "property_id": p["property_id"],
+                "property_name": f"Property {p['property_id']}",
+                "values": p.get("values", []),
+                "value_ids": p.get("value_ids", []),
+                "scale_id": None,
+            }
+            for p in self.updated_properties
+            if p["listing_id"] == listing_id
+        ]
+
     async def get_seller_taxonomy_nodes(self) -> list[EtsyTaxonomyNode]:
         self.call_count += 1
         return [

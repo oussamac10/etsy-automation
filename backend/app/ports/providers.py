@@ -343,6 +343,26 @@ class EtsyGateway(Protocol):
         self, *, access_token: str, shop_id: str, listing_id: str
     ) -> EtsyListingResponse | None: ...
 
+    async def get_listing_details(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> dict[str, Any] | None: ...
+
+    async def get_listing_inventory(
+        self, *, access_token: str, listing_id: str
+    ) -> dict[str, Any] | None: ...
+
+    async def get_listing_images(
+        self, *, access_token: str, listing_id: str
+    ) -> list[EtsyImageResponse]: ...
+
+    async def get_listing_files(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> list[EtsyFileResponse]: ...
+
+    async def get_listing_properties(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> list[dict[str, Any]]: ...
+
     async def get_seller_taxonomy_nodes(self) -> list[EtsyTaxonomyNode]: ...
 
     async def get_shop_sections(

@@ -177,6 +177,7 @@ class AuditAction(StrEnum):
     ETSY_DISCONNECTED = "etsy_disconnected"
     ETSY_TOKEN_REFRESHED = "etsy_token_refreshed"
     ETSY_DRAFT_CREATED = "etsy_draft_created"
+    ETSY_DRAFT_VERIFIED = "etsy_draft_verified"
     ETSY_DRAFT_FAILED = "etsy_draft_failed"
     ETSY_DRAFT_REMOVED_EXTERNALLY = "etsy_draft_removed_externally"
 

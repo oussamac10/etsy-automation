@@ -647,6 +647,9 @@ erDiagram
 | `etsy_last_synced_at` | `DATETIME` | YES | - | - | - |
 | `etsy_failure_reason` | `TEXT` | YES | - | - | - |
 | `etsy_draft_created_at` | `DATETIME` | YES | - | - | - |
+| `etsy_verification_status` | `VARCHAR(40)` | YES | - | - | - |
+| `etsy_verified_at` | `DATETIME` | YES | - | - | - |
+| `etsy_verification_result` | `JSONB` | NO | `dynamic` | - | - |
 | `version` | `INTEGER` | NO | `1` | - | - |
 | `created_at` | `DATETIME` | NO | `dynamic` | - | - |
 | `updated_at` | `DATETIME` | NO | `dynamic` | - | - |

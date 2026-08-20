@@ -460,6 +460,102 @@ class EtsyProvider(EtsyGateway):
                 return None
             raise
 
+    async def get_listing_details(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> dict[str, Any] | None:
+        """Retrieve full Etsy listing payload, returning None if listing is deleted / not found."""
+        url = f"{self._base_url}/application/listings/{listing_id}"
+        headers = self._default_headers(access_token)
+        try:
+            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_details")
+            payload = response.json()
+            state = str(payload.get("state", "draft")).lower()
+            if state in ("deleted", "removed"):
+                return None
+            return payload
+        except ProviderError as pe:
+            if pe.kind == ProviderErrorKind.NOT_FOUND:
+                return None
+            raise
+
+    async def get_listing_inventory(
+        self, *, access_token: str, listing_id: str
+    ) -> dict[str, Any] | None:
+        """Fetch listing inventory from GET /application/listings/{listing_id}/inventory."""
+        url = f"{self._base_url}/application/listings/{listing_id}/inventory"
+        headers = self._default_headers(access_token)
+        try:
+            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_inventory")
+            return response.json()
+        except ProviderError as pe:
+            if pe.kind == ProviderErrorKind.NOT_FOUND:
+                return None
+            raise
+
+    async def get_listing_images(
+        self, *, access_token: str, listing_id: str
+    ) -> list[EtsyImageResponse]:
+        """Fetch listing images from GET /application/listings/{listing_id}/images."""
+        url = f"{self._base_url}/application/listings/{listing_id}/images"
+        headers = self._default_headers(access_token)
+        try:
+            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_images")
+            payload = response.json()
+            results = payload.get("results") or []
+            return [
+                EtsyImageResponse(
+                    listing_image_id=str(img.get("listing_image_id", "")),
+                    listing_id=str(img.get("listing_id", listing_id)),
+                    rank=int(img.get("rank", idx + 1)),
+                    url=img.get("url_fullxfull") or img.get("url_570xN") or img.get("url_75x75"),
+                )
+                for idx, img in enumerate(results)
+            ]
+        except ProviderError as pe:
+            if pe.kind == ProviderErrorKind.NOT_FOUND:
+                return []
+            raise
+
+    async def get_listing_files(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> list[EtsyFileResponse]:
+        """Fetch digital listing files from GET /application/shops/{shop_id}/listings/{listing_id}/files."""
+        url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}/files"
+        headers = self._default_headers(access_token)
+        try:
+            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_files")
+            payload = response.json()
+            results = payload.get("results") or []
+            return [
+                EtsyFileResponse(
+                    listing_file_id=str(f.get("listing_file_id", "")),
+                    listing_id=str(f.get("listing_id", listing_id)),
+                    rank=int(f.get("rank", idx + 1)),
+                    filename=str(f.get("filename", "")),
+                    filesize=f.get("filesize"),
+                )
+                for idx, f in enumerate(results)
+            ]
+        except ProviderError as pe:
+            if pe.kind == ProviderErrorKind.NOT_FOUND:
+                return []
+            raise
+
+    async def get_listing_properties(
+        self, *, access_token: str, shop_id: str, listing_id: str
+    ) -> list[dict[str, Any]]:
+        """Fetch applied listing taxonomy properties from GET /application/shops/{shop_id}/listings/{listing_id}/properties."""
+        url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}/properties"
+        headers = self._default_headers(access_token)
+        try:
+            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_properties")
+            payload = response.json()
+            return payload.get("results") or []
+        except ProviderError as pe:
+            if pe.kind == ProviderErrorKind.NOT_FOUND:
+                return []
+            raise
+
     async def get_seller_taxonomy_nodes(self) -> list[EtsyTaxonomyNode]:
         """Fetch all official Etsy seller taxonomy nodes with 24h caching."""
         import time

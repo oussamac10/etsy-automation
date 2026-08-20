@@ -258,6 +258,27 @@ class SqlListingDraftRepository:
         draft.etsy_draft_created_at = None
         draft.etsy_dispatch_status = "not_started"
         draft.etsy_failure_reason = None
+        draft.etsy_verification_status = None
+        draft.etsy_verified_at = None
+        draft.etsy_verification_result = {}
         draft.etsy_last_synced_at = last_synced_at or datetime.now(UTC)
+        await self._session.flush()
+        return draft
+
+    async def update_etsy_verification(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        status: str,
+        verified_at: datetime,
+        result: dict[str, object],
+    ) -> ListingDraft:
+        draft = await self.get(draft_id)
+        if draft is None:
+            raise EntityNotFoundError("ListingDraft", draft_id)
+
+        draft.etsy_verification_status = status
+        draft.etsy_verified_at = verified_at
+        draft.etsy_verification_result = result
         await self._session.flush()
         return draft
