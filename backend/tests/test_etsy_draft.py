@@ -657,3 +657,30 @@ class TestEtsyDraftExecution:
                 etsy_gateway=fake_etsy,
             )
 
+
+def test_pricing_safety_and_currency_resolution():
+    """Verify resolve_listing_price and resolve_listing_currency precedence."""
+    from app.domain.pricing import resolve_listing_currency, resolve_listing_price
+
+    # 1. Explicit price takes precedence
+    assert resolve_listing_price(listing_price_minor=650, owner_default_minor=499) == 650
+
+    # 2. Owner default price takes second precedence
+    assert resolve_listing_price(listing_price_minor=None, owner_default_minor=750) == 750
+
+    # 3. Recommendation engine fallback
+    rec_price = resolve_listing_price(
+        listing_price_minor=None,
+        owner_default_minor=None,
+        title="Retro Christmas PNG Bundle",
+        tags=["christmas", "bundle"],
+    )
+    assert rec_price is not None and rec_price > 0
+
+    # 4. Currency precedence: listing -> shop -> owner -> USD
+    assert resolve_listing_currency(listing_currency="EUR", shop_currency="GBP", owner_currency="CAD") == "EUR"
+    assert resolve_listing_currency(listing_currency=None, shop_currency="GBP", owner_currency="CAD") == "GBP"
+    assert resolve_listing_currency(listing_currency=None, shop_currency=None, owner_currency="CAD") == "CAD"
+    assert resolve_listing_currency(listing_currency=None, shop_currency=None, owner_currency=None) == "USD"
+
+

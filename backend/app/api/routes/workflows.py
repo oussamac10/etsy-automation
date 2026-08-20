@@ -2388,6 +2388,7 @@ async def update_listing_taxonomy_endpoint(
     user: CurrentUser,
     uow: UowDep,
     storage: StorageDep,
+    etsy_gateway: EtsyGatewayDep,
 ) -> ListingDraftResponse:
     workflow = await uow.workflows.get(workflow_id)
     if not workflow or workflow.owner_id != user.id:
@@ -2412,10 +2413,26 @@ async def update_listing_taxonomy_endpoint(
             detail="Physical product categories cannot be used for digital transparent PNG listings.",
         )
 
+    from app.domain.taxonomy_properties import revalidate_listing_taxonomy_properties
+
+    try:
+        props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=payload.taxonomy_id)
+    except Exception:
+        props = []
+
+    validated_properties = revalidate_listing_taxonomy_properties(
+        existing_properties=listing.etsy_properties,
+        available_properties=props,
+        title=listing.title if listing else workflow.name,
+        description=listing.description if listing else "",
+        tags=list(listing.tags) if listing and listing.tags else [],
+    )
+
     updated = await uow.listing_drafts.update(
         listing.id,
         taxonomy_id=payload.taxonomy_id,
         taxonomy_path=payload.taxonomy_path,
+        etsy_properties=validated_properties,
     )
     await uow.commit()
     return await _build_listing_response(updated, workflow_id, uow, storage)
@@ -2603,7 +2620,9 @@ async def get_listing_taxonomy_properties_endpoint(
     title = listing.title if listing else workflow.name
     desc = listing.description if listing else ""
     tags = list(listing.tags) if listing else []
-    suggested_map = suggest_taxonomy_properties(title=title, description=desc, tags=tags)
+    suggested_map = suggest_taxonomy_properties(
+        title=title, description=desc, tags=tags, available_properties=props
+    )
 
     responses: list[TaxonomyPropertyResponse] = []
     for p in props:
