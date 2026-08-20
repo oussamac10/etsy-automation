@@ -285,3 +285,24 @@ class SqlListingDraftRepository:
         draft.etsy_verification_result = result
         await self._session.flush()
         return draft
+
+    async def list_distinct_shop_sections_for_user(
+        self,
+        owner_id: uuid.UUID,
+    ) -> list[tuple[str | None, str | None]]:
+        from app.infrastructure.models.workflow import ProductWorkflow
+
+        stmt = (
+            select(ListingDraft.shop_section_id, ListingDraft.shop_section_name)
+            .join(ProductWorkflow, ListingDraft.workflow_id == ProductWorkflow.id)
+            .where(ProductWorkflow.owner_id == owner_id)
+            .where(
+                (ListingDraft.shop_section_id.is_not(None))
+                | (ListingDraft.shop_section_name.is_not(None))
+            )
+            .distinct()
+        )
+        res = await self._session.execute(stmt)
+        return [(r[0], r[1]) for r in res.all() if r[0] or r[1]]
+
+

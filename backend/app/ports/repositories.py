@@ -687,6 +687,12 @@ class ListingDraftRepository(Protocol):
         last_synced_at: datetime | None = None,
     ) -> ListingDraft: ...
 
+    async def list_distinct_shop_sections_for_user(
+        self,
+        owner_id: uuid.UUID,
+    ) -> list[tuple[str | None, str | None]]: ...
+
+
 
 @runtime_checkable
 class TrademarkRepository(Protocol):

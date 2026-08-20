@@ -2698,7 +2698,7 @@ async def get_listing_price_recommendation_endpoint(
 @router.get(
     "/{workflow_id}/listing/shop-sections",
     response_model=list[ShopSectionResponse],
-    summary="Fetch existing shop sections from the connected Etsy shop",
+    summary="Fetch existing shop sections from connected Etsy shop and all user campaigns",
 )
 async def get_listing_shop_sections_endpoint(
     workflow_id: uuid.UUID,
@@ -2714,40 +2714,66 @@ async def get_listing_shop_sections_endpoint(
             detail="No workflow with that ID",
         )
 
+    results: list[ShopSectionResponse] = []
+    seen_ids: set[str] = set()
+    seen_titles: set[str] = set()
+
+    # 1. Fetch from Etsy if connected
     conn = await uow.shop_connections.get_by_user_id(user.id, provider="etsy")
-    if not conn or not conn.is_connected or not conn.etsy_shop_id or cipher is None:
-        return []
-
-    from app.application.etsy_auth import get_valid_access_token
-
-    try:
-        token = await get_valid_access_token(
-            uow=uow,
-            cipher=cipher,
-            etsy_gateway=etsy_gateway,
-            owner_id=user.id,
-        )
-        sections = await etsy_gateway.get_shop_sections(
-            access_token=token,
-            shop_id=conn.etsy_shop_id,
-        )
-        return [
-            ShopSectionResponse(
-                shop_section_id=s.shop_section_id,
-                title=s.title,
-                rank=s.rank,
-                active_listing_count=s.active_listing_count,
+    if conn and conn.is_connected and conn.etsy_shop_id and cipher is not None:
+        from app.application.etsy_auth import get_valid_access_token
+        try:
+            token = await get_valid_access_token(
+                uow=uow,
+                cipher=cipher,
+                etsy_gateway=etsy_gateway,
+                owner_id=user.id,
             )
-            for s in sections
-        ]
-    except Exception:
-        return []
+            etsy_sections = await etsy_gateway.get_shop_sections(
+                access_token=token,
+                shop_id=conn.etsy_shop_id,
+            )
+            for s in etsy_sections:
+                sec_id = s.shop_section_id
+                sec_title = s.title.strip()
+                if sec_id not in seen_ids and sec_title.lower() not in seen_titles:
+                    seen_ids.add(sec_id)
+                    seen_titles.add(sec_title.lower())
+                    results.append(
+                        ShopSectionResponse(
+                            shop_section_id=sec_id,
+                            title=sec_title,
+                            rank=s.rank,
+                            active_listing_count=s.active_listing_count,
+                        )
+                    )
+        except Exception:
+            pass
+
+    # 2. Also fetch distinct sections defined across all campaigns owned by the user
+    user_sections = await uow.listing_drafts.list_distinct_shop_sections_for_user(user.id)
+    for sec_id, sec_name in user_sections:
+        title = (sec_name or sec_id or "").strip()
+        ident = sec_id or title
+        if title and ident not in seen_ids and title.lower() not in seen_titles:
+            seen_ids.add(ident)
+            seen_titles.add(title.lower())
+            results.append(
+                ShopSectionResponse(
+                    shop_section_id=ident,
+                    title=title,
+                    rank=0,
+                    active_listing_count=0,
+                )
+            )
+
+    return results
 
 
 @router.post(
     "/{workflow_id}/listing/shop-sections",
     response_model=ShopSectionResponse,
-    summary="Create a new shop section in the connected Etsy shop",
+    summary="Create a new shop section in Etsy or local campaign store",
 )
 async def create_listing_shop_section_endpoint(
     workflow_id: uuid.UUID,
@@ -2764,44 +2790,58 @@ async def create_listing_shop_section_endpoint(
             detail="No workflow with that ID",
         )
 
-    if cipher is None:
+    title = payload.title.strip()
+    if not title:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Credential cipher unavailable.",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Section title cannot be empty.",
         )
 
+    created_sec: ShopSectionResponse | None = None
     conn = await uow.shop_connections.get_by_user_id(user.id, provider="etsy")
-    if not conn or not conn.is_connected or not conn.etsy_shop_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No Etsy shop connected to create sections.",
+    if conn and conn.is_connected and conn.etsy_shop_id and cipher is not None:
+        from app.application.etsy_auth import get_valid_access_token
+        try:
+            token = await get_valid_access_token(
+                uow=uow,
+                cipher=cipher,
+                etsy_gateway=etsy_gateway,
+                owner_id=user.id,
+            )
+            sec = await etsy_gateway.create_shop_section(
+                access_token=token,
+                shop_id=conn.etsy_shop_id,
+                title=title,
+            )
+            created_sec = ShopSectionResponse(
+                shop_section_id=sec.shop_section_id,
+                title=sec.title,
+                rank=sec.rank,
+                active_listing_count=sec.active_listing_count,
+            )
+        except Exception:
+            created_sec = None
+
+    if created_sec is None:
+        sec_id = f"sec-{int(datetime.now(UTC).timestamp())}"
+        created_sec = ShopSectionResponse(
+            shop_section_id=sec_id,
+            title=title,
+            rank=0,
+            active_listing_count=0,
         )
 
-    from app.application.etsy_auth import get_valid_access_token
+    # Persist the newly created section onto the active workflow's listing draft
+    draft = await uow.listing_drafts.get_by_workflow(workflow_id)
+    if draft:
+        await uow.listing_drafts.update(
+            draft.id,
+            shop_section_id=created_sec.shop_section_id,
+            shop_section_name=created_sec.title,
+        )
+        await uow.commit()
 
-    try:
-        token = await get_valid_access_token(
-            uow=uow,
-            cipher=cipher,
-            etsy_gateway=etsy_gateway,
-            owner_id=user.id,
-        )
-        sec = await etsy_gateway.create_shop_section(
-            access_token=token,
-            shop_id=conn.etsy_shop_id,
-            title=payload.title,
-        )
-        return ShopSectionResponse(
-            shop_section_id=sec.shop_section_id,
-            title=sec.title,
-            rank=sec.rank,
-            active_listing_count=sec.active_listing_count,
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to create Etsy shop section: {exc}",
-        )
+    return created_sec
 
 
 @router.get(

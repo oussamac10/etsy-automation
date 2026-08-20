@@ -457,3 +457,52 @@ def test_manual_6844_listing_returns_poor_fit_for_sublimation_campaign(
     assert "Scrapbooking" in val_names
 
 
+def test_get_and_create_shop_sections_cross_campaign(
+    client: TestClient,
+    mock_uow: MagicMock,
+    test_user: User,
+) -> None:
+    workflow_id = uuid.uuid4()
+    wf = MagicMock(spec=ProductWorkflow)
+    wf.id = workflow_id
+    wf.owner_id = test_user.id
+    mock_uow.workflows.get = AsyncMock(return_value=wf)
+
+    conn = MagicMock(spec=ShopConnection)
+    conn.is_connected = False
+    conn.etsy_shop_id = None
+    mock_uow.shop_connections.get_by_user_id = AsyncMock(return_value=conn)
+
+    mock_uow.listing_drafts.list_distinct_shop_sections_for_user = AsyncMock(
+        return_value=[("sec-1", "Christmas PNGs"), ("sec-2", "Fall Sublimation")]
+    )
+
+    listing = MagicMock(spec=ListingDraft)
+    listing.id = uuid.uuid4()
+    listing.workflow_id = workflow_id
+    listing.shop_section_id = None
+    listing.shop_section_name = None
+    mock_uow.listing_drafts.get_by_workflow = AsyncMock(return_value=listing)
+    mock_uow.listing_drafts.update = AsyncMock(return_value=listing)
+
+    # 1. Fetch shop sections (returns user campaign sections)
+    resp = client.get(f"/api/v1/workflows/{workflow_id}/listing/shop-sections")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 2
+    assert data[0]["title"] == "Christmas PNGs"
+    assert data[1]["title"] == "Fall Sublimation"
+
+    # 2. Create a new section
+    post_resp = client.post(
+        f"/api/v1/workflows/{workflow_id}/listing/shop-sections",
+        json={"title": "Halloween Bundles"},
+    )
+    assert post_resp.status_code == 200
+    created = post_resp.json()
+    assert created["title"] == "Halloween Bundles"
+    assert created["shop_section_id"].startswith("sec-")
+
+
+
+
