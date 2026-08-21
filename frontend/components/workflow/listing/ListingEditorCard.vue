@@ -377,11 +377,11 @@ function formatSnapshotDate(dateStr?: string) {
       </div>
 
       <!-- AI Disclosure Banner -->
-      <div v-if="aiDisclosure" class="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 flex items-start gap-2 text-xs">
+      <div v-if="aiDisclosure" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex items-start gap-2 text-xs">
         <Icon name="lucide:bot" class="size-4 text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />
         <div class="space-y-0.5">
-          <p class="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">Etsy AI Content Disclosure</p>
-          <p class="text-slate-600 dark:text-slate-400 text-[11px] leading-normal">{{ aiDisclosure }}</p>
+          <p class="font-semibold text-slate-800 text-[11px]">Etsy AI Content Disclosure</p>
+          <p class="text-slate-600 text-[11px] leading-normal">{{ aiDisclosure }}</p>
         </div>
       </div>
     </CardContent>
@@ -459,7 +459,7 @@ function formatSnapshotDate(dateStr?: string) {
             </div>
           </div>
 
-          <div class="space-y-1 bg-slate-50/80 dark:bg-slate-900/60 p-2.5 rounded border border-slate-100 dark:border-slate-800 text-xs">
+          <div class="space-y-1 bg-slate-50/80 p-2.5 rounded border border-slate-100 text-xs">
             <p class="font-medium text-foreground line-clamp-2">
               <span class="text-muted-foreground font-normal">Title: </span>{{ item.title }}
             </p>
@@ -470,7 +470,7 @@ function formatSnapshotDate(dateStr?: string) {
               <span
                 v-for="tg in item.tags.slice(0, 7)"
                 :key="tg"
-                class="inline-block px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-700 dark:text-slate-300 font-mono"
+                class="inline-block px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] text-slate-700 font-mono"
               >
                 #{{ tg }}
               </span>
