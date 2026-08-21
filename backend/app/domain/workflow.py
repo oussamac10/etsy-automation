@@ -254,6 +254,9 @@ def _build_allowed_transitions() -> Mapping[RunStatus, frozenset[RunStatus]]:
     transitions[RunStatus.CANCELLED].add(RunStatus.PRODUCTION)
     transitions[RunStatus.CANCELLED].add(RunStatus.LISTING_REVIEW)
 
+    # Re-running opportunity discovery / market research from review states.
+    transitions[RunStatus.IDEA_REVIEW].add(RunStatus.RESEARCH_QUEUED)
+
     for status in RunStatus:
         # A cancelled workflow is not live, so cancelling it again is refused
         # rather than silently accepted as a no-op.
