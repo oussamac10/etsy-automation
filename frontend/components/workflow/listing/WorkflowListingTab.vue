@@ -1099,25 +1099,30 @@ const subTabs = computed(() => [
             >
               <div class="flex items-center gap-2.5 min-w-0">
                 <Icon
-                  :name="check.passed ? 'lucide:check-circle-2' : 'lucide:circle-alert'"
+                  :name="check.passed ? 'lucide:check-circle-2' : (check.required ? 'lucide:circle-alert' : 'lucide:info')"
                   class="size-4 shrink-0"
-                  :class="check.passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'"
+                  :class="check.passed ? 'text-emerald-600 dark:text-emerald-400' : (check.required ? 'text-amber-600 dark:text-amber-400' : 'text-primary/70')"
                   aria-hidden="true"
                 />
                 <span class="font-medium truncate">{{ check.label }}</span>
               </div>
 
               <div class="flex items-center gap-2 shrink-0">
-                <Button
-                  v-if="!check.passed"
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  class="h-6 px-2 text-[11px] font-medium text-primary hover:bg-primary/10 cursor-pointer"
-                  @click="setActiveSubTab(check.tab)"
-                >
-                  Fix
-                </Button>
+                <template v-if="!check.passed">
+                  <Button
+                    v-if="check.required"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-6 px-2 text-[11px] font-medium text-primary hover:bg-primary/10 cursor-pointer"
+                    @click="setActiveSubTab(check.tab)"
+                  >
+                    Fix
+                  </Button>
+                  <Badge v-else variant="outline" class="text-[10px] py-0 font-medium text-muted-foreground border-border/80 bg-muted/30">
+                    Auto-builds on approval
+                  </Badge>
+                </template>
                 <Badge v-else variant="success" class="text-[10px] py-0 font-medium">
                   Passed
                 </Badge>
