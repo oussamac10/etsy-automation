@@ -18,13 +18,17 @@ import DialogFooter from '~/components/ui/DialogFooter.vue';
 import type { ListingVersionSnapshot } from '~/types/listing';
 import { MAX_TITLE_LENGTH, countSequentialCapitalWords, sanitizeEtsyTitle } from '~/utils/tags';
 
+const MAX_SUMMARY_LENGTH = 200;
+
 const props = defineProps<{
   title: string;
   description: string;
+  shoppingCartSummary?: string | null;
   aiDisclosure?: string | null;
   version: number;
   isSaving: boolean;
   isGeneratingSeo: boolean;
+  generatingTarget?: string | null;
   hasUnsavedChanges?: boolean;
   history?: ListingVersionSnapshot[];
   isRestoringVersion?: boolean;
@@ -34,15 +38,18 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:title', value: string): void;
   (e: 'update:description', value: string): void;
+  (e: 'update:shoppingCartSummary', value: string): void;
   (e: 'save'): void;
-  (e: 'generateSeo'): void;
+  (e: 'generateSeo', target?: string): void;
   (e: 'restoreVersion', version: number): void;
   (e: 'deleteVersion', version: number): void;
 }>();
 
 const localTitle = ref(props.title);
 const localDescription = ref(props.description);
+const localSummary = ref(props.shoppingCartSummary || '');
 const isHistoryOpen = ref(false);
+const isCopiedSummary = ref(false);
 
 watch(() => props.title, (newVal) => {
   localTitle.value = newVal;
@@ -52,11 +59,19 @@ watch(() => props.description, (newVal) => {
   localDescription.value = newVal;
 });
 
+watch(() => props.shoppingCartSummary, (newVal) => {
+  localSummary.value = newVal || '';
+});
+
 const titleLength = computed(() => localTitle.value.length);
 const isTitleOverLimit = computed(() => titleLength.value > MAX_TITLE_LENGTH);
 const isTitleApproachingLimit = computed(() => titleLength.value > 120 && !isTitleOverLimit.value);
 const titleCapsWords = computed(() => countSequentialCapitalWords(localTitle.value));
 const isTitleCapsOverLimit = computed(() => titleCapsWords.value > 3);
+
+const summaryLength = computed(() => localSummary.value.length);
+const isSummaryOverLimit = computed(() => summaryLength.value > MAX_SUMMARY_LENGTH);
+const isSummaryApproachingLimit = computed(() => summaryLength.value > 180 && !isSummaryOverLimit.value);
 
 function handleAutoFixTitle() {
   const fixed = sanitizeEtsyTitle(localTitle.value);
@@ -65,12 +80,15 @@ function handleAutoFixTitle() {
 
 const isDirty = computed(() => {
   if (props.hasUnsavedChanges !== undefined) return props.hasUnsavedChanges;
-  return localTitle.value !== props.title || localDescription.value !== props.description;
+  return (
+    localTitle.value !== props.title ||
+    localDescription.value !== props.description ||
+    localSummary.value !== (props.shoppingCartSummary || '')
+  );
 });
 
 const versionList = computed(() => {
   const list = props.history || [];
-  // Sort descending by version number so latest is on top
   return [...list].sort((a, b) => b.version - a.version);
 });
 
@@ -84,6 +102,27 @@ function handleDescUpdate(val: string | number) {
   const str = String(val);
   localDescription.value = str;
   emit('update:description', str);
+}
+
+function handleSummaryUpdate(val: string | number) {
+  const str = String(val);
+  localSummary.value = str;
+  emit('update:shoppingCartSummary', str);
+}
+
+async function copySummary() {
+  if (!localSummary.value) return;
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(localSummary.value);
+      isCopiedSummary.value = true;
+      setTimeout(() => {
+        isCopiedSummary.value = false;
+      }, 2500);
+    }
+  } catch {
+    // Fallback or ignore
+  }
 }
 
 function handleRestore(versionNumber: number) {
@@ -130,7 +169,7 @@ function formatSnapshotDate(dateStr?: string) {
           </div>
         </CardTitle>
         <CardDescription class="text-xs">
-          High-converting Etsy title, description, and buyer clarity guidelines.
+          High-converting Etsy title, structured description, and concise cart summary.
         </CardDescription>
       </div>
 
@@ -141,18 +180,18 @@ function formatSnapshotDate(dateStr?: string) {
           size="sm"
           :disabled="isGeneratingSeo || isSaving || isRestoringVersion"
           class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer"
-          @click="emit('generateSeo')"
+          @click="emit('generateSeo', 'all')"
         >
-          <Icon v-if="isGeneratingSeo" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
+          <Icon v-if="isGeneratingSeo && (!generatingTarget || generatingTarget === 'all')" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
           <Icon v-else name="lucide:sparkles" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>AI Generate</span>
+          <span>Regenerate All</span>
         </Button>
 
         <Button
           type="button"
           variant="default"
           size="sm"
-          :disabled="isSaving || isGeneratingSeo || isRestoringVersion || !isDirty || isTitleOverLimit"
+          :disabled="isSaving || isGeneratingSeo || isRestoringVersion || !isDirty || isTitleOverLimit || isSummaryOverLimit"
           class="text-xs h-8 px-2.5 gap-1.5 cursor-pointer"
           @click="emit('save')"
         >
@@ -163,16 +202,32 @@ function formatSnapshotDate(dateStr?: string) {
       </div>
     </CardHeader>
 
-    <CardContent class="space-y-4 pt-0">
-      <!-- Title Field -->
+    <CardContent class="space-y-5 pt-0">
+      <!-- 1. Title Field -->
       <div class="space-y-1.5">
-        <div class="flex items-center justify-between">
-          <Label for="listing-title" class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <span>Etsy Listing Title</span>
-            <span class="text-muted-foreground font-normal">(Max 140 chars)</span>
-          </Label>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <Label for="listing-title" class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <span>Etsy Listing Title</span>
+              <span class="text-muted-foreground font-normal">(Max 140 chars)</span>
+            </Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              :disabled="isGeneratingSeo || isSaving"
+              class="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-primary gap-1 cursor-pointer"
+              title="Regenerate only the listing title"
+              @click="emit('generateSeo', 'title')"
+            >
+              <Icon v-if="isGeneratingSeo && generatingTarget === 'title'" name="lucide:loader-circle" class="size-2.5 animate-spin text-primary" aria-hidden="true" />
+              <Icon v-else name="lucide:sparkles" class="size-2.5 text-primary" aria-hidden="true" />
+              <span>Regenerate Title</span>
+            </Button>
+          </div>
+
           <span
-            class="text-[11px] font-mono font-medium"
+            class="text-[11px] font-mono font-medium shrink-0"
             :class="{
               'text-destructive font-bold': isTitleOverLimit,
               'text-amber-600': isTitleApproachingLimit,
@@ -187,11 +242,12 @@ function formatSnapshotDate(dateStr?: string) {
           id="listing-title"
           :model-value="localTitle"
           maxlength="160"
-          placeholder="e.g. Vintage Mushroom PNG Digital Download, Cottagecore Botanical Sublimation T-Shirt Design"
+          placeholder="e.g. Vintage Mushroom PNG, Cottagecore Botanical Sublimation Design, Wild Floral Clipart, DTG T-Shirt Download"
           class="text-sm font-medium"
           :error="isTitleOverLimit || isTitleCapsOverLimit"
           @update:model-value="handleTitleUpdate"
         />
+
         <p v-if="isTitleOverLimit" class="text-[11px] text-destructive font-medium flex items-center gap-1">
           <Icon name="lucide:circle-alert" class="size-3" aria-hidden="true" />
           <span>Etsy limits titles to 140 characters. Please shorten before saving.</span>
@@ -220,31 +276,112 @@ function formatSnapshotDate(dateStr?: string) {
         </div>
       </div>
 
-      <!-- Description Field -->
+      <!-- 2. Shopping Cart Summary (Dedicated Field) -->
+      <div class="space-y-1.5 p-3 rounded-lg bg-muted/20 border border-border/70">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <Label for="listing-summary" class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <Icon name="lucide:shopping-bag" class="size-3.5 text-primary" aria-hidden="true" />
+              <span>Shopping Cart Summary</span>
+            </Label>
+            <Badge variant="outline" class="text-[10px] py-0 font-medium text-muted-foreground border-border/80 bg-background">
+              Manual Etsy Field
+            </Badge>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              :disabled="isGeneratingSeo || isSaving"
+              class="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-primary gap-1 cursor-pointer"
+              title="Regenerate only the shopping cart summary"
+              @click="emit('generateSeo', 'shopping_cart_summary')"
+            >
+              <Icon v-if="isGeneratingSeo && generatingTarget === 'shopping_cart_summary'" name="lucide:loader-circle" class="size-2.5 animate-spin text-primary" aria-hidden="true" />
+              <Icon v-else name="lucide:sparkles" class="size-2.5 text-primary" aria-hidden="true" />
+              <span>Regenerate Summary</span>
+            </Button>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0">
+            <span
+              class="text-[11px] font-mono font-medium"
+              :class="{
+                'text-destructive font-bold': isSummaryOverLimit,
+                'text-amber-600': isSummaryApproachingLimit,
+                'text-muted-foreground': !isSummaryOverLimit && !isSummaryApproachingLimit,
+              }"
+            >
+              {{ summaryLength }} / {{ MAX_SUMMARY_LENGTH }}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="!localSummary"
+              class="h-6 px-2 text-[11px] font-medium gap-1 cursor-pointer"
+              @click="copySummary"
+            >
+              <Icon :name="isCopiedSummary ? 'lucide:check' : 'lucide:copy'" class="size-3 text-primary" aria-hidden="true" />
+              <span>{{ isCopiedSummary ? 'Copied' : 'Copy' }}</span>
+            </Button>
+          </div>
+        </div>
+
+        <Textarea
+          id="listing-summary"
+          :model-value="localSummary"
+          :rows="2"
+          placeholder="e.g. Cute kawaii medical equipment PNG with MRI and CT scanner characters in pastel colors. High-res 4500x5400 px transparent file for shirts, scrubs, stickers and sublimation."
+          class="text-xs font-normal leading-relaxed font-sans"
+          @update:model-value="handleSummaryUpdate"
+        />
+
+        <p class="text-[11px] text-muted-foreground leading-normal">
+          Concise 1–2 sentence buyer summary. Use the <strong>Copy</strong> button to paste into your Etsy listing manager if desired.
+        </p>
+      </div>
+
+      <!-- 3. Description Field -->
       <div class="space-y-1.5">
-        <div class="flex items-center justify-between">
-          <Label for="listing-desc" class="text-xs font-semibold text-foreground">
-            Product Description
-          </Label>
-          <span class="text-[11px] text-muted-foreground">Markdown supported</span>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <Label for="listing-desc" class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <span>Product Description</span>
+            </Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              :disabled="isGeneratingSeo || isSaving"
+              class="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-primary gap-1 cursor-pointer"
+              title="Regenerate only the structured description"
+              @click="emit('generateSeo', 'description')"
+            >
+              <Icon v-if="isGeneratingSeo && generatingTarget === 'description'" name="lucide:loader-circle" class="size-2.5 animate-spin text-primary" aria-hidden="true" />
+              <Icon v-else name="lucide:sparkles" class="size-2.5 text-primary" aria-hidden="true" />
+              <span>Regenerate Description</span>
+            </Button>
+          </div>
+
+          <span class="text-[11px] text-muted-foreground">Markdown & sections structured</span>
         </div>
 
         <Textarea
           id="listing-desc"
           :model-value="localDescription"
-          :rows="7"
-          placeholder="Detailed description stating this is a digital download, specifications (4500x5400 px, 300 DPI, transparent background), uses, and commercial license terms."
+          :rows="11"
+          placeholder="Structured description stating DIGITAL DOWNLOAD – PNG FILE ONLY, WHAT YOU WILL RECEIVE (dimensions, DPI, transparent background), PERFECT FOR uses, INSTANT DOWNLOAD instructions, COMMERCIAL USE, and AI DISCLOSURE."
           class="text-xs font-normal leading-relaxed font-sans"
           @update:model-value="handleDescUpdate"
         />
       </div>
 
       <!-- AI Disclosure Banner -->
-      <div v-if="aiDisclosure" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex items-start gap-2 text-xs">
+      <div v-if="aiDisclosure" class="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 flex items-start gap-2 text-xs">
         <Icon name="lucide:bot" class="size-4 text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />
         <div class="space-y-0.5">
-          <p class="font-semibold text-slate-800 text-[11px]">Etsy AI Content Disclosure</p>
-          <p class="text-slate-600 text-[11px] leading-normal">{{ aiDisclosure }}</p>
+          <p class="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">Etsy AI Content Disclosure</p>
+          <p class="text-slate-600 dark:text-slate-400 text-[11px] leading-normal">{{ aiDisclosure }}</p>
         </div>
       </div>
     </CardContent>
@@ -322,7 +459,7 @@ function formatSnapshotDate(dateStr?: string) {
             </div>
           </div>
 
-          <div class="space-y-1 bg-slate-50/80 p-2.5 rounded border border-slate-100 text-xs">
+          <div class="space-y-1 bg-slate-50/80 dark:bg-slate-900/60 p-2.5 rounded border border-slate-100 dark:border-slate-800 text-xs">
             <p class="font-medium text-foreground line-clamp-2">
               <span class="text-muted-foreground font-normal">Title: </span>{{ item.title }}
             </p>
@@ -333,7 +470,7 @@ function formatSnapshotDate(dateStr?: string) {
               <span
                 v-for="tg in item.tags.slice(0, 7)"
                 :key="tg"
-                class="inline-block px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] text-slate-700 font-mono"
+                class="inline-block px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-700 dark:text-slate-300 font-mono"
               >
                 #{{ tg }}
               </span>

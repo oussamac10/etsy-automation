@@ -204,14 +204,15 @@ export function useListing() {
     }
   }
 
-  async function generateSeo(workflowId: string): Promise<ListingDraft | null> {
+  async function generateSeo(workflowId: string, target: string = 'all'): Promise<ListingDraft | null> {
     if (!workflowId) return null;
     isGeneratingSeo.value = true;
     errorMessage.value = null;
 
     try {
+      const url = `${apiBase}/api/v1/workflows/${workflowId}/listing/generate-seo?target=${encodeURIComponent(target)}`;
       const data = await $fetch<ListingDraft>(
-        `${apiBase}/api/v1/workflows/${workflowId}/listing/generate-seo`,
+        url,
         {
           method: 'POST',
           headers: {

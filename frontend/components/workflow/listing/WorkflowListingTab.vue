@@ -93,6 +93,7 @@ const {
 
 const localTitle = ref('');
 const localDescription = ref('');
+const localShoppingCartSummary = ref<string>('');
 const localTags = ref<string[]>([]);
 const localPriceMinorUnits = ref<number | null>(null);
 const localCurrency = ref<string>('USD');
@@ -109,6 +110,7 @@ const warningAcknowledged = ref(false);
 const successMessage = ref<string | null>(null);
 const showAllReadinessChecks = ref(false);
 const categorySelectorRef = ref<{ openModal: () => void; loadFitness: () => Promise<void> } | null>(null);
+const generatingTarget = ref<string | null>(null);
 
 const isGate2Approved = computed(() => {
   return [
@@ -143,6 +145,7 @@ async function loadListingData() {
   if (draft) {
     localTitle.value = draft.title || '';
     localDescription.value = draft.description || '';
+    localShoppingCartSummary.value = draft.shopping_cart_summary || '';
     localTags.value = [...(draft.tags || [])];
     localPriceMinorUnits.value = draft.price_minor_units ?? 499;
     localCurrency.value = draft.currency || 'USD';
@@ -167,6 +170,7 @@ async function handleSave() {
     const updated = await updateListing(props.workflowId, {
       title: localTitle.value,
       description: localDescription.value,
+      shopping_cart_summary: localShoppingCartSummary.value,
       tags: localTags.value,
       price_minor_units: localPriceMinorUnits.value,
       currency: localCurrency.value,
@@ -182,6 +186,7 @@ async function handleSave() {
     if (updated) {
       localTitle.value = updated.title;
       localDescription.value = updated.description;
+      localShoppingCartSummary.value = updated.shopping_cart_summary || '';
       localTags.value = [...updated.tags];
       localPriceMinorUnits.value = updated.price_minor_units ?? localPriceMinorUnits.value;
       localCurrency.value = updated.currency || localCurrency.value;
@@ -209,17 +214,33 @@ async function handleAttributesUpdate(newProps: Record<string, any>) {
   await handleSave();
 }
 
-async function handleGenerateSeo() {
+async function handleGenerateSeo(target: string = 'all') {
   successMessage.value = null;
-  const draft = await generateSeo(props.workflowId);
-  if (draft) {
-    localTitle.value = draft.title;
-    localDescription.value = draft.description;
-    localTags.value = [...draft.tags];
-    successMessage.value = 'New SEO copy and tags generated successfully.';
-    setTimeout(() => {
-      successMessage.value = null;
-    }, 4000);
+  generatingTarget.value = target;
+  try {
+    const draft = await generateSeo(props.workflowId, target);
+    if (draft) {
+      if (target === 'all' || target === 'title') {
+        localTitle.value = draft.title;
+      }
+      if (target === 'all' || target === 'description') {
+        localDescription.value = draft.description;
+      }
+      if (target === 'all' || target === 'shopping_cart_summary') {
+        localShoppingCartSummary.value = draft.shopping_cart_summary || '';
+      }
+      if (target === 'all' || target === 'tags') {
+        localTags.value = [...draft.tags];
+      }
+      successMessage.value = target === 'all'
+        ? 'New SEO copy and tags generated successfully.'
+        : `Successfully regenerated ${target.replace(/_/g, ' ')}.`;
+      setTimeout(() => {
+        successMessage.value = null;
+      }, 4000);
+    }
+  } finally {
+    generatingTarget.value = null;
   }
 }
 
@@ -551,7 +572,8 @@ const isListingCopyDirty = computed(() => {
   if (!listingDraft.value) return false;
   return (
     localTitle.value !== (listingDraft.value.title || '') ||
-    localDescription.value !== (listingDraft.value.description || '')
+    localDescription.value !== (listingDraft.value.description || '') ||
+    localShoppingCartSummary.value !== (listingDraft.value.shopping_cart_summary || '')
   );
 });
 
@@ -766,16 +788,19 @@ const subTabs = computed(() => [
           <ListingEditorCard
             :title="localTitle"
             :description="localDescription"
+            :shopping-cart-summary="localShoppingCartSummary"
             :ai-disclosure="listingDraft.ai_disclosure"
             :version="listingDraft.version"
             :is-saving="isSaving"
             :is-generating-seo="isGeneratingSeo"
+            :generating-target="generatingTarget"
             :has-unsaved-changes="isListingCopyDirty"
             :history="listingDraft.history"
             :is-restoring-version="isRestoringVersion"
             :is-deleting-version="isDeletingVersion"
             @update:title="localTitle = $event"
             @update:description="localDescription = $event"
+            @update:shopping-cart-summary="localShoppingCartSummary = $event"
             @save="handleSave"
             @generate-seo="handleGenerateSeo"
             @restore-version="handleRestoreVersion"
