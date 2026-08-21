@@ -123,6 +123,52 @@ describe("mockup generator", () => {
         expect(result.format).toBe("png");
       }
     });
+
+    it("composites multiple placement zones (e.g. sticker sheet / front and back) in a single pass", async () => {
+      const artwork = await sharp({
+        create: {
+          width: 200,
+          height: 200,
+          channels: 4,
+          background: { r: 255, g: 50, b: 50, alpha: 0.9 },
+        },
+      })
+        .png()
+        .toBuffer();
+
+      const template = await sharp({
+        create: {
+          width: 800,
+          height: 800,
+          channels: 4,
+          background: { r: 240, g: 240, b: 240, alpha: 1 },
+        },
+      })
+        .png()
+        .toBuffer();
+
+      const placements = [
+        { left_pct: 0.1, top_pct: 0.1, width_pct: 0.35, height_pct: 0.35, angle_deg: -15, blend_mode: "over" },
+        { left_pct: 0.55, top_pct: 0.1, width_pct: 0.35, height_pct: 0.35, angle_deg: 15, blend_mode: "multiply" },
+        { left_pct: 0.1, top_pct: 0.55, width_pct: 0.35, height_pct: 0.35, angle_deg: 45, blend_mode: "overlay" },
+        { left_pct: 0.55, top_pct: 0.55, width_pct: 0.35, height_pct: 0.35, angle_deg: -45, blend_mode: "soft-light" },
+      ];
+
+      const result = await compositeCustomMockup(
+        new Uint8Array(artwork),
+        new Uint8Array(template),
+        {
+          placements,
+          format: "jpeg",
+          quality: 90,
+        },
+      );
+
+      expect(result.width).toBe(800);
+      expect(result.height).toBe(800);
+      expect(result.format).toBe("jpeg");
+      expect(result.buffer.byteLength).toBeGreaterThan(0);
+    });
   });
 
   describe("mug wrap canvas layout", () => {

@@ -1,4 +1,4 @@
-import sharp, { type Blend } from "sharp";
+import sharp, { type Blend, type OverlayOptions } from "sharp";
 import { DEFAULT_DECODE_LIMITS, type DecodeLimits } from "./limits.js";
 
 export type MockupProductType = "tshirt" | "sweatshirt" | "tote" | "mug";
@@ -279,6 +279,7 @@ export async function generateMugWrapCanvas(
 }
 
 export interface CustomMockupPlacement {
+  readonly id?: string | undefined;
   /** Horizontal position of top-left corner as a percentage (0.0 to 1.0) of template width. Default 0.25 */
   readonly left_pct?: number | undefined;
   /** Vertical position of top-left corner as a percentage (0.0 to 1.0) of template height. Default 0.25 */
@@ -291,6 +292,8 @@ export interface CustomMockupPlacement {
   readonly blend_mode?: MockupBlendMode | string | undefined;
   /** Optional rotation in degrees (-180 to 180). Default 0 */
   readonly angle_deg?: number | undefined;
+  /** Optional artwork identifier or variant key */
+  readonly artwork_source_id?: string | undefined;
 }
 
 export type MockupBlendMode =
@@ -305,7 +308,7 @@ export type MockupBlendMode =
   | "color-burn"
   | "color-dodge";
 
-export function resolveSharpBlendMode(mode?: string): Blend {
+export function resolveSharpBlendMode(mode: MockupBlendMode | string | undefined): Blend {
   const norm = (mode || "over").toLowerCase().trim().replace(/_/g, "-");
   switch (norm) {
     case "multiply":
@@ -342,13 +345,15 @@ export interface CustomMockupResult {
 }
 
 /**
- * Composite artwork PNG onto an arbitrary custom mockup template image (e.g. lifestyle photo, flat-lay).
+ * Composite artwork PNG onto an arbitrary custom mockup template image (e.g. lifestyle photo, flat-lay, sticker sheets).
+ * Supports single placement or multiple placement zones on a single template.
  */
 export async function compositeCustomMockup(
   artworkBytes: Uint8Array,
   templateBytes: Uint8Array,
   options: {
     readonly placement?: CustomMockupPlacement | undefined;
+    readonly placements?: readonly CustomMockupPlacement[] | undefined;
     readonly limits?: DecodeLimits | undefined;
     readonly format?: "jpeg" | "png" | undefined;
     readonly quality?: number | undefined;
@@ -360,62 +365,68 @@ export async function compositeCustomMockup(
   };
   const format = options.format ?? "jpeg";
   const quality = options.quality ?? 90;
-  const placement = options.placement ?? {};
+
+  // Collect placement list (supports both legacy single placement and multi-placement array)
+  const placementList: CustomMockupPlacement[] =
+    options.placements && options.placements.length > 0
+      ? [...options.placements]
+      : [options.placement ?? {}];
 
   // 1. Get template image metadata
   const templateMeta = await sharp(templateBytes, { limitInputPixels: limits.maxPixels }).metadata();
   const templateWidth = templateMeta.width ?? 1200;
   const templateHeight = templateMeta.height ?? 1200;
 
-  // 2. Calculate pixel coordinates from percentages (default: centered 50% box)
-  const leftPct = Math.max(0, Math.min(0.95, placement.left_pct ?? 0.25));
-  const topPct = Math.max(0, Math.min(0.95, placement.top_pct ?? 0.25));
-  const widthPct = Math.max(0.05, Math.min(1.0 - leftPct, placement.width_pct ?? 0.50));
-  const heightPct = Math.max(0.05, Math.min(1.0 - topPct, placement.height_pct ?? 0.50));
+  // 2. Build composite layers for each placement zone
+  const compositeLayers: OverlayOptions[] = [];
 
-  const targetBoxWidth = Math.max(10, Math.round(templateWidth * widthPct));
-  const targetBoxHeight = Math.max(10, Math.round(templateHeight * heightPct));
-  const targetLeft = Math.round(templateWidth * leftPct);
-  const targetTop = Math.round(templateHeight * topPct);
+  for (const placement of placementList) {
+    const leftPct = Math.max(0, Math.min(0.95, placement.left_pct ?? 0.25));
+    const topPct = Math.max(0, Math.min(0.95, placement.top_pct ?? 0.25));
+    const widthPct = Math.max(0.05, Math.min(1.0 - leftPct, placement.width_pct ?? 0.50));
+    const heightPct = Math.max(0.05, Math.min(1.0 - topPct, placement.height_pct ?? 0.50));
 
-  // 3. Resize and orient artwork
-  let artworkPipeline = sharp(artworkBytes, { limitInputPixels: limits.maxPixels })
-    .toColorspace("srgb")
-    .resize({
-      width: targetBoxWidth,
-      height: targetBoxHeight,
-      fit: "inside",
-      withoutEnlargement: false,
-    });
+    const targetBoxWidth = Math.max(10, Math.round(templateWidth * widthPct));
+    const targetBoxHeight = Math.max(10, Math.round(templateHeight * heightPct));
+    const targetLeft = Math.round(templateWidth * leftPct);
+    const targetTop = Math.round(templateHeight * topPct);
 
-  if (placement.angle_deg && Math.abs(placement.angle_deg) > 0.01) {
-    artworkPipeline = artworkPipeline.rotate(placement.angle_deg, {
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    let artworkPipeline = sharp(artworkBytes, { limitInputPixels: limits.maxPixels })
+      .toColorspace("srgb")
+      .resize({
+        width: targetBoxWidth,
+        height: targetBoxHeight,
+        fit: "inside",
+        withoutEnlargement: false,
+      });
+
+    if (placement.angle_deg && Math.abs(placement.angle_deg) > 0.01) {
+      artworkPipeline = artworkPipeline.rotate(placement.angle_deg, {
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      });
+    }
+
+    const resizedArtworkBuffer = await artworkPipeline.png().toBuffer();
+    const resizedMeta = await sharp(resizedArtworkBuffer).metadata();
+    const actualArtW = resizedMeta.width ?? targetBoxWidth;
+    const actualArtH = resizedMeta.height ?? targetBoxHeight;
+
+    const compositeLeft = Math.round(targetLeft + (targetBoxWidth - actualArtW) / 2);
+    const compositeTop = Math.round(targetTop + (targetBoxHeight - actualArtH) / 2);
+    const blendMode = resolveSharpBlendMode(placement.blend_mode);
+
+    compositeLayers.push({
+      input: resizedArtworkBuffer,
+      left: compositeLeft,
+      top: compositeTop,
+      blend: blendMode,
     });
   }
 
-  const resizedArtworkBuffer = await artworkPipeline.png().toBuffer();
-  const resizedMeta = await sharp(resizedArtworkBuffer).metadata();
-  const actualArtW = resizedMeta.width ?? targetBoxWidth;
-  const actualArtH = resizedMeta.height ?? targetBoxHeight;
-
-  // Center artwork inside the target bounding box
-  const compositeLeft = Math.round(targetLeft + (targetBoxWidth - actualArtW) / 2);
-  const compositeTop = Math.round(targetTop + (targetBoxHeight - actualArtH) / 2);
-
-  const blendMode = resolveSharpBlendMode(placement.blend_mode);
-
-  // 4. Composite onto template with matching sRGB colorspace
+  // 3. Composite all layers onto template in a single pass with matching sRGB colorspace
   const finalPipeline = sharp(templateBytes, { limitInputPixels: limits.maxPixels })
     .toColorspace("srgb")
-    .composite([
-      {
-        input: resizedArtworkBuffer,
-        left: compositeLeft,
-        top: compositeTop,
-        blend: blendMode,
-      },
-    ]);
+    .composite(compositeLayers);
 
   let outputBuffer: Buffer;
   if (format === "png") {

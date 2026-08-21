@@ -4,7 +4,7 @@ import Button from "~/components/ui/Button.vue";
 import Alert from "~/components/ui/Alert.vue";
 import AlertTitle from "~/components/ui/AlertTitle.vue";
 import AlertDescription from "~/components/ui/AlertDescription.vue";
-import type { MockupTemplateItem, MockupPlacement } from "~/types/mockup";
+import type { MockupTemplateItem, MockupPlacement, MockupBlendMode } from "~/types/mockup";
 import { getProductLabel, getProductIconName, PRODUCT_PRESETS, normalizeProductKey } from "~/utils/mockupProducts";
 import { getApiErrorMessage, getCsrfHeaders } from "~/utils/api";
 import MockupTemplatePicker from "~/components/workflow/mockup-modal/MockupTemplatePicker.vue";
@@ -34,6 +34,7 @@ export interface MockupAssetItem {
     is_cover?: boolean;
     listing_order?: number;
     placement?: MockupPlacement;
+    placements?: MockupPlacement[];
     [key: string]: unknown;
   };
 }
@@ -79,22 +80,108 @@ const templateName = ref("");
 const saveToLibrary = ref(true);
 const isCover = ref(false);
 
-import type { MockupBlendMode } from "~/types/mockup";
+const { variants, fetchVariants: fetchArtworkVariants } = useArtworkVariants();
+const selectedArtworkSourceId = ref<string>("master");
 
-// Placement state
-const leftPct = ref(25);
-const topPct = ref(25);
-const widthPct = ref(50);
-const heightPct = ref(50);
-const angleDeg = ref(0);
-const blendMode = ref<MockupBlendMode | string>("over");
+const variantOptions = computed(() =>
+  variants.value.map((v) => ({
+    id: v.id,
+    name: v.title,
+    url: v.url || "",
+  }))
+);
+
+// Multi-Placement State
+const placements = ref<MockupPlacement[]>([
+  {
+    id: "zone-1",
+    left_pct: 25,
+    top_pct: 25,
+    width_pct: 50,
+    height_pct: 50,
+    angle_deg: 0,
+    blend_mode: "multiply",
+    artwork_source_id: null,
+  },
+]);
+const activePlacementIndex = ref(0);
+
+// Active zone reactive bindings (kept in sync with activePlacementIndex)
+const leftPct = computed({
+  get: () => {
+    const z = placements.value[activePlacementIndex.value];
+    return z ? z.left_pct : 25;
+  },
+  set: (val: number) => {
+    if (placements.value[activePlacementIndex.value]) {
+      placements.value[activePlacementIndex.value].left_pct = val;
+    }
+  },
+});
+
+const topPct = computed({
+  get: () => {
+    const z = placements.value[activePlacementIndex.value];
+    return z ? z.top_pct : 25;
+  },
+  set: (val: number) => {
+    if (placements.value[activePlacementIndex.value]) {
+      placements.value[activePlacementIndex.value].top_pct = val;
+    }
+  },
+});
+
+const widthPct = computed({
+  get: () => {
+    const z = placements.value[activePlacementIndex.value];
+    return z ? z.width_pct : 50;
+  },
+  set: (val: number) => {
+    if (placements.value[activePlacementIndex.value]) {
+      placements.value[activePlacementIndex.value].width_pct = val;
+    }
+  },
+});
+
+const heightPct = computed({
+  get: () => {
+    const z = placements.value[activePlacementIndex.value];
+    return z ? z.height_pct : 50;
+  },
+  set: (val: number) => {
+    if (placements.value[activePlacementIndex.value]) {
+      placements.value[activePlacementIndex.value].height_pct = val;
+    }
+  },
+});
+
+const angleDeg = computed({
+  get: () => {
+    const z = placements.value[activePlacementIndex.value];
+    return z ? (z.angle_deg || 0) : 0;
+  },
+  set: (val: number) => {
+    if (placements.value[activePlacementIndex.value]) {
+      placements.value[activePlacementIndex.value].angle_deg = val;
+    }
+  },
+});
+
+const blendMode = computed({
+  get: () => {
+    const z = placements.value[activePlacementIndex.value];
+    return z ? (z.blend_mode || "multiply") : "multiply";
+  },
+  set: (val: MockupBlendMode | string) => {
+    if (placements.value[activePlacementIndex.value]) {
+      placements.value[activePlacementIndex.value].blend_mode = val;
+    }
+  },
+});
 
 const isModalLoading = ref(true);
 const isCompositing = ref(false);
 const compositeError = ref<string | null>(null);
-
-const { variants, fetchVariants: fetchArtworkVariants } = useArtworkVariants();
-const selectedArtworkSourceId = ref<string>("master");
 
 const activeArtworkImageUrl = computed<string | null>(() => {
   if (selectedArtworkSourceId.value && selectedArtworkSourceId.value !== "master" && selectedArtworkSourceId.value !== props.masterAssetId) {
@@ -112,24 +199,87 @@ const activeTemplateImageUrl = computed<string | null>(() => {
   return tpl?.url || tpl?.preview_url || null;
 });
 
+function addPrintZone(): void {
+  const norm = normalizeProductKey(props.productType);
+  const preset = PRODUCT_PRESETS[norm] || PRODUCT_PRESETS.tshirt;
+  const count = placements.value.length;
+  const offset = (count * 6) % 25;
+  const newZone: MockupPlacement = {
+    id: `zone-${Date.now()}-${count + 1}`,
+    left_pct: Math.min(65, Math.round(preset.defaultPlacement.left_pct * 100) + offset),
+    top_pct: Math.min(65, Math.round(preset.defaultPlacement.top_pct * 100) + offset),
+    width_pct: Math.min(50, Math.round(preset.defaultPlacement.width_pct * 100)),
+    height_pct: Math.min(50, Math.round(preset.defaultPlacement.height_pct * 100)),
+    angle_deg: 0,
+    blend_mode: preset.defaultPlacement.blend_mode,
+    artwork_source_id: selectedArtworkSourceId.value !== "master" ? selectedArtworkSourceId.value : null,
+  };
+  placements.value.push(newZone);
+  activePlacementIndex.value = placements.value.length - 1;
+}
+
+function duplicatePrintZone(index: number): void {
+  const source = placements.value[index] || placements.value[0];
+  if (!source) return;
+  const newZone: MockupPlacement = {
+    id: `zone-${Date.now()}`,
+    left_pct: Math.min(70, Math.round((source.left_pct <= 1.0 ? source.left_pct * 100 : source.left_pct) + 5)),
+    top_pct: Math.min(70, Math.round((source.top_pct <= 1.0 ? source.top_pct * 100 : source.top_pct) + 5)),
+    width_pct: source.width_pct <= 1.0 ? source.width_pct * 100 : source.width_pct,
+    height_pct: source.height_pct <= 1.0 ? source.height_pct * 100 : source.height_pct,
+    angle_deg: source.angle_deg || 0,
+    blend_mode: source.blend_mode || "multiply",
+    artwork_source_id: source.artwork_source_id || null,
+  };
+  placements.value.push(newZone);
+  activePlacementIndex.value = placements.value.length - 1;
+}
+
+function removePrintZone(index: number): void {
+  if (placements.value.length <= 1) return;
+  placements.value.splice(index, 1);
+  if (activePlacementIndex.value >= placements.value.length) {
+    activePlacementIndex.value = Math.max(0, placements.value.length - 1);
+  }
+}
+
+function updateZoneArtworkSource(payload: { index: number; sourceId: string | null }): void {
+  if (placements.value[payload.index]) {
+    placements.value[payload.index].artwork_source_id = payload.sourceId;
+  }
+}
+
 function resetToDefaultPreset(): void {
   const norm = normalizeProductKey(props.productType);
   const preset = PRODUCT_PRESETS[norm] || PRODUCT_PRESETS.tshirt;
-  leftPct.value = Math.round(preset.defaultPlacement.left_pct * 100);
-  topPct.value = Math.round(preset.defaultPlacement.top_pct * 100);
-  widthPct.value = Math.round(preset.defaultPlacement.width_pct * 100);
-  heightPct.value = Math.round(preset.defaultPlacement.height_pct * 100);
-  angleDeg.value = preset.defaultPlacement.angle_deg;
-  blendMode.value = preset.defaultPlacement.blend_mode;
+  placements.value = [
+    {
+      id: "zone-1",
+      left_pct: Math.round(preset.defaultPlacement.left_pct * 100),
+      top_pct: Math.round(preset.defaultPlacement.top_pct * 100),
+      width_pct: Math.round(preset.defaultPlacement.width_pct * 100),
+      height_pct: Math.round(preset.defaultPlacement.height_pct * 100),
+      angle_deg: preset.defaultPlacement.angle_deg || 0,
+      blend_mode: preset.defaultPlacement.blend_mode || "multiply",
+      artwork_source_id: null,
+    },
+  ];
+  activePlacementIndex.value = 0;
 }
 
 function centerHorizontal(): void {
-  leftPct.value = Math.round(((100 - widthPct.value) / 2) * 10) / 10;
+  const z = placements.value[activePlacementIndex.value];
+  if (z) {
+    z.left_pct = Math.round(((100 - z.width_pct) / 2) * 10) / 10;
+  }
 }
 
 function centerBoth(): void {
-  leftPct.value = Math.round(((100 - widthPct.value) / 2) * 10) / 10;
-  topPct.value = Math.round(((100 - heightPct.value) / 2) * 10) / 10;
+  const z = placements.value[activePlacementIndex.value];
+  if (z) {
+    z.left_pct = Math.round(((100 - z.width_pct) / 2) * 10) / 10;
+    z.top_pct = Math.round(((100 - z.height_pct) / 2) * 10) / 10;
+  }
 }
 
 async function loadTemplatesForProduct(): Promise<void> {
@@ -160,14 +310,32 @@ async function loadTemplatesForProduct(): Promise<void> {
 function handleSelectTemplate(tpl: MockupTemplateItem): void {
   selectedTemplateId.value = tpl.id;
   templateName.value = tpl.name;
-  if (tpl.placement) {
-    leftPct.value = Math.round((tpl.placement.left_pct ?? 0.25) * 100);
-    topPct.value = Math.round((tpl.placement.top_pct ?? 0.25) * 100);
-    widthPct.value = Math.round((tpl.placement.width_pct ?? 0.5) * 100);
-    heightPct.value = Math.round((tpl.placement.height_pct ?? 0.5) * 100);
-    angleDeg.value = tpl.placement.angle_deg ?? 0;
-    blendMode.value = tpl.placement.blend_mode || "multiply";
+  if (tpl.placements && tpl.placements.length > 0) {
+    placements.value = tpl.placements.map((p, idx) => ({
+      id: p.id || `zone-${idx + 1}`,
+      left_pct: Math.round((p.left_pct <= 1.0 ? p.left_pct : p.left_pct / 100) * 100),
+      top_pct: Math.round((p.top_pct <= 1.0 ? p.top_pct : p.top_pct / 100) * 100),
+      width_pct: Math.round((p.width_pct <= 1.0 ? p.width_pct : p.width_pct / 100) * 100),
+      height_pct: Math.round((p.height_pct <= 1.0 ? p.height_pct : p.height_pct / 100) * 100),
+      angle_deg: p.angle_deg || 0,
+      blend_mode: p.blend_mode || "multiply",
+      artwork_source_id: p.artwork_source_id || null,
+    }));
+  } else if (tpl.placement) {
+    placements.value = [
+      {
+        id: "zone-1",
+        left_pct: Math.round((tpl.placement.left_pct <= 1.0 ? tpl.placement.left_pct : tpl.placement.left_pct / 100) * 100),
+        top_pct: Math.round((tpl.placement.top_pct <= 1.0 ? tpl.placement.top_pct : tpl.placement.top_pct / 100) * 100),
+        width_pct: Math.round((tpl.placement.width_pct <= 1.0 ? tpl.placement.width_pct : tpl.placement.width_pct / 100) * 100),
+        height_pct: Math.round((tpl.placement.height_pct <= 1.0 ? tpl.placement.height_pct : tpl.placement.height_pct / 100) * 100),
+        angle_deg: tpl.placement.angle_deg || 0,
+        blend_mode: tpl.placement.blend_mode || "multiply",
+        artwork_source_id: tpl.placement.artwork_source_id || null,
+      },
+    ];
   }
+  activePlacementIndex.value = 0;
 }
 
 const templateToDelete = ref<MockupTemplateItem | null>(null);
@@ -271,14 +439,32 @@ watch(
           selectedArtworkSourceId.value = "master";
         }
 
-        if (prov?.placement) {
-          leftPct.value = Math.round((prov.placement.left_pct ?? 0.25) * 100);
-          topPct.value = Math.round((prov.placement.top_pct ?? 0.25) * 100);
-          widthPct.value = Math.round((prov.placement.width_pct ?? 0.5) * 100);
-          heightPct.value = Math.round((prov.placement.height_pct ?? 0.5) * 100);
-          angleDeg.value = prov.placement.angle_deg ?? 0;
-          blendMode.value = prov.placement.blend_mode || "multiply";
+        if (prov?.placements && prov.placements.length > 0) {
+          placements.value = prov.placements.map((p, idx) => ({
+            id: p.id || `zone-${idx + 1}`,
+            left_pct: Math.round((p.left_pct <= 1.0 ? p.left_pct : p.left_pct / 100) * 100),
+            top_pct: Math.round((p.top_pct <= 1.0 ? p.top_pct : p.top_pct / 100) * 100),
+            width_pct: Math.round((p.width_pct <= 1.0 ? p.width_pct : p.width_pct / 100) * 100),
+            height_pct: Math.round((p.height_pct <= 1.0 ? p.height_pct : p.height_pct / 100) * 100),
+            angle_deg: p.angle_deg || 0,
+            blend_mode: p.blend_mode || "multiply",
+            artwork_source_id: p.artwork_source_id || null,
+          }));
+        } else if (prov?.placement) {
+          placements.value = [
+            {
+              id: "zone-1",
+              left_pct: Math.round((prov.placement.left_pct <= 1.0 ? prov.placement.left_pct : prov.placement.left_pct / 100) * 100),
+              top_pct: Math.round((prov.placement.top_pct <= 1.0 ? prov.placement.top_pct : prov.placement.top_pct / 100) * 100),
+              width_pct: Math.round((prov.placement.width_pct <= 1.0 ? prov.placement.width_pct : prov.placement.width_pct / 100) * 100),
+              height_pct: Math.round((prov.placement.height_pct <= 1.0 ? prov.placement.height_pct : prov.placement.height_pct / 100) * 100),
+              angle_deg: prov.placement.angle_deg ?? 0,
+              blend_mode: prov.placement.blend_mode || "multiply",
+              artwork_source_id: prov.placement.artwork_source_id || null,
+            },
+          ];
         }
+        activePlacementIndex.value = 0;
         activeSubTab.value = "library";
         await loadTemplatesForProduct();
         if (selectedTemplateId.value && !templates.value.some((t) => t.id === selectedTemplateId.value) && templates.value.length > 0) {
@@ -324,17 +510,31 @@ async function handleGenerateMockup(): Promise<void> {
         ? selectedArtworkSourceId.value
         : props.masterAssetId || undefined;
 
+    const normalizedPlacements = placements.value.map((p) => ({
+      id: p.id,
+      left_pct: p.left_pct / 100,
+      top_pct: p.top_pct / 100,
+      width_pct: p.width_pct / 100,
+      height_pct: p.height_pct / 100,
+      angle_deg: p.angle_deg || 0,
+      blend_mode: p.blend_mode || "multiply",
+      artwork_source_id: p.artwork_source_id || null,
+    }));
+
+    const primaryPlacement = normalizedPlacements[0] || {
+      left_pct: 0.25,
+      top_pct: 0.25,
+      width_pct: 0.50,
+      height_pct: 0.50,
+      angle_deg: 0,
+      blend_mode: "multiply",
+    };
+
     const payload: Record<string, unknown> = {
       workflow_id: props.workflowId,
       product_type: normalizeProductKey(props.productType),
-      placement: {
-        left_pct: leftPct.value / 100,
-        top_pct: topPct.value / 100,
-        width_pct: widthPct.value / 100,
-        height_pct: heightPct.value / 100,
-        angle_deg: angleDeg.value,
-        blend_mode: blendMode.value,
-      },
+      placement: primaryPlacement,
+      placements: normalizedPlacements,
       is_cover: isCover.value,
       target_asset_id: props.editingAsset?.id || undefined,
       master_asset_id: chosenArtworkId,
@@ -393,10 +593,18 @@ async function handleGenerateMockup(): Promise<void> {
       credentials: "include",
     });
 
-    emit("mockupCreated", res);
+    emit("mockupCreated", {
+      mockup_url: res.mockup_url,
+      asset_id: res.asset_id,
+      product_type: res.product_type,
+      template_id: res.template_id,
+      template_name: res.template_name,
+      is_cover: res.is_cover,
+      listing_order: res.listing_order,
+    });
     emit("close");
   } catch (err: unknown) {
-    compositeError.value = getApiErrorMessage(err, "Failed to create custom mockup.");
+    compositeError.value = getApiErrorMessage(err, "Failed to composite custom mockup.");
   } finally {
     isCompositing.value = false;
   }
@@ -404,8 +612,14 @@ async function handleGenerateMockup(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-    <div class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-border flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+  <div
+    v-if="open"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs"
+    @click.self="emit('close')"
+  >
+    <div
+      class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-border flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150"
+    >
       <!-- Modal Header -->
       <div class="px-6 py-4 border-b border-border flex items-center justify-between bg-secondary/30">
         <div class="flex items-center gap-3">
@@ -414,13 +628,14 @@ async function handleGenerateMockup(): Promise<void> {
           </div>
           <div>
             <h3 class="text-sm font-bold text-foreground leading-tight">
-              {{ editingAsset ? `Edit ${getProductLabel(productType)} Mockup` : `Add ${getProductLabel(productType)} Mockup` }}
+              {{ editingAsset ? 'Edit Mockup Placement' : `Add ${getProductLabel(productType)} Mockup` }}
             </h3>
             <p class="text-xs text-muted-foreground">
               Position and blend your master transparent PNG onto realistic product photography
             </p>
           </div>
         </div>
+
         <button
           type="button"
           class="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors cursor-pointer"
@@ -436,12 +651,20 @@ async function handleGenerateMockup(): Promise<void> {
           <button
             type="button"
             class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            :class="activeSubTab === 'library' ? 'bg-primary text-white shadow-2xs' : 'bg-secondary text-secondary-foreground hover:bg-slate-200'"
+            :class="[
+              activeSubTab === 'library'
+                ? 'bg-primary text-white shadow-2xs'
+                : 'bg-secondary text-secondary-foreground hover:bg-slate-200'
+            ]"
             @click="activeSubTab = 'library'"
           >
             <Icon name="lucide:folder" class="size-3.5" aria-hidden="true" />
             <span>From Library</span>
-            <span class="text-[10px] px-1.5 py-0.2 rounded-full" :class="activeSubTab === 'library' ? 'bg-blue-700 text-white' : 'bg-white text-secondary-foreground border border-border'">
+            <span
+              v-if="templates.length > 0"
+              class="text-[10px] px-1.5 py-0.2 rounded-full"
+              :class="activeSubTab === 'library' ? 'bg-primary-hover text-white' : 'bg-slate-300 text-slate-700'"
+            >
               {{ templates.length }}
             </span>
           </button>
@@ -449,7 +672,11 @@ async function handleGenerateMockup(): Promise<void> {
           <button
             type="button"
             class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            :class="activeSubTab === 'upload' ? 'bg-primary text-white shadow-2xs' : 'bg-secondary text-secondary-foreground hover:bg-slate-200'"
+            :class="[
+              activeSubTab === 'upload'
+                ? 'bg-primary text-white shadow-2xs'
+                : 'bg-secondary text-secondary-foreground hover:bg-slate-200'
+            ]"
             @click="activeSubTab = 'upload'"
           >
             <Icon name="lucide:upload" class="size-3.5" aria-hidden="true" />
@@ -458,11 +685,15 @@ async function handleGenerateMockup(): Promise<void> {
         </div>
 
         <!-- View Mode Segment (Edit vs Preview) -->
-        <div v-if="activeTemplateImageUrl" class="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border text-xs">
+        <div class="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border text-xs">
           <button
             type="button"
             class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer"
-            :class="canvasViewMode === 'edit' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+            :class="[
+              canvasViewMode === 'edit'
+                ? 'bg-white text-foreground shadow-2xs font-bold'
+                : 'text-muted-foreground hover:text-foreground'
+            ]"
             @click="canvasViewMode = 'edit'"
           >
             Edit Box
@@ -470,7 +701,11 @@ async function handleGenerateMockup(): Promise<void> {
           <button
             type="button"
             class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer"
-            :class="canvasViewMode === 'preview' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+            :class="[
+              canvasViewMode === 'preview'
+                ? 'bg-white text-foreground shadow-2xs font-bold'
+                : 'text-muted-foreground hover:text-foreground'
+            ]"
             @click="canvasViewMode = 'preview'"
           >
             Clean Preview
@@ -482,40 +717,24 @@ async function handleGenerateMockup(): Promise<void> {
       <div class="p-6 overflow-y-auto flex-1 space-y-4">
         <!-- Error Alert -->
         <Alert v-if="compositeError" variant="destructive" class="py-2.5">
-          <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
-          <div>
-            <AlertTitle class="text-xs font-bold">Error</AlertTitle>
-            <AlertDescription class="text-xs">{{ compositeError }}</AlertDescription>
-          </div>
+          <Icon name="lucide:alert-circle" class="size-4" aria-hidden="true" />
+          <AlertTitle>Mockup Generation Failed</AlertTitle>
+          <AlertDescription class="text-xs">{{ compositeError }}</AlertDescription>
         </Alert>
 
         <!-- Inline Cropper View when Cropping Mode is Active -->
-        <div v-if="isCroppingMode" class="py-1">
+        <div v-if="isCroppingMode && rawUploadImageUrl" class="py-2">
           <ImageCropperView
-            :image-url="rawUploadImageUrl || uploadedPreviewUrl"
-            :file-name="uploadedFile?.name"
-            @crop="handleCropComplete"
+            :image-url="rawUploadImageUrl"
+            :aspect-ratio="null"
+            @crop-complete="handleCropComplete"
             @cancel="isCroppingMode = false"
           />
         </div>
 
-        <!-- Loading Progression State (Prevents previous modal data flicker) -->
-        <div v-else-if="isModalLoading" class="py-8 px-2 flex flex-col items-center justify-center space-y-6 animate-in fade-in duration-200">
-          <div class="w-full max-w-sm space-y-3 text-center">
-            <div class="size-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto border border-primary/20 shadow-2xs">
-              <Icon name="lucide:loader-2" class="size-5.5 animate-spin text-primary" aria-hidden="true" />
-            </div>
-            <div>
-              <h4 class="text-xs font-bold text-foreground">Loading {{ getProductLabel(productType) }} Mockup Studio</h4>
-              <p class="text-[11px] text-muted-foreground mt-0.5">Synchronizing templates and master artwork...</p>
-            </div>
-            <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden border border-border/50">
-              <div class="h-full bg-primary rounded-full animate-pulse w-3/4" />
-            </div>
-          </div>
-
-          <!-- Studio Skeleton Mockup -->
-          <div class="w-full grid grid-cols-1 md:grid-cols-12 gap-6 pt-2 opacity-50 pointer-events-none select-none">
+        <!-- Loading State Skeleton -->
+        <div v-else-if="isModalLoading" class="py-8 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
             <div class="md:col-span-6 aspect-square bg-slate-100 rounded-2xl border border-border/80 flex items-center justify-center">
               <Icon name="lucide:image" class="size-10 text-slate-300 animate-pulse" />
             </div>
@@ -527,9 +746,9 @@ async function handleGenerateMockup(): Promise<void> {
           </div>
         </div>
 
-        <!-- Normal Studio Workspace (when not cropping & loaded) -->
+        <!-- Normal Studio Workspace -->
         <template v-else>
-          <!-- Template Selector Section (Max 3 + Show More) -->
+          <!-- Template Selector Section -->
           <div v-if="activeSubTab === 'library'" class="pb-2 border-b border-border">
             <MockupTemplatePicker
               :templates="templates"
@@ -542,7 +761,7 @@ async function handleGenerateMockup(): Promise<void> {
             />
           </div>
 
-          <!-- If Upload Mode: Show clean Dropzone with Crop option -->
+          <!-- If Upload Mode -->
           <div v-if="activeSubTab === 'upload'" class="py-2">
             <MockupUploadDropzone
               :product-label="getProductLabel(productType)"
@@ -554,9 +773,8 @@ async function handleGenerateMockup(): Promise<void> {
             />
           </div>
 
-          <!-- 2-Column Studio Workspace -->
+          <!-- Studio Workspace -->
           <div v-if="activeTemplateImageUrl" class="grid grid-cols-1 md:grid-cols-12 gap-6 pt-1">
-            <!-- Left Column: Interactive Placement Canvas -->
             <div class="md:col-span-6 space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
@@ -566,13 +784,12 @@ async function handleGenerateMockup(): Promise<void> {
                 <span class="text-[10px] text-muted-foreground font-mono">1:1 Aspect Frame</span>
               </div>
 
-              <!-- Artwork Source Selector if Color Variants Exist -->
               <div
                 v-if="variants.length > 0"
                 class="flex items-center justify-between p-2 rounded-xl bg-secondary/40 border border-border/80 text-xs"
               >
                 <span class="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
-                  <Icon name="lucide:palette" class="size-3.5 text-violet-500" aria-hidden="true" />
+                  <Icon name="lucide:palette" class="size-3.5 text-primary" aria-hidden="true" />
                   <span>Placed Artwork Graphic:</span>
                 </span>
                 <select
@@ -593,6 +810,9 @@ async function handleGenerateMockup(): Promise<void> {
               <MockupPlacementCanvas
                 :template-image-url="activeTemplateImageUrl"
                 :master-image-url="activeArtworkImageUrl || null"
+                :placements="placements"
+                :active-placement-index="activePlacementIndex"
+                :variants="variantOptions"
                 :left-pct="leftPct"
                 :top-pct="topPct"
                 :width-pct="widthPct"
@@ -605,16 +825,21 @@ async function handleGenerateMockup(): Promise<void> {
                 @update:width-pct="(v) => widthPct = v"
                 @update:height-pct="(v) => heightPct = v"
                 @update:angle-deg="(v) => angleDeg = v"
+                @update:active-placement-index="(idx) => activePlacementIndex = idx"
+                @update-placements="(list) => placements = list"
               />
 
               <p class="text-[11px] text-muted-foreground text-center">
-                💡 Drag the bounding box to move · Drag bottom-right corner to resize
+                💡 Drag bounding box to move · Drag stalk to rotate · Bottom-right to resize
               </p>
             </div>
 
             <!-- Right Column: Fine Placement Controls & Metadata -->
             <div class="md:col-span-6 space-y-4">
               <MockupPlacementControls
+                :placements="placements"
+                :active-placement-index="activePlacementIndex"
+                :variants="variantOptions"
                 :left-pct="leftPct"
                 :top-pct="topPct"
                 :width-pct="widthPct"
@@ -632,9 +857,14 @@ async function handleGenerateMockup(): Promise<void> {
                 @update:height-pct="(v) => heightPct = v"
                 @update:angle-deg="(v) => angleDeg = v"
                 @update:blend-mode="(v) => blendMode = v"
+                @update:active-placement-index="(idx) => activePlacementIndex = idx"
                 @update:template-name="(v) => templateName = v"
                 @update:save-to-library="(v) => saveToLibrary = v"
                 @update:is-cover="(v) => isCover = v"
+                @add-zone="addPrintZone"
+                @duplicate-zone="duplicatePrintZone"
+                @remove-zone="removePrintZone"
+                @update-zone-artwork-source="updateZoneArtworkSource"
                 @reset-preset="resetToDefaultPreset"
                 @center-horizontal="centerHorizontal"
                 @center-both="centerBoth"

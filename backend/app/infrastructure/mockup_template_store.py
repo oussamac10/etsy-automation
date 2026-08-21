@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,12 +23,14 @@ logger = structlog.get_logger(__name__)
 
 @dataclass
 class CustomMockupPlacement:
+    id: str | None = None
     left_pct: float = 0.25
     top_pct: float = 0.25
     width_pct: float = 0.50
     height_pct: float = 0.50
     angle_deg: float = 0.0
     blend_mode: str = "multiply"  # "multiply" for realistic shadows/wrinkles, "over" for opaque
+    artwork_source_id: str | None = None
 
 
 @dataclass
@@ -42,6 +44,33 @@ class MockupTemplateItem:
     placement: CustomMockupPlacement
     created_at: str
     is_custom: bool = True
+    placements: list[CustomMockupPlacement] = field(default_factory=list)
+
+
+def _parse_single_placement(
+    p_data: dict[str, Any] | CustomMockupPlacement | None,
+    preset: Any,
+) -> CustomMockupPlacement:
+    if isinstance(p_data, CustomMockupPlacement):
+        return p_data
+    if isinstance(p_data, dict):
+        return CustomMockupPlacement(
+            id=str(p_data["id"]) if p_data.get("id") else None,
+            left_pct=float(p_data.get("left_pct", getattr(preset, "default_left_pct", 0.25))),
+            top_pct=float(p_data.get("top_pct", getattr(preset, "default_top_pct", 0.25))),
+            width_pct=float(p_data.get("width_pct", getattr(preset, "default_width_pct", 0.50))),
+            height_pct=float(p_data.get("height_pct", getattr(preset, "default_height_pct", 0.50))),
+            angle_deg=float(p_data.get("angle_deg", 0.0)),
+            blend_mode=str(p_data.get("blend_mode", getattr(preset, "default_blend_mode", "multiply"))),
+            artwork_source_id=str(p_data["artwork_source_id"]) if p_data.get("artwork_source_id") else None,
+        )
+    return CustomMockupPlacement(
+        left_pct=getattr(preset, "default_left_pct", 0.25),
+        top_pct=getattr(preset, "default_top_pct", 0.25),
+        width_pct=getattr(preset, "default_width_pct", 0.50),
+        height_pct=getattr(preset, "default_height_pct", 0.50),
+        blend_mode=getattr(preset, "default_blend_mode", "multiply"),
+    )
 
 
 class MockupTemplateStore:
@@ -88,6 +117,7 @@ class MockupTemplateStore:
                     t_prod = meta.get("product_type", "tshirt")
                     t_img_key = meta.get("storage_key")
                     placement_data = meta.get("placement", {})
+                    placements_data = meta.get("placements", [])
                     created_at = meta.get("created_at", datetime.now(UTC).isoformat())
 
                     if not t_img_key:
@@ -97,16 +127,14 @@ class MockupTemplateStore:
                     url = await self._storage.signed_url(t_img_key, expires_in_seconds=86400 * 7)
 
                     preset = get_product_preset(t_prod)
-                    placement = CustomMockupPlacement(
-                        left_pct=float(placement_data.get("left_pct", preset.default_left_pct)),
-                        top_pct=float(placement_data.get("top_pct", preset.default_top_pct)),
-                        width_pct=float(placement_data.get("width_pct", preset.default_width_pct)),
-                        height_pct=float(
-                            placement_data.get("height_pct", preset.default_height_pct)
-                        ),
-                        angle_deg=float(placement_data.get("angle_deg", 0.0)),
-                        blend_mode=str(placement_data.get("blend_mode", preset.default_blend_mode)),
-                    )
+                    placements_list: list[CustomMockupPlacement] = []
+                    if isinstance(placements_data, list) and len(placements_data) > 0:
+                        for p in placements_data:
+                            placements_list.append(_parse_single_placement(p, preset))
+                    else:
+                        placements_list.append(_parse_single_placement(placement_data, preset))
+
+                    primary_placement = placements_list[0]
 
                     templates.append(
                         MockupTemplateItem(
@@ -116,7 +144,8 @@ class MockupTemplateStore:
                             product_type=t_prod,
                             storage_key=t_img_key,
                             url=url,
-                            placement=placement,
+                            placement=primary_placement,
+                            placements=placements_list,
                             created_at=created_at,
                             is_custom=True,
                         )
@@ -139,6 +168,7 @@ class MockupTemplateStore:
         image_bytes: bytes,
         content_type: str = "image/jpeg",
         placement: CustomMockupPlacement | dict[str, Any] | None = None,
+        placements: list[CustomMockupPlacement | dict[str, Any]] | None = None,
     ) -> MockupTemplateItem:
         """Save a new custom mockup template image and its manifest to S3 for an owner."""
         owner_str = str(owner_id)
@@ -159,26 +189,15 @@ class MockupTemplateStore:
         # 1. Upload template image
         await self._storage.put(image_key, image_bytes, content_type=content_type)
 
-        # 2. Build placement object
-        if isinstance(placement, dict):
-            placement_obj = CustomMockupPlacement(
-                left_pct=float(placement.get("left_pct", preset.default_left_pct)),
-                top_pct=float(placement.get("top_pct", preset.default_top_pct)),
-                width_pct=float(placement.get("width_pct", preset.default_width_pct)),
-                height_pct=float(placement.get("height_pct", preset.default_height_pct)),
-                angle_deg=float(placement.get("angle_deg", 0.0)),
-                blend_mode=str(placement.get("blend_mode", preset.default_blend_mode)),
-            )
-        elif isinstance(placement, CustomMockupPlacement):
-            placement_obj = placement
+        # 2. Build placements list
+        placements_list: list[CustomMockupPlacement] = []
+        if placements and len(placements) > 0:
+            for p in placements:
+                placements_list.append(_parse_single_placement(p, preset))
         else:
-            placement_obj = CustomMockupPlacement(
-                left_pct=preset.default_left_pct,
-                top_pct=preset.default_top_pct,
-                width_pct=preset.default_width_pct,
-                height_pct=preset.default_height_pct,
-                blend_mode=preset.default_blend_mode,
-            )
+            placements_list.append(_parse_single_placement(placement, preset))
+
+        primary_placement = placements_list[0]
 
         tpl_name = name.strip() or f"Custom {canonical.capitalize()} Mockup"
         created_at_str = datetime.now(UTC).isoformat()
@@ -188,7 +207,8 @@ class MockupTemplateStore:
             "name": tpl_name,
             "product_type": canonical,
             "storage_key": image_key,
-            "placement": asdict(placement_obj),
+            "placement": asdict(primary_placement),
+            "placements": [asdict(p) for p in placements_list],
             "created_at": created_at_str,
         }
 
@@ -205,7 +225,8 @@ class MockupTemplateStore:
             product_type=canonical,
             storage_key=image_key,
             url=url,
-            placement=placement_obj,
+            placement=primary_placement,
+            placements=placements_list,
             created_at=created_at_str,
             is_custom=True,
         )
@@ -228,6 +249,7 @@ class MockupTemplateStore:
         template_id: str,
         name: str | None = None,
         placement: CustomMockupPlacement | dict[str, Any] | None = None,
+        placements: list[CustomMockupPlacement | dict[str, Any]] | None = None,
         product_type: str | None = None,
     ) -> MockupTemplateItem | None:
         """Update metadata, name, or placement coordinates of an existing template."""
@@ -238,23 +260,19 @@ class MockupTemplateStore:
 
         canonical = normalize_product_type(product_type) or existing.product_type
         json_key = f"mockup-templates/{owner_str}/{existing.product_type}/{template_id}.json"
+        preset = get_product_preset(canonical)
 
-        # Build updated placement
-        if placement is not None:
-            if isinstance(placement, dict):
-                placement_obj = CustomMockupPlacement(
-                    left_pct=float(placement.get("left_pct", existing.placement.left_pct)),
-                    top_pct=float(placement.get("top_pct", existing.placement.top_pct)),
-                    width_pct=float(placement.get("width_pct", existing.placement.width_pct)),
-                    height_pct=float(placement.get("height_pct", existing.placement.height_pct)),
-                    angle_deg=float(placement.get("angle_deg", existing.placement.angle_deg)),
-                    blend_mode=str(placement.get("blend_mode", existing.placement.blend_mode)),
-                )
-            else:
-                placement_obj = placement
+        # Build updated placements
+        placements_list: list[CustomMockupPlacement] = []
+        if placements is not None and len(placements) > 0:
+            for p in placements:
+                placements_list.append(_parse_single_placement(p, preset))
+        elif placement is not None:
+            placements_list.append(_parse_single_placement(placement, preset))
         else:
-            placement_obj = existing.placement
+            placements_list = existing.placements if existing.placements else [existing.placement]
 
+        primary_placement = placements_list[0]
         updated_name = name.strip() if name and name.strip() else existing.name
 
         manifest = {
@@ -263,7 +281,8 @@ class MockupTemplateStore:
             "name": updated_name,
             "product_type": canonical,
             "storage_key": existing.storage_key,
-            "placement": asdict(placement_obj),
+            "placement": asdict(primary_placement),
+            "placements": [asdict(p) for p in placements_list],
             "created_at": existing.created_at,
             "updated_at": datetime.now(UTC).isoformat(),
         }
@@ -278,7 +297,8 @@ class MockupTemplateStore:
             product_type=canonical,
             storage_key=existing.storage_key,
             url=existing.url,
-            placement=placement_obj,
+            placement=primary_placement,
+            placements=placements_list,
             created_at=existing.created_at,
             is_custom=True,
         )

@@ -1,17 +1,43 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import type { MockupPlacement } from "~/types/mockup";
 
-const props = defineProps<{
-  templateImageUrl: string | null;
-  masterImageUrl: string | null;
-  leftPct: number;
-  topPct: number;
-  widthPct: number;
-  heightPct: number;
-  angleDeg: number;
-  blendMode: "multiply" | "over" | "screen" | "overlay" | "soft-light" | "hard-light" | "darken" | "lighten" | string;
-  viewMode: "edit" | "preview";
-}>();
+export interface ArtworkVariantOption {
+  id: string;
+  name: string;
+  url: string;
+}
+
+const props = withDefaults(
+  defineProps<{
+    templateImageUrl: string | null;
+    masterImageUrl: string | null;
+    variants?: ArtworkVariantOption[];
+    // Single placement backward compatibility props
+    leftPct?: number;
+    topPct?: number;
+    widthPct?: number;
+    heightPct?: number;
+    angleDeg?: number;
+    blendMode?: string;
+    // Multi-placement props
+    placements?: MockupPlacement[];
+    activePlacementIndex?: number;
+    viewMode?: "edit" | "preview";
+  }>(),
+  {
+    variants: () => [],
+    leftPct: 25,
+    topPct: 25,
+    widthPct: 50,
+    heightPct: 50,
+    angleDeg: 0,
+    blendMode: "multiply",
+    placements: undefined,
+    activePlacementIndex: 0,
+    viewMode: "edit",
+  }
+);
 
 const emit = defineEmits<{
   (e: "update:leftPct", val: number): void;
@@ -19,6 +45,9 @@ const emit = defineEmits<{
   (e: "update:widthPct", val: number): void;
   (e: "update:heightPct", val: number): void;
   (e: "update:angleDeg", val: number): void;
+  (e: "update:activePlacementIndex", val: number): void;
+  (e: "updatePlacements", val: MockupPlacement[]): void;
+  (e: "updateZonePlacement", payload: { index: number; placement: MockupPlacement }): void;
 }>();
 
 const containerRef = ref<HTMLDivElement | null>(null);
@@ -38,6 +67,109 @@ let rotateCenterScreenX = 0;
 let rotateCenterScreenY = 0;
 let rotateStartAngleRad = 0;
 let initialAngleDeg = 0;
+
+// Normalized zones list
+const activeZones = computed<MockupPlacement[]>(() => {
+  if (props.placements && props.placements.length > 0) {
+    return props.placements;
+  }
+  return [
+    {
+      id: "zone-1",
+      left_pct: props.leftPct <= 1.0 ? props.leftPct * 100 : props.leftPct,
+      top_pct: props.topPct <= 1.0 ? props.topPct * 100 : props.topPct,
+      width_pct: props.widthPct <= 1.0 ? props.widthPct * 100 : props.widthPct,
+      height_pct: props.heightPct <= 1.0 ? props.heightPct * 100 : props.heightPct,
+      angle_deg: props.angleDeg,
+      blend_mode: props.blendMode,
+    },
+  ];
+});
+
+const currentZoneIndex = computed(() => {
+  const maxIdx = Math.max(0, activeZones.value.length - 1);
+  return Math.min(Math.max(0, props.activePlacementIndex), maxIdx);
+});
+
+const currentZone = computed<MockupPlacement>(() => {
+  return (
+    activeZones.value[currentZoneIndex.value] || {
+      id: "zone-1",
+      left_pct: 25,
+      top_pct: 25,
+      width_pct: 50,
+      height_pct: 50,
+      angle_deg: 0,
+      blend_mode: "multiply",
+    }
+  );
+});
+
+function getZoneLeftPct(zone: MockupPlacement): number {
+  const val = zone.left_pct ?? 25;
+  return val <= 1.0 ? val * 100 : val;
+}
+
+function getZoneTopPct(zone: MockupPlacement): number {
+  const val = zone.top_pct ?? 25;
+  return val <= 1.0 ? val * 100 : val;
+}
+
+function getZoneWidthPct(zone: MockupPlacement): number {
+  const val = zone.width_pct ?? 50;
+  return val <= 1.0 ? val * 100 : val;
+}
+
+function getZoneHeightPct(zone: MockupPlacement): number {
+  const val = zone.height_pct ?? 50;
+  return val <= 1.0 ? val * 100 : val;
+}
+
+function getZoneArtworkUrl(zone: MockupPlacement): string | null {
+  if (zone.artwork_source_id && props.variants?.length) {
+    const found = props.variants.find((v) => v.id === zone.artwork_source_id);
+    if (found?.url) return found.url;
+  }
+  return props.masterImageUrl || null;
+}
+
+function resolveCssBlend(blendMode: string | undefined): string {
+  const norm = (blendMode || "multiply").toLowerCase().trim().replace(/_/g, "-");
+  switch (norm) {
+    case "multiply":
+      return "multiply";
+    case "screen":
+      return "screen";
+    case "overlay":
+      return "overlay";
+    case "soft-light":
+      return "soft-light";
+    case "hard-light":
+      return "hard-light";
+    case "darken":
+      return "darken";
+    case "lighten":
+      return "lighten";
+    case "color-burn":
+      return "color-burn";
+    case "color-dodge":
+      return "color-dodge";
+    case "over":
+    default:
+      return "normal";
+  }
+}
+
+function getBoxStyle(zone: MockupPlacement) {
+  return {
+    left: `${getZoneLeftPct(zone)}%`,
+    top: `${getZoneTopPct(zone)}%`,
+    width: `${getZoneWidthPct(zone)}%`,
+    height: `${getZoneHeightPct(zone)}%`,
+    transform: `rotate(${zone.angle_deg || 0}deg)`,
+    transformOrigin: "center center",
+  };
+}
 
 function handleImageLoaded(e: Event): void {
   const img = e.target as HTMLImageElement;
@@ -64,6 +196,31 @@ watch(
   { immediate: true }
 );
 
+function selectZone(idx: number, e?: MouseEvent): void {
+  if (e) {
+    e.stopPropagation();
+  }
+  emit("update:activePlacementIndex", idx);
+}
+
+function emitZoneUpdate(updatedZone: MockupPlacement): void {
+  const idx = currentZoneIndex.value;
+  // Single prop backward compatibility
+  emit("update:leftPct", updatedZone.left_pct);
+  emit("update:topPct", updatedZone.top_pct);
+  emit("update:widthPct", updatedZone.width_pct);
+  emit("update:heightPct", updatedZone.height_pct);
+  emit("update:angleDeg", updatedZone.angle_deg);
+
+  // Multi placement emits
+  emit("updateZonePlacement", { index: idx, placement: updatedZone });
+  if (props.placements && props.placements.length > 0) {
+    const nextList = [...props.placements];
+    nextList[idx] = updatedZone;
+    emit("updatePlacements", nextList);
+  }
+}
+
 function startDrag(e: MouseEvent): void {
   if (props.viewMode === "preview") return;
   e.preventDefault();
@@ -71,8 +228,8 @@ function startDrag(e: MouseEvent): void {
   isDragging.value = true;
   startX = e.clientX;
   startY = e.clientY;
-  initLeft = props.leftPct;
-  initTop = props.topPct;
+  initLeft = getZoneLeftPct(currentZone.value);
+  initTop = getZoneTopPct(currentZone.value);
 
   window.addEventListener("mousemove", onDragMove);
   window.addEventListener("mouseup", onDragEnd);
@@ -84,11 +241,17 @@ function onDragMove(e: MouseEvent): void {
   const dx = ((e.clientX - startX) / rect.width) * 100;
   const dy = ((e.clientY - startY) / rect.height) * 100;
 
-  const newLeft = Math.max(0, Math.min(100 - props.widthPct, initLeft + dx));
-  const newTop = Math.max(0, Math.min(100 - props.heightPct, initTop + dy));
+  const w = getZoneWidthPct(currentZone.value);
+  const h = getZoneHeightPct(currentZone.value);
+  const newLeft = Math.max(0, Math.min(100 - w, initLeft + dx));
+  const newTop = Math.max(0, Math.min(100 - h, initTop + dy));
 
-  emit("update:leftPct", Math.round(newLeft * 10) / 10);
-  emit("update:topPct", Math.round(newTop * 10) / 10);
+  const updated: MockupPlacement = {
+    ...currentZone.value,
+    left_pct: Math.round(newLeft * 10) / 10,
+    top_pct: Math.round(newTop * 10) / 10,
+  };
+  emitZoneUpdate(updated);
 }
 
 function onDragEnd(): void {
@@ -104,8 +267,8 @@ function startResize(e: MouseEvent): void {
   isResizing.value = true;
   startX = e.clientX;
   startY = e.clientY;
-  initWidth = props.widthPct;
-  initHeight = props.heightPct;
+  initWidth = getZoneWidthPct(currentZone.value);
+  initHeight = getZoneHeightPct(currentZone.value);
 
   window.addEventListener("mousemove", onResizeMove);
   window.addEventListener("mouseup", onResizeEnd);
@@ -118,11 +281,17 @@ function onResizeMove(e: MouseEvent): void {
   const dy = ((e.clientY - startY) / rect.height) * 100;
 
   const delta = (dx + dy) / 2;
-  const newWidth = Math.max(10, Math.min(100 - props.leftPct, initWidth + delta));
-  const newHeight = Math.max(10, Math.min(100 - props.topPct, initHeight + delta));
+  const l = getZoneLeftPct(currentZone.value);
+  const t = getZoneTopPct(currentZone.value);
+  const newWidth = Math.max(8, Math.min(100 - l, initWidth + delta));
+  const newHeight = Math.max(8, Math.min(100 - t, initHeight + delta));
 
-  emit("update:widthPct", Math.round(newWidth * 10) / 10);
-  emit("update:heightPct", Math.round(newHeight * 10) / 10);
+  const updated: MockupPlacement = {
+    ...currentZone.value,
+    width_pct: Math.round(newWidth * 10) / 10,
+    height_pct: Math.round(newHeight * 10) / 10,
+  };
+  emitZoneUpdate(updated);
 }
 
 function onResizeEnd(): void {
@@ -138,13 +307,18 @@ function startRotate(e: PointerEvent): void {
   isRotating.value = true;
 
   const rect = containerRef.value.getBoundingClientRect();
-  const boxCenterX = rect.left + (props.leftPct + props.widthPct / 2) * (rect.width / 100);
-  const boxCenterY = rect.top + (props.topPct + props.heightPct / 2) * (rect.height / 100);
+  const l = getZoneLeftPct(currentZone.value);
+  const t = getZoneTopPct(currentZone.value);
+  const w = getZoneWidthPct(currentZone.value);
+  const h = getZoneHeightPct(currentZone.value);
+
+  const boxCenterX = rect.left + (l + w / 2) * (rect.width / 100);
+  const boxCenterY = rect.top + (t + h / 2) * (rect.height / 100);
 
   rotateCenterScreenX = boxCenterX;
   rotateCenterScreenY = boxCenterY;
   rotateStartAngleRad = Math.atan2(e.clientY - boxCenterY, e.clientX - boxCenterX);
-  initialAngleDeg = props.angleDeg || 0;
+  initialAngleDeg = currentZone.value.angle_deg || 0;
 
   window.addEventListener("pointermove", onRotateMove);
   window.addEventListener("pointerup", onRotateEnd);
@@ -157,7 +331,12 @@ function onRotateMove(e: PointerEvent): void {
   let newAngle = Math.round(initialAngleDeg + deltaDeg);
   while (newAngle > 180) newAngle -= 360;
   while (newAngle < -180) newAngle += 360;
-  emit("update:angleDeg", newAngle);
+
+  const updated: MockupPlacement = {
+    ...currentZone.value,
+    angle_deg: newAngle,
+  };
+  emitZoneUpdate(updated);
 }
 
 function onRotateEnd(): void {
@@ -165,44 +344,6 @@ function onRotateEnd(): void {
   window.removeEventListener("pointermove", onRotateMove);
   window.removeEventListener("pointerup", onRotateEnd);
 }
-
-const artworkBoxStyle = computed(() => {
-  return {
-    left: `${props.leftPct}%`,
-    top: `${props.topPct}%`,
-    width: `${props.widthPct}%`,
-    height: `${props.heightPct}%`,
-    transform: `rotate(${props.angleDeg}deg)`,
-    transformOrigin: "center center",
-  };
-});
-
-const activeCssBlend = computed(() => {
-  const norm = (props.blendMode || "over").toLowerCase().trim().replace(/_/g, "-");
-  switch (norm) {
-    case "multiply":
-      return "multiply";
-    case "screen":
-      return "screen";
-    case "overlay":
-      return "overlay";
-    case "soft-light":
-      return "soft-light";
-    case "hard-light":
-      return "hard-light";
-    case "darken":
-      return "darken";
-    case "lighten":
-      return "lighten";
-    case "color-burn":
-      return "color-burn";
-    case "color-dodge":
-      return "color-dodge";
-    case "over":
-    default:
-      return "normal";
-  }
-});
 </script>
 
 <template>
@@ -226,61 +367,90 @@ const activeCssBlend = computed(() => {
       >
       <div v-else class="text-zinc-500 text-xs py-12">No template selected</div>
 
-      <!-- Layer 1: Pure Blended Master Artwork Container -->
-      <div
-        v-if="templateImageUrl && masterImageUrl"
-        class="absolute pointer-events-none select-none"
-        :style="[artworkBoxStyle, { mixBlendMode: activeCssBlend as any }]"
-      >
-        <img
-          :src="masterImageUrl"
-          alt="Artwork Preview"
-          class="w-full h-full object-contain pointer-events-none select-none block"
+      <!-- Layer 1: Pure Blended Artworks for ALL zones -->
+      <template v-if="templateImageUrl">
+        <div
+          v-for="(zone, idx) in activeZones"
+          :key="zone.id || `zone-art-${idx}`"
+          class="absolute pointer-events-none select-none"
+          :style="[
+            getBoxStyle(zone),
+            { mixBlendMode: resolveCssBlend(zone.blend_mode) as any }
+          ]"
         >
-      </div>
-
-      <!-- Layer 2: Interactive Controls & Placement Boundary (Only rendered in Edit mode) -->
-      <div
-        v-if="templateImageUrl && masterImageUrl && viewMode === 'edit'"
-        class="absolute cursor-move border-2 border-dashed border-primary/90 bg-transparent shadow-sm select-none"
-        :style="artworkBoxStyle"
-        @mousedown="startDrag"
-      >
-        <!-- Top Rotation Stalk & Handle -->
-        <div class="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto select-none">
-          <div
-            class="size-5 rounded-full bg-primary text-white border-2 border-white shadow-md flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
-            title="Drag to rotate artwork"
-            @pointerdown="startRotate"
-            @mousedown.stop
+          <img
+            v-if="getZoneArtworkUrl(zone)"
+            :src="getZoneArtworkUrl(zone)!"
+            :alt="`Artwork Zone ${idx + 1}`"
+            class="w-full h-full object-contain pointer-events-none select-none block"
           >
-            <Icon name="lucide:rotate-cw" class="size-2.5 text-white" aria-hidden="true" />
+        </div>
+      </template>
+
+      <!-- Layer 2: Interactive Controls & Multi-Zone Bounding Boxes (Edit mode only) -->
+      <template v-if="templateImageUrl && viewMode === 'edit'">
+        <!-- Inactive selectable zone outlines -->
+        <template v-for="(zone, idx) in activeZones" :key="`inactive-zone-${idx}`">
+          <div
+            v-if="idx !== currentZoneIndex"
+            class="absolute cursor-pointer border border-dashed border-white/70 hover:border-primary bg-white/5 hover:bg-primary/15 transition-all rounded-xs z-10 group/zone"
+            :style="getBoxStyle(zone)"
+            :title="`Click to select Zone ${idx + 1}`"
+            @mousedown="(e) => selectZone(idx, e)"
+          >
+            <span class="absolute -top-5 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-slate-900/90 text-white rounded text-[9px] font-mono border border-slate-700 pointer-events-none shadow-xs group-hover/zone:border-primary group-hover/zone:text-primary">
+              Zone {{ idx + 1 }}
+            </span>
           </div>
-          <div class="w-0.5 h-2 bg-primary/70" />
-        </div>
+        </template>
 
-        <!-- Live Coordinates Pill -->
+        <!-- Active Interactive Control Box for Current Zone -->
         <div
-          v-if="isDragging || isResizing || isRotating"
-          class="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-md border border-slate-700/60"
+          v-if="activeZones.length > 0"
+          class="absolute cursor-move border-2 border-dashed border-primary bg-primary/10 shadow-sm select-none z-20"
+          :style="getBoxStyle(currentZone)"
+          @mousedown="startDrag"
         >
-          {{ Math.round(leftPct) }}%, {{ Math.round(topPct) }}% · {{ Math.round(widthPct) }}×{{ Math.round(heightPct) }}% · {{ angleDeg }}°
-        </div>
+          <!-- Top Rotation Stalk & Handle -->
+          <div class="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto select-none">
+            <div
+              class="size-5 rounded-full bg-primary text-white border-2 border-white shadow-md flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
+              title="Drag to rotate artwork"
+              @pointerdown="startRotate"
+              @mousedown.stop
+            >
+              <Icon name="lucide:rotate-cw" class="size-2.5 text-white" aria-hidden="true" />
+            </div>
+            <div class="w-0.5 h-2 bg-primary/70" />
+          </div>
 
-        <!-- Resize Handle in Bottom Right -->
-        <div
-          class="absolute -bottom-2 -right-2 h-5 w-5 bg-primary border-2 border-white rounded-full cursor-nwse-resize shadow-md flex items-center justify-center hover:scale-125 transition-transform"
-          @mousedown="startResize"
-        >
-          <div class="h-1.5 w-1.5 bg-white rounded-full" />
-        </div>
+          <!-- Zone Tag & Live Measurement Pill -->
+          <div
+            class="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-md border border-slate-700/60 flex items-center gap-1.5"
+          >
+            <span v-if="activeZones.length > 1" class="text-primary font-bold">Z{{ currentZoneIndex + 1 }}</span>
+            <span>{{ Math.round(getZoneLeftPct(currentZone)) }}%, {{ Math.round(getZoneTopPct(currentZone)) }}%</span>
+            <span>·</span>
+            <span>{{ Math.round(getZoneWidthPct(currentZone)) }}×{{ Math.round(getZoneHeightPct(currentZone)) }}%</span>
+            <span v-if="currentZone.angle_deg">· {{ currentZone.angle_deg }}°</span>
+          </div>
 
-        <!-- Center Crosshair for Edit Mode -->
-        <div class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-40">
-          <div class="w-2 h-0.5 bg-primary absolute" />
-          <div class="h-2 w-0.5 bg-primary absolute" />
+          <!-- Resize Handle in Bottom Right -->
+          <div
+            class="absolute -bottom-2 -right-2 h-5 w-5 bg-primary border-2 border-white rounded-full cursor-nwse-resize shadow-md flex items-center justify-center hover:scale-125 transition-transform"
+            title="Drag to resize artwork bounding box"
+            @mousedown="startResize"
+          >
+            <div class="h-1.5 w-1.5 bg-white rounded-full" />
+          </div>
+
+          <!-- Center Crosshair for Active Zone -->
+          <div class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-40">
+            <div class="w-2 h-0.5 bg-primary absolute" />
+            <div class="h-2 w-0.5 bg-primary absolute" />
+          </div>
         </div>
-      </div>
+      </template>
     </div>
   </div>
 </template>

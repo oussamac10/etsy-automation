@@ -11,12 +11,14 @@ export type MockupBlendMode =
   | "color-dodge";
 
 export interface MockupPlacement {
+  id?: string;
   left_pct: number;
   top_pct: number;
   width_pct: number;
   height_pct: number;
   angle_deg: number;
   blend_mode: MockupBlendMode | string;
+  artwork_source_id?: string | null;
 }
 
 export interface MockupTemplateItem {
@@ -27,10 +29,13 @@ export interface MockupTemplateItem {
   url?: string;
   preview_url?: string;
   placement: MockupPlacement;
+  placements?: MockupPlacement[];
   width: number;
   height: number;
   created_at: string;
 }
+
+export type MockupTemplate = MockupTemplateItem;
 
 export interface MockupAsset {
   id: string;
@@ -55,6 +60,7 @@ export interface MockupAsset {
     template_storage_key?: string | null;
     source_asset_id?: string | null;
     placement?: MockupPlacement;
+    placements?: MockupPlacement[];
     is_cover?: boolean;
     listing_order?: number;
     created_for_listing?: boolean;
@@ -72,6 +78,7 @@ export interface CompositeMockupRequest {
   template_image_base64?: string | null;
   save_as_template?: boolean;
   placement?: MockupPlacement;
+  placements?: MockupPlacement[];
   is_cover?: boolean;
   target_asset_id?: string | null;
   master_asset_id?: string | null;

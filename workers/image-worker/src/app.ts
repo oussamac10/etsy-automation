@@ -263,6 +263,7 @@ export function buildApp({ config, redis }: AppDependencies): FastifyInstance {
       artwork_base64: string;
       template_base64: string;
       placement?: CustomMockupPlacement;
+      placements?: CustomMockupPlacement[];
       format?: "jpeg" | "png";
       quality?: number;
     };
@@ -279,6 +280,7 @@ export function buildApp({ config, redis }: AppDependencies): FastifyInstance {
 
     const result = await compositeCustomMockup(artworkBytes, templateBytes, {
       placement: request.body.placement,
+      placements: request.body.placements,
       format: request.body.format ?? "jpeg",
       quality: request.body.quality ?? 90,
     });

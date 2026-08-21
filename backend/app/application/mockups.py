@@ -70,6 +70,7 @@ class MockupCompositionService:
         template_image_base64: str | None = None,
         save_as_template: bool = False,
         placement: dict[str, Any] | None = None,
+        placements: list[dict[str, Any]] | None = None,
         is_cover: bool | None = None,
         target_asset_id: uuid.UUID | None = None,
         master_asset_id: uuid.UUID | None = None,
@@ -93,8 +94,8 @@ class MockupCompositionService:
 
         master_bytes = await self.storage.get(master_asset.storage_key)
 
-        # 2. Resolve template bytes & placement
-        resolved_placement = placement or {
+        # 2. Resolve template bytes & placements
+        default_placement = {
             "left_pct": preset.default_left_pct,
             "top_pct": preset.default_top_pct,
             "width_pct": preset.default_width_pct,
@@ -102,6 +103,16 @@ class MockupCompositionService:
             "angle_deg": 0.0,
             "blend_mode": preset.default_blend_mode,
         }
+
+        resolved_placements: list[dict[str, Any]] = []
+        if placements and len(placements) > 0:
+            resolved_placements = placements
+        elif placement:
+            resolved_placements = [placement]
+        else:
+            resolved_placements = [default_placement]
+
+        resolved_placement = resolved_placements[0]
         resolved_template_id = template_id
         resolved_template_name = (
             template_name or f"{canonical_prod.replace('_', ' ').capitalize()} Mockup"
@@ -145,6 +156,7 @@ class MockupCompositionService:
                     image_bytes=template_bytes,
                     content_type=detected_mime,
                     placement=resolved_placement,
+                    placements=resolved_placements,
                 )
                 resolved_template_id = saved_item.id
                 resolved_template_storage_key = saved_item.storage_key
@@ -166,15 +178,33 @@ class MockupCompositionService:
             template_bytes = await self.storage.get(existing_template.storage_key)
             resolved_template_storage_key = existing_template.storage_key
             resolved_template_name = template_name or existing_template.name
-            if not placement:
-                resolved_placement = {
-                    "left_pct": existing_template.placement.left_pct,
-                    "top_pct": existing_template.placement.top_pct,
-                    "width_pct": existing_template.placement.width_pct,
-                    "height_pct": existing_template.placement.height_pct,
-                    "angle_deg": existing_template.placement.angle_deg,
-                    "blend_mode": existing_template.placement.blend_mode,
-                }
+            if not placement and not placements:
+                if existing_template.placements and len(existing_template.placements) > 0:
+                    resolved_placements = [
+                        {
+                            "left_pct": p.left_pct,
+                            "top_pct": p.top_pct,
+                            "width_pct": p.width_pct,
+                            "height_pct": p.height_pct,
+                            "angle_deg": p.angle_deg,
+                            "blend_mode": p.blend_mode,
+                            "artwork_source_id": p.artwork_source_id,
+                        }
+                        for p in existing_template.placements
+                    ]
+                else:
+                    resolved_placements = [
+                        {
+                            "left_pct": existing_template.placement.left_pct,
+                            "top_pct": existing_template.placement.top_pct,
+                            "width_pct": existing_template.placement.width_pct,
+                            "height_pct": existing_template.placement.height_pct,
+                            "angle_deg": existing_template.placement.angle_deg,
+                            "blend_mode": existing_template.placement.blend_mode,
+                            "artwork_source_id": existing_template.placement.artwork_source_id,
+                        }
+                    ]
+                resolved_placement = resolved_placements[0]
         else:
             raise MockupCompositionError(
                 "Either template_image_base64 or template_id must be provided."
@@ -188,6 +218,7 @@ class MockupCompositionService:
             "artwork_base64": base64.b64encode(master_bytes).decode("utf-8"),
             "template_base64": base64.b64encode(template_bytes).decode("utf-8"),
             "placement": resolved_placement,
+            "placements": resolved_placements,
             "format": "jpeg",
             "quality": 92,
         }
@@ -241,12 +272,12 @@ class MockupCompositionService:
                     other.provenance = dict(other.provenance, is_cover=False)
                     await self.uow.session.flush()
 
-        mock_sha256 = hashlib.sha256(composited_bytes).hexdigest()
-
         mockup_id = target_asset.id if target_asset else uuid.uuid4()
+        mock_sha256 = hashlib.sha256(composited_bytes).hexdigest()
         mockup_storage_key = (
-            f"production/{workflow_id}/mockups/custom_{canonical_prod}_{mockup_id}.jpg"
+            f"production/{workflow_id}/mockups/custom_{canonical_prod}_{mockup_id}_{mock_sha256[:8]}.jpg"
         )
+
         await self.storage.put(mockup_storage_key, composited_bytes, content_type="image/jpeg")
         mockup_url = await self.storage.signed_url(mockup_storage_key, expires_in_seconds=86400 * 7)
 
@@ -260,6 +291,7 @@ class MockupCompositionService:
             "template_storage_key": resolved_template_storage_key,
             "source_asset_id": str(master_asset.id),
             "placement": resolved_placement,
+            "placements": resolved_placements,
             "is_cover": resolved_is_cover,
             "listing_order": order,
             "created_for_listing": True,

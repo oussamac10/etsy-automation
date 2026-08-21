@@ -65,12 +65,14 @@ def validate_image_payload(
 
 
 class PlacementSchema(BaseModel):
+    id: str | None = None
     left_pct: float = Field(default=0.25)
     top_pct: float = Field(default=0.25)
     width_pct: float = Field(default=0.50)
     height_pct: float = Field(default=0.50)
     angle_deg: float = Field(default=0.0)
     blend_mode: str = Field(default="multiply")
+    artwork_source_id: str | None = None
 
     @field_validator("left_pct", "top_pct", "width_pct", "height_pct", mode="before")
     @classmethod
@@ -119,6 +121,7 @@ class UploadTemplateRequest(BaseModel):
     image_base64: str
     content_type: str = "image/jpeg"
     placement: PlacementSchema | None = None
+    placements: list[PlacementSchema] | None = None
 
 
 class CompositeCustomMockupRequest(BaseModel):
@@ -130,6 +133,7 @@ class CompositeCustomMockupRequest(BaseModel):
     template_name: str | None = None
     save_as_template: bool = False
     placement: PlacementSchema | None = None
+    placements: list[PlacementSchema] | None = None
     target_asset_id: uuid.UUID | None = None
     is_cover: bool | None = None
 
@@ -138,6 +142,7 @@ class UpdateTemplateRequest(BaseModel):
     name: str | None = None
     product_type: str | None = None
     placement: PlacementSchema | None = None
+    placements: list[PlacementSchema] | None = None
 
 
 class TemplateStatsResponse(BaseModel):
@@ -151,6 +156,7 @@ class MockupTemplateResponse(BaseModel):
     product_type: str
     url: str
     placement: PlacementSchema
+    placements: list[PlacementSchema] = Field(default_factory=list)
     created_at: str
     is_custom: bool = True
 
@@ -168,6 +174,24 @@ class CompositeMockupResponse(BaseModel):
     format: str
 
 
+def _to_response_placements(item: Any) -> tuple[PlacementSchema, list[PlacementSchema]]:
+    raw_list = getattr(item, "placements", None) or [getattr(item, "placement")]
+    schemas = [
+        PlacementSchema(
+            id=getattr(p, "id", None),
+            left_pct=p.left_pct,
+            top_pct=p.top_pct,
+            width_pct=p.width_pct,
+            height_pct=p.height_pct,
+            angle_deg=p.angle_deg,
+            blend_mode=p.blend_mode,
+            artwork_source_id=getattr(p, "artwork_source_id", None),
+        )
+        for p in raw_list
+    ]
+    return schemas[0], schemas
+
+
 @router.get("", response_model=list[MockupTemplateResponse])
 async def list_templates(
     user: CurrentUser,
@@ -180,25 +204,22 @@ async def list_templates(
     canonical_type = normalize_mockup_product(product_type) if product_type else None
     store = MockupTemplateStore(storage)
     items = await store.list_templates(owner_id=user.id, product_type=canonical_type)
-    return [
-        MockupTemplateResponse(
-            id=item.id,
-            name=item.name,
-            product_type=item.product_type,
-            url=item.url,
-            placement=PlacementSchema(
-                left_pct=item.placement.left_pct,
-                top_pct=item.placement.top_pct,
-                width_pct=item.placement.width_pct,
-                height_pct=item.placement.height_pct,
-                angle_deg=item.placement.angle_deg,
-                blend_mode=item.placement.blend_mode,
-            ),
-            created_at=item.created_at,
-            is_custom=item.is_custom,
+    results: list[MockupTemplateResponse] = []
+    for item in items:
+        primary_p, all_p = _to_response_placements(item)
+        results.append(
+            MockupTemplateResponse(
+                id=item.id,
+                name=item.name,
+                product_type=item.product_type,
+                url=item.url,
+                placement=primary_p,
+                placements=all_p,
+                created_at=item.created_at,
+                is_custom=item.is_custom,
+            )
         )
-        for item in items
-    ]
+    return results
 
 
 @router.get("/stats", response_model=TemplateStatsResponse)
@@ -243,18 +264,22 @@ async def upload_template(
     canonical_type = normalize_mockup_product(payload.product_type) or payload.product_type
     preset = get_product_preset(canonical_type)
 
-    placement_dict = (
-        payload.placement.model_dump()
-        if payload.placement
-        else {
-            "left_pct": preset.default_left_pct,
-            "top_pct": preset.default_top_pct,
-            "width_pct": preset.default_width_pct,
-            "height_pct": preset.default_height_pct,
-            "angle_deg": 0.0,
-            "blend_mode": preset.default_blend_mode,
-        }
-    )
+    placements_dicts: list[dict[str, Any]] = []
+    if payload.placements and len(payload.placements) > 0:
+        placements_dicts = [p.model_dump() for p in payload.placements]
+    elif payload.placement:
+        placements_dicts = [payload.placement.model_dump()]
+    else:
+        placements_dicts = [
+            {
+                "left_pct": preset.default_left_pct,
+                "top_pct": preset.default_top_pct,
+                "width_pct": preset.default_width_pct,
+                "height_pct": preset.default_height_pct,
+                "angle_deg": 0.0,
+                "blend_mode": preset.default_blend_mode,
+            }
+        ]
 
     store = MockupTemplateStore(storage)
     item = await store.save_template(
@@ -263,22 +288,19 @@ async def upload_template(
         product_type=canonical_type,
         image_bytes=content,
         content_type=payload.content_type,
-        placement=placement_dict,
+        placement=placements_dicts[0],
+        placements=placements_dicts,
     )
+
+    primary_p, all_p = _to_response_placements(item)
 
     return MockupTemplateResponse(
         id=item.id,
         name=item.name,
         product_type=item.product_type,
         url=item.url,
-        placement=PlacementSchema(
-            left_pct=item.placement.left_pct,
-            top_pct=item.placement.top_pct,
-            width_pct=item.placement.width_pct,
-            height_pct=item.placement.height_pct,
-            angle_deg=item.placement.angle_deg,
-            blend_mode=item.placement.blend_mode,
-        ),
+        placement=primary_p,
+        placements=all_p,
         created_at=item.created_at,
         is_custom=item.is_custom,
     )
@@ -293,30 +315,32 @@ async def update_template(
 ) -> MockupTemplateResponse:
     """Update name, product_type, or placement coordinates of a saved mockup template."""
     store = MockupTemplateStore(storage)
-    placement_dict = payload.placement.model_dump() if payload.placement else None
+    placements_dicts: list[dict[str, Any]] | None = None
+    if payload.placements and len(payload.placements) > 0:
+        placements_dicts = [p.model_dump() for p in payload.placements]
+    elif payload.placement:
+        placements_dicts = [payload.placement.model_dump()]
+
     item = await store.update_template(
         owner_id=user.id,
         template_id=template_id,
         name=payload.name,
         product_type=payload.product_type,
-        placement=placement_dict,
+        placement=payload.placement.model_dump() if payload.placement else None,
+        placements=placements_dicts,
     )
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found.")
+
+    primary_p, all_p = _to_response_placements(item)
 
     return MockupTemplateResponse(
         id=item.id,
         name=item.name,
         product_type=item.product_type,
         url=item.url,
-        placement=PlacementSchema(
-            left_pct=item.placement.left_pct,
-            top_pct=item.placement.top_pct,
-            width_pct=item.placement.width_pct,
-            height_pct=item.placement.height_pct,
-            angle_deg=item.placement.angle_deg,
-            blend_mode=item.placement.blend_mode,
-        ),
+        placement=primary_p,
+        placements=all_p,
         created_at=item.created_at,
         is_custom=item.is_custom,
     )
@@ -375,6 +399,12 @@ async def composite_custom_mockup_endpoint(
         image_max_input_bytes=settings.image_max_input_bytes,
     )
 
+    placements_dicts: list[dict[str, Any]] | None = None
+    if payload.placements and len(payload.placements) > 0:
+        placements_dicts = [p.model_dump() for p in payload.placements]
+    elif payload.placement:
+        placements_dicts = [payload.placement.model_dump()]
+
     try:
         result = await service.composite_custom_mockup(
             owner_id=user.id,
@@ -385,6 +415,7 @@ async def composite_custom_mockup_endpoint(
             template_image_base64=payload.template_image_base64,
             save_as_template=payload.save_as_template,
             placement=payload.placement.model_dump() if payload.placement else None,
+            placements=placements_dicts,
             is_cover=payload.is_cover,
             target_asset_id=payload.target_asset_id,
             master_asset_id=payload.master_asset_id,

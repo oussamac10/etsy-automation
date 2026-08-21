@@ -20,12 +20,14 @@ import {
 import { BLEND_MODE_OPTIONS, getBlendModeInfo } from "~/utils/mockupProducts";
 
 interface PlacementData {
+  id?: string;
   left_pct: number;
   top_pct: number;
   width_pct: number;
   height_pct: number;
   angle_deg: number;
   blend_mode: string;
+  artwork_source_id?: string | null;
 }
 
 interface MockupTemplate {
@@ -34,6 +36,7 @@ interface MockupTemplate {
   product_type: string;
   url: string;
   placement: PlacementData;
+  placements?: PlacementData[];
   created_at: string;
   is_custom: boolean;
 }
@@ -1101,8 +1104,28 @@ onMounted(() => {
                 @load="(e) => onCardImageLoaded(tpl.id, e)"
               >
 
-              <!-- Bounding Box Indicator Overlay on Hover -->
+              <!-- Bounding Box Indicator Overlays on Hover (Support multiple zones) -->
+              <template v-if="tpl.placements && tpl.placements.length > 0">
+                <div
+                  v-for="(zone, zIdx) in tpl.placements"
+                  :key="zone.id || `tpl-${tpl.id}-z-${zIdx}`"
+                  class="absolute border-2 border-primary bg-primary/25 backdrop-blur-[0.5px] pointer-events-none rounded-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xs"
+                  :style="{
+                    left: `${(zone.left_pct <= 1.0 ? zone.left_pct : zone.left_pct / 100) * 100}%`,
+                    top: `${(zone.top_pct <= 1.0 ? zone.top_pct : zone.top_pct / 100) * 100}%`,
+                    width: `${(zone.width_pct <= 1.0 ? zone.width_pct : zone.width_pct / 100) * 100}%`,
+                    height: `${(zone.height_pct <= 1.0 ? zone.height_pct : zone.height_pct / 100) * 100}%`,
+                    transform: `rotate(${zone.angle_deg ?? 0}deg)`,
+                    transformOrigin: 'center center',
+                  }"
+                >
+                  <span v-if="tpl.placements.length > 1" class="text-[9px] font-mono font-bold text-white bg-primary/90 px-1 py-0.2 rounded-xs shadow-2xs">
+                    Z{{ zIdx + 1 }}
+                  </span>
+                </div>
+              </template>
               <div
+                v-else
                 class="absolute border-2 border-primary bg-primary/25 backdrop-blur-[0.5px] pointer-events-none rounded-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xs"
                 :style="{
                   left: `${(tpl.placement?.left_pct != null ? (tpl.placement.left_pct <= 1.0 ? tpl.placement.left_pct : tpl.placement.left_pct / 100) : 0.25) * 100}%`,
@@ -1128,9 +1151,18 @@ onMounted(() => {
               <span>{{ getProductLabel(tpl.product_type) }}</span>
             </Badge>
 
-            <!-- Rotation Angle Badge on Card if Rotated -->
+            <!-- Multi-Zone Pill Badge on Card if Multiple Zones -->
             <div
-              v-if="tpl.placement?.angle_deg"
+              v-if="tpl.placements && tpl.placements.length > 1"
+              class="absolute bottom-2.5 left-2.5 px-1.5 py-0.5 rounded bg-primary text-white text-[9px] font-bold font-mono shadow-xs z-10 flex items-center gap-1"
+            >
+              <Icon name="lucide:layers" class="size-2.5 text-white" aria-hidden="true" />
+              <span>{{ tpl.placements.length }} Zones</span>
+            </div>
+
+            <!-- Rotation Angle Badge on Card if Rotated (Single Zone) -->
+            <div
+              v-else-if="tpl.placement?.angle_deg"
               class="absolute bottom-2.5 right-2.5 px-1.5 py-0.5 rounded bg-slate-900/90 text-white text-[9px] font-mono border border-slate-700/60 shadow-xs z-10 flex items-center gap-1"
             >
               <Icon name="lucide:rotate-cw" class="size-2.5 text-primary" aria-hidden="true" />
@@ -1145,7 +1177,12 @@ onMounted(() => {
                 {{ tpl.name }}
               </h4>
               <div class="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
-                <span>Box: {{ Math.round((tpl.placement?.width_pct ?? 0.5) * 100) }}% × {{ Math.round((tpl.placement?.height_pct ?? 0.5) * 100) }}%</span>
+                <span v-if="tpl.placements && tpl.placements.length > 1" class="text-primary font-bold">
+                  {{ tpl.placements.length }} Print Zones
+                </span>
+                <span v-else>
+                  Box: {{ Math.round((tpl.placement?.width_pct ?? 0.5) * 100) }}% × {{ Math.round((tpl.placement?.height_pct ?? 0.5) * 100) }}%
+                </span>
                 <span>•</span>
                 <span class="capitalize">{{ tpl.placement?.blend_mode || 'multiply' }}</span>
               </div>

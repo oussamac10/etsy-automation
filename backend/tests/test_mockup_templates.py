@@ -70,3 +70,57 @@ def test_placement_schema_blend_mode_normalization() -> None:
     # Unknown blend modes safely fall back to "over"
     schema = PlacementSchema(blend_mode="invalid_xyz")
     assert schema.blend_mode == "over"
+
+
+@pytest.mark.asyncio
+async def test_mockup_template_store_multi_placement() -> None:
+    owner_id = uuid.uuid4()
+    mock_storage = MagicMock()
+    mock_storage._bucket_name = "test-bucket"
+    mock_storage.put = AsyncMock()
+    manifest_payload = (
+        b'{"id":"tpl-multi","name":"Sticker Sheet 4-Pack","product_type":"sticker",'
+        b'"storage_key":"mockup-templates/sticker/tpl-multi.jpg",'
+        b'"placement":{"left_pct":0.1,"top_pct":0.1,"width_pct":0.35,"height_pct":0.35,"angle_deg":-15.0,"blend_mode":"over"},'
+        b'"placements":['
+        b'  {"id":"p1","left_pct":0.1,"top_pct":0.1,"width_pct":0.35,"height_pct":0.35,"angle_deg":-15.0,"blend_mode":"over"},'
+        b'  {"id":"p2","left_pct":0.55,"top_pct":0.1,"width_pct":0.35,"height_pct":0.35,"angle_deg":15.0,"blend_mode":"multiply"},'
+        b'  {"id":"p3","left_pct":0.1,"top_pct":0.55,"width_pct":0.35,"height_pct":0.35,"angle_deg":45.0,"blend_mode":"overlay"}'
+        b'],'
+        b'"created_at":"2026-08-20T00:00:00Z"}'
+    )
+    mock_storage.get = AsyncMock(return_value=manifest_payload)
+    mock_storage.signed_url = AsyncMock(return_value="https://storage.local/signed-url.jpg")
+    mock_client = MagicMock()
+    mock_client.list_objects_v2.return_value = {
+        "Contents": [{"Key": f"mockup-templates/{owner_id}/sticker/tpl-multi.json"}]
+    }
+    mock_storage._get_client.return_value = mock_client
+
+    store = MockupTemplateStore(mock_storage)
+
+    # 1. Save with multi placements
+    item = await store.save_template(
+        owner_id=owner_id,
+        name="Sticker Sheet 4-Pack",
+        product_type="sticker",
+        image_bytes=b"fake-image-bytes",
+        content_type="image/jpeg",
+        placements=[
+            CustomMockupPlacement(id="p1", left_pct=0.1, top_pct=0.1, width_pct=0.35, height_pct=0.35, angle_deg=-15),
+            CustomMockupPlacement(id="p2", left_pct=0.55, top_pct=0.1, width_pct=0.35, height_pct=0.35, angle_deg=15),
+        ],
+    )
+
+    assert item.name == "Sticker Sheet 4-Pack"
+    assert len(item.placements) == 2
+    assert item.placement.left_pct == 0.1
+
+    # 2. List templates
+    templates = await store.list_templates(owner_id=owner_id, product_type="sticker")
+    assert len(templates) == 1
+    assert templates[0].id == "tpl-multi"
+    assert len(templates[0].placements) == 3
+    assert templates[0].placements[1].angle_deg == 15.0
+    assert templates[0].placements[2].blend_mode == "overlay"
+

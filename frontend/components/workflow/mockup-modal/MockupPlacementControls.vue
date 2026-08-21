@@ -1,21 +1,51 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { BLEND_MODE_OPTIONS, getBlendModeInfo } from "~/utils/mockupProducts";
-import type { MockupBlendMode } from "~/types/mockup";
+import type { MockupBlendMode, MockupPlacement } from "~/types/mockup";
 
-const props = defineProps<{
-  leftPct: number;
-  topPct: number;
-  widthPct: number;
-  heightPct: number;
-  angleDeg: number;
-  blendMode: MockupBlendMode | string;
-  templateName: string;
-  saveToLibrary: boolean;
-  isCover: boolean;
-  isCompositing: boolean;
-  isUploadingNew: boolean;
-}>();
+export interface ArtworkVariantOption {
+  id: string;
+  name: string;
+  url: string;
+}
+
+const props = withDefaults(
+  defineProps<{
+    // Single placement backward compatibility props
+    leftPct?: number;
+    topPct?: number;
+    widthPct?: number;
+    heightPct?: number;
+    angleDeg?: number;
+    blendMode?: MockupBlendMode | string;
+    // Multi-placement props
+    placements?: MockupPlacement[];
+    activePlacementIndex?: number;
+    variants?: ArtworkVariantOption[];
+    // Metadata props
+    templateName?: string;
+    saveToLibrary?: boolean;
+    isCover?: boolean;
+    isCompositing?: boolean;
+    isUploadingNew?: boolean;
+  }>(),
+  {
+    leftPct: 25,
+    topPct: 25,
+    widthPct: 50,
+    heightPct: 50,
+    angleDeg: 0,
+    blendMode: "multiply",
+    placements: undefined,
+    activePlacementIndex: 0,
+    variants: () => [],
+    templateName: "",
+    saveToLibrary: false,
+    isCover: false,
+    isCompositing: false,
+    isUploadingNew: false,
+  }
+);
 
 const emit = defineEmits<{
   (e: "update:leftPct", val: number): void;
@@ -24,24 +54,89 @@ const emit = defineEmits<{
   (e: "update:heightPct", val: number): void;
   (e: "update:angleDeg", val: number): void;
   (e: "update:blendMode", val: MockupBlendMode | string): void;
+  (e: "update:activePlacementIndex", val: number): void;
   (e: "update:templateName", val: string): void;
   (e: "update:saveToLibrary", val: boolean): void;
   (e: "update:isCover", val: boolean): void;
+  (e: "addZone"): void;
+  (e: "duplicateZone", index: number): void;
+  (e: "removeZone", index: number): void;
+  (e: "updateZoneArtworkSource", payload: { index: number; sourceId: string | null }): void;
   (e: "resetPreset"): void;
   (e: "centerHorizontal"): void;
   (e: "centerBoth"): void;
 }>();
 
-const activeBlendInfo = computed(() => getBlendModeInfo(props.blendMode));
+const currentZones = computed<MockupPlacement[]>(() => {
+  if (props.placements && props.placements.length > 0) {
+    return props.placements;
+  }
+  return [
+    {
+      id: "zone-1",
+      left_pct: props.leftPct,
+      top_pct: props.topPct,
+      width_pct: props.widthPct,
+      height_pct: props.heightPct,
+      angle_deg: props.angleDeg,
+      blend_mode: props.blendMode,
+    },
+  ];
+});
+
+const currentZoneIdx = computed(() => {
+  const maxIdx = Math.max(0, currentZones.value.length - 1);
+  return Math.min(Math.max(0, props.activePlacementIndex), maxIdx);
+});
+
+const currentZone = computed<MockupPlacement>(() => {
+  return (
+    currentZones.value[currentZoneIdx.value] || {
+      id: "zone-1",
+      left_pct: 25,
+      top_pct: 25,
+      width_pct: 50,
+      height_pct: 50,
+      angle_deg: 0,
+      blend_mode: "multiply",
+    }
+  );
+});
+
+const activeBlendInfo = computed(() => getBlendModeInfo(currentZone.value.blend_mode || props.blendMode));
+
+function handleSelectZone(idx: number): void {
+  emit("update:activePlacementIndex", idx);
+}
+
+function handleAddZone(): void {
+  emit("addZone");
+}
+
+function handleDuplicateZone(): void {
+  emit("duplicateZone", currentZoneIdx.value);
+}
+
+function handleRemoveZone(): void {
+  if (currentZones.value.length <= 1) return;
+  emit("removeZone", currentZoneIdx.value);
+}
+
+function handleArtworkSourceChange(sourceId: string | null): void {
+  emit("updateZoneArtworkSource", {
+    index: currentZoneIdx.value,
+    sourceId: sourceId === "master" ? null : sourceId,
+  });
+}
 
 function rotateLeft(): void {
-  let a = (props.angleDeg || 0) - 90;
+  let a = (currentZone.value.angle_deg || props.angleDeg || 0) - 90;
   while (a < -180) a += 360;
   emit("update:angleDeg", a);
 }
 
 function rotateRight(): void {
-  let a = (props.angleDeg || 0) + 90;
+  let a = (currentZone.value.angle_deg || props.angleDeg || 0) + 90;
   while (a > 180) a -= 360;
   emit("update:angleDeg", a);
 }
@@ -53,11 +148,91 @@ function setAngle(deg: number): void {
 
 <template>
   <div class="space-y-4">
-    <!-- Quick Alignment & Reset Toolbar -->
+    <!-- Multi-Zone Strip Manager -->
+    <div class="p-2.5 bg-secondary/30 rounded-xl border border-border space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
+          <Icon name="lucide:layers" class="size-3.5 text-primary" aria-hidden="true" />
+          <span>Print Zones ({{ currentZones.length }})</span>
+        </span>
+
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-primary text-white hover:bg-primary-hover transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+            title="Add another print zone (e.g. for stickers sheet or back print)"
+            @click="handleAddZone"
+          >
+            <Icon name="lucide:plus" class="size-3 text-white" aria-hidden="true" />
+            <span>Add Zone</span>
+          </button>
+
+          <button
+            type="button"
+            class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-white text-secondary-foreground hover:text-primary hover:bg-secondary transition-colors cursor-pointer inline-flex items-center gap-1 border border-border shadow-2xs"
+            title="Duplicate active zone"
+            @click="handleDuplicateZone"
+          >
+            <Icon name="lucide:copy" class="size-3 text-primary" aria-hidden="true" />
+            <span class="hidden sm:inline">Duplicate</span>
+          </button>
+
+          <button
+            v-if="currentZones.length > 1"
+            type="button"
+            class="px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-red-600 hover:bg-red-50 transition-colors cursor-pointer inline-flex items-center border border-red-200 shadow-2xs"
+            title="Delete this print zone"
+            @click="handleRemoveZone"
+          >
+            <Icon name="lucide:trash-2" class="size-3 text-red-500" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Zone Pills Selector -->
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <button
+          v-for="(zone, idx) in currentZones"
+          :key="zone.id || `zone-tab-${idx}`"
+          type="button"
+          class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+          :class="[
+            currentZoneIdx === idx
+              ? 'bg-primary text-white shadow-2xs'
+              : 'bg-white text-secondary-foreground hover:text-foreground hover:bg-secondary border border-border shadow-2xs'
+          ]"
+          @click="handleSelectZone(idx)"
+        >
+          <span class="size-2 rounded-full" :class="currentZoneIdx === idx ? 'bg-white' : 'bg-primary'" />
+          <span>Zone {{ idx + 1 }}</span>
+          <span v-if="zone.angle_deg" class="text-[10px] font-mono opacity-80">({{ zone.angle_deg }}°)</span>
+        </button>
+      </div>
+
+      <!-- Artwork Graphic Selector per Zone (if color variants exist) -->
+      <div v-if="variants && variants.length > 0" class="pt-2 border-t border-border/60 flex items-center justify-between text-xs">
+        <span class="text-secondary-foreground font-medium flex items-center gap-1">
+          <Icon name="lucide:image" class="size-3 text-primary" aria-hidden="true" />
+          <span>Artwork for Zone {{ currentZoneIdx + 1 }}:</span>
+        </span>
+        <select
+          class="px-2 py-0.5 rounded-md border border-border bg-white text-xs text-foreground cursor-pointer"
+          :value="currentZone.artwork_source_id || 'master'"
+          @change="(e) => handleArtworkSourceChange((e.target as HTMLSelectElement).value)"
+        >
+          <option value="master">Master Transparent PNG</option>
+          <option v-for="v in variants" :key="v.id" :value="v.id">
+            {{ v.name }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Quick Alignment & Reset Toolbar for Active Zone -->
     <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-border">
       <span class="text-xs font-bold text-foreground flex items-center gap-1.5 shrink-0">
         <Icon name="lucide:sliders" class="size-3.5 text-primary" aria-hidden="true" />
-        <span>Placement Settings</span>
+        <span>Zone {{ currentZoneIdx + 1 }} Placement</span>
       </span>
 
       <div class="flex items-center gap-1.5 flex-wrap">
@@ -118,19 +293,19 @@ function setAngle(deg: number): void {
       </div>
     </div>
 
-    <!-- Sliders Grid -->
+    <!-- Sliders Grid for Active Zone -->
     <div class="grid grid-cols-2 gap-3 text-xs">
       <!-- Scale (Width) -->
       <div class="space-y-1">
         <div class="flex items-center justify-between text-secondary-foreground">
           <span class="font-medium">Width Scale</span>
-          <span class="font-mono text-foreground font-bold">{{ Math.round(widthPct) }}%</span>
+          <span class="font-mono text-foreground font-bold">{{ Math.round(currentZone.width_pct) }}%</span>
         </div>
         <input
           type="range"
-          min="10"
+          min="8"
           max="95"
-          :value="widthPct"
+          :value="currentZone.width_pct"
           class="w-full accent-primary cursor-pointer"
           @input="(e) => emit('update:widthPct', Number((e.target as HTMLInputElement).value))"
         >
@@ -140,13 +315,13 @@ function setAngle(deg: number): void {
       <div class="space-y-1">
         <div class="flex items-center justify-between text-secondary-foreground">
           <span class="font-medium">Height Scale</span>
-          <span class="font-mono text-foreground font-bold">{{ Math.round(heightPct) }}%</span>
+          <span class="font-mono text-foreground font-bold">{{ Math.round(currentZone.height_pct) }}%</span>
         </div>
         <input
           type="range"
-          min="10"
+          min="8"
           max="95"
-          :value="heightPct"
+          :value="currentZone.height_pct"
           class="w-full accent-primary cursor-pointer"
           @input="(e) => emit('update:heightPct', Number((e.target as HTMLInputElement).value))"
         >
@@ -156,13 +331,13 @@ function setAngle(deg: number): void {
       <div class="space-y-1">
         <div class="flex items-center justify-between text-secondary-foreground">
           <span class="font-medium">Horizontal (X)</span>
-          <span class="font-mono text-foreground font-bold">{{ Math.round(leftPct) }}%</span>
+          <span class="font-mono text-foreground font-bold">{{ Math.round(currentZone.left_pct) }}%</span>
         </div>
         <input
           type="range"
           min="0"
           max="90"
-          :value="leftPct"
+          :value="currentZone.left_pct"
           class="w-full accent-primary cursor-pointer"
           @input="(e) => emit('update:leftPct', Number((e.target as HTMLInputElement).value))"
         >
@@ -172,13 +347,13 @@ function setAngle(deg: number): void {
       <div class="space-y-1">
         <div class="flex items-center justify-between text-secondary-foreground">
           <span class="font-medium">Vertical (Y)</span>
-          <span class="font-mono text-foreground font-bold">{{ Math.round(topPct) }}%</span>
+          <span class="font-mono text-foreground font-bold">{{ Math.round(currentZone.top_pct) }}%</span>
         </div>
         <input
           type="range"
           min="0"
           max="90"
-          :value="topPct"
+          :value="currentZone.top_pct"
           class="w-full accent-primary cursor-pointer"
           @input="(e) => emit('update:topPct', Number((e.target as HTMLInputElement).value))"
         >
@@ -192,7 +367,7 @@ function setAngle(deg: number): void {
             <span>Rotation Angle</span>
           </span>
           <span class="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 text-[11px]">
-            {{ angleDeg }}°
+            {{ currentZone.angle_deg || 0 }}°
           </span>
         </div>
         <input
@@ -200,7 +375,7 @@ function setAngle(deg: number): void {
           min="-180"
           max="180"
           step="1"
-          :value="angleDeg"
+          :value="currentZone.angle_deg || 0"
           class="w-full accent-primary cursor-pointer"
           @input="(e) => emit('update:angleDeg', Number((e.target as HTMLInputElement).value))"
         >
@@ -211,7 +386,7 @@ function setAngle(deg: number): void {
             :key="deg"
             type="button"
             class="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold transition-all cursor-pointer"
-            :class="angleDeg === deg ? 'bg-primary text-white shadow-2xs font-bold' : 'bg-secondary/60 text-secondary-foreground hover:text-foreground hover:bg-secondary border border-border'"
+            :class="(currentZone.angle_deg || 0) === deg ? 'bg-primary text-white shadow-2xs font-bold' : 'bg-secondary/60 text-secondary-foreground hover:text-foreground hover:bg-secondary border border-border'"
             @click="setAngle(deg)"
           >
             {{ deg > 0 ? `+${deg}°` : `${deg}°` }}
@@ -220,12 +395,12 @@ function setAngle(deg: number): void {
       </div>
     </div>
 
-    <!-- Enhanced Texture Blend Mode Section -->
+    <!-- Enhanced Texture Blend Mode Section for Active Zone -->
     <div class="pt-3 border-t border-border space-y-2.5">
       <div class="flex items-center justify-between">
         <label class="text-xs font-bold text-foreground flex items-center gap-1.5">
           <Icon name="lucide:palette" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>Texture Blend Mode</span>
+          <span>Texture Blend Mode (Zone {{ currentZoneIdx + 1 }})</span>
         </label>
         <span class="text-[10px] font-mono text-muted-foreground uppercase font-bold tracking-wider">
           Active: {{ activeBlendInfo.shortLabel }}
@@ -240,20 +415,20 @@ function setAngle(deg: number): void {
           type="button"
           class="flex flex-col text-left p-2 rounded-xl border transition-all cursor-pointer relative"
           :class="[
-            blendMode === opt.value
+            (currentZone.blend_mode || props.blendMode) === opt.value
               ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
               : 'bg-white border-border/80 hover:border-slate-300 hover:bg-slate-50/50'
           ]"
           @click="emit('update:blendMode', opt.value)"
         >
           <div class="flex items-center justify-between gap-1 w-full mb-1">
-            <span class="text-[11px] font-bold truncate" :class="blendMode === opt.value ? 'text-primary font-bold' : 'text-foreground'">
+            <span class="text-[11px] font-bold truncate" :class="(currentZone.blend_mode || props.blendMode) === opt.value ? 'text-primary font-bold' : 'text-foreground'">
               {{ opt.shortLabel }}
             </span>
             <Icon
               :name="opt.iconName"
               class="size-3 shrink-0"
-              :class="blendMode === opt.value ? 'text-primary' : 'text-muted-foreground'"
+              :class="(currentZone.blend_mode || props.blendMode) === opt.value ? 'text-primary' : 'text-muted-foreground'"
               aria-hidden="true"
             />
           </div>
@@ -261,7 +436,7 @@ function setAngle(deg: number): void {
           <span
             class="text-[9px] font-semibold px-1 py-0.5 rounded-md inline-block max-w-full truncate mb-0.5"
             :class="[
-              blendMode === opt.value
+              (currentZone.blend_mode || props.blendMode) === opt.value
                 ? 'bg-primary/15 text-primary font-bold'
                 : 'bg-secondary text-secondary-foreground'
             ]"
@@ -308,15 +483,18 @@ function setAngle(deg: number): void {
             class="rounded border-border text-primary focus:ring-primary size-4 cursor-pointer"
             @change="(e) => emit('update:saveToLibrary', (e.target as HTMLInputElement).checked)"
           >
-          <span>Save this blank photo as reusable template in my library</span>
+          <span class="font-semibold">Save photo and placement to Mockup Library</span>
         </label>
 
-        <div v-if="saveToLibrary" class="space-y-1">
+        <div v-if="saveToLibrary" class="space-y-1 pt-1">
+          <label class="text-[11px] font-semibold text-secondary-foreground">
+            Template Name in Library
+          </label>
           <input
             type="text"
-            placeholder="Template Name (e.g. Bella Canvas 3001 Flatlay)"
             :value="templateName"
-            class="w-full rounded-lg border border-border px-3 py-1.5 text-xs text-foreground focus:ring-2 focus:ring-primary bg-white"
+            placeholder="e.g. Vintage White Ceramic Mug on Wooden Table"
+            class="w-full h-8 px-2.5 rounded-lg border border-border bg-white text-xs text-foreground focus:ring-1 focus:ring-primary outline-none"
             @input="(e) => emit('update:templateName', (e.target as HTMLInputElement).value)"
           >
         </div>

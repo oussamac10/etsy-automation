@@ -70,11 +70,13 @@ async def recomposite_workflow_mockups(
                 "angle_deg": 0.0,
                 "blend_mode": "multiply",
             }
+            placements = prov.get("placements") or [placement]
 
             worker_payload = {
                 "artwork_base64": base64.b64encode(master_bytes).decode("utf-8"),
                 "template_base64": base64.b64encode(template_bytes).decode("utf-8"),
                 "placement": placement,
+                "placements": placements,
                 "format": "jpeg",
                 "quality": 92,
             }
