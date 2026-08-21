@@ -115,9 +115,24 @@ const handleUpdateDraft = async () => {
   }
 };
 
+const copiedKey = ref<string | null>(null);
+
+function copyToClipboard(text: string, key: string) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+    copiedKey.value = key;
+    setTimeout(() => {
+      if (copiedKey.value === key) copiedKey.value = null;
+    }, 2000);
+  }
+}
+
 function getCheckBadgeText(check: EtsyVerificationCheck): string {
+  if (check.key === 'shopping_cart_summary' && check.status === 'manual_review') {
+    return 'Web Editor Only';
+  }
   if (check.status === 'synced') {
-    if (['title', 'description', 'item_metadata', 'category', 'shopping_cart_summary'].includes(check.key) || (check.actual && check.actual.length > 25)) {
+    if (['title', 'description', 'item_metadata', 'category'].includes(check.key) || (check.actual && check.actual.length > 25)) {
       return 'Synced';
     }
     return check.actual || 'Synced';
@@ -130,6 +145,9 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
   }
   if (check.status === 'failed') {
     return 'Failed';
+  }
+  if (check.status === 'manual_review') {
+    return 'Manual in Etsy';
   }
   return check.actual || check.status;
 }
@@ -293,21 +311,25 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                   :name="
                     check.status === 'synced'
                       ? 'lucide:circle-check'
-                      : check.status === 'different' || check.status === 'missing'
-                        ? 'lucide:alert-triangle'
-                        : check.status === 'failed'
-                          ? 'lucide:x-circle'
-                          : 'lucide:circle-dot'
+                      : check.status === 'manual_review'
+                        ? 'lucide:info'
+                        : check.status === 'different' || check.status === 'missing'
+                          ? 'lucide:alert-triangle'
+                          : check.status === 'failed'
+                            ? 'lucide:x-circle'
+                            : 'lucide:circle-dot'
                   "
                   class="size-4 shrink-0 mt-0.5"
                   :class="[
                     check.status === 'synced'
                       ? 'text-emerald-700'
-                      : check.status === 'different' || check.status === 'missing'
-                        ? 'text-amber-600 dark:text-amber-400'
-                        : check.status === 'failed'
-                          ? 'text-rose-600 dark:text-rose-400'
-                          : 'text-muted-foreground',
+                      : check.status === 'manual_review'
+                        ? 'text-primary'
+                        : check.status === 'different' || check.status === 'missing'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : check.status === 'failed'
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-muted-foreground',
                   ]"
                   aria-hidden="true"
                 />
@@ -317,7 +339,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                     v-if="check.message"
                     class="text-[11px] mt-0.5"
                     :class="
-                      check.status === 'synced'
+                      check.status === 'synced' || check.status === 'manual_review'
                         ? 'text-muted-foreground truncate max-w-[260px] sm:max-w-[420px] font-normal'
                         : 'text-amber-600 dark:text-amber-400'
                     "
@@ -332,8 +354,19 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
 
               <!-- Status Badge / Val -->
               <div class="flex items-center gap-2 shrink-0">
+                <button
+                  v-if="check.key === 'shopping_cart_summary' && check.details?.shopping_cart_summary"
+                  type="button"
+                  @click="copyToClipboard(check.details.shopping_cart_summary, 'cart-summary')"
+                  class="inline-flex items-center gap-1 text-[11px] text-primary hover:underline px-1.5 py-0.5 rounded hover:bg-primary/10 transition-colors cursor-pointer"
+                  title="Copy shopping cart summary to clipboard"
+                >
+                  <Icon :name="copiedKey === 'cart-summary' ? 'lucide:check' : 'lucide:copy'" class="size-3" aria-hidden="true" />
+                  <span>{{ copiedKey === 'cart-summary' ? 'Copied' : 'Copy' }}</span>
+                </button>
+
                 <Badge
-                  :variant="check.status === 'synced' ? 'success' : check.status === 'different' ? 'warning' : 'secondary'"
+                  :variant="check.status === 'synced' ? 'success' : check.status === 'manual_review' ? 'secondary' : check.status === 'different' ? 'warning' : 'secondary'"
                   class="font-mono text-[11px]"
                 >
                   {{ getCheckBadgeText(check) }}
@@ -342,7 +375,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                   v-if="check.details || check.status === 'different' || check.key === 'title' || check.key === 'description'"
                   type="button"
                   @click="toggleExpand(check.key)"
-                  class="text-[11px] text-primary hover:underline"
+                  class="text-[11px] text-primary hover:underline cursor-pointer"
                 >
                   {{ expandedKeys[check.key] ? 'Hide' : 'Details' }}
                 </button>
@@ -354,11 +387,17 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
               v-if="expandedKeys[check.key]"
               class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-1.5 border border-border/50 font-mono"
             >
-              <div class="flex gap-2">
+              <div v-if="check.key === 'shopping_cart_summary'" class="space-y-1 text-muted-foreground">
+                <div class="text-foreground font-semibold">Optional Etsy Web Editor Field:</div>
+                <div class="text-[11px] font-sans text-foreground/90 leading-relaxed">
+                  Etsy's Developer API does not provide a field for Shopping Cart Summary. You can click <b>Copy</b> above and paste it into Etsy's listing editor if you wish.
+                </div>
+              </div>
+              <div v-else class="flex gap-2">
                 <span class="text-muted-foreground shrink-0 w-16">Expected:</span>
                 <span class="text-foreground break-all">{{ check.expected }}</span>
               </div>
-              <div class="flex gap-2">
+              <div v-if="check.actual && check.key !== 'shopping_cart_summary'" class="flex gap-2">
                 <span class="text-muted-foreground shrink-0 w-16">Actual:</span>
                 <span class="text-foreground break-all">{{ check.actual }}</span>
               </div>

@@ -806,32 +806,19 @@ def compare_etsy_draft(
         )
     )
 
-    # Shopping Cart Summary
+    # Shopping Cart Summary (Etsy Web Editor optional field - not supported in Etsy OpenAPI v3)
     if expected_shopping_cart_summary:
         checks.append(
             EtsyVerificationCheck(
                 key="shopping_cart_summary",
                 label="Shopping Cart Summary",
                 category="listing",
-                status=EtsyVerificationCheckStatus.SYNCED,
+                status=EtsyVerificationCheckStatus.MANUAL_REVIEW,
                 expected=f"{len(expected_shopping_cart_summary)}/200 chars",
-                actual=f"{len(expected_shopping_cart_summary)}/200 chars",
+                actual="Etsy Web Editor",
                 message=expected_shopping_cart_summary,
-                source="app_draft",
+                source="listing_draft",
                 details={"shopping_cart_summary": expected_shopping_cart_summary},
-            )
-        )
-    else:
-        checks.append(
-            EtsyVerificationCheck(
-                key="shopping_cart_summary",
-                label="Shopping Cart Summary",
-                category="listing",
-                status=EtsyVerificationCheckStatus.SYNCED,
-                expected="Optional",
-                actual="None set",
-                message="Shopping cart summary is optional.",
-                source="app_draft",
             )
         )
 
