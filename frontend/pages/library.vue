@@ -1265,9 +1265,9 @@ onMounted(() => {
                     transformOrigin: 'center center',
                   }"
                 >
-                  <span v-if="tpl.placements.length > 1" class="text-[9px] font-mono font-bold text-white bg-primary/90 px-1 py-0.2 rounded-xs shadow-2xs">
-                    Z{{ zIdx + 1 }}
-                  </span>
+                  <div class="size-5 rounded-md bg-primary/90 text-white flex items-center justify-center shadow-xs">
+                    <Icon name="lucide:sparkles" class="size-3 text-white" aria-hidden="true" />
+                  </div>
                 </div>
               </template>
               <div
