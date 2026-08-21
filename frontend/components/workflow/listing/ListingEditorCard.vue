@@ -261,12 +261,12 @@ function formatSnapshotDate(dateStr?: string) {
       </div>
 
       <!-- 2. Shopping Cart Summary (Dedicated Field) -->
-      <div class="space-y-1.5 p-3 rounded-lg bg-muted/20 border border-border/70">
+      <div class="space-y-1.5">
         <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-2">
             <Label for="listing-summary" class="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <Icon name="lucide:shopping-bag" class="size-3.5 text-primary" aria-hidden="true" />
               <span>Shopping Cart Summary</span>
+              <span class="text-muted-foreground font-normal">(Max 200 chars)</span>
             </Label>
             <Button
               type="button"
@@ -283,18 +283,16 @@ function formatSnapshotDate(dateStr?: string) {
             </Button>
           </div>
 
-          <div class="flex items-center gap-2 shrink-0">
-            <span
-              class="text-[11px] font-mono font-medium"
-              :class="{
-                'text-destructive font-bold': isSummaryOverLimit,
-                'text-amber-600': isSummaryApproachingLimit,
-                'text-muted-foreground': !isSummaryOverLimit && !isSummaryApproachingLimit,
-              }"
-            >
-              {{ summaryLength }} / {{ MAX_SUMMARY_LENGTH }}
-            </span>
-          </div>
+          <span
+            class="text-[11px] font-mono font-medium shrink-0"
+            :class="{
+              'text-destructive font-bold': isSummaryOverLimit,
+              'text-amber-600': isSummaryApproachingLimit,
+              'text-muted-foreground': !isSummaryOverLimit && !isSummaryApproachingLimit,
+            }"
+          >
+            {{ summaryLength }} / {{ MAX_SUMMARY_LENGTH }}
+          </span>
         </div>
 
         <Textarea
@@ -306,8 +304,9 @@ function formatSnapshotDate(dateStr?: string) {
           @update:model-value="handleSummaryUpdate"
         />
 
-        <p class="text-[11px] text-muted-foreground leading-normal">
-          Concise 1–2 sentence buyer summary.
+        <p v-if="isSummaryOverLimit" class="text-[11px] text-destructive font-medium flex items-center gap-1">
+          <Icon name="lucide:circle-alert" class="size-3" aria-hidden="true" />
+          <span>Etsy limits cart summary to 200 characters. Please shorten before saving.</span>
         </p>
       </div>
 
