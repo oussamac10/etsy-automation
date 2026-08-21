@@ -797,11 +797,12 @@ function confirmHighRiskApproval() {
                 size="sm"
                 :disabled="isSpawningMap[concept.id]"
                 class="font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+                title="Launch a separate campaign using this idea without re-running research"
                 @click="handleSpawnCampaign(concept)"
               >
-                <Icon v-if="isSpawningMap[concept.id]" name="lucide:loader-circle" class="size-4 animate-spin text-primary" aria-hidden="true" />
-                <Icon v-else name="lucide:sparkles" class="size-4 text-amber-500" aria-hidden="true" />
-                <span>{{ workflow.state === 'IDEA_REVIEW' ? 'Launch as New Campaign' : 'Start New Campaign With This Idea' }}</span>
+                <Icon v-if="isSpawningMap[concept.id]" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
+                <Icon v-else name="lucide:sparkles" class="size-3.5 text-amber-500" aria-hidden="true" />
+                <span>Launch Campaign</span>
               </Button>
 
               <!-- When this concept is approved for this campaign -->
