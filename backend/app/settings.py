@@ -91,6 +91,8 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     telegram_webhook_secret: SecretStr | None = Field(default=None, alias="TELEGRAM_WEBHOOK_SECRET")
     tavily_api_key: SecretStr | None = Field(default=None, alias="TAVILY_API_KEY")
+    gemini_api_key: SecretStr | None = Field(default=None, alias="GEMINI_API_KEY")
+    openai_api_key: SecretStr | None = Field(default=None, alias="OPENAI_API_KEY")
     image_max_input_bytes: int = Field(default=150 * 1024 * 1024, alias="IMAGE_MAX_INPUT_BYTES")
     image_max_pixels: int = Field(default=100_000_000, alias="IMAGE_MAX_PIXELS")
 

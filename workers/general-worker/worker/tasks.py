@@ -281,20 +281,23 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                         operation="build_credential_cipher",
                         message="Encryption cipher could not be initialized. Check ENCRYPTION_KEY.",
                     )
-                try:
-                    gemini_api_key = await reveal_credential(
-                        uow,
-                        workflow.owner_id,
-                        provider=ProviderName.GEMINI,
-                        cipher=cipher,
-                    )
-                except Exception as exc:
-                    raise ProviderError(
-                        kind=ProviderErrorKind.AUTHENTICATION,
-                        provider="gemini",
-                        operation="resolve_credential",
-                        message="Gemini API Key is missing or invalid in credentials.",
-                    ) from exc
+                if hasattr(settings, "gemini_api_key") and settings.gemini_api_key:
+                    gemini_api_key = settings.gemini_api_key.get_secret_value()
+                else:
+                    try:
+                        gemini_api_key = await reveal_credential(
+                            uow,
+                            workflow.owner_id,
+                            provider=ProviderName.GEMINI,
+                            cipher=cipher,
+                        )
+                    except Exception as exc:
+                        raise ProviderError(
+                            kind=ProviderErrorKind.AUTHENTICATION,
+                            provider="gemini",
+                            operation="resolve_credential",
+                            message="Gemini API Key is missing or invalid in credentials.",
+                        ) from exc
 
                 if settings.tavily_api_key:
                     tavily_api_key = settings.tavily_api_key.get_secret_value()
@@ -421,25 +424,6 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 )
             )
 
-            # Trademark screening service
-            from app.application.trademark import TrademarkScreeningService
-            from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
-            from app.providers.tsdr import UsptoTsdrAdapter
-            from app.providers.fake import FakeTrademarkSearchAdapter
-
-            trademark_service: TrademarkScreeningService | None = None
-            try:
-                if is_live:
-                    db_adapter = PostgresTrademarkSearchAdapter(uow)
-                    tsdr_adapter = None
-                    if hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
-                        tsdr_adapter = UsptoTsdrAdapter(api_key=settings.uspto_api_key.get_secret_value())
-                    trademark_service = TrademarkScreeningService(db_adapter, tsdr_adapter=tsdr_adapter)
-                else:
-                    trademark_service = TrademarkScreeningService(FakeTrademarkSearchAdapter())
-            except Exception as tm_init_err:
-                logger.warning("trademark_service_worker_init_failed", error=str(tm_init_err))
-
             async with UnitOfWork(session_factory) as uow:
                 db_run = await uow.research.get_run(run_id)
                 if db_run is None:
@@ -447,6 +431,25 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 db_workflow = await uow.workflows.get(workflow_id)
                 if db_workflow is None:
                     raise RuntimeError(f"Workflow {workflow_id} not found")
+
+                # Trademark screening service
+                from app.application.trademark import TrademarkScreeningService
+                from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
+                from app.providers.tsdr import UsptoTsdrAdapter
+                from app.providers.fake import FakeTrademarkSearchAdapter
+
+                trademark_service: TrademarkScreeningService | None = None
+                try:
+                    if is_live:
+                        db_adapter = PostgresTrademarkSearchAdapter(uow)
+                        tsdr_adapter = None
+                        if hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
+                            tsdr_adapter = UsptoTsdrAdapter(api_key=settings.uspto_api_key.get_secret_value())
+                        trademark_service = TrademarkScreeningService(db_adapter, tsdr_adapter=tsdr_adapter)
+                    else:
+                        trademark_service = TrademarkScreeningService(FakeTrademarkSearchAdapter())
+                except Exception as tm_init_err:
+                    logger.warning("trademark_service_worker_init_failed", error=str(tm_init_err))
 
                 db_run.query_angles = list({angle for angle, _, _ in evidence_tuples})
                 db_run.confidence = ConfidenceLevel.HIGH if confidence_score >= 0.8 else (ConfidenceLevel.MEDIUM if confidence_score >= 0.5 else ConfidenceLevel.LOW)
