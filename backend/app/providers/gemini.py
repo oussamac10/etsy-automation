@@ -340,7 +340,7 @@ class GeminiSynthesisAdapter:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-3.6-flash",
+        model: str = "gemini-2.5-flash",
         timeout_seconds: float = 60.0,
     ) -> None:
         self._api_key = api_key
@@ -362,7 +362,6 @@ class GeminiSynthesisAdapter:
         generation_config: dict[str, Any] = {
             "responseMimeType": "application/json",
             "maxOutputTokens": max_tokens,
-            "thinkingConfig": {"thinkingBudget": 0},
         }
         if schema_cls is not None:
             generation_config["responseSchema"] = inline_refs(schema_cls.model_json_schema())
@@ -382,10 +381,7 @@ class GeminiSynthesisAdapter:
             "gemini-2.0-flash",
             "gemini-1.5-flash",
             "gemini-2.5-pro",
-            "gemini-3.5-flash",
-            "gemini-3.6-flash",
-            "gemini-3.7-flash",
-            "gemini-3.1-pro-preview",
+            "gemini-1.5-pro",
         ]
         models_to_try: list[str] = []
         if self._model and self._model not in ("gemini-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash"):
@@ -395,7 +391,7 @@ class GeminiSynthesisAdapter:
                 models_to_try.append(m)
 
         last_exc: Exception | None = None
-        max_attempts_per_model = 3
+        max_attempts_per_model = 2
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             for current_model in models_to_try:
@@ -415,13 +411,7 @@ class GeminiSynthesisAdapter:
                             if attempt < max_attempts_per_model:
                                 await asyncio.sleep(2.0 * attempt)
                                 continue
-                            raise ProviderError(
-                                kind=ProviderErrorKind.RATE_LIMITED,
-                                provider=self.name,
-                                operation="generate",
-                                retry_after_seconds=5.0,
-                                message="Gemini API rate limit exceeded.",
-                            )
+                            break
                         elif response.status_code >= 500:
                             if attempt < max_attempts_per_model:
                                 await asyncio.sleep(1.5 * attempt)
@@ -435,15 +425,31 @@ class GeminiSynthesisAdapter:
                             )
                             break
                         elif response.status_code >= 400:
-                            # Try next model if 404
-                            if response.status_code == 404:
+                            # If schema was rejected as invalid argument, try removing responseSchema and retry
+                            if "responseSchema" in payload.get("generationConfig", {}):
+                                payload_no_schema = dict(payload)
+                                config_copy = dict(payload_no_schema["generationConfig"])
+                                config_copy.pop("responseSchema", None)
+                                payload_no_schema["generationConfig"] = config_copy
+                                retry_resp = await client.post(url, headers=headers, json=payload_no_schema)
+                                if retry_resp.status_code == 200:
+                                    response = retry_resp
+                                else:
+                                    last_exc = ProviderError(
+                                        kind=ProviderErrorKind.INVALID_REQUEST,
+                                        provider=self.name,
+                                        operation="generate",
+                                        message=f"Gemini bad request on {current_model}: {response.text}",
+                                    )
+                                    break
+                            else:
+                                last_exc = ProviderError(
+                                    kind=ProviderErrorKind.INVALID_REQUEST,
+                                    provider=self.name,
+                                    operation="generate",
+                                    message=f"Gemini bad request on {current_model}: {response.text}",
+                                )
                                 break
-                            raise ProviderError(
-                                kind=ProviderErrorKind.INVALID_REQUEST,
-                                provider=self.name,
-                                operation="generate",
-                                message=f"Gemini bad request: {response.text}",
-                            )
 
                         data = response.json()
                         candidates = data.get("candidates", [])
