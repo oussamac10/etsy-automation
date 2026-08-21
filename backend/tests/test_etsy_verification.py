@@ -103,6 +103,55 @@ class TestEtsyDraftVerificationComparison:
         assert res.summary.errors == 0
         assert res.summary.manual_review == 3  # ai_disclosure, thumbnail_crop, shopping_cart_summary
 
+    def test_published_active_listing_is_synced(self) -> None:
+        """Published active listing state on Etsy is recognized as SYNCED rather than a warning."""
+        res = compare_etsy_draft(
+            workflow_id="wf-101",
+            listing_id="4559404921",
+            expected_title="Title",
+            expected_description="Desc",
+            expected_tags=["tag"],
+            expected_price_minor=499,
+            expected_currency="USD",
+            expected_quantity=999,
+            expected_sku="SKU",
+            expected_taxonomy_id=77,
+            expected_taxonomy_path="Digital",
+            expected_shop_section_id=None,
+            expected_shop_section_name=None,
+            expected_should_auto_renew=False,
+            expected_properties={},
+            expected_mockup_count=1,
+            expected_file_count=1,
+            expected_filenames=["file.zip"],
+            expected_ai_disclosure=None,
+            expected_shopping_cart_summary=None,
+            actual_listing={
+                "listing_id": 4559404921,
+                "state": "active",
+                "title": "Title",
+                "description": "Desc",
+                "tags": ["tag"],
+                "price": {"amount": 499, "divisor": 100, "currency_code": "USD"},
+                "quantity": 999,
+                "sku": "SKU",
+                "taxonomy_id": 77,
+                "who_made": "i_did",
+                "when_made": "2020_2026",
+                "listing_type": "download",
+                "is_supply": False,
+            },
+            actual_inventory=None,
+            actual_images=[{"listing_image_id": "img-1", "rank": 1}],
+            actual_files=[{"listing_file_id": "f-1", "filename": "file.zip", "rank": 1}],
+            actual_properties=[],
+        )
+
+        state_check = next(c for c in res.checks if c.key == "draft_state")
+        assert state_check.status == EtsyVerificationCheckStatus.SYNCED
+        assert state_check.actual == "active"
+        assert "Active (Published)" in (state_check.message or "")
+
     def test_title_and_description_mismatch(self) -> None:
         """Title and description differences are flagged as 'different'."""
         res = compare_etsy_draft(

@@ -168,16 +168,23 @@ def compare_etsy_draft(
 
     # 1. State / Draft Check
     actual_state = str(actual_listing.get("state", "draft")).lower()
-    if actual_state == "draft":
+    if actual_state in ("draft", "active", "edit"):
+        state_message = (
+            "Draft (Safe) in Etsy Shop Manager."
+            if actual_state == "draft"
+            else "Active (Published) on Etsy."
+            if actual_state == "active"
+            else "In Edit in Etsy Shop Manager."
+        )
         checks.append(
             EtsyVerificationCheck(
                 key="draft_state",
                 label="Listing State",
                 category="listing",
                 status=EtsyVerificationCheckStatus.SYNCED,
-                expected="draft",
-                actual="draft",
-                message="Draft (Safe) in Etsy Shop Manager.",
+                expected=actual_state,
+                actual=actual_state,
+                message=state_message,
             )
         )
     else:
@@ -187,9 +194,9 @@ def compare_etsy_draft(
                 label="Listing State",
                 category="listing",
                 status=EtsyVerificationCheckStatus.DIFFERENT,
-                expected="draft",
+                expected="draft or active",
                 actual=actual_state,
-                message=f"Listing state on Etsy is '{actual_state}' (expected 'draft').",
+                message=f"Listing state on Etsy is '{actual_state}'.",
             )
         )
 
