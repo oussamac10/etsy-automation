@@ -381,32 +381,107 @@ function setAngle(deg: number): void {
         </p>
       </div>
 
-      <!-- Set as Cover Toggle -->
-      <div class="pt-2">
-        <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
-          <input
-            type="checkbox"
-            :checked="isCover"
-            class="rounded border-border text-primary focus:ring-primary size-4 cursor-pointer"
-            @change="(e) => emit('update:isCover', (e.target as HTMLInputElement).checked)"
+      <!-- Set as Cover Toggle Card -->
+      <div
+        class="flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none"
+        :class="[
+          isCover
+            ? 'bg-amber-500/10 border-amber-500/30 ring-1 ring-amber-500/30 shadow-2xs'
+            : 'bg-white border-border hover:border-slate-300 hover:bg-slate-50/60'
+        ]"
+        @click="emit('update:isCover', !isCover)"
+      >
+        <div class="flex items-center gap-2.5">
+          <div
+            class="size-8 rounded-lg flex items-center justify-center transition-colors shrink-0 shadow-2xs"
+            :class="[
+              isCover
+                ? 'bg-amber-500 text-white'
+                : 'bg-secondary text-muted-foreground'
+            ]"
           >
-          <span class="font-semibold">Set as primary listing cover mockup</span>
-        </label>
+            <Icon name="lucide:star" class="size-4" :class="isCover ? 'fill-white' : ''" aria-hidden="true" />
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-bold text-foreground">Set as Primary Listing Cover</span>
+              <span
+                v-if="isCover"
+                class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 uppercase tracking-wide font-mono"
+              >
+                Cover
+              </span>
+            </div>
+            <p class="text-[11px] text-muted-foreground leading-tight mt-0.5">
+              Featured as the main primary thumbnail on your Etsy draft
+            </p>
+          </div>
+        </div>
+
+        <!-- Custom Switch Toggle -->
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="isCover"
+          class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden"
+          :class="isCover ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'"
+        >
+          <span
+            class="pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out"
+            :class="isCover ? 'translate-x-4' : 'translate-x-0'"
+          />
+        </button>
       </div>
 
       <!-- Save to Library (if Uploading New Photo) -->
-      <div v-if="isUploadingNew" class="space-y-2 pt-2 border-t border-border">
-        <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
-          <input
-            type="checkbox"
-            :checked="saveToLibrary"
-            class="rounded border-border text-primary focus:ring-primary size-4 cursor-pointer"
-            @change="(e) => emit('update:saveToLibrary', (e.target as HTMLInputElement).checked)"
-          >
-          <span class="font-semibold">Save photo and placement to Mockup Library</span>
-        </label>
+      <div
+        v-if="isUploadingNew"
+        class="p-3 rounded-xl border transition-all space-y-2.5"
+        :class="[
+          saveToLibrary
+            ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
+            : 'bg-white border-border hover:border-slate-300 hover:bg-slate-50/60'
+        ]"
+      >
+        <div
+          class="flex items-center justify-between cursor-pointer select-none"
+          @click="emit('update:saveToLibrary', !saveToLibrary)"
+        >
+          <div class="flex items-center gap-2.5">
+            <div
+              class="size-8 rounded-lg flex items-center justify-center transition-colors shrink-0 shadow-2xs"
+              :class="[
+                saveToLibrary
+                  ? 'bg-primary text-white'
+                  : 'bg-secondary text-muted-foreground'
+              ]"
+            >
+              <Icon name="lucide:bookmark-plus" class="size-4" aria-hidden="true" />
+            </div>
+            <div>
+              <span class="text-xs font-bold text-foreground">Save Photo to Mockup Library</span>
+              <p class="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                Reuse this template and print zones for future listings
+              </p>
+            </div>
+          </div>
 
-        <div v-if="saveToLibrary" class="space-y-1 pt-1">
+          <!-- Custom Switch Toggle -->
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="saveToLibrary"
+            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden"
+            :class="saveToLibrary ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'"
+          >
+            <span
+              class="pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out"
+              :class="saveToLibrary ? 'translate-x-4' : 'translate-x-0'"
+            />
+          </button>
+        </div>
+
+        <div v-if="saveToLibrary" class="space-y-1 pt-1.5 border-t border-border/60">
           <label class="text-[11px] font-semibold text-secondary-foreground">
             Template Name in Library
           </label>
