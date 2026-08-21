@@ -839,6 +839,71 @@ async function handleGenerateMockup(): Promise<void> {
                 <span class="text-[10px] text-muted-foreground font-mono">1:1 Aspect Frame</span>
               </div>
 
+              <!-- Print Zones Toolbar (Multi-Zone Placement Support) -->
+              <div class="flex items-center justify-between p-2 rounded-xl bg-secondary/60 border border-border flex-wrap gap-2">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-xs font-bold text-foreground flex items-center gap-1 mr-1">
+                    <Icon name="lucide:layers" class="size-3.5 text-primary" aria-hidden="true" />
+                    <span>Print Zones ({{ placements.length }})</span>
+                  </span>
+
+                  <!-- Zone Pills -->
+                  <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                    <button
+                      v-for="(zone, idx) in placements"
+                      :key="zone.id || `left-zone-${idx}`"
+                      type="button"
+                      class="px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                      :class="[
+                        activePlacementIndex === idx
+                          ? 'bg-primary text-white shadow-2xs font-bold'
+                          : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+                      ]"
+                      @click="activePlacementIndex = idx"
+                    >
+                      <span>Zone {{ idx + 1 }}</span>
+                      <span v-if="zone.angle_deg" class="text-[9px] opacity-80">({{ zone.angle_deg }}°)</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Zone Actions: Add, Duplicate, Delete -->
+                <div class="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="h-7 text-xs px-2 gap-1 bg-white font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
+                    title="Add another print zone"
+                    @click="addPrintZone"
+                  >
+                    <Icon name="lucide:plus" class="size-3" aria-hidden="true" />
+                    <span>Add Zone</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-muted-foreground hover:text-foreground"
+                    title="Duplicate active zone"
+                    @click="duplicatePrintZone(activePlacementIndex)"
+                  >
+                    <Icon name="lucide:copy" class="size-3" aria-hidden="true" />
+                    <span class="hidden sm:inline">Duplicate</span>
+                  </Button>
+
+                  <Button
+                    v-if="placements.length > 1"
+                    variant="outline"
+                    size="sm"
+                    class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-destructive hover:bg-red-50 hover:border-red-200"
+                    title="Delete active zone"
+                    @click="removePrintZone(activePlacementIndex)"
+                  >
+                    <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
+                  </Button>
+                </div>
+              </div>
+
               <div
                 v-if="variants.length > 0"
                 class="flex items-center justify-between p-2 rounded-xl bg-secondary/40 border border-border/80 text-xs"
