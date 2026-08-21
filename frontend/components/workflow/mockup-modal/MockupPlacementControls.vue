@@ -33,6 +33,22 @@ const emit = defineEmits<{
 }>();
 
 const activeBlendInfo = computed(() => getBlendModeInfo(props.blendMode));
+
+function rotateLeft(): void {
+  let a = (props.angleDeg || 0) - 90;
+  while (a < -180) a += 360;
+  emit("update:angleDeg", a);
+}
+
+function rotateRight(): void {
+  let a = (props.angleDeg || 0) + 90;
+  while (a > 180) a -= 360;
+  emit("update:angleDeg", a);
+}
+
+function setAngle(deg: number): void {
+  emit("update:angleDeg", deg);
+}
 </script>
 
 <template>
@@ -44,36 +60,61 @@ const activeBlendInfo = computed(() => getBlendModeInfo(props.blendMode));
         <span>Placement Settings</span>
       </span>
 
-      <div class="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border shrink-0">
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-md text-[11px] font-bold text-secondary-foreground hover:text-primary hover:bg-white transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-          title="Center artwork horizontally & vertically"
-          @click="emit('centerBoth')"
-        >
-          <Icon name="lucide:crosshair" class="size-3 text-primary shrink-0" aria-hidden="true" />
-          <span class="whitespace-nowrap">Center All</span>
-        </button>
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <div class="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border shrink-0">
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-md text-[11px] font-bold text-secondary-foreground hover:text-primary hover:bg-white transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
+            title="Center artwork horizontally & vertically"
+            @click="emit('centerBoth')"
+          >
+            <Icon name="lucide:crosshair" class="size-3 text-primary shrink-0" aria-hidden="true" />
+            <span class="whitespace-nowrap">Center All</span>
+          </button>
 
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-md text-[11px] font-bold text-secondary-foreground hover:text-primary hover:bg-white transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-          title="Center artwork horizontally"
-          @click="emit('centerHorizontal')"
-        >
-          <Icon name="lucide:align-horizontal-justify-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
-          <span class="whitespace-nowrap">Center X</span>
-        </button>
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-md text-[11px] font-bold text-secondary-foreground hover:text-primary hover:bg-white transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
+            title="Center artwork horizontally"
+            @click="emit('centerHorizontal')"
+          >
+            <Icon name="lucide:align-horizontal-justify-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
+            <span class="whitespace-nowrap">Center X</span>
+          </button>
 
-        <button
-          type="button"
-          class="px-2 py-1 rounded-md text-[11px] font-bold text-muted-foreground hover:text-foreground hover:bg-white transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-          title="Reset to default preset"
-          @click="emit('resetPreset')"
-        >
-          <Icon name="lucide:rotate-ccw" class="size-3 text-muted-foreground shrink-0" aria-hidden="true" />
-          <span class="whitespace-nowrap">Reset</span>
-        </button>
+          <button
+            type="button"
+            class="px-2 py-1 rounded-md text-[11px] font-bold text-muted-foreground hover:text-foreground hover:bg-white transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
+            title="Reset to default preset"
+            @click="emit('resetPreset')"
+          >
+            <Icon name="lucide:rotate-ccw" class="size-3 text-muted-foreground shrink-0" aria-hidden="true" />
+            <span class="whitespace-nowrap">Reset</span>
+          </button>
+        </div>
+
+        <!-- Quick Rotate Toolbar -->
+        <div class="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border shrink-0">
+          <button
+            type="button"
+            class="px-2 py-1 rounded-md text-[11px] font-bold text-secondary-foreground hover:text-primary hover:bg-white transition-all cursor-pointer inline-flex items-center gap-0.5 shadow-2xs hover:shadow-xs"
+            title="Rotate 90 degrees counter-clockwise"
+            @click="rotateLeft"
+          >
+            <Icon name="lucide:rotate-ccw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+            <span>-90°</span>
+          </button>
+
+          <button
+            type="button"
+            class="px-2 py-1 rounded-md text-[11px] font-bold text-secondary-foreground hover:text-primary hover:bg-white transition-all cursor-pointer inline-flex items-center gap-0.5 shadow-2xs hover:shadow-xs"
+            title="Rotate 90 degrees clockwise"
+            @click="rotateRight"
+          >
+            <Icon name="lucide:rotate-cw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+            <span>+90°</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -144,19 +185,38 @@ const activeBlendInfo = computed(() => getBlendModeInfo(props.blendMode));
       </div>
 
       <!-- Rotation -->
-      <div class="space-y-1 col-span-2">
+      <div class="space-y-1.5 col-span-2 pt-1 border-t border-border/60">
         <div class="flex items-center justify-between text-secondary-foreground">
-          <span class="font-medium">Rotation Angle</span>
-          <span class="font-mono text-foreground font-bold">{{ angleDeg }}°</span>
+          <span class="font-semibold flex items-center gap-1.5">
+            <Icon name="lucide:rotate-cw" class="size-3 text-primary" aria-hidden="true" />
+            <span>Rotation Angle</span>
+          </span>
+          <span class="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 text-[11px]">
+            {{ angleDeg }}°
+          </span>
         </div>
         <input
           type="range"
-          min="-45"
-          max="45"
+          min="-180"
+          max="180"
+          step="1"
           :value="angleDeg"
           class="w-full accent-primary cursor-pointer"
           @input="(e) => emit('update:angleDeg', Number((e.target as HTMLInputElement).value))"
         >
+        <!-- Quick Angle Buttons -->
+        <div class="flex items-center justify-between gap-1 pt-0.5">
+          <button
+            v-for="deg in [-90, -45, 0, 45, 90]"
+            :key="deg"
+            type="button"
+            class="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold transition-all cursor-pointer"
+            :class="angleDeg === deg ? 'bg-primary text-white shadow-2xs font-bold' : 'bg-secondary/60 text-secondary-foreground hover:text-foreground hover:bg-secondary border border-border'"
+            @click="setAngle(deg)"
+          >
+            {{ deg > 0 ? `+${deg}°` : `${deg}°` }}
+          </button>
+        </div>
       </div>
     </div>
 

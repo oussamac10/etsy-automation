@@ -25,6 +25,7 @@ const containerRef = ref<HTMLDivElement | null>(null);
 const imageAspectRatio = ref<number | null>(null);
 const isDragging = ref(false);
 const isResizing = ref(false);
+const isRotating = ref(false);
 
 let startX = 0;
 let startY = 0;
@@ -32,6 +33,11 @@ let initLeft = 25;
 let initTop = 25;
 let initWidth = 50;
 let initHeight = 50;
+
+let rotateCenterScreenX = 0;
+let rotateCenterScreenY = 0;
+let rotateStartAngleRad = 0;
+let initialAngleDeg = 0;
 
 function handleImageLoaded(e: Event): void {
   const img = e.target as HTMLImageElement;
@@ -125,6 +131,41 @@ function onResizeEnd(): void {
   window.removeEventListener("mouseup", onResizeEnd);
 }
 
+function startRotate(e: PointerEvent): void {
+  if (props.viewMode === "preview" || !containerRef.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  isRotating.value = true;
+
+  const rect = containerRef.value.getBoundingClientRect();
+  const boxCenterX = rect.left + (props.leftPct + props.widthPct / 2) * (rect.width / 100);
+  const boxCenterY = rect.top + (props.topPct + props.heightPct / 2) * (rect.height / 100);
+
+  rotateCenterScreenX = boxCenterX;
+  rotateCenterScreenY = boxCenterY;
+  rotateStartAngleRad = Math.atan2(e.clientY - boxCenterY, e.clientX - boxCenterX);
+  initialAngleDeg = props.angleDeg || 0;
+
+  window.addEventListener("pointermove", onRotateMove);
+  window.addEventListener("pointerup", onRotateEnd);
+}
+
+function onRotateMove(e: PointerEvent): void {
+  if (!isRotating.value) return;
+  const currentAngleRad = Math.atan2(e.clientY - rotateCenterScreenY, e.clientX - rotateCenterScreenX);
+  const deltaDeg = (currentAngleRad - rotateStartAngleRad) * (180 / Math.PI);
+  let newAngle = Math.round(initialAngleDeg + deltaDeg);
+  while (newAngle > 180) newAngle -= 360;
+  while (newAngle < -180) newAngle += 360;
+  emit("update:angleDeg", newAngle);
+}
+
+function onRotateEnd(): void {
+  isRotating.value = false;
+  window.removeEventListener("pointermove", onRotateMove);
+  window.removeEventListener("pointerup", onRotateEnd);
+}
+
 const artworkBoxStyle = computed(() => {
   return {
     left: `${props.leftPct}%`,
@@ -205,6 +246,27 @@ const activeCssBlend = computed(() => {
         :style="artworkBoxStyle"
         @mousedown="startDrag"
       >
+        <!-- Top Rotation Stalk & Handle -->
+        <div class="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto select-none">
+          <div
+            class="size-5 rounded-full bg-primary text-white border-2 border-white shadow-md flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
+            title="Drag to rotate artwork"
+            @pointerdown="startRotate"
+            @mousedown.stop
+          >
+            <Icon name="lucide:rotate-cw" class="size-2.5 text-white" aria-hidden="true" />
+          </div>
+          <div class="w-0.5 h-2 bg-primary/70" />
+        </div>
+
+        <!-- Live Coordinates Pill -->
+        <div
+          v-if="isDragging || isResizing || isRotating"
+          class="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-md border border-slate-700/60"
+        >
+          {{ Math.round(leftPct) }}%, {{ Math.round(topPct) }}% · {{ Math.round(widthPct) }}×{{ Math.round(heightPct) }}% · {{ angleDeg }}°
+        </div>
+
         <!-- Resize Handle in Bottom Right -->
         <div
           class="absolute -bottom-2 -right-2 h-5 w-5 bg-primary border-2 border-white rounded-full cursor-nwse-resize shadow-md flex items-center justify-center hover:scale-125 transition-transform"

@@ -33,7 +33,7 @@ describe("Mockup Placement & Rotation Suite", () => {
   });
 
   describe("MockupPlacementControls Component", () => {
-    it("renders rotation angle slider and emits updates", async () => {
+    it("renders rotation angle slider, quick angle buttons, and emits updates", async () => {
       const wrapper = mount(MockupPlacementControls, {
         props: {
           leftPct: 25,
@@ -58,16 +58,22 @@ describe("Mockup Placement & Rotation Suite", () => {
       expect(wrapper.text()).toContain("Rotation Angle");
       expect(wrapper.text()).toContain("15°");
 
-      const angleSlider = wrapper.find('input[type="range"][max="45"]');
+      const angleSlider = wrapper.find('input[type="range"][max="180"]');
       expect(angleSlider.exists()).toBe(true);
 
       await angleSlider.setValue(-30);
       expect(wrapper.emitted("update:angleDeg")?.[0]).toEqual([-30]);
+
+      const buttons = wrapper.findAll("button");
+      const quick90Btn = buttons.find((b) => b.text().includes("+90°"));
+      expect(quick90Btn?.exists()).toBe(true);
+      await quick90Btn?.trigger("click");
+      expect(wrapper.emitted("update:angleDeg")).toBeTruthy();
     });
   });
 
   describe("MockupPlacementCanvas Component Rotation Transform", () => {
-    it("applies CSS transform rotate for non-zero angleDeg", () => {
+    it("applies CSS transform rotate for non-zero angleDeg and renders rotation handle in edit mode", () => {
       const wrapper = mount(MockupPlacementCanvas, {
         props: {
           templateImageUrl: "http://localhost:8000/test-template.png",
@@ -80,6 +86,11 @@ describe("Mockup Placement & Rotation Suite", () => {
           blendMode: "multiply",
           viewMode: "edit",
         },
+        global: {
+          stubs: {
+            Icon: { template: "<i />" },
+          },
+        },
       });
 
       const editBox = wrapper.find(".cursor-move");
@@ -91,6 +102,9 @@ describe("Mockup Placement & Rotation Suite", () => {
       expect(style).toContain("top: 25%");
       expect(style).toContain("width: 44%");
       expect(style).toContain("height: 48%");
+
+      const rotateHandle = wrapper.find('[title="Drag to rotate artwork"]');
+      expect(rotateHandle.exists()).toBe(true);
     });
   });
 });
