@@ -46,7 +46,14 @@ class ListingSeoDraft(BaseModel):
     @field_validator("title")
     @classmethod
     def clean_title(cls, v: str) -> str:
-        return sanitize_etsy_title(str(v))
+        sanitized = sanitize_etsy_title(str(v or ""))
+        if len(sanitized) > MAX_TITLE_LENGTH:
+            truncated = sanitized[:MAX_TITLE_LENGTH]
+            if "," in truncated:
+                sanitized = truncated.rsplit(",", 1)[0].strip()
+            else:
+                sanitized = truncated.rsplit(" ", 1)[0].strip()
+        return sanitized
 
     @field_validator("shopping_cart_summary")
     @classmethod
@@ -232,7 +239,7 @@ async def generate_listing_seo(
     request = TextRequest(
         prompt=prompt_text,
         system="You are a professional Etsy SEO copywriter that outputs strict JSON.",
-        max_output_tokens=2048,
+        max_output_tokens=4096,
         schema_class=ListingSeoDraft,
     )
 
@@ -257,46 +264,83 @@ async def generate_listing_seo(
         ) from exc
 
     # Clean title
-    if "title" in data:
-        data["title"] = sanitize_etsy_title(str(data["title"]))
+    raw_title = sanitize_etsy_title(str(data.get("title") or concept.title))
+    if len(raw_title) > MAX_TITLE_LENGTH:
+        truncated = raw_title[:MAX_TITLE_LENGTH]
+        if "," in truncated:
+            raw_title = truncated.rsplit(",", 1)[0].strip()
+        else:
+            raw_title = truncated.rsplit(" ", 1)[0].strip()
+    data["title"] = raw_title
 
     # Clean shopping cart summary
-    if "shopping_cart_summary" in data:
-        summary_clean = re.sub(r"\s+", " ", str(data["shopping_cart_summary"]).strip())
-        if len(summary_clean) > MAX_CART_SUMMARY_LENGTH:
-            summary_clean = summary_clean[:MAX_CART_SUMMARY_LENGTH].rsplit(" ", 1)[0]
-        data["shopping_cart_summary"] = summary_clean
+    raw_summary = re.sub(r"\s+", " ", str(data.get("shopping_cart_summary") or "").strip())
+    if not raw_summary:
+        raw_summary = f"{concept.title} PNG digital download. High-resolution transparent design for shirts, mugs, stickers and crafts."
+    if len(raw_summary) > MAX_CART_SUMMARY_LENGTH:
+        raw_summary = raw_summary[:MAX_CART_SUMMARY_LENGTH].rsplit(" ", 1)[0].strip()
+    data["shopping_cart_summary"] = raw_summary
 
-    # Ensure 13 tags
+    # Ensure description is present
+    if not data.get("description"):
+        data["description"] = (
+            f"DIGITAL DOWNLOAD – PNG FILE ONLY\n\n"
+            f"{concept.description or concept.title}\n\n"
+            f"WHAT YOU WILL RECEIVE\n"
+            f"• High-resolution transparent background PNG (4500 × 5400 px @ 300 DPI)\n\n"
+            f"PERFECT FOR\n"
+            f"• Direct-to-Garment (DTG) printing\n"
+            f"• T-shirts, sweatshirts, and hoodies\n"
+            f"• Sublimation apparel and tote bags\n"
+            f"• Mugs, tumblers, and glassware\n"
+            f"• Stickers, decals, and badge reels\n\n"
+            f"INSTANT DOWNLOAD\n"
+            f"Your digital files are made available by Etsy immediately after payment confirmation.\n\n"
+            f"COMMERCIAL USE\n"
+            f"Commercial use allowed on physical finished products. Digital resale or redistribution is prohibited.\n\n"
+            f"AI DISCLOSURE\n"
+            f"This artwork was created with the assistance of AI generation tools and then professionally edited, refined, and prepared for digital production.\n\n"
+            f"PRINT NOTE\n"
+            f"Colors may vary slightly depending on screen, printer, ink, material, and print settings."
+        )
+
+    # Ensure AI disclosure is present
+    if not data.get("ai_disclosure"):
+        data["ai_disclosure"] = "This artwork was created with the assistance of AI generation tools and then professionally edited, refined, and prepared for digital production."
+
+    # Ensure exactly 13 tags
     raw_tags = data.get("tags", [])
+    cleaned_tags: list[str] = []
     if isinstance(raw_tags, list):
-        cleaned_tags: list[str] = []
         for t in raw_tags:
             norm = normalize_tag(str(t))
             if norm and len(norm) <= MAX_TAG_LENGTH and norm not in cleaned_tags:
                 cleaned_tags.append(norm)
 
-        fallbacks = [
-            "png digital download",
-            "sublimation design",
-            "dtg shirt graphic",
-            "transparent png",
-            "printable art",
-            "clipart graphic",
-            "instant download",
-            "tshirt design png",
-            "commercial use png",
-            "pod graphics",
-            "mug design download",
-            "sticker png",
-            "digital craft file",
-        ]
-        for fb in fallbacks:
-            if len(cleaned_tags) >= MAX_ETSY_TAGS:
-                break
-            if fb not in cleaned_tags:
-                cleaned_tags.append(fb)
+    fallbacks = [
+        "png digital download",
+        "sublimation design",
+        "dtg shirt graphic",
+        "transparent png",
+        "printable art",
+        "clipart graphic",
+        "instant download",
+        "tshirt design png",
+        "commercial use png",
+        "pod graphics",
+        "mug design download",
+        "sticker png",
+        "digital craft file",
+    ]
+    for fb in fallbacks:
+        if len(cleaned_tags) >= MAX_ETSY_TAGS:
+            break
+        if fb not in cleaned_tags:
+            cleaned_tags.append(fb)
 
-        data["tags"] = cleaned_tags[:MAX_ETSY_TAGS]
+    while len(cleaned_tags) < MAX_ETSY_TAGS:
+        cleaned_tags.append(f"craft design {len(cleaned_tags) + 1}")
+
+    data["tags"] = cleaned_tags[:MAX_ETSY_TAGS]
 
     return ListingSeoDraft.model_validate(data)

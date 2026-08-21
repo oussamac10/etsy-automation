@@ -360,12 +360,13 @@ class GeminiSynthesisAdapter:
 
         generation_config: dict[str, Any] = {
             "responseMimeType": "application/json",
+            "maxOutputTokens": 8192,
         }
         if schema_cls is not None:
             generation_config["responseSchema"] = inline_refs(schema_cls.model_json_schema())
 
         if request.max_output_tokens:
-            generation_config["maxOutputTokens"] = request.max_output_tokens
+            generation_config["maxOutputTokens"] = max(request.max_output_tokens, 8192)
 
         # Format content for Gemini API
         payload: dict[str, Any] = {
@@ -470,15 +471,21 @@ class GeminiSynthesisAdapter:
                                 cleaned_json_text = re.sub(r"\n?```$", "", cleaned_json_text).strip()
                             try:
                                 schema_cls.model_validate_json(cleaned_json_text)
-                            except Exception as exc:
-                                raise ProviderError(
-                                    kind=ProviderErrorKind.INVALID_REQUEST,
-                                    provider=self.name,
-                                    operation="generate",
-                                    message=(
-                                        f"Model response did not validate against strict schema: {exc}"
-                                    ),
-                                ) from exc
+                            except Exception:
+                                # Lenient fallback to json.loads so caller domain layer can sanitize/repair
+                                try:
+                                    import json
+
+                                    json.loads(cleaned_json_text)
+                                except Exception as exc:
+                                    raise ProviderError(
+                                        kind=ProviderErrorKind.INVALID_REQUEST,
+                                        provider=self.name,
+                                        operation="generate",
+                                        message=(
+                                            f"Model response did not validate against strict schema: {exc}"
+                                        ),
+                                    ) from exc
 
                         usage = data.get("usageMetadata", {})
                         input_tokens = usage.get("promptTokenCount", 0)

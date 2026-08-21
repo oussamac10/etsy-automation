@@ -33,6 +33,7 @@ x-python-env: &python-env
   ETSY_SHARED_SECRET: ${ETSY_SHARED_SECRET:-${ETSY_CLIENT_SECRET:-}}
   ETSY_REDIRECT_URI: ${ETSY_REDIRECT_URI:-http://localhost:8800/api/v1/auth/etsy/callback}
   ETSY_FRONTEND_REDIRECT_URL: ${ETSY_FRONTEND_REDIRECT_URL:-http://localhost:3300/settings}
+  PYTHONPATH: /srv/backend:/srv/workers/general-worker
 
 services:
   postgres:
