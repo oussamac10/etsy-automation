@@ -1221,100 +1221,29 @@ onMounted(() => {
         </div>
 
         <!-- 2-Column Split: Interactive Canvas (Left) + Placement Controls (Right) -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-1 p-5 items-start">
-          <!-- Left Column (7 cols): Interactive Visual Canvas -->
-          <div class="lg:col-span-7 space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto flex-1 p-5 items-start">
+          <!-- Left Column: Interactive Visual Canvas -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
                 <Icon name="lucide:layout" class="size-3.5 text-primary" aria-hidden="true" />
                 <span>Interactive Placement Canvas</span>
               </span>
-
-              <!-- Quick Placement & Rotation Segmented Toolbar -->
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <div class="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border shadow-2xs">
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                    title="Center artwork box"
-                    @click="centerEditPlacement"
-                  >
-                    <Icon name="lucide:align-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Center</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                    title="Apply full center preset"
-                    @click="applyEditFullCenterPreset"
-                  >
-                    <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Full</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                    title="Apply left chest preset"
-                    @click="applyEditChestPreset"
-                  >
-                    <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Chest</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                    title="Apply square 1:1 preset"
-                    @click="applyEditSquarePreset"
-                  >
-                    <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>1:1</span>
-                  </button>
-                </div>
-
-                <!-- Rotation Quick Tools -->
-                <div class="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border shadow-2xs">
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
-                    title="Rotate 90 degrees counter-clockwise"
-                    @click="rotateEditLeft"
-                  >
-                    <Icon name="lucide:rotate-ccw" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>-90°</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
-                    title="Rotate 90 degrees clockwise"
-                    @click="rotateEditRight"
-                  >
-                    <Icon name="lucide:rotate-cw" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>+90°</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
-                    title="Reset rotation to 0°"
-                    @click="setEditAngle(0)"
-                  >
-                    <span>0°</span>
-                  </button>
-                </div>
-              </div>
+              <span class="text-[10px] text-muted-foreground font-mono">1:1 Aspect Frame</span>
             </div>
 
             <!-- Canvas Viewport Frame -->
-            <div class="relative w-full max-h-[380px] bg-slate-950/90 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-3 shadow-inner min-h-[260px]">
+            <div class="relative w-full aspect-square max-h-[460px] min-h-[320px] bg-slate-950/90 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-3 shadow-inner">
               <!-- Exact Image-Fitting Interactive Canvas -->
               <div
                 ref="interactiveCanvasRef"
-                class="relative inline-block select-none touch-none max-h-[350px] max-w-full"
+                class="relative inline-block select-none touch-none max-h-[420px] max-w-full"
               >
                 <!-- Template Background Image -->
                 <img
                   :src="templateToEdit.url"
                   alt="Template"
-                  class="max-h-[350px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-md"
+                  class="max-h-[420px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-md"
                 >
 
                 <!-- Alignment Crosshairs -->
@@ -1370,13 +1299,86 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- Quick Placement & Rotation Segmented Toolbar Below Canvas -->
+            <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/40 border border-border flex-wrap">
+              <!-- Presets -->
+              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                  title="Center artwork box"
+                  @click="centerEditPlacement"
+                >
+                  <Icon name="lucide:align-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>Center</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                  title="Apply full center preset"
+                  @click="applyEditFullCenterPreset"
+                >
+                  <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>Full</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                  title="Apply left chest preset"
+                  @click="applyEditChestPreset"
+                >
+                  <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>Chest</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                  title="Apply square 1:1 preset"
+                  @click="applyEditSquarePreset"
+                >
+                  <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>1:1</span>
+                </button>
+              </div>
+
+              <!-- Rotation Quick Buttons -->
+              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                  title="Rotate 90 degrees counter-clockwise"
+                  @click="rotateEditLeft"
+                >
+                  <Icon name="lucide:rotate-ccw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>-90°</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                  title="Rotate 90 degrees clockwise"
+                  @click="rotateEditRight"
+                >
+                  <Icon name="lucide:rotate-cw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>+90°</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                  title="Reset rotation to 0°"
+                  @click="setEditAngle(0)"
+                >
+                  <span>0°</span>
+                </button>
+              </div>
+            </div>
+
             <p class="text-[11px] text-muted-foreground text-center">
               💡 Drag box to move · Drag bottom-right corner to scale · Drag top handle or use sliders to rotate
             </p>
           </div>
 
-          <!-- Right Column (5 cols): Placement Precision Controls & Metadata -->
-          <div class="lg:col-span-5 space-y-4">
+          <!-- Right Column: Placement Precision Controls & Metadata -->
+          <div class="space-y-4">
             <div class="space-y-1.5">
               <Label class="text-xs font-bold text-foreground">Template Name</Label>
               <Input v-model="editName" class="h-8.5 text-xs" />
@@ -1658,111 +1660,39 @@ onMounted(() => {
           />
         </div>
 
-        <!-- Step 3: Visual Placement Studio -->
-        <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-1 p-5 items-start">
-          <!-- Left Column (7 cols): Interactive Visual Canvas -->
-          <div class="lg:col-span-7 space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2">
+        <!-- Step 3: Interactive Canvas Placement Studio & Metadata -->
+        <div v-else-if="uploadStep === 'placement'" class="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto flex-1 p-5 items-start">
+          <!-- Left Column: Interactive Visual Canvas -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
                 <Icon name="lucide:layout" class="size-3.5 text-primary" aria-hidden="true" />
                 <span>Designate PNG Print Area</span>
               </span>
 
-              <!-- Quick Placement & Rotation Segmented Toolbar -->
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <button
-                  type="button"
-                  class="px-2.5 py-1 text-[11px] font-bold bg-blue-50 hover:bg-blue-100 text-primary rounded-lg transition-all cursor-pointer border border-blue-200 shadow-2xs hover:shadow-xs inline-flex items-center gap-1.5"
-                  title="Crop template photo"
-                  @click="uploadStep = 'crop'"
-                >
-                  <Icon name="lucide:crop" class="size-3.5" aria-hidden="true" />
-                  <span>Crop / Cut</span>
-                </button>
-
-                <div class="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border shadow-2xs">
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                    title="Center artwork box"
-                    @click="centerUploadPlacement"
-                  >
-                    <Icon name="lucide:align-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Center</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                    title="Apply full center preset"
-                    @click="applyUploadFullCenterPreset"
-                  >
-                    <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Full</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                    title="Apply left chest preset"
-                    @click="applyUploadChestPreset"
-                  >
-                    <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Chest</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                    title="Apply square 1:1 preset"
-                    @click="applyUploadSquarePreset"
-                  >
-                    <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>1:1</span>
-                  </button>
-                </div>
-
-                <!-- Rotation Quick Buttons -->
-                <div class="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border shadow-2xs">
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
-                    title="Rotate 90 degrees counter-clockwise"
-                    @click="rotateUploadLeft"
-                  >
-                    <Icon name="lucide:rotate-ccw" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>-90°</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
-                    title="Rotate 90 degrees clockwise"
-                    @click="rotateUploadRight"
-                  >
-                    <Icon name="lucide:rotate-cw" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>+90°</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
-                    title="Reset rotation to 0°"
-                    @click="setUploadAngle(0)"
-                  >
-                    <span>0°</span>
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                class="px-2.5 py-1 text-[11px] font-bold bg-blue-50 hover:bg-blue-100 text-primary rounded-lg transition-all cursor-pointer border border-blue-200 shadow-2xs hover:shadow-xs inline-flex items-center gap-1.5"
+                title="Crop template photo"
+                @click="uploadStep = 'crop'"
+              >
+                <Icon name="lucide:crop" class="size-3.5" aria-hidden="true" />
+                <span>Crop / Cut</span>
+              </button>
             </div>
 
             <!-- Canvas Viewport Frame -->
-            <div class="relative w-full max-h-[380px] bg-slate-950/90 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-3 shadow-inner min-h-[260px]">
+            <div class="relative w-full aspect-square max-h-[460px] min-h-[320px] bg-slate-950/90 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-3 shadow-inner">
               <!-- Exact Image-Fitting Upload Canvas -->
               <div
                 v-if="uploadImagePreviewUrl"
                 ref="uploadCanvasRef"
-                class="relative inline-block select-none touch-none max-h-[350px] max-w-full"
+                class="relative inline-block select-none touch-none max-h-[420px] max-w-full"
               >
                 <img
                   :src="uploadImagePreviewUrl"
                   alt="Upload Preview"
-                  class="max-h-[350px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-md"
+                  class="max-h-[420px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-md"
                 >
 
                 <!-- Alignment Crosshairs -->
@@ -1818,13 +1748,86 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- Quick Placement & Rotation Segmented Toolbar Below Canvas -->
+            <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/40 border border-border flex-wrap">
+              <!-- Presets -->
+              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                  title="Center artwork box"
+                  @click="centerUploadPlacement"
+                >
+                  <Icon name="lucide:align-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>Center</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                  title="Apply full center preset"
+                  @click="applyUploadFullCenterPreset"
+                >
+                  <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>Full</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                  title="Apply left chest preset"
+                  @click="applyUploadChestPreset"
+                >
+                  <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>Chest</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                  title="Apply square 1:1 preset"
+                  @click="applyUploadSquarePreset"
+                >
+                  <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>1:1</span>
+                </button>
+              </div>
+
+              <!-- Rotation Quick Buttons -->
+              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                  title="Rotate 90 degrees counter-clockwise"
+                  @click="rotateUploadLeft"
+                >
+                  <Icon name="lucide:rotate-ccw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>-90°</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                  title="Rotate 90 degrees clockwise"
+                  @click="rotateUploadRight"
+                >
+                  <Icon name="lucide:rotate-cw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                  <span>+90°</span>
+                </button>
+                <button
+                  type="button"
+                  class="px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                  title="Reset rotation to 0°"
+                  @click="setUploadAngle(0)"
+                >
+                  <span>0°</span>
+                </button>
+              </div>
+            </div>
+
             <p class="text-[11px] text-muted-foreground text-center">
               💡 Drag to position · Drag corner handle to resize · Drag top handle or use sliders to rotate
             </p>
           </div>
 
-          <!-- Right Column (5 cols): Metadata & Category -->
-          <div class="lg:col-span-5 space-y-4">
+          <!-- Right Column: Metadata & Category -->
+          <div class="space-y-4">
             <div class="space-y-1.5">
               <Label class="text-xs font-bold text-foreground">Template Name</Label>
               <Input v-model="uploadName" placeholder="e.g. Vintage Mug on Marble Table" class="h-8.5 text-xs" />
