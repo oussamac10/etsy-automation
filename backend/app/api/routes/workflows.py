@@ -2274,7 +2274,7 @@ async def build_listing_package_endpoint(
 
     package_service = CustomerPackageService(storage)
     try:
-        await package_service.build_customer_package(workflow_id, uow)
+        await package_service.build_customer_package(workflow_id, uow, force_rebuild=True)
         await uow.commit()
     except Exception as exc:
         raise HTTPException(

@@ -73,116 +73,14 @@ def optimize_png_deflate(png_bytes: bytes) -> bytes:
 
     best_recompressed = zlib.compress(raw_data, level=9)
 
-    # If 8-bit RGBA or RGB, attempt scanline unfiltering + zero-alpha clean + adaptive Sub/Up re-filtering
-    bpp = 4 if color_type == 6 else (3 if color_type == 2 else 0)
-    stride = 1 + width * bpp
-
-    if bit_depth == 8 and bpp in (3, 4) and len(raw_data) == stride * height:
-        try:
-            unfiltered_rows: list[bytearray] = []
-            prior_unfiltered = bytearray(width * bpp)
-
-            for y in range(height):
-                row_offset = y * stride
-                filter_type = raw_data[row_offset]
-                row_bytes = bytearray(raw_data[row_offset + 1 : row_offset + stride])
-                unfiltered = bytearray(width * bpp)
-
-                if filter_type == 0:  # None
-                    unfiltered = row_bytes
-                elif filter_type == 1:  # Sub
-                    for x in range(width * bpp):
-                        left = unfiltered[x - bpp] if x >= bpp else 0
-                        unfiltered[x] = (row_bytes[x] + left) & 0xFF
-                elif filter_type == 2:  # Up
-                    for x in range(width * bpp):
-                        up = prior_unfiltered[x]
-                        unfiltered[x] = (row_bytes[x] + up) & 0xFF
-                elif filter_type == 3:  # Average
-                    for x in range(width * bpp):
-                        left = unfiltered[x - bpp] if x >= bpp else 0
-                        up = prior_unfiltered[x]
-                        unfiltered[x] = (row_bytes[x] + ((left + up) >> 1)) & 0xFF
-                elif filter_type == 4:  # Paeth
-                    for x in range(width * bpp):
-                        left = unfiltered[x - bpp] if x >= bpp else 0
-                        up = prior_unfiltered[x]
-                        up_left = prior_unfiltered[x - bpp] if x >= bpp else 0
-                        p = left + up - up_left
-                        pa = abs(p - left)
-                        pb = abs(p - up)
-                        pc = abs(p - up_left)
-                        pr = left if (pa <= pb and pa <= pc) else (up if pb <= pc else up_left)
-                        unfiltered[x] = (row_bytes[x] + pr) & 0xFF
-                else:
-                    unfiltered = row_bytes
-
-                # For RGBA: Zero out RGB on completely transparent pixels (alpha = 0)
-                if bpp == 4:
-                    for x in range(width):
-                        p = x * 4
-                        if unfiltered[p + 3] == 0:
-                            unfiltered[p] = 0
-                            unfiltered[p + 1] = 0
-                            unfiltered[p + 2] = 0
-
-                unfiltered_rows.append(unfiltered)
-                prior_unfiltered = unfiltered
-
-            # Adaptive re-filtering (evaluating None, Sub, Up)
-            re_filtered = bytearray()
-            prior_row = bytearray(width * bpp)
-
-            for row in unfiltered_rows:
-                # Filter 0: None
-                sum0 = sum(row[i] if row[i] < 128 else 256 - row[i] for i in range(0, width * bpp, 4))
-
-                # Filter 1: Sub
-                f1 = bytearray(width * bpp)
-                sum1 = 0
-                for i in range(width * bpp):
-                    left = row[i - bpp] if i >= bpp else 0
-                    d = (row[i] - left) & 0xFF
-                    f1[i] = d
-                    if i % 4 == 0:
-                        sum1 += d if d < 128 else 256 - d
-
-                # Filter 2: Up
-                f2 = bytearray(width * bpp)
-                sum2 = 0
-                for i in range(width * bpp):
-                    up = prior_row[i]
-                    d = (row[i] - up) & 0xFF
-                    f2[i] = d
-                    if i % 4 == 0:
-                        sum2 += d if d < 128 else 256 - d
-
-                min_sum = min(sum0, sum1, sum2)
-                if min_sum == sum2:
-                    re_filtered.append(2)
-                    re_filtered.extend(f2)
-                elif min_sum == sum1:
-                    re_filtered.append(1)
-                    re_filtered.extend(f1)
-                else:
-                    re_filtered.append(0)
-                    re_filtered.extend(row)
-
-                prior_row = row
-
-            adaptive_compressed = zlib.compress(bytes(re_filtered), level=9)
-            if len(adaptive_compressed) < len(best_recompressed):
-                best_recompressed = adaptive_compressed
-        except Exception:
-            pass
-
     if len(best_recompressed) >= len(idat_combined):
         return png_bytes
 
-    out = bytearray(b"\x89PNG\r\n\x1a\n")
+    # Reassemble PNG with optimized IDAT
+    out = bytearray(png_bytes[:8])
     for chunk_type, chunk_data in chunks:
         if chunk_type == b"IEND":
-            # Inject optimized IDAT chunk before IEND
+            # Insert optimized IDAT before IEND
             crc = zlib.crc32(b"IDAT" + best_recompressed)
             out.extend(
                 struct.pack(">I", len(best_recompressed))
@@ -227,34 +125,8 @@ def create_print_ready_pdf(
             flattened = img.convert("RGB")
 
         raw_rgb = flattened.tobytes()
-        stride = w_px * 3
-
-        # Apply PNG Paeth adaptive prediction filter (filter type 4) to achieve compact lossless compression
-        filtered_data = bytearray()
-        prior_row = bytearray(stride)
-
-        for y in range(h_px):
-            row_offset = y * stride
-            row = raw_rgb[row_offset : row_offset + stride]
-            filtered_row = bytearray(stride + 1)
-            filtered_row[0] = 4  # Paeth filter byte
-
-            for x in range(stride):
-                left = row[x - 3] if x >= 3 else 0
-                up = prior_row[x]
-                up_left = prior_row[x - 3] if x >= 3 else 0
-                p = left + up - up_left
-                pa = abs(p - left)
-                pb = abs(p - up)
-                pc = abs(p - up_left)
-                pr = left if (pa <= pb and pa <= pc) else (up if pb <= pc else up_left)
-                filtered_row[x + 1] = (row[x] - pr) & 0xFF
-
-            filtered_data.extend(filtered_row)
-            prior_row = row
-
-        rgb_stream = zlib.compress(bytes(filtered_data), level=6)
-        decode_parms = f"/DecodeParms << /Predictor 15 /Columns {w_px} /Colors 3 /BitsPerComponent 8 >> "
+        rgb_stream = zlib.compress(raw_rgb, level=6)
+        decode_parms = ""
     except Exception as exc:
         logger.warning("create_print_ready_pdf_flattening_fallback", error=str(exc))
         detected_w, detected_h, _ = _parse_png_dimensions_and_channels(png_bytes)

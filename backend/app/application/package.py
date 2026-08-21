@@ -54,11 +54,25 @@ class CustomerPackageService:
         uow: UnitOfWork,
         *,
         include_mockups: bool = False,
+        force_rebuild: bool = False,
     ) -> Asset:
         """Assemble customer ZIP package containing approved master and explicitly selected approved variants."""
         workflow: ProductWorkflow | None = await uow.workflows.get(workflow_id)
         if workflow is None:
             raise EntityNotFoundError("ProductWorkflow", workflow_id)
+
+        # Check if an existing package is already up to date and can be reused
+        if not force_rebuild:
+            preview = await self.get_package_preview(workflow_id, uow)
+            if not preview.get("needs_rebuild"):
+                existing_pkg = preview.get("package_asset")
+                if isinstance(existing_pkg, Asset):
+                    logger.info(
+                        "reusing_existing_customer_package",
+                        workflow_id=str(workflow_id),
+                        asset_id=str(existing_pkg.id),
+                    )
+                    return existing_pkg
 
         listing: ListingDraft | None = await uow.listing_drafts.get_by_workflow(workflow_id)
         listing_title = listing.title if listing else workflow.name
