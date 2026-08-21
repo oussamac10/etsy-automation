@@ -254,7 +254,7 @@ export function useListing() {
       listingDraft.value = data;
       return data;
     } catch (err: unknown) {
-      errorMessage.value = getApiErrorMessage(err, 'Failed to submit Gate 3 decision.');
+      errorMessage.value = getApiErrorMessage(err, 'Failed to submit listing approval.');
       throw err;
     } finally {
       isDecidingGate.value = false;

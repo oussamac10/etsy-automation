@@ -29,28 +29,29 @@ export function canDelete(state: string): boolean {
   return !isRunning(state);
 }
 
-/** Stage names in the owner's words, not the state machine's. */
+/** Stage names in product words, not the state machine's. */
 const STAGE_LABELS: Record<string, string> = {
   DRAFT: "Draft",
-  RESEARCH_QUEUED: "Research queued",
+  RESEARCH_QUEUED: "Research Queued",
   RESEARCHING: "Researching",
-  IDEA_REVIEW: "Waiting for you: idea",
-  IDEA_APPROVED: "Idea approved",
-  ART_QUEUED: "Artwork queued",
-  ART_GENERATION: "Generating artwork",
-  ART_REVIEW: "Waiting for you: artwork",
-  ARTWORK_APPROVED: "Artwork approved",
-  PRODUCTION: "Preparing files",
-  IP_REVIEW: "IP review",
-  LISTING_REVIEW: "Waiting for you: listing",
-  READY_FOR_ETSY_DRAFT: "Ready for Etsy draft",
-  ETSY_DRAFT_CREATED: "Etsy draft created",
-  PUBLISHED: "Published by you",
+  IDEA_REVIEW: "Review Concepts",
+  IDEA_APPROVED: "Concept Approved",
+  ART_QUEUED: "Artwork Queued",
+  ART_GENERATION: "Generating Artwork",
+  ART_REVIEW: "Review Artwork",
+  ARTWORK_APPROVED: "Artwork Approved",
+  PRODUCTION: "Production & Mockups",
+  IP_REVIEW: "IP Review",
+  LISTING_REVIEW: "Review Listing",
+  READY_FOR_ETSY_DRAFT: "Ready for Etsy",
+  ETSY_DRAFT_CREATED: "Draft Created",
+  ETSY_DRAFT_FAILED: "Draft Failed",
+  PUBLISHED: "Published",
   CANCELLED: "Stopped",
 };
 
 export function stageLabel(state: string): string {
-  return STAGE_LABELS[state] ?? state.replaceAll("_", " ").toLowerCase();
+  return STAGE_LABELS[state] ?? state.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /** How far along the pipeline a campaign is, as `[step, total]`. */
@@ -59,7 +60,7 @@ export function stageProgress(state: string): [number, number] {
   return [index < 0 ? 0 : index + 1, HAPPY_PATH.length];
 }
 
-/** Whether a campaign is waiting on the owner rather than on a job. */
+/** Whether a campaign is waiting on the creator rather than on a background job. */
 export function needsOwner(state: string): boolean {
   return ["IDEA_REVIEW", "ART_REVIEW", "LISTING_REVIEW"].includes(state);
 }
@@ -67,7 +68,23 @@ export function needsOwner(state: string): boolean {
 /** Pull the human-readable message out of an RFC 9457 problem response. */
 export function problemDetail(err: unknown): string | null {
   const data = (err as { data?: { detail?: unknown } } | null)?.data;
-  return typeof data?.detail === "string" ? data.detail : null;
+  if (typeof data?.detail === "string") {
+    const detail = data.detail;
+    if (detail.includes("requires gate IDEA_APPROVAL") || detail.includes("gate-not-approved")) {
+      return "Please approve the concept before proceeding.";
+    }
+    if (detail.includes("requires gate ARTWORK_APPROVAL")) {
+      return "Please approve an artwork design before proceeding.";
+    }
+    if (detail.includes("requires gate LISTING_APPROVAL")) {
+      return "Please complete the listing review before proceeding.";
+    }
+    if (detail.includes("GateNotSatisfiedError") || detail.includes("cannot be decided while")) {
+      return "This milestone is not ready for review yet.";
+    }
+    return detail;
+  }
+  return null;
 }
 
 function csrfHeaders(): Record<string, string> {

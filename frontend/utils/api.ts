@@ -1,15 +1,17 @@
+import { sanitizeUserErrorMessage } from "./formatters";
+
 /**
- * Centralized API error message extraction.
+ * Centralized API error message extraction and user-facing sanitization.
  */
-export function getApiErrorMessage(err: unknown, fallback: string = "An unexpected error occurred."): string {
+export function getApiErrorMessage(err: unknown, fallback: string = "An unexpected error occurred. Please try again."): string {
   if (!err) return fallback;
-  if (typeof err === "string") return err;
+  if (typeof err === "string") return sanitizeUserErrorMessage(err, fallback);
   const errObj = err as {
     data?: { detail?: string; message?: string };
     response?: { _data?: { detail?: string; message?: string } };
     message?: string;
   };
-  return (
+  const raw = (
     errObj?.data?.detail ||
     errObj?.data?.message ||
     errObj?.response?._data?.detail ||
@@ -17,6 +19,7 @@ export function getApiErrorMessage(err: unknown, fallback: string = "An unexpect
     errObj?.message ||
     fallback
   );
+  return sanitizeUserErrorMessage(raw, fallback);
 }
 
 /**
