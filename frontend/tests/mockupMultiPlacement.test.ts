@@ -39,7 +39,7 @@ describe("Mockup Multi-Placement Print Zones Suite", () => {
   ];
 
   describe("MockupPlacementControls Component (Multi-Zone)", () => {
-    it("renders Print Zones bar with tabs and allows zone selection, addition, duplication, and deletion", async () => {
+    it("renders active zone placement controls and alignment actions", async () => {
       const wrapper = mount(MockupPlacementControls, {
         props: {
           placements: samplePlacements,
@@ -61,37 +61,22 @@ describe("Mockup Multi-Placement Print Zones Suite", () => {
         },
       });
 
-      // 1. Check multi-zone header and zone tabs
-      expect(wrapper.text()).toContain("Print Zones (3)");
-      expect(wrapper.text()).toContain("Zone 1");
-      expect(wrapper.text()).toContain("Zone 2");
-      expect(wrapper.text()).toContain("Zone 3");
+      // 1. Check active zone placement header and coordinates
+      expect(wrapper.text()).toContain("Zone 2 Placement");
+      expect(wrapper.text()).toContain("55%"); // leftPct for zone 2
+      expect(wrapper.text()).toContain("20%"); // topPct for zone 2
 
-      // 2. Click Add Zone button
-      const addZoneBtn = wrapper.findAll("button").find((b) => b.text().includes("Add Zone"));
-      expect(addZoneBtn?.exists()).toBe(true);
-      await addZoneBtn?.trigger("click");
-      expect(wrapper.emitted("addZone")).toBeTruthy();
+      // 2. Click Center All button
+      const centerAllBtn = wrapper.findAll("button").find((b) => b.text().includes("Center All"));
+      expect(centerAllBtn?.exists()).toBe(true);
+      await centerAllBtn?.trigger("click");
+      expect(wrapper.emitted("centerBoth")).toBeTruthy();
 
-      // 3. Click Duplicate button
-      const dupBtn = wrapper.findAll("button").find((b) => b.text().includes("Duplicate"));
-      expect(dupBtn?.exists()).toBe(true);
-      await dupBtn?.trigger("click");
-      expect(wrapper.emitted("duplicateZone")?.[0]).toEqual([1]); // duplicated active index 1
-
-      // 4. Click Zone 1 tab
-      const zone1Tab = wrapper.findAll("button").find((b) => b.text().includes("Zone 1"));
-      expect(zone1Tab?.exists()).toBe(true);
-      await zone1Tab?.trigger("click");
-      expect(wrapper.emitted("update:activePlacementIndex")?.[0]).toEqual([0]);
-
-      // 5. Artwork variant dropdown for zone
-      const select = wrapper.find("select");
-      expect(select.exists()).toBe(true);
-      await select.setValue("variant-1");
-      expect(wrapper.emitted("updateZoneArtworkSource")?.[0]).toEqual([
-        { index: 1, sourceId: "variant-1" },
-      ]);
+      // 3. Click Center X button
+      const centerXBtn = wrapper.findAll("button").find((b) => b.text().includes("Center X"));
+      expect(centerXBtn?.exists()).toBe(true);
+      await centerXBtn?.trigger("click");
+      expect(wrapper.emitted("centerHorizontal")).toBeTruthy();
     });
   });
 
