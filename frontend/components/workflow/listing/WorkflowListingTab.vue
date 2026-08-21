@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useListing } from '~/composables/useListing';
+import { countSequentialCapitalWords } from '~/utils/tags';
 import { generateFrontendSku } from '~/utils/sku';
 import ListingEditorCard from './ListingEditorCard.vue';
 import TagEditorCard from './TagEditorCard.vue';
@@ -439,16 +440,26 @@ const isDeliveryReady = computed(() => {
   return Boolean(listingDraft.value?.package_asset);
 });
 
+const isTitleCapsOverLimit = computed(() => countSequentialCapitalWords(localTitle.value) > 3);
+
 // Centralized Readiness Checks
 const readinessChecks = computed(() => {
   return [
     {
       id: 'title',
-      label: 'Title valid (1 - 140 chars)',
+      label: isTitleCapsOverLimit.value
+        ? 'Title exceeds Etsy capitalization limit (> 3 acronyms/all-caps words)'
+        : 'Title valid (1 - 140 chars)',
       tab: 'content' as SubTabKey,
-      passed: Boolean(localTitle.value.trim() && localTitle.value.length <= 140),
+      passed: Boolean(
+        localTitle.value.trim() &&
+        localTitle.value.length <= 140 &&
+        !isTitleCapsOverLimit.value
+      ),
       required: true,
-      blockerMsg: 'Listing title is required (max 140 characters).',
+      blockerMsg: isTitleCapsOverLimit.value
+        ? 'Etsy limits titles to at most 3 words starting with two sequential capital letters (e.g. PNG, SVG, MRI).'
+        : 'Listing title is required (max 140 characters).',
     },
     {
       id: 'tags',

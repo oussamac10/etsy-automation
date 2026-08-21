@@ -16,7 +16,7 @@ import DialogTitle from '~/components/ui/DialogTitle.vue';
 import DialogDescription from '~/components/ui/DialogDescription.vue';
 import DialogFooter from '~/components/ui/DialogFooter.vue';
 import type { ListingVersionSnapshot } from '~/types/listing';
-import { MAX_TITLE_LENGTH } from '~/utils/tags';
+import { MAX_TITLE_LENGTH, countSequentialCapitalWords, sanitizeEtsyTitle } from '~/utils/tags';
 
 const props = defineProps<{
   title: string;
@@ -55,6 +55,13 @@ watch(() => props.description, (newVal) => {
 const titleLength = computed(() => localTitle.value.length);
 const isTitleOverLimit = computed(() => titleLength.value > MAX_TITLE_LENGTH);
 const isTitleApproachingLimit = computed(() => titleLength.value > 120 && !isTitleOverLimit.value);
+const titleCapsWords = computed(() => countSequentialCapitalWords(localTitle.value));
+const isTitleCapsOverLimit = computed(() => titleCapsWords.value > 3);
+
+function handleAutoFixTitle() {
+  const fixed = sanitizeEtsyTitle(localTitle.value);
+  handleTitleUpdate(fixed);
+}
 
 const isDirty = computed(() => {
   if (props.hasUnsavedChanges !== undefined) return props.hasUnsavedChanges;
@@ -182,13 +189,35 @@ function formatSnapshotDate(dateStr?: string) {
           maxlength="160"
           placeholder="e.g. Vintage Mushroom PNG Digital Download, Cottagecore Botanical Sublimation T-Shirt Design"
           class="text-sm font-medium"
-          :error="isTitleOverLimit"
+          :error="isTitleOverLimit || isTitleCapsOverLimit"
           @update:model-value="handleTitleUpdate"
         />
         <p v-if="isTitleOverLimit" class="text-[11px] text-destructive font-medium flex items-center gap-1">
           <Icon name="lucide:circle-alert" class="size-3" aria-hidden="true" />
           <span>Etsy limits titles to 140 characters. Please shorten before saving.</span>
         </p>
+
+        <!-- Etsy All-Caps / Acronyms Limit Warning with Auto-Fix -->
+        <div
+          v-if="isTitleCapsOverLimit"
+          class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2.5 text-xs"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <Icon name="lucide:circle-alert" class="size-4 shrink-0 text-amber-500" aria-hidden="true" />
+            <span class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-tight">
+              Etsy allows at most 3 words starting with sequential capital letters (found {{ titleCapsWords }}).
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            class="h-6 px-2 text-[11px] font-medium shrink-0 text-primary hover:bg-primary/10 cursor-pointer"
+            @click="handleAutoFixTitle"
+          >
+            Auto-Fix
+          </Button>
+        </div>
       </div>
 
       <!-- Description Field -->

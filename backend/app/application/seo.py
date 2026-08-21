@@ -12,6 +12,7 @@ from app.domain.tags import (
     MAX_TAG_LENGTH,
     MAX_TITLE_LENGTH,
     normalize_tag,
+    sanitize_etsy_title,
     validate_tags,
 )
 from app.infrastructure.models import DesignPrompt, ProductConcept
@@ -33,10 +34,7 @@ class ListingSeoDraft(BaseModel):
     @field_validator("title")
     @classmethod
     def clean_title(cls, v: str) -> str:
-        cleaned = re.sub(r"\s+", " ", str(v).strip())
-        if len(cleaned) > MAX_TITLE_LENGTH:
-            cleaned = cleaned[:MAX_TITLE_LENGTH].rsplit(" ", 1)[0]
-        return cleaned
+        return sanitize_etsy_title(str(v))
 
     @field_validator("tags")
     @classmethod

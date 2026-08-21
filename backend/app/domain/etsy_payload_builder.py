@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 from app.domain.errors import DomainError
 from app.domain.pricing import validate_price_minor_units
-from app.domain.tags import validate_listing_title, validate_tags
+from app.domain.tags import sanitize_etsy_title, validate_listing_title, validate_tags
 
 
 def build_etsy_listing_payload(
@@ -28,8 +28,9 @@ def build_etsy_listing_payload(
     when_made: str = "2020_2026",
 ) -> dict[str, Any]:
     """Assemble a strictly compliant, draft-only Etsy Open API v3 request payload."""
-    # 1. Validate title
-    title_valid, title_err = validate_listing_title(title)
+    # 1. Validate & sanitize title to conform to Etsy length and capitalization constraints
+    clean_title = sanitize_etsy_title(title)
+    title_valid, title_err = validate_listing_title(clean_title)
     if not title_valid:
         raise DomainError(f"Invalid listing title: {title_err}")
 
@@ -60,7 +61,7 @@ def build_etsy_listing_payload(
         quantity = 999
 
     payload: dict[str, Any] = {
-        "title": title[:140],
+        "title": clean_title[:140],
         "description": description,
         "tags": ",".join(clean_tags[:13]),
         "price": price_decimal,

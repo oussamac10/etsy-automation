@@ -62,8 +62,55 @@ def validate_tags(raw_tags: list[str]) -> tuple[bool, list[str], list[str]]:
     return len(errors) == 0, accepted, errors
 
 
+def count_sequential_capital_words(raw_title: str) -> int:
+    """Count number of words starting with 2+ sequential capital letters.
+
+    Etsy enforces an all-caps constraint where at most 3 words in a listing title
+    may start with 2 sequential capital letters (e.g. PNG, SVG, MRI, CT).
+    """
+    words = re.findall(r"\b[A-Z]{2,}", raw_title)
+    return len(words)
+
+
+def sanitize_etsy_title(raw_title: str) -> str:
+    """Sanitize Etsy title to ensure it strictly conforms to Etsy Open API v3 validation rules.
+
+    Rules enforced:
+    1. Maximum 140 characters.
+    2. Collapse multiple whitespace characters.
+    3. At most 3 words starting with 2 sequential capital letters (e.g. PNG, SVG, MRI, CT).
+       Any excess word (4th+) is converted to title-case (e.g. PNG -> Png, CT -> Ct) so Etsy accepts the draft.
+    """
+    title = re.sub(r"\s+", " ", raw_title.strip())
+    if not title:
+        return ""
+
+    tokens = re.split(r"(\s+)", title)
+    caps_count = 0
+    new_tokens: list[str] = []
+
+    for token in tokens:
+        m = re.match(r"^([^\w]*)([A-Z]{2,})(\w*)([^\w]*)$", token)
+        if m:
+            prefix, caps_part, rest, suffix = m.groups()
+            caps_count += 1
+            if caps_count > 3:
+                # Convert excess sequential caps to title case (e.g. "PNG" -> "Png", "CT" -> "Ct")
+                word_fixed = (caps_part + rest).capitalize()
+                new_tokens.append(f"{prefix}{word_fixed}{suffix}")
+            else:
+                new_tokens.append(token)
+        else:
+            new_tokens.append(token)
+
+    sanitized = "".join(new_tokens)
+    if len(sanitized) > MAX_TITLE_LENGTH:
+        sanitized = sanitized[:MAX_TITLE_LENGTH].rsplit(" ", 1)[0]
+    return sanitized
+
+
 def validate_listing_title(raw_title: str) -> tuple[bool, str | None]:
-    """Validate Etsy listing title.
+    """Validate Etsy listing title against Etsy Open API v3 requirements.
 
     Returns:
         tuple[is_valid, error_message]
@@ -73,4 +120,9 @@ def validate_listing_title(raw_title: str) -> tuple[bool, str | None]:
         return False, "Listing title cannot be empty."
     if len(title) > MAX_TITLE_LENGTH:
         return False, f"Listing title exceeds {MAX_TITLE_LENGTH} characters (got {len(title)})."
+    if count_sequential_capital_words(title) > 3:
+        return (
+            False,
+            "Etsy limits titles to at most 3 words starting with two sequential capital letters (e.g. PNG, SVG, MRI). Please adjust capitalization.",
+        )
     return True, None
