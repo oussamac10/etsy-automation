@@ -185,6 +185,250 @@ class FakeTextProvider:
                 model="fake-text-seo",
             )
 
+        # Market Opportunity Discovery Engine branch
+        if request.system and ("market opportunity discovery engine" in request.system.lower() or "candidates" in request.system.lower()):
+            candidate_pool = [
+                {
+                    "id": "cand-1",
+                    "title": "Retro Radiology Halloween Crew",
+                    "concept_summary": "Hand-drawn retro kawaii skeleton and x-ray illustration designed for radiology tech Halloween shirts and mugs.",
+                    "target_buyer": "Radiology Technologists & X-Ray Techs",
+                    "niche": "Healthcare / Radiology",
+                    "season_or_event": "Halloween",
+                    "visual_direction": "Vintage 70s pastel distressed illustration with cute smiling skeleton and x-ray bones",
+                    "design_style": "Retro Groovy Kawaii",
+                    "slogan": None,
+                    "color_palette": ["#E07A5F", "#3D405B", "#81B29A", "#F2CC8F", "#F4F1DE"],
+                    "keyword_cluster": [
+                        "radiology halloween png",
+                        "rad tech shirt design",
+                        "xray technician gift",
+                        "cute skeleton sublimation"
+                    ],
+                    "why_it_could_sell": "Combines proven healthcare Halloween seasonal demand with a highly specific radiology buyer group, avoiding saturated general nurse designs.",
+                    "evidence_summary": [
+                        "Strong seasonal search intent for healthcare Halloween gifts",
+                        "Low saturation compared to general RN listings"
+                    ],
+                    "demand_signal": 92,
+                    "competition_signal": 78,
+                    "trend_signal": 86,
+                    "buyer_intent_signal": 94,
+                    "competition_level": "Medium",
+                    "trend_direction": "Rising",
+                    "market_validation": "Strong",
+                    "ip_risk": "Low",
+                    "prompt": {
+                        "positive_prompt": "Retro 70s kawaii style illustration of a cute smiling skeleton holding an x-ray film, surrounded by retro flowers and autumn pumpkins, soft pastel distressed texture, isolated central artwork on a transparent background, clean uncropped edges, high resolution",
+                        "negative_prompt": "background, scene, photo, realistic human, watermark, signature, blurry edges, cropped design",
+                        "typography_instructions": None,
+                        "exact_slogan": None,
+                    }
+                },
+                {
+                    "id": "cand-2",
+                    "title": "Cozy Bookish Autumn Ghost",
+                    "concept_summary": "Cute watercolor ghost wearing glasses and drinking pumpkin coffee atop a stack of vintage books.",
+                    "target_buyer": "Book Lovers, Librarians & Readers",
+                    "niche": "Bookish & Reading",
+                    "season_or_event": "Fall",
+                    "visual_direction": "Warm watercolor textured illustration with soft orange and amber hues",
+                    "design_style": "Cozy Watercolor",
+                    "slogan": None,
+                    "color_palette": ["#D4A373", "#CCD5AE", "#E9EDC9", "#FAEDCD", "#FEFAE0"],
+                    "keyword_cluster": [
+                        "bookish ghost png",
+                        "reading fall sublimation",
+                        "cute ghost book lover",
+                        "autumn reader mug clipart"
+                    ],
+                    "why_it_could_sell": "Bookish community shows exceptionally high repeat purchase rates for seasonal cozy reading apparel and drinkware.",
+                    "evidence_summary": [
+                        "Consistent top trending interest on Etsy for book lover gifting",
+                        "High demand across mugs, sweatshirts, and stickers"
+                    ],
+                    "demand_signal": 90,
+                    "competition_signal": 80,
+                    "trend_signal": 88,
+                    "buyer_intent_signal": 92,
+                    "competition_level": "Medium",
+                    "trend_direction": "Rising",
+                    "market_validation": "Strong",
+                    "ip_risk": "Low",
+                    "prompt": {
+                        "positive_prompt": "Adorable cute little ghost wearing round tortoiseshell glasses, reading a vintage hardcover book while sitting beside a steaming pumpkin spice mug, warm watercolor wash and paper texture, isolated on transparent background, clean edges",
+                        "negative_prompt": "dark gothic horror, photo, background scene, watermark, text blur",
+                        "typography_instructions": None,
+                        "exact_slogan": None,
+                    }
+                },
+                {
+                    "id": "cand-3",
+                    "title": "Cottagecore Botanical Frog Baker",
+                    "concept_summary": "Whimsical woodcut illustration of a friendly cottagecore frog wearing a chef hat holding a sourdough loaf.",
+                    "target_buyer": "Bakers, Sourdough Enthusiasts & Cottagecore Crafters",
+                    "niche": "Baking / Cottagecore",
+                    "season_or_event": "Evergreen",
+                    "visual_direction": "Detailed vintage botanical engraving with earthy moss green and wheat tones",
+                    "design_style": "Vintage Engraving",
+                    "slogan": None,
+                    "color_palette": ["#606C38", "#283618", "#DDA15E", "#BC6C25", "#FEFAE0"],
+                    "keyword_cluster": [
+                        "frog baker png",
+                        "cottagecore baking clipart",
+                        "sourdough bread shirt",
+                        "whimsical baker gift"
+                    ],
+                    "why_it_could_sell": "Subculture of sourdough baking enthusiasts has high engagement and relatively low commercial competition compared to general chef designs.",
+                    "evidence_summary": [
+                        "Rising community discussions around artisanal baking merch",
+                        "Excellent evergreen appeal for tote bags and kitchen decor"
+                    ],
+                    "demand_signal": 82,
+                    "competition_signal": 88,
+                    "trend_signal": 84,
+                    "buyer_intent_signal": 90,
+                    "competition_level": "Low",
+                    "trend_direction": "Rising",
+                    "market_validation": "Moderate",
+                    "ip_risk": "Low",
+                    "prompt": {
+                        "positive_prompt": "Vintage storybook engraving of a charming little green frog wearing a baker hat, proudly holding a fresh loaf of sourdough bread with wheat stalks and wildflowers, detailed line shading, isolated on transparent background",
+                        "negative_prompt": "3d render, plastic, modern photo, watermark, cutoff border",
+                        "typography_instructions": None,
+                        "exact_slogan": None,
+                    }
+                },
+                {
+                    "id": "cand-4",
+                    "title": "Boho Wildflower Pediatric Nurse",
+                    "concept_summary": "Earthy boho stethoscope intertwined with blooming daisies, lavender, and gentle watercolor botanicals.",
+                    "target_buyer": "Pediatric Nurses & Children Hospital Staff",
+                    "niche": "Healthcare / Pediatrics",
+                    "season_or_event": "Spring",
+                    "visual_direction": "Soft pastel boho florals wrapped around medical stethoscope",
+                    "design_style": "Boho Botanical",
+                    "slogan": None,
+                    "color_palette": ["#E7C6FF", "#C8B6FF", "#B8C0FF", "#FFD6FF", "#FFF1E6"],
+                    "keyword_cluster": [
+                        "peds nurse png",
+                        "pediatric nurse floral",
+                        "boho stethoscope sublimation",
+                        "nurse appreciation gift"
+                    ],
+                    "why_it_could_sell": "Pediatric sub-specialty allows healthcare workers to express gentle, comforting aesthetics for young patients.",
+                    "evidence_summary": [
+                        "High seasonal surge during Nurse Appreciation Week",
+                        "Strong sales history for floral medical items"
+                    ],
+                    "demand_signal": 88,
+                    "competition_signal": 74,
+                    "trend_signal": 80,
+                    "buyer_intent_signal": 92,
+                    "competition_level": "Medium",
+                    "trend_direction": "Stable",
+                    "market_validation": "Strong",
+                    "ip_risk": "Low",
+                    "prompt": {
+                        "positive_prompt": "Boho style medical stethoscope entwined with delicate blooming daisies, soft wildflowers and pastel eucalyptus leaves, gentle clean vector lines with subtle watercolor wash, isolated on transparent background",
+                        "negative_prompt": "harsh colors, blood, gory, photorealistic, background scene",
+                        "typography_instructions": None,
+                        "exact_slogan": None,
+                    }
+                },
+                {
+                    "id": "cand-5",
+                    "title": "Celestial Golden Retriever Stargazer",
+                    "concept_summary": "Golden retriever sitting under a crescent moon surrounded by twinkling constellations and celestial crystals.",
+                    "target_buyer": "Golden Retriever Owners & Celestial Dog Lovers",
+                    "niche": "Pets / Celestial",
+                    "season_or_event": "Evergreen",
+                    "visual_direction": "Mystical night sky aesthetic with gold and midnight indigo accents",
+                    "design_style": "Celestial Line Art",
+                    "slogan": None,
+                    "color_palette": ["#1D3557", "#457B9D", "#F1FAEE", "#E63946", "#FFB703"],
+                    "keyword_cluster": [
+                        "golden retriever celestial",
+                        "dog moon png",
+                        "golden retriever lover gift",
+                        "celestial pet sublimation"
+                    ],
+                    "why_it_could_sell": "Breed-specific pet art paired with celestial elements creates a unique crossover for passionate dog owners.",
+                    "evidence_summary": [
+                        "Golden retriever is among top 3 searched dog breeds on Etsy",
+                        "Celestial theme adds modern gifting value"
+                    ],
+                    "demand_signal": 86,
+                    "competition_signal": 82,
+                    "trend_signal": 82,
+                    "buyer_intent_signal": 88,
+                    "competition_level": "Low",
+                    "trend_direction": "Rising",
+                    "market_validation": "Strong",
+                    "ip_risk": "Low",
+                    "prompt": {
+                        "positive_prompt": "Happy fluffy golden retriever sitting peacefully looking up at a golden crescent moon, surrounded by subtle glowing stars and celestial botanical vines, clean vector line work, isolated on transparent background",
+                        "negative_prompt": "cat, aggressive, photo, background wall, watermark",
+                        "typography_instructions": None,
+                        "exact_slogan": None,
+                    }
+                },
+                {
+                    "id": "cand-6",
+                    "title": "Cute Dental Hygienist Spooky Smile",
+                    "concept_summary": "Kawaii smiling tooth dressed as a cute mummy holding dental floss and toothbrush.",
+                    "target_buyer": "Dental Hygienists, Assistants & Dentists",
+                    "niche": "Healthcare / Dental",
+                    "season_or_event": "Halloween",
+                    "visual_direction": "Pastel kawaii cartoon with clean outline and cute expression",
+                    "design_style": "Pastel Kawaii",
+                    "slogan": None,
+                    "color_palette": ["#F72585", "#7209B7", "#3A0CA3", "#4CC9F0", "#FFFFFF"],
+                    "keyword_cluster": [
+                        "dental halloween png",
+                        "tooth mummy clipart",
+                        "dental hygienist shirt",
+                        "spooky dental squad"
+                    ],
+                    "why_it_could_sell": "Dental offices frequently order matching seasonal shirts for clinic spirit days.",
+                    "evidence_summary": [
+                        "High bulk purchasing behavior for dental clinic teams",
+                        "Moderate competition in mummy tooth niche"
+                    ],
+                    "demand_signal": 84,
+                    "competition_signal": 85,
+                    "trend_signal": 85,
+                    "buyer_intent_signal": 95,
+                    "competition_level": "Low",
+                    "trend_direction": "Rising",
+                    "market_validation": "Moderate",
+                    "ip_risk": "Low",
+                    "prompt": {
+                        "positive_prompt": "Cute kawaii cartoon tooth wrapped in white mummy bandages with smiling face and pink blush, holding a mini toothbrush and candy corn, bright clean pastel colors, isolated central artwork on transparent background",
+                        "negative_prompt": "scary tooth decay, realistic mouth, blood, scene, watermark",
+                        "typography_instructions": None,
+                        "exact_slogan": None,
+                    }
+                },
+            ]
+
+            discovery_payload = {
+                "confidence": 0.88,
+                "confidence_explanation": "Extensive multi-angle search verified strong seasonal demand and low saturation in specialized buyer niches.",
+                "proven_market_observations": [
+                    "Profession-specific holiday gifts show higher conversion than generic seasonal designs.",
+                    "Retro 70s and cozy watercolor aesthetics command premium perceived value across digital apparel."
+                ],
+                "candidates": candidate_pool,
+            }
+
+            return TextResponse(
+                text=json.dumps(discovery_payload),
+                input_tokens=len(request.prompt.split()),
+                output_tokens=1500,
+                model="fake-text-discovery",
+            )
+
         is_user_or_hybrid = "original idea" in prompt_lower or "user idea" in prompt_lower
 
         original_text = "Sleepy Fox curling around a mug"

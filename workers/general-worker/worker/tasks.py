@@ -360,6 +360,277 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
         else:
             search_provider = FakeResearchProvider()
 
+        text_provider: TextGenerationProvider
+        if settings.provider_mode == "live" and gemini_api_key:
+            text_provider = GeminiSynthesisAdapter(api_key=gemini_api_key)
+        else:
+            text_provider = FakeTextProvider()
+
+        is_live = settings.provider_mode == "live"
+
+        # Special Branch: Market-Led Opportunity Discovery Engine
+        if workflow.idea_mode == IdeaMode.MARKET_LED:
+            from app.application.market_discovery import MarketOpportunityDiscoveryService
+            from app.domain.opportunity_scoring import OpportunityType
+
+            discovery_service = MarketOpportunityDiscoveryService(
+                search_provider=search_provider,
+                text_provider=text_provider,
+            )
+
+            # Record estimate in ledger before research scan
+            estimated_price = Money(1, "USD")
+            async with UnitOfWork(session_factory) as uow:
+                await uow.costs.record_estimate(
+                    workflow_id=workflow_id,
+                    provider=ProviderName.GEMINI if is_live else ProviderName.FAKE,
+                    service="synthesis",
+                    operation="market_opportunity_discovery",
+                    estimated=estimated_price,
+                    input_units=800,
+                    output_units=1500,
+                    unit_kind="tokens",
+                    idempotency_key=f"cost-discovery-{run_id}",
+                )
+                await uow.commit()
+
+            # Multi-angle market scan
+            evidence_tuples = await discovery_service.run_market_scan(
+                target_country=workflow.target_country,
+                output_language=workflow.output_language,
+                preferred_niche=[workflow.name] if workflow.name and workflow.name != "Trend Discovery" else None,
+                target_buyer=[workflow.target_buyer] if workflow.target_buyer else None,
+                intended_products=workflow.intended_product_uses,
+                desired_styles=[idea_style] if idea_style else None,
+                occasions=[idea_season] if idea_season else None,
+                seasons=[idea_season] if idea_season else None,
+            )
+
+            # Candidate pool generation, evaluation & deterministic scoring
+            top_3, all_candidates, confidence_score, proven_observations = (
+                await discovery_service.discover_opportunities(
+                    target_country=workflow.target_country,
+                    output_language=workflow.output_language,
+                    intended_products=workflow.intended_product_uses,
+                    preferred_niche=[workflow.name] if workflow.name and workflow.name != "Trend Discovery" else None,
+                    target_buyer=[workflow.target_buyer] if workflow.target_buyer else None,
+                    desired_styles=[idea_style] if idea_style else None,
+                    occasions=[idea_season] if idea_season else None,
+                    seasons=[idea_season] if idea_season else None,
+                    evidence_list=evidence_tuples,
+                )
+            )
+
+            # Trademark screening service
+            from app.application.trademark import TrademarkScreeningService
+            from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
+            from app.providers.tsdr import UsptoTsdrAdapter
+            from app.providers.fake import FakeTrademarkSearchAdapter
+
+            trademark_service: TrademarkScreeningService | None = None
+            try:
+                if is_live:
+                    db_adapter = PostgresTrademarkSearchAdapter(uow)
+                    tsdr_adapter = None
+                    if hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
+                        tsdr_adapter = UsptoTsdrAdapter(api_key=settings.uspto_api_key.get_secret_value())
+                    trademark_service = TrademarkScreeningService(db_adapter, tsdr_adapter=tsdr_adapter)
+                else:
+                    trademark_service = TrademarkScreeningService(FakeTrademarkSearchAdapter())
+            except Exception as tm_init_err:
+                logger.warning("trademark_service_worker_init_failed", error=str(tm_init_err))
+
+            async with UnitOfWork(session_factory) as uow:
+                db_run = await uow.research.get_run(run_id)
+                if db_run is None:
+                    raise RuntimeError(f"ResearchRun {run_id} not found")
+                db_workflow = await uow.workflows.get(workflow_id)
+                if db_workflow is None:
+                    raise RuntimeError(f"Workflow {workflow_id} not found")
+
+                db_run.query_angles = list({angle for angle, _, _ in evidence_tuples})
+                db_run.confidence = ConfidenceLevel.HIGH if confidence_score >= 0.8 else (ConfidenceLevel.MEDIUM if confidence_score >= 0.5 else ConfidenceLevel.LOW)
+                db_run.proposed_test = "Create 3 pilot listing drafts to validate click-through rate and market search volume."
+
+                # Save Evidence
+                for angle_name, query_text, item in evidence_tuples:
+                    db_evidence = ResearchEvidence(
+                        run_id=run_id,
+                        search_query=query_text,
+                        query_angle=angle_name,
+                        source_url=item.url,
+                        source_title=item.title,
+                        source_type=SourceType.FAKE if not is_live else SourceType.TRENDS,
+                        observation=item.observation,
+                        observed_at=item.captured_at,
+                        market=workflow.target_country,
+                        language=workflow.output_language,
+                    )
+                    await uow.research.add_evidence(db_evidence)
+
+                # Save Keyword Clusters
+                seen_clusters: set[str] = set()
+                rank = 95
+                for cand in all_candidates:
+                    for kw in cand.keyword_cluster[:3]:
+                        if kw.lower() not in seen_clusters:
+                            seen_clusters.add(kw.lower())
+                            db_cluster = KeywordCluster(
+                                run_id=run_id,
+                                primary_phrase=kw,
+                                attributes=[cand.design_style, "transparent png", "commercial use"],
+                                recipient_occasion_terms=[cand.target_buyer, cand.season_or_event],
+                                use_case_terms=[pf.product for pf in cand.recommended_products[:3]],
+                                market=workflow.target_country,
+                                language=workflow.output_language,
+                                competition_level=CompetitionLevel.DIFFERENTIABLE if cand.competition_level.value == "Low" else CompetitionLevel.CROWDED,
+                                competition_note=f"Market opportunity in {cand.niche}",
+                                relevance_rank=rank,
+                            )
+                            await uow.research.add_keyword_cluster(db_cluster)
+                            rank = max(40, rank - 5)
+
+                candidate_pool_json = [
+                    {
+                        "id": c.id,
+                        "title": c.title,
+                        "concept_summary": c.concept_summary,
+                        "target_buyer": c.target_buyer,
+                        "niche": c.niche,
+                        "season_or_event": c.season_or_event,
+                        "visual_direction": c.visual_direction,
+                        "design_style": c.design_style,
+                        "slogan": c.slogan,
+                        "color_palette": c.color_palette,
+                        "keyword_cluster": c.keyword_cluster,
+                        "why_it_could_sell": c.why_it_could_sell,
+                        "evidence_summary": c.evidence_summary,
+                        "overall_score": c.scores.overall if c.scores else 80,
+                        "scores": c.scores.to_dict() if c.scores else {},
+                        "competition": c.competition_level.value,
+                        "trend_direction": c.trend_direction.value,
+                        "market_validation": c.market_validation.value,
+                        "timing_label": c.timing_label.value,
+                        "recommended_launch_window": c.recommended_launch_window,
+                        "ip_risk": c.ip_risk,
+                        "recommended_products": [
+                            {"product": pf.product, "fit": pf.fit} for pf in c.recommended_products
+                        ],
+                        "positive_prompt": c.positive_prompt,
+                        "negative_prompt": c.negative_prompt,
+                        "typography_instructions": c.typography_instructions,
+                    }
+                    for c in all_candidates
+                ]
+
+                # Save 3 Final Opportunities
+                for index, concept in enumerate(top_3):
+                    overall_val = concept.scores.overall if concept.scores else 80
+                    db_score = max(1.00, min(5.00, round(overall_val / 20.0, 2)))
+
+                    risk_level_str = "low"
+                    risk_note = "Passed preliminary phrase screen."
+                    tm_findings = {}
+
+                    if trademark_service:
+                        try:
+                            tm_risk, tm_findings = await trademark_service.screen_concept_trademark(
+                                slogan=concept.slogan,
+                                title=concept.title,
+                                description=concept.concept_summary,
+                            )
+                            if tm_risk in (RiskLevel.HIGH, RiskLevel.MEDIUM):
+                                risk_level_str = tm_risk.value
+                                reasons_list = tm_findings.get("reasons", [])
+                                if reasons_list:
+                                    risk_note = "; ".join(reasons_list)
+                        except Exception as tm_screen_err:
+                            logger.warning("trademark_screening_worker_error", error=str(tm_screen_err))
+
+                    breakdown = {
+                        "opportunity_type": concept.opportunity_type.value,
+                        "overall_score": overall_val,
+                        "scores": concept.scores.to_dict() if concept.scores else {},
+                        "competition": concept.competition_level.value,
+                        "trend_direction": concept.trend_direction.value,
+                        "market_validation": concept.market_validation.value,
+                        "timing_label": concept.timing_label.value,
+                        "recommended_launch_window": concept.recommended_launch_window,
+                        "target_buyer": concept.target_buyer,
+                        "niche": concept.niche,
+                        "season_or_event": concept.season_or_event,
+                        "why_it_could_sell": concept.why_it_could_sell,
+                        "evidence_summary": concept.evidence_summary,
+                        "keyword_cluster": concept.keyword_cluster,
+                        "color_palette": concept.color_palette,
+                        "design_style": concept.design_style,
+                        "visual_direction": concept.visual_direction,
+                        "recommended_products": [
+                            {"product": pf.product, "fit": pf.fit} for pf in concept.recommended_products
+                        ],
+                        "confidence": concept.confidence,
+                        "trademark_report": tm_findings,
+                        "all_candidate_pool": candidate_pool_json,
+                    }
+
+                    db_concept = ProductConcept(
+                        workflow_id=workflow_id,
+                        original_idea_id=None,
+                        research_run_id=run_id,
+                        title=concept.title,
+                        description=concept.concept_summary,
+                        origin=ConceptOrigin.MARKET,
+                        differentiation=concept.why_it_could_sell,
+                        target_buyer=concept.target_buyer,
+                        buyer_use_case=f"{concept.niche} - {concept.season_or_event}",
+                        seasonality=Seasonality.SEASONAL if concept.season_or_event.lower() not in ("evergreen", "year-round") else Seasonality.EVERGREEN,
+                        risk_level=RiskLevel(risk_level_str),
+                        risk_note=risk_note,
+                        score=db_score,
+                        score_breakdown=breakdown,
+                        score_explanation=concept.why_it_could_sell,
+                        status=ConceptStatus.PROPOSED if index > 0 else ConceptStatus.SHORTLISTED,
+                    )
+                    await uow.concepts.add(db_concept)
+
+                    # Save Prompt Version 1
+                    await uow.concepts.add_prompt_version(
+                        db_concept,
+                        positive_prompt=concept.positive_prompt,
+                        negative_prompt=concept.negative_prompt,
+                        typography_instructions=concept.typography_instructions,
+                        exact_slogan=concept.slogan,
+                        change_note="Initial Market Opportunity Discovery prompt.",
+                        intended_product_uses=[pf.product for pf in concept.recommended_products if pf.fit >= 75],
+                        style_notes=concept.design_style,
+                        palette=", ".join(concept.color_palette),
+                        post_generation_checklist=["transparent background", "clean uncropped edges", "sRGB color profile"],
+                        generation_metadata={"aspect": "1:1", "quality_tier": "draft"},
+                    )
+
+                # Transition Workflow to IDEA_REVIEW
+                db_workflow.state = RunStatus.IDEA_REVIEW
+                await uow.research.update_run(
+                    run_id,
+                    status=JobStatus.SUCCEEDED,
+                    completed_at=datetime.now(UTC),
+                )
+                await uow.commit()
+
+            logger.info("market_opportunity_discovery_task_completed", workflow_id=str(workflow_id), run_id=str(run_id))
+            return
+
+        # -------------------------------------------------------------
+        # Legacy Path for USER_IDEA & HYBRID Modes
+        # -------------------------------------------------------------
+        angles = {
+            "broad": f"{search_theme} png design clipart",
+            "long-tail": f"hand-drawn {search_theme} sublimation transparent background",
+            "recipient": f"{idea_buyer or 'gift'} {search_theme} png",
+            "style": f"{idea_style or 'retro groovy'} {search_theme} clipart",
+            "use-case": f"{search_theme} sublimation design for mug shirt",
+        }
+
         evidence_list: list[tuple[str, str, SearchResult]] = []
         query_angles_run: list[str] = []
 
@@ -379,13 +650,6 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
 
         if not evidence_list:
             raise RuntimeError("No search evidence could be aggregated from search provider.")
-
-        # 3. Synthesize Findings using Text Provider (Gemini or Fake)
-        text_provider: TextGenerationProvider
-        if settings.provider_mode == "live" and gemini_api_key:
-            text_provider = GeminiSynthesisAdapter(api_key=gemini_api_key)
-        else:
-            text_provider = FakeTextProvider()
 
         evidence_content = "\n".join(
             [
@@ -467,17 +731,14 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             "variations of the user's theme/direction and remain recognizably connected to it, "
             "while informing them with market research. "
             "Set origin to 'hybrid' and fidelity to 'Medium'.\n"
-            "3. For 'market-led' mode: You MUST generate EXACTLY 3 concepts, discovering "
-            "opportunities from the market/seasonal research evidence. "
-            "Set origin to 'market' and fidelity to 'Low'.\n"
-            "4. Never name living artists in the positive prompt. Style must be descriptive "
+            "3. Never name living artists in the positive prompt. Style must be descriptive "
             "(e.g. textured watercolor shading, vintage retro groovy style).\n"
-            "5. Every prompt must demand 'isolated central artwork on a transparent background' "
+            "4. Every prompt must demand 'isolated central artwork on a transparent background' "
             "and 'clean uncropped edges'.\n"
-            "6. Keep typography separate. Slogans should be null in the positive prompt, and exact "
+            "5. Keep typography separate. Slogans should be null in the positive prompt, and exact "
             "phrases must be listed in exact_slogan and layout instructions in "
             "typography_instructions.\n"
-            "7. Never invent or include fake search volume numbers."
+            "6. Never invent or include fake search volume numbers."
         )
 
         user_prompt = (
@@ -507,7 +768,6 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
 
         # Record estimate in ledger before paid call
         estimated_price = Money(1, "USD")
-        is_live = settings.provider_mode == "live"
         async with UnitOfWork(session_factory) as uow:
             ledger_entry = await uow.costs.record_estimate(
                 workflow_id=workflow_id,
@@ -677,6 +937,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                     post_generation_checklist=prompt_data.get("post_generation_checklist", []),
                     generation_metadata=prompt_data.get("generation_metadata", {}),
                 )
+
 
             # Reconcile usage costs (Gemini 2.5 Flash: $0.075 / 1M prompt tokens, $0.30 / 1M completion tokens)
             tokens_in = text_response.input_tokens
