@@ -362,6 +362,7 @@ class GeminiSynthesisAdapter:
         generation_config: dict[str, Any] = {
             "responseMimeType": "application/json",
             "maxOutputTokens": max_tokens,
+            "thinkingConfig": {"thinkingBudget": 0},
         }
         if schema_cls is not None:
             generation_config["responseSchema"] = inline_refs(schema_cls.model_json_schema())
@@ -377,9 +378,12 @@ class GeminiSynthesisAdapter:
 
         # Prioritize active Google AI Studio models
         preferred_models = [
-            "gemini-3.6-flash",
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-2.5-pro",
             "gemini-3.5-flash",
-            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.1-pro-preview",
         ]
@@ -451,8 +455,17 @@ class GeminiSynthesisAdapter:
                                 message="Gemini response did not return any candidates.",
                             )
 
-                        part = candidates[0].get("content", {}).get("parts", [{}])[0]
-                        text = part.get("text", "")
+                        content = candidates[0].get("content", {})
+                        parts = content.get("parts", [])
+                        text_parts: list[str] = []
+                        for p in parts:
+                            if p.get("thought"):
+                                continue
+                            if "text" in p and p["text"]:
+                                text_parts.append(p["text"])
+                        if not text_parts and parts:
+                            text_parts = [p.get("text", "") for p in parts if p.get("text")]
+                        text = "".join(text_parts).strip()
                         if not text:
                             raise ProviderError(
                                 kind=ProviderErrorKind.INVALID_REQUEST,
