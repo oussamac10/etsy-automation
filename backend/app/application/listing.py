@@ -33,13 +33,14 @@ logger = structlog.get_logger(__name__)
 
 
 def deduplicate_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Deduplicate version history by content so identical title/desc/tags are never duplicated."""
+    """Deduplicate version history by content so identical title/desc/cart_summary/tags are not duplicated."""
     seen_content: set[str] = set()
     cleaned: list[dict[str, Any]] = []
-    for item in history:
+    sorted_history = sorted(history, key=lambda item: int(item.get("version", 0)))
+    for item in sorted_history:
         raw_t = [str(x).strip().lower() for x in item.get("tags", [])]
         tags_sorted = tuple(sorted(raw_t))
-        content_key = f"{str(item.get('title', '')).strip().lower()}||{str(item.get('description', '')).strip().lower()}||{','.join(tags_sorted)}"
+        content_key = f"{str(item.get('title', '')).strip().lower()}||{str(item.get('description', '')).strip().lower()}||{str(item.get('shopping_cart_summary', '')).strip().lower()}||{','.join(tags_sorted)}"
         if content_key not in seen_content:
             seen_content.add(content_key)
             cleaned.append(item)
@@ -47,7 +48,7 @@ def deduplicate_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None:
-    """Record a version snapshot into draft.ip_findings['history'] and ensure no duplicates."""
+    """Record a version snapshot into draft.ip_findings['history'] and ensure all versions are preserved."""
     findings = dict(draft.ip_findings or {})
     raw_history = findings.get("history")
     history: list[dict[str, Any]] = list(raw_history) if isinstance(raw_history, list) else []
@@ -57,31 +58,27 @@ def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None
 
     risk_str = draft.ip_risk_level.value if hasattr(draft.ip_risk_level, "value") else str(draft.ip_risk_level)
 
-    # Check if this exact content already exists in history
-    draft_tags_sorted = tuple(sorted(t.strip().lower() for t in draft.tags))
-    draft_key = f"{draft.title.strip().lower()}||{draft.description.strip().lower()}||{','.join(draft_tags_sorted)}"
+    existing_for_version = next((s for s in history if s.get("version") == draft.version), None)
+    if existing_for_version:
+        existing_for_version["title"] = draft.title
+        existing_for_version["description"] = draft.description
+        existing_for_version["shopping_cart_summary"] = draft.shopping_cart_summary
+        existing_for_version["tags"] = list(draft.tags)
+        existing_for_version["ip_risk_level"] = risk_str
+        existing_for_version["source"] = source
+    else:
+        snapshot: dict[str, Any] = {
+            "version": draft.version,
+            "title": draft.title,
+            "description": draft.description,
+            "shopping_cart_summary": draft.shopping_cart_summary,
+            "tags": list(draft.tags),
+            "ip_risk_level": risk_str,
+            "created_at": datetime.now(UTC).isoformat(),
+            "source": source,
+        }
+        history.append(snapshot)
 
-    for existing in history:
-        ext_tags_sorted = tuple(sorted(str(t).strip().lower() for t in existing.get("tags", [])))
-        ext_key = f"{str(existing.get('title', '')).strip().lower()}||{str(existing.get('description', '')).strip().lower()}||{','.join(ext_tags_sorted)}"
-        if ext_key == draft_key:
-            # Already exists in history; update version number and avoid adding duplicate
-            existing["version"] = draft.version
-            existing["ip_risk_level"] = risk_str
-            findings["history"] = history
-            draft.ip_findings = findings
-            return
-
-    snapshot: dict[str, Any] = {
-        "version": draft.version,
-        "title": draft.title,
-        "description": draft.description,
-        "tags": list(draft.tags),
-        "ip_risk_level": risk_str,
-        "created_at": datetime.now(UTC).isoformat(),
-        "source": source,
-    }
-    history.append(snapshot)
     findings["history"] = deduplicate_history(history)
 
     # Accumulate all historical tags for this draft into tag_history
@@ -356,6 +353,12 @@ class ListingDraftService:
 
         # Save snapshot into history
         record_version_snapshot(updated_draft, source="manual")
+        await uow.listing_drafts.update_ip_review(
+            updated_draft.id,
+            ip_reviewed_phrase=updated_draft.ip_reviewed_phrase,
+            ip_risk_level=updated_draft.ip_risk_level,
+            ip_findings=updated_draft.ip_findings,
+        )
 
         # Record audit event
         await uow.audit.record(
@@ -401,6 +404,7 @@ class ListingDraftService:
 
         restored_title = str(snapshot.get("title", draft.title))
         restored_description = str(snapshot.get("description", draft.description))
+        restored_summary = snapshot.get("shopping_cart_summary", draft.shopping_cart_summary)
         raw_tags = snapshot.get("tags", draft.tags)
         restored_tags = [str(t) for t in raw_tags] if isinstance(raw_tags, list) else list(draft.tags)
 
@@ -408,6 +412,7 @@ class ListingDraftService:
             workflow_id=workflow_id,
             title=restored_title,
             description=restored_description,
+            shopping_cart_summary=restored_summary,
             tags=restored_tags,
             expected_version=None,
             uow=uow,
@@ -436,7 +441,6 @@ class ListingDraftService:
             raise DomainError(f"Version {target_version} not found in listing history.")
 
         findings["history"] = deduplicate_history(remaining_history)
-        draft.ip_findings = findings
         await uow.listing_drafts.update_ip_review(
             draft.id,
             ip_reviewed_phrase=draft.ip_reviewed_phrase,
@@ -462,24 +466,22 @@ class ListingDraftService:
         uow: UnitOfWork,
         actor_email: str,
     ) -> ListingDraft:
-        """Permanently remove a tag from this campaign's historical tag list."""
+        """Remove a tag from the persistent campaign tag_history suggestion bank."""
         draft = await uow.listing_drafts.get_by_workflow(workflow_id)
         if draft is None:
             raise EntityNotFoundError("ListingDraft", workflow_id)
 
-        findings = dict(draft.ip_findings or {})
         target_tag = tag.strip().lower()
+        findings = dict(draft.ip_findings or {})
         raw_th = findings.get("tag_history", [])
         if isinstance(raw_th, list):
             findings["tag_history"] = [t for t in raw_th if str(t).strip().lower() != target_tag]
-        draft.ip_findings = findings
-
-        await uow.listing_drafts.update_ip_review(
-            draft.id,
-            ip_reviewed_phrase=draft.ip_reviewed_phrase,
-            ip_risk_level=draft.ip_risk_level,
-            ip_findings=findings,
-        )
+            await uow.listing_drafts.update_ip_review(
+                draft.id,
+                ip_reviewed_phrase=draft.ip_reviewed_phrase,
+                ip_risk_level=draft.ip_risk_level,
+                ip_findings=findings,
+            )
 
         await uow.audit.record(
             action=AuditAction.SETTINGS_UPDATED,
@@ -520,6 +522,13 @@ class ListingDraftService:
             keywords=keywords,
             tags=draft.tags,
         )
+
+        raw_history = (draft.ip_findings or {}).get("history")
+        if raw_history:
+            findings["history"] = list(raw_history)
+        raw_tag_history = (draft.ip_findings or {}).get("tag_history")
+        if raw_tag_history:
+            findings["tag_history"] = list(raw_tag_history)
 
         reviewed_phrase = slogan or draft.title
         updated_draft = await uow.listing_drafts.update_ip_review(

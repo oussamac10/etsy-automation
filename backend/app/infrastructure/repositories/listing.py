@@ -139,9 +139,16 @@ class SqlListingDraftRepository:
         if draft is None:
             raise EntityNotFoundError("ListingDraft", draft_id)
 
+        merged_findings = dict(draft.ip_findings or {})
+        merged_findings.update(ip_findings)
+        if "history" in (draft.ip_findings or {}) and "history" not in ip_findings:
+            merged_findings["history"] = draft.ip_findings["history"]
+        if "tag_history" in (draft.ip_findings or {}) and "tag_history" not in ip_findings:
+            merged_findings["tag_history"] = draft.ip_findings["tag_history"]
+
         draft.ip_reviewed_phrase = ip_reviewed_phrase
         draft.ip_risk_level = ip_risk_level  # type: ignore[assignment]
-        draft.ip_findings = ip_findings
+        draft.ip_findings = merged_findings
         await self._session.flush()
         return draft
 

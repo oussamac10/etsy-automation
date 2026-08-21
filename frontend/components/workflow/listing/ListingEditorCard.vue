@@ -432,6 +432,9 @@ function formatSnapshotDate(dateStr?: string) {
             <p class="font-medium text-foreground line-clamp-2">
               <span class="text-muted-foreground font-normal">Title: </span>{{ item.title }}
             </p>
+            <p v-if="item.shopping_cart_summary" class="text-muted-foreground text-[11px] line-clamp-2">
+              <span class="font-medium text-foreground">Cart Summary: </span>{{ item.shopping_cart_summary }}
+            </p>
             <p class="text-muted-foreground text-[11px] line-clamp-2">
               <span class="font-medium text-foreground">Description: </span>{{ item.description }}
             </p>

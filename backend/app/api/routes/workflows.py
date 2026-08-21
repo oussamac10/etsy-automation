@@ -2265,6 +2265,12 @@ async def generate_listing_seo_endpoint(
             )
 
         record_version_snapshot(screened_draft, source="ai_generated")
+        await uow.listing_drafts.update_ip_review(
+            screened_draft.id,
+            ip_reviewed_phrase=screened_draft.ip_reviewed_phrase,
+            ip_risk_level=screened_draft.ip_risk_level,
+            ip_findings=screened_draft.ip_findings,
+        )
 
         # Compile customer package in background / non-blocking
         if target in ("all", "title", "description"):

@@ -51,6 +51,7 @@ export interface ListingVersionSnapshot {
   version: number;
   title: string;
   description: string;
+  shopping_cart_summary?: string | null;
   tags: string[];
   ip_risk_level?: string;
   created_at?: string;
