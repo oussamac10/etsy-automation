@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 
 from app.application.research import queue_research_run
 from app.application.unit_of_work import UnitOfWork
-from app.domain.enums import AuditAction, ConceptStatus, IdeaMode
+from app.domain.enums import AuditAction, ConceptOrigin, ConceptStatus, IdeaMode
 from app.domain.errors import (
     ConcurrentModificationError,
     EntityNotFoundError,
@@ -34,6 +34,7 @@ from app.infrastructure.models import (
     Approval,
     AuditEvent,
     OriginalIdea,
+    ProductConcept,
     ProductWorkflow,
     WorkflowTransition,
 )
@@ -667,3 +668,97 @@ def gate_for_state(state: RunStatus) -> ApprovalGate | None:
         if source is state:
             return gate
     return None
+
+
+async def spawn_campaign_from_concept(
+    uow: UnitOfWork,
+    source_workflow_id: uuid.UUID,
+    concept_id: uuid.UUID,
+    *,
+    owner_id: uuid.UUID,
+    actor: str,
+) -> ProductWorkflow:
+    """Create a new campaign directly from a discovered market opportunity concept without re-running research."""
+    source_workflow = await _owned_workflow(uow, source_workflow_id, owner_id)
+    concept = await uow.concepts.get(concept_id)
+    if not concept or concept.workflow_id != source_workflow_id:
+        raise EntityNotFoundError("ProductConcept", concept_id)
+
+    # 1. Create new workflow for this concept
+    new_workflow = ProductWorkflow(
+        owner_id=owner_id,
+        idea_mode=IdeaMode.MARKET_LED,
+        name=f"{concept.title} - Campaign",
+        target_marketplace=source_workflow.target_marketplace,
+        target_country=source_workflow.target_country,
+        output_language=source_workflow.output_language,
+        target_buyer=concept.target_buyer or source_workflow.target_buyer,
+        intended_product_uses=list(source_workflow.intended_product_uses),
+        state=RunStatus.DRAFT,
+        version=1,
+    )
+    await uow.workflows.add(new_workflow)
+    await uow.workflows.record_initial_state(new_workflow, actor=actor)
+
+    # 2. Attach the concept to the new workflow
+    new_concept = ProductConcept(
+        workflow_id=new_workflow.id,
+        original_idea_id=None,
+        research_run_id=None,
+        title=concept.title,
+        description=concept.description,
+        origin=concept.origin,
+        differentiation=concept.differentiation,
+        target_buyer=concept.target_buyer,
+        buyer_use_case=concept.buyer_use_case,
+        seasonality=concept.seasonality,
+        risk_level=concept.risk_level,
+        risk_note=concept.risk_note,
+        score=concept.score,
+        score_breakdown=concept.score_breakdown,
+        score_explanation=concept.score_explanation,
+        status=ConceptStatus.APPROVED,
+    )
+    await uow.concepts.add(new_concept)
+
+    # 3. Copy prompts
+    source_prompts = await uow.concepts.prompts(concept.id)
+    if source_prompts:
+        latest_p = source_prompts[-1]
+        await uow.concepts.add_prompt_version(
+            new_concept,
+            positive_prompt=latest_p.positive_prompt,
+            negative_prompt=latest_p.negative_prompt,
+            typography_instructions=latest_p.typography_instructions,
+            exact_slogan=latest_p.exact_slogan,
+            intended_product_uses=latest_p.intended_product_uses,
+            style_notes=latest_p.style_notes,
+            palette=latest_p.palette,
+            change_note="Spawned from market opportunity discovery",
+        )
+
+    # 4. Advance new workflow to IDEA_APPROVED
+    await uow.workflows.transition(
+        new_workflow,
+        to_state=RunStatus.IDEA_APPROVED,
+        expected_version=new_workflow.version,
+        reason="Campaign spawned from discovered opportunity",
+        actor=actor,
+    )
+
+    await uow.audit.record(
+        action=AuditAction.ENTITY_CREATED,
+        entity_type="ProductWorkflow",
+        entity_id=new_workflow.id,
+        workflow_id=new_workflow.id,
+        actor=actor,
+        summary=f"Campaign spawned from concept: {concept.title}",
+        after={
+            "state": RunStatus.IDEA_APPROVED.value,
+            "source_workflow_id": str(source_workflow_id),
+            "concept_id": str(concept_id),
+        },
+    )
+
+    await uow.commit()
+    return new_workflow

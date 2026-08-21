@@ -790,6 +790,28 @@ async def refresh_concept_endpoint(
     return ProductConceptResponse.model_validate(concept_dict)
 
 
+@router.post(
+    "/{workflow_id}/concepts/{concept_id}/spawn-campaign",
+    response_model=WorkflowResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Spawn a new independent campaign directly from a discovered market opportunity",
+)
+async def spawn_campaign_endpoint(
+    workflow_id: uuid.UUID,
+    concept_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+) -> WorkflowResponse:
+    new_workflow = await use_cases.spawn_campaign_from_concept(
+        uow,
+        workflow_id,
+        concept_id,
+        owner_id=user.id,
+        actor=user.email,
+    )
+    return WorkflowResponse.model_validate(new_workflow)
+
+
 def to_asset_response(asset: Asset, url: str | None = None) -> AssetResponse:
     return AssetResponse(
         id=asset.id,

@@ -358,3 +358,8 @@ class TestRisk:
             "high",
             "unknown",
         }
+
+    def test_spawn_campaign_direct_transition_allowed(self) -> None:
+        # Spawning an independent campaign from pre-validated discovery concept transitions DRAFT -> IDEA_APPROVED
+        assert can_transition(RunStatus.DRAFT, RunStatus.IDEA_APPROVED) is True
+        assert advance(RunStatus.DRAFT, RunStatus.IDEA_APPROVED) is RunStatus.IDEA_APPROVED

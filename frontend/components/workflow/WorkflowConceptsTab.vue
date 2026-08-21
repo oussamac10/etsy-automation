@@ -156,6 +156,7 @@ function getApiBase(): string {
 
 const isScreeningMap = ref<Record<string, boolean>>({});
 const isRefreshingMap = ref<Record<string, boolean>>({});
+const isSpawningMap = ref<Record<string, boolean>>({});
 const isStartingNewResearch = ref(false);
 const expandedFindingsMap = ref<Record<string, boolean>>({});
 const expandedPromptMap = ref<Record<string, boolean>>({});
@@ -170,6 +171,40 @@ const researchSummary = ref<ResearchSummaryData | null>(null);
 const visibleConcepts = computed(() => {
   return props.concepts.filter((c) => c.status?.toUpperCase() !== "ARCHIVED");
 });
+
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift() ?? null;
+  return null;
+}
+
+async function handleSpawnCampaign(concept: Concept) {
+  isSpawningMap.value[concept.id] = true;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) headers["x-csrf-token"] = csrf;
+
+    const newWorkflow = await $fetch<{ id: string }>(
+      `${getApiBase().replace(/\/$/, "")}/api/v1/workflows/${props.workflow.id}/concepts/${concept.id}/spawn-campaign`,
+      {
+        method: "POST",
+        headers,
+        credentials: "include",
+      }
+    );
+
+    if (newWorkflow?.id) {
+      await navigateTo(`/workflow/${newWorkflow.id}?tab=artwork`);
+    }
+  } catch (err: unknown) {
+    console.error("Failed to spawn campaign from concept:", err);
+  } finally {
+    isSpawningMap.value[concept.id] = false;
+  }
+}
 
 function getTrademarkReport(concept: Concept): TrademarkReport | null {
   const report = concept.score_breakdown?.trademark_report;
@@ -281,6 +316,35 @@ function formatProductName(prod: string): string {
     candle: "Candle",
   };
   return names[prod.toLowerCase()] || prod;
+}
+
+function getTargetBuyer(concept: Concept): string {
+  return (concept.score_breakdown?.target_buyer as string) || concept.target_buyer || "Passionate Niche Shoppers";
+}
+
+function getNiche(concept: Concept): string {
+  return (concept.score_breakdown?.niche as string) || concept.buyer_use_case || "Trending Concept";
+}
+
+function getConfidence(concept: Concept): string {
+  return (concept.score_breakdown?.confidence as string) || "95%";
+}
+
+function getKeywordCluster(concept: Concept): string[] {
+  const kws = concept.score_breakdown?.keyword_cluster;
+  if (Array.isArray(kws)) return kws as string[];
+  return [];
+}
+
+function getTrademarkBannerClass(concept: Concept): string {
+  const risk = concept.risk_level?.toLowerCase();
+  if (risk === "high") {
+    return "bg-destructive/10 border-destructive/30 text-destructive";
+  }
+  if (risk === "medium") {
+    return "border-amber-500/30 bg-amber-500/10 text-foreground";
+  }
+  return "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300";
 }
 
 async function handleScreenTrademark(conceptId: string) {
@@ -469,7 +533,6 @@ function confirmHighRiskApproval() {
               : concept.status?.toUpperCase() === 'REJECTED'
                 ? 'border-red-200 opacity-60 bg-red-50/20'
                 : 'border-border bg-white',
-            approvedConcept && concept.status?.toUpperCase() !== 'APPROVED' ? 'opacity-40 pointer-events-none' : '',
           ]"
         >
           <!-- Card Top Bar: Strategy Badge, Title, Score -->
@@ -495,7 +558,7 @@ function confirmHighRiskApproval() {
 
                   <Badge v-if="concept.status?.toUpperCase() === 'APPROVED'" variant="success" class="text-[10px] px-2 py-0 font-bold inline-flex items-center gap-1">
                     <Icon name="lucide:circle-check" class="size-3 text-emerald-600" aria-hidden="true" />
-                    <span>Selected</span>
+                    <span>Selected for this Campaign</span>
                   </Badge>
                 </div>
 
@@ -522,87 +585,154 @@ function confirmHighRiskApproval() {
               </div>
               <div class="flex items-center gap-1.5 p-1.5 rounded-lg bg-secondary/50 border border-border/80">
                 <Icon name="lucide:bar-chart-2" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
-                <span class="truncate text-muted-foreground">Comp: <strong class="text-foreground">{{ getCompetition(concept) }}</strong></span>
+                <span class="truncate text-muted-foreground">Competition: <strong class="text-foreground">{{ getCompetition(concept) }}</strong></span>
               </div>
               <div class="flex items-center gap-1.5 p-1.5 rounded-lg bg-secondary/50 border border-border/80">
                 <Icon name="lucide:clock" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
                 <span class="truncate text-muted-foreground">Timing: <strong class="text-foreground">{{ getTiming(concept) }}</strong></span>
               </div>
               <div class="flex items-center gap-1.5 p-1.5 rounded-lg bg-secondary/50 border border-border/80">
-                <Icon name="lucide:shield-check" class="size-3.5 text-emerald-600 shrink-0" aria-hidden="true" />
+                <Icon name="lucide:shield-check" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
                 <span class="truncate text-muted-foreground">Validation: <strong class="text-foreground">{{ getMarketValidation(concept) }}</strong></span>
               </div>
               <div class="flex items-center gap-1.5 p-1.5 rounded-lg bg-secondary/50 border border-border/80">
-                <Icon
-                  :name="concept.risk_level?.toLowerCase() === 'high' ? 'lucide:shield-alert' : 'lucide:shield-check'"
-                  :class="concept.risk_level?.toLowerCase() === 'high' ? 'text-destructive' : 'text-emerald-600'"
-                  class="size-3.5 shrink-0"
-                  aria-hidden="true"
-                />
-                <span class="truncate text-muted-foreground">IP Risk: <strong :class="concept.risk_level?.toLowerCase() === 'high' ? 'text-destructive font-bold' : 'text-foreground'">{{ concept.risk_level?.toUpperCase() }}</strong></span>
+                <Icon name="lucide:zap" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
+                <span class="truncate text-muted-foreground">Confidence: <strong class="text-foreground">{{ getConfidence(concept) }}</strong></span>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent class="p-5 space-y-4 text-xs">
-            <!-- Concept Description -->
-            <p class="text-sm text-foreground leading-relaxed">{{ concept.description }}</p>
+          <CardContent class="p-4 space-y-4 text-xs">
+            <!-- Strategic Why This Sells Block -->
+            <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-foreground space-y-1">
+              <div class="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
+                <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
+                <span>Why This Could Sell:</span>
+              </div>
+              <p class="text-[11px] leading-relaxed text-foreground/90">{{ getWhyItCouldSell(concept) }}</p>
+            </div>
 
-            <!-- Target Buyer & Best For Products -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="p-3 rounded-lg bg-secondary/40 border border-border space-y-1">
-                <span class="text-[11px] font-bold text-foreground block">Target Buyer Persona:</span>
-                <p class="text-secondary-foreground text-xs">{{ concept.target_buyer || 'Passionate Niche Shoppers' }}</p>
+            <!-- Target Buyer & Market Alignment -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div class="space-y-1">
+                <span class="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Target Buyer Persona</span>
+                <p class="text-[11px] font-medium text-foreground bg-secondary/30 p-2 rounded-lg border border-border/60">
+                  {{ getTargetBuyer(concept) }}
+                </p>
+              </div>
+              <div class="space-y-1">
+                <span class="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Niche / Category</span>
+                <p class="text-[11px] font-medium text-foreground bg-secondary/30 p-2 rounded-lg border border-border/60">
+                  {{ getNiche(concept) }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Product Fit Match Badges -->
+            <div class="space-y-1.5">
+              <span class="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Recommended Product Types</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span
+                  v-for="prod in getRecommendedProducts(concept)"
+                  :key="prod.product"
+                  class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-secondary text-secondary-foreground border border-border inline-flex items-center gap-1"
+                >
+                  <Icon name="lucide:package" class="size-3 text-muted-foreground" aria-hidden="true" />
+                  <span class="capitalize">{{ prod.product }}</span>
+                  <span class="text-[10px] font-mono text-muted-foreground font-bold">({{ prod.fit }}%)</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- High-Intent Search Keywords -->
+            <div v-if="getKeywordCluster(concept).length > 0" class="space-y-1.5">
+              <span class="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">High-Intent Keywords</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span
+                  v-for="kw in getKeywordCluster(concept)"
+                  :key="kw"
+                  class="px-2 py-0.5 rounded-full text-[11px] font-mono bg-primary/5 text-primary border border-primary/20 inline-flex items-center gap-1"
+                >
+                  <Icon name="lucide:tag" class="size-2.5" aria-hidden="true" />
+                  <span>{{ kw }}</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Integrated USPTO Trademark & IP Screening Banner -->
+            <div class="p-3 rounded-lg border text-xs" :class="getTrademarkBannerClass(concept)">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <Icon
+                    :name="
+                      concept.risk_level?.toUpperCase() === 'LOW'
+                        ? 'lucide:shield-check'
+                        : concept.risk_level?.toUpperCase() === 'HIGH'
+                          ? 'lucide:shield-alert'
+                          : 'lucide:shield'
+                    "
+                    class="size-4 shrink-0"
+                    :class="
+                      concept.risk_level?.toUpperCase() === 'LOW'
+                        ? 'text-emerald-600'
+                        : concept.risk_level?.toUpperCase() === 'HIGH'
+                          ? 'text-red-600'
+                          : 'text-amber-500'
+                    "
+                    aria-hidden="true"
+                  />
+                  <div>
+                    <span class="font-bold">USPTO Screening: </span>
+                    <span>{{ concept.risk_note || 'Passed preliminary screen.' }}</span>
+                  </div>
+                </div>
+
+                <Button
+                  v-if="hasLiveMatches(concept) || hasDeadMatches(concept)"
+                  variant="ghost"
+                  size="sm"
+                  class="h-6 px-2 text-[10px] font-semibold underline shrink-0 cursor-pointer"
+                  @click="toggleFindings(concept.id)"
+                >
+                  <span>{{ expandedFindingsMap[concept.id] ? 'Hide' : 'View' }} {{ getMatches(concept).length }} Findings</span>
+                </Button>
               </div>
 
-              <div class="p-3 rounded-lg bg-secondary/40 border border-border space-y-1">
-                <span class="text-[11px] font-bold text-foreground block">Recommended Product Formats:</span>
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span
-                    v-for="p in getRecommendedProducts(concept).slice(0, 4)"
-                    :key="p.product"
-                    class="px-2 py-0.5 rounded-md bg-white border border-border text-[10px] font-medium text-foreground inline-flex items-center gap-1"
-                  >
-                    <span>{{ formatProductName(p.product) }}</span>
-                    <span class="text-primary font-bold">{{ p.fit }}%</span>
-                  </span>
+              <!-- Expanded Trademark Findings -->
+              <div
+                v-if="expandedFindingsMap[concept.id] && getMatches(concept).length > 0"
+                class="mt-3 pt-3 border-t border-current/20 space-y-2"
+              >
+                <div
+                  v-for="m in getMatches(concept)"
+                  :key="m.serial_number || m.mark_text"
+                  class="p-2 rounded bg-black/5 dark:bg-white/5 space-y-1 text-[11px]"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold font-mono">"{{ m.mark_text }}"</span>
+                    <Badge :variant="m.is_live ? 'destructive' : 'secondary'" class="text-[9px] uppercase">
+                      {{ m.is_live ? 'Live Registration' : 'Dead Mark' }}
+                    </Badge>
+                  </div>
+                  <p class="text-[10px] opacity-80">{{ m.goods_services }}</p>
                 </div>
               </div>
             </div>
 
-            <!-- Why This Could Sell Highlight Block -->
-            <div class="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-1">
-              <div class="flex items-center gap-1.5 text-primary font-bold text-xs">
-                <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
-                <span>Why This Could Sell:</span>
-              </div>
-              <p class="text-xs text-foreground/90 leading-relaxed">{{ getWhyItCouldSell(concept) }}</p>
-            </div>
-
-            <!-- Top Keywords Tags -->
-            <div v-if="concept.score_breakdown?.keyword_cluster && concept.score_breakdown.keyword_cluster.length > 0" class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[11px] font-semibold text-muted-foreground">Keywords:</span>
-              <span
-                v-for="(kw, kIdx) in concept.score_breakdown.keyword_cluster.slice(0, 5)"
-                :key="kIdx"
-                class="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-[10px] border border-border"
+            <!-- Expandable Prompt Direction Details -->
+            <div class="pt-2 border-t border-border/80">
+              <div
+                class="flex items-center justify-between cursor-pointer py-1 select-none"
+                @click="togglePrompt(concept.id)"
               >
-                {{ kw }}
-              </span>
-            </div>
-
-            <!-- Active Prompt Accordion (Expandable) -->
-            <div class="rounded-lg border border-border bg-slate-50/50 p-2.5 space-y-2">
-              <div class="flex items-center justify-between cursor-pointer select-none" @click="togglePrompt(concept.id)">
-                <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Icon name="lucide:file-text" class="size-3.5 text-primary" aria-hidden="true" />
-                  <span>Artwork Prompt Specifications (v{{ concept.prompts[concept.prompts.length - 1]?.version || 1 }})</span>
+                <span class="text-[11px] font-semibold text-muted-foreground inline-flex items-center gap-1">
+                  <Icon name="lucide:terminal" class="size-3.5" aria-hidden="true" />
+                  <span>Visual Art Direction & Prompts (v1)</span>
                 </span>
                 <Button variant="ghost" size="sm" class="h-6 px-1.5 text-xs text-muted-foreground">
                   <Icon :name="expandedPromptMap[concept.id] ? 'lucide:chevron-up' : 'lucide:chevron-down'" class="size-3.5" aria-hidden="true" />
                 </Button>
               </div>
-
               <div v-if="expandedPromptMap[concept.id]" class="pt-2 border-t border-border space-y-1.5 font-mono text-[11px]">
                 <p><span class="font-bold text-muted-foreground">Positive:</span> {{ concept.prompts[concept.prompts.length - 1]?.positive_prompt }}</p>
                 <p><span class="font-bold text-muted-foreground">Negative:</span> {{ concept.prompts[concept.prompts.length - 1]?.negative_prompt }}</p>
@@ -616,8 +746,7 @@ function confirmHighRiskApproval() {
 
           <!-- Card Actions Footer -->
           <CardFooter
-            v-if="workflow.state === 'IDEA_REVIEW' && ['PROPOSED', 'SHORTLISTED'].includes(concept.status?.toUpperCase())"
-            class="flex items-center justify-between gap-3 border-t border-border pt-4 bg-secondary/10"
+            class="flex items-center justify-between gap-3 border-t border-border pt-4 bg-secondary/10 flex-wrap"
           >
             <!-- Left Actions: See Research & Refresh -->
             <div class="flex items-center gap-2">
@@ -633,6 +762,7 @@ function confirmHighRiskApproval() {
               </Button>
 
               <Button
+                v-if="workflow.state === 'IDEA_REVIEW' && concept.status?.toUpperCase() !== 'APPROVED'"
                 type="button"
                 variant="ghost"
                 size="sm"
@@ -646,16 +776,44 @@ function confirmHighRiskApproval() {
               </Button>
             </div>
 
-            <!-- Right Primary Action: Use This Idea -->
-            <Button
-              variant="default"
-              size="sm"
-              class="font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
-              @click="handleApproveClick(concept)"
-            >
-              <Icon name="lucide:circle-check" class="size-4" aria-hidden="true" />
-              <span>Use This Idea</span>
-            </Button>
+            <!-- Right Actions: Use This Idea / Start New Campaign -->
+            <div class="flex items-center gap-2">
+              <!-- When in IDEA_REVIEW and concept is unapproved: Use This Idea -->
+              <Button
+                v-if="workflow.state === 'IDEA_REVIEW' && concept.status?.toUpperCase() !== 'APPROVED'"
+                variant="default"
+                size="sm"
+                class="font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+                @click="handleApproveClick(concept)"
+              >
+                <Icon name="lucide:circle-check" class="size-4" aria-hidden="true" />
+                <span>Use This Idea</span>
+              </Button>
+
+              <!-- For unapproved opportunities: Start New Campaign -->
+              <Button
+                v-if="concept.status?.toUpperCase() !== 'APPROVED'"
+                :variant="workflow.state === 'IDEA_REVIEW' ? 'outline' : 'default'"
+                size="sm"
+                :disabled="isSpawningMap[concept.id]"
+                class="font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+                @click="handleSpawnCampaign(concept)"
+              >
+                <Icon v-if="isSpawningMap[concept.id]" name="lucide:loader-circle" class="size-4 animate-spin text-primary" aria-hidden="true" />
+                <Icon v-else name="lucide:sparkles" class="size-4 text-amber-500" aria-hidden="true" />
+                <span>{{ workflow.state === 'IDEA_REVIEW' ? 'Launch as New Campaign' : 'Start New Campaign With This Idea' }}</span>
+              </Button>
+
+              <!-- When this concept is approved for this campaign -->
+              <Badge
+                v-else-if="concept.status?.toUpperCase() === 'APPROVED'"
+                variant="success"
+                class="text-xs py-1 px-2.5 font-bold inline-flex items-center gap-1.5"
+              >
+                <Icon name="lucide:circle-check" class="size-3.5 text-emerald-600" aria-hidden="true" />
+                <span>Active in this Campaign</span>
+              </Badge>
+            </div>
           </CardFooter>
         </Card>
       </div>
