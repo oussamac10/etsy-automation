@@ -2276,6 +2276,7 @@ async def generate_listing_seo_endpoint(
 
         await uow.commit()
     except Exception as exc:
+        logger.exception("seo_generation_endpoint_failed", error=str(exc))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"SEO generation failed: {exc}",
