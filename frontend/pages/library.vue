@@ -774,7 +774,7 @@ onMounted(() => {
 
           <!-- Total Count Badge -->
           <div class="flex items-center gap-2 text-xs text-muted-foreground">
-            <span class="font-bold text-foreground">{{ templates.length }}</span> saved {{ templates.length === 1 ? 'template' : 'templates' }} in MinIO storage
+            <span class="font-bold text-foreground">{{ templates.length }}</span> saved {{ templates.length === 1 ? 'template' : 'templates' }} in your library
           </div>
         </div>
 
@@ -986,7 +986,7 @@ onMounted(() => {
                 variant="outline"
                 size="sm"
                 class="text-[11px] h-7 px-2 font-semibold text-destructive hover:text-destructive hover:bg-red-50 border-red-200 gap-1 cursor-pointer"
-                title="Delete template and permanently purge photo from MinIO"
+                title="Delete template and remove photo from your library"
                 @click="templateToDelete = tpl"
               >
                 <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
@@ -1020,7 +1020,7 @@ onMounted(() => {
           </div>
           <div>
             <h3 class="text-sm font-bold text-foreground">Delete Mockup Template?</h3>
-            <p class="text-xs text-muted-foreground">Permanently delete this photo from MinIO storage.</p>
+            <p class="text-xs text-muted-foreground">Permanently delete this template from your library.</p>
           </div>
         </div>
 

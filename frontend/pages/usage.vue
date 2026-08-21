@@ -528,7 +528,7 @@ onMounted(async () => {
                   <Icon name="lucide:workflow" class="size-4 text-primary" aria-hidden="true" />
                   <span>Spend by Pipeline Stage</span>
                 </CardTitle>
-                <CardDescription class="text-xs">Cost allocation across workflow phases</CardDescription>
+                <CardDescription class="text-xs">Cost allocation across workflow stages</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -599,7 +599,7 @@ onMounted(async () => {
                 <option value="gemini">Gemini</option>
                 <option value="recraft">Recraft</option>
                 <option value="tavily">Tavily</option>
-                <option value="fake">Local / Fake</option>
+                <option value="fake">Local Development</option>
               </select>
             </div>
           </div>

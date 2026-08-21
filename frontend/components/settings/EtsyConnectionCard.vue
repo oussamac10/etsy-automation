@@ -93,7 +93,7 @@ async function handleConnect(): Promise<void> {
           <div>
             <CardTitle class="text-lg">Etsy Shop Connection</CardTitle>
             <CardDescription>
-              Connect your official Etsy seller account via OAuth 2.0 PKCE to automatically create draft listings
+              Connect your official Etsy seller account to automatically create draft listings
             </CardDescription>
           </div>
         </div>
@@ -270,7 +270,7 @@ async function handleConnect(): Promise<void> {
         <!-- Disconnected View -->
         <div v-else class="space-y-4 py-2" data-testid="etsy-disconnected-panel">
           <p class="text-sm text-muted-foreground">
-            Connect your shop using Etsy's standard OAuth 2.0 with PKCE authorization. You will be redirected to Etsy to authorize listing draft management. You will never need to enter API keys or passwords manually.
+            Connect your shop directly with Etsy. You will be redirected to Etsy to authorize listing draft management. You will never need to enter API keys or passwords manually.
           </p>
 
           <div class="flex items-start gap-2.5 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -315,7 +315,7 @@ async function handleConnect(): Promise<void> {
 
       <div class="py-2 text-xs text-muted-foreground space-y-2">
         <p>
-          Disconnecting will remove all stored OAuth tokens from the secure server database. You can reconnect your shop at any time.
+          Disconnecting will revoke access to your Etsy shop. You can reconnect your shop at any time.
         </p>
       </div>
 

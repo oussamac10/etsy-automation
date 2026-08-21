@@ -265,9 +265,9 @@ onBeforeUnmount(stopCountdown);
           <Icon name="lucide:shield-check" class="size-4" aria-hidden="true" />
           <span>Security & Integrations</span>
         </div>
-        <h1 class="text-3xl font-bold tracking-tight text-foreground">Owner Settings</h1>
+        <h1 class="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
         <p class="text-sm text-muted-foreground max-w-2xl">
-          Manage API connection credentials, encryption keys, Etsy shop integration, and active Telegram remote control pairings.
+          Manage AI provider keys, Etsy shop connection, and Telegram notifications.
         </p>
       </header>
 
@@ -480,9 +480,9 @@ onBeforeUnmount(stopCountdown);
                 <Icon name="lucide:key-round" class="size-5" aria-hidden="true" />
               </div>
               <div>
-                <CardTitle class="text-lg">API Connection Keys</CardTitle>
+                <CardTitle class="text-lg">AI Providers & API Keys</CardTitle>
                 <CardDescription>
-                  Configure AES-GCM encrypted keys for Tavily, Gemini, and Recraft
+                  Configure your API keys for Tavily, Gemini, and Recraft
                 </CardDescription>
               </div>
             </div>

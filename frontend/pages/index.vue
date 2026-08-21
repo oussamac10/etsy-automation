@@ -405,7 +405,7 @@ onUnmounted(() => {
             Marketplace Studio
           </h1>
           <p class="text-sm text-muted-foreground max-w-2xl">
-            Autonomous research-to-draft engine for high-resolution digital products. Human approval gates at every milestone.
+            Autonomous research-to-draft engine for high-resolution digital products. Human review and approval at every milestone.
           </p>
         </div>
 
@@ -459,7 +459,7 @@ onUnmounted(() => {
 
         <Card class="p-4 shadow-2xs hover:shadow-xs transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-primary uppercase tracking-wide">Needs Gate Review</span>
+            <span class="text-xs font-semibold text-primary uppercase tracking-wide">Needs Review</span>
             <Icon name="lucide:clock-3" class="size-4 text-primary" aria-hidden="true" />
           </div>
           <p class="text-2xl font-bold text-primary mt-2">{{ attentionCount }}</p>
@@ -746,7 +746,7 @@ onUnmounted(() => {
             <div class="flex items-center justify-between border-t border-border pt-4">
               <div class="flex items-center gap-2 text-xs text-muted-foreground">
                 <Clock class="h-4 w-4 text-primary" />
-                <span>Runs in background · Pauses at Gate 1 for review</span>
+                <span>Runs in background · Pauses for concept review</span>
               </div>
 
               <Button
@@ -776,7 +776,7 @@ onUnmounted(() => {
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle class="text-xl">Your Design Workflows</CardTitle>
-              <CardDescription>Track pipeline execution, monitor approval gates, and manage drafts</CardDescription>
+              <CardDescription>Track campaign execution, review milestones, and manage drafts</CardDescription>
             </div>
 
             <!-- Search & Filters -->

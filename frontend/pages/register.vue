@@ -67,7 +67,7 @@ async function handleRegister() {
       <Card class="shadow-xl border-border bg-card backdrop-blur-xs">
         <CardHeader class="space-y-1 pb-4">
           <CardTitle class="text-xl">Create your account</CardTitle>
-          <CardDescription>Setup your owner profile to get started</CardDescription>
+          <CardDescription>Create your profile to get started</CardDescription>
         </CardHeader>
 
         <CardContent>
