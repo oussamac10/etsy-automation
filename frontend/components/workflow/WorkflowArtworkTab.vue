@@ -108,10 +108,18 @@ watch(artProvider, (newVal) => {
   }
 });
 
+const relevantJobs = computed(() => {
+  const currentConcept = props.approvedConcept;
+  if (!currentConcept) return props.artworkJobs;
+  return props.artworkJobs.filter((j) => j.concept_id === currentConcept.id);
+});
+
+const latestRelevantJob = computed(() => relevantJobs.value[0]);
+
 const isJobInFlight = computed(() => {
   if (props.isArtworkLoading) return true;
   if (["ART_QUEUED", "ART_GENERATION"].includes(props.workflow.state)) return true;
-  const latestJob = props.artworkJobs[0];
+  const latestJob = latestRelevantJob.value;
   if (!latestJob) return false;
   const status = latestJob.status?.toLowerCase();
   return ["queued", "running", "processing", "generating", "refining"].includes(status);
@@ -119,14 +127,14 @@ const isJobInFlight = computed(() => {
 
 const isJobFailed = computed(() => {
   if (props.workflow.state === "ART_GENERATION_FAILED") return true;
-  const latestJob = props.artworkJobs[0];
+  const latestJob = latestRelevantJob.value;
   return latestJob?.status?.toLowerCase() === "failed";
 });
 
 const currentAssets = computed(() => {
   const assets: Asset[] = [];
   const seen = new Set<string>();
-  for (const job of props.artworkJobs) {
+  for (const job of relevantJobs.value) {
     if (job.assets) {
       for (const a of job.assets) {
         if (!seen.has(a.id)) {
@@ -140,7 +148,7 @@ const currentAssets = computed(() => {
 });
 
 function getAssetJob(assetId: string): ArtworkJob | undefined {
-  return props.artworkJobs.find((j) => j.assets?.some((a) => a.id === assetId));
+  return relevantJobs.value.find((j) => j.assets?.some((a) => a.id === assetId));
 }
 
 function isAssetRefined(assetId?: string | null): boolean {
@@ -159,7 +167,7 @@ function isAssetRefined(assetId?: string | null): boolean {
 
 const latestFailureMessage = computed(() => {
   return (
-    props.artworkJobs[0]?.failure_message ||
+    latestRelevantJob.value?.failure_message ||
     props.artworkError ||
     "An unexpected error occurred during artwork generation."
   );

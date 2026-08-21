@@ -436,6 +436,21 @@ async function handleDecideGate(
     );
     await loadData();
     if (decision === "APPROVED") {
+      try {
+        await $fetch(
+          `${apiBase.replace(/\/$/, "")}/api/v1/workflows/${workflowId}/artwork`,
+          {
+            method: "POST",
+            headers,
+            body: { provider: "recraft", provider_model: "recraftv4_1" },
+            credentials: "include",
+          }
+        );
+        await loadData();
+        startPolling();
+      } catch (err: unknown) {
+        console.error("Failed to auto-trigger artwork generation:", err);
+      }
       setActiveTab("artwork");
     }
   } catch {

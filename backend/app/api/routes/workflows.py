@@ -1039,7 +1039,13 @@ async def list_artwork_jobs(
         public_endpoint_url=settings.s3_public_endpoint_url,
     )
 
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    approved_concept = next((c for c in concepts if c.status == ConceptStatus.APPROVED), None)
+
     jobs = await uow.artwork_jobs.list_for_workflow(workflow_id)
+    if approved_concept:
+        jobs = [j for j in jobs if j.concept_id == approved_concept.id]
+
     responses = []
     for job in jobs:
         assets = await uow.assets.list_for_job(job.id)
