@@ -1446,11 +1446,11 @@ onMounted(() => {
                 <!-- Rotation Angle Slider & Quick Angle Buttons -->
                 <div class="space-y-1.5 pt-2 border-t border-border/60">
                   <div class="flex justify-between items-center text-[11px]">
-                    <span class="text-secondary-foreground font-semibold flex items-center gap-1">
+                    <span class="text-secondary-foreground font-semibold flex items-center gap-1.5">
                       <Icon name="lucide:rotate-cw" class="size-3 text-primary" aria-hidden="true" />
                       <span>Rotation Angle</span>
                     </span>
-                    <span class="font-mono font-bold text-foreground bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-border text-[10px]">
+                    <span class="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 text-[11px]">
                       {{ editPlacement.angle_deg || 0 }}°
                     </span>
                   </div>
@@ -1467,8 +1467,8 @@ onMounted(() => {
                       v-for="deg in [-90, -45, 0, 45, 90]"
                       :key="deg"
                       type="button"
-                      class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-all cursor-pointer"
-                      :class="editPlacement.angle_deg === deg ? 'bg-primary text-white shadow-2xs font-bold' : 'bg-white dark:bg-slate-900 text-muted-foreground hover:text-foreground border border-border'"
+                      class="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold transition-all cursor-pointer"
+                      :class="editPlacement.angle_deg === deg ? 'bg-primary text-white shadow-2xs font-bold' : 'bg-secondary/60 text-secondary-foreground hover:text-foreground hover:bg-secondary border border-border'"
                       @click="setEditAngle(deg)"
                     >
                       {{ deg > 0 ? `+${deg}°` : `${deg}°` }}
@@ -1929,11 +1929,11 @@ onMounted(() => {
                 <!-- Rotation Angle Slider & Quick Angle Buttons -->
                 <div class="space-y-1.5 pt-2 border-t border-border/60">
                   <div class="flex justify-between items-center text-[11px]">
-                    <span class="text-secondary-foreground font-semibold flex items-center gap-1">
+                    <span class="text-secondary-foreground font-semibold flex items-center gap-1.5">
                       <Icon name="lucide:rotate-cw" class="size-3 text-primary" aria-hidden="true" />
                       <span>Rotation Angle</span>
                     </span>
-                    <span class="font-mono font-bold text-foreground bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-border text-[10px]">
+                    <span class="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 text-[11px]">
                       {{ uploadPlacement.angle_deg || 0 }}°
                     </span>
                   </div>
@@ -1950,8 +1950,8 @@ onMounted(() => {
                       v-for="deg in [-90, -45, 0, 45, 90]"
                       :key="deg"
                       type="button"
-                      class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-all cursor-pointer"
-                      :class="uploadPlacement.angle_deg === deg ? 'bg-primary text-white shadow-2xs font-bold' : 'bg-white dark:bg-slate-900 text-muted-foreground hover:text-foreground border border-border'"
+                      class="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold transition-all cursor-pointer"
+                      :class="uploadPlacement.angle_deg === deg ? 'bg-primary text-white shadow-2xs font-bold' : 'bg-secondary/60 text-secondary-foreground hover:text-foreground hover:bg-secondary border border-border'"
                       @click="setUploadAngle(deg)"
                     >
                       {{ deg > 0 ? `+${deg}°` : `${deg}°` }}
