@@ -112,12 +112,16 @@ async function copyChecksum() {
           type="button"
           variant="outline"
           size="sm"
-          class="h-8 gap-1.5 text-xs font-medium cursor-pointer"
+          class="h-8 gap-1.5 text-xs font-medium cursor-pointer group"
           :disabled="isBuilding"
           @click="emit('build-package')"
         >
-          <Icon v-if="isBuilding" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
-          <Icon v-else name="lucide:refresh-cw" class="size-3.5 text-primary" aria-hidden="true" />
+          <Icon
+            name="lucide:refresh-cw"
+            class="size-3.5 text-primary transition-transform duration-500"
+            :class="{ 'animate-spin': isBuilding, 'group-hover:rotate-180': !isBuilding }"
+            aria-hidden="true"
+          />
           <span>{{ isBuilding ? 'Building...' : packageAsset ? 'Rebuild' : 'Build Package' }}</span>
         </Button>
       </div>
