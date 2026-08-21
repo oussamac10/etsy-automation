@@ -106,7 +106,7 @@ class FakeTextProvider:
 
         prompt_lower = request.prompt.lower()
 
-        if "seo copywriter" in prompt_lower or "critical etsy guidelines" in prompt_lower:
+        if "seo copywriter" in prompt_lower or "critical copy guidelines" in prompt_lower or "critical etsy guidelines" in prompt_lower:
             concept_title = "Cute Artwork"
             match = re.search(r"Product Title/Concept:\s*([^\n]+)", request.prompt, re.IGNORECASE)
             if match:
@@ -120,7 +120,7 @@ class FakeTextProvider:
             niche_words = [w for w in words if w not in {"the", "and", "for", "with", "concept", "faithful", "market", "hybrid"}]
             main_niche = " ".join(niche_words[:3]) if niche_words else "vintage design"
 
-            generated_title = f"{concept_title[:90]} PNG Digital Download, Sublimation T-Shirt Design"[:140]
+            generated_title = f"{concept_title[:75]} PNG, Sublimation Clipart, DTG T-Shirt Design"[:140]
 
             candidate_tags = [
                 f"{main_niche[:16]} png"[:20],
@@ -154,14 +154,28 @@ class FakeTextProvider:
             seo_payload = {
                 "title": generated_title,
                 "description": (
-                    f"High-resolution digital PNG download for {concept_title}.\n\n"
-                    f"- High Resolution: 4500x5400 px @ 300 DPI, transparent background (sRGB).\n"
-                    f"- Intended Uses: DTG T-shirts, sweatshirts, mugs, stickers, sublimation, and crafts.\n"
-                    f"- Instant digital download upon purchase. No physical item will be shipped.\n"
-                    f"- Commercial use license included for physical end products."
+                    f"DIGITAL DOWNLOAD – PNG FILE ONLY\n\n"
+                    f"This {concept_title} graphic features detailed digital artwork prepared for apparel and craft projects.\n\n"
+                    f"WHAT YOU WILL RECEIVE\n"
+                    f"• High-resolution transparent background PNG (4500 × 5400 px @ 300 DPI, sRGB)\n\n"
+                    f"PERFECT FOR\n"
+                    f"• Direct-to-Garment (DTG) printing\n"
+                    f"• T-shirts, sweatshirts, and hoodies\n"
+                    f"• Sublimation apparel and tote bags\n"
+                    f"• Mugs, tumblers, and glassware\n"
+                    f"• Stickers, decals, and digital planners\n\n"
+                    f"INSTANT DOWNLOAD\n"
+                    f"Your digital files are made available by Etsy immediately after payment confirmation. Access them anytime under your Etsy account Purchases section.\n\n"
+                    f"COMMERCIAL USE\n"
+                    f"Commercial use allowed on physical finished products (apparel, mugs, stickers, gifts). You may not resell or share the digital file.\n\n"
+                    f"AI DISCLOSURE\n"
+                    f"This artwork was created with the assistance of AI generation tools and then professionally edited, refined, and prepared for digital production.\n\n"
+                    f"PRINT NOTE\n"
+                    f"Colors may vary slightly depending on screen, printer, ink, material, and print settings."
                 ),
+                "shopping_cart_summary": f"Cute {concept_title[:45]} PNG graphic in clean high resolution. 4500x5400 px transparent background file for t-shirts, stickers and sublimation."[:200],
                 "tags": unique_tags[:13],
-                "ai_disclosure": "This digital artwork was created with human creative direction and AI design assistance.",
+                "ai_disclosure": "This artwork was created with the assistance of AI generation tools and then professionally edited, refined, and prepared for digital production.",
             }
 
             return TextResponse(

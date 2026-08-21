@@ -16,7 +16,7 @@ import base64
 import inspect
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from pydantic import BaseModel
 
@@ -2141,10 +2141,11 @@ async def generate_listing_seo_endpoint(
     uow: UowDep,
     settings: SettingsDep,
     storage: StorageDep,
+    target: str = Query("all", pattern="^(all|title|description|shopping_cart_summary|tags)$"),
 ) -> ListingDraftResponse:
-    from app.application.listing import ListingDraftService
+    from app.application.listing import ListingDraftService, record_version_snapshot
     from app.application.package import CustomerPackageService
-    from app.application.seo import generate_listing_seo
+    from app.application.seo import SeoTargetField, generate_listing_seo
     from app.application.trademark import TrademarkScreeningService
     from app.providers.fake import FakeTextProvider
     from app.providers.gemini import GeminiSynthesisAdapter
@@ -2170,7 +2171,6 @@ async def generate_listing_seo_endpoint(
     # Text provider resolution
     text_provider: Any = FakeTextProvider()
     if settings.provider_mode == "live":
-        # Check for Gemini credentials
         cred = await uow.credentials.get(workflow.owner_id, ProviderName.GEMINI)
         if cred:
             from app.api.dependencies import build_credential_cipher
@@ -2189,49 +2189,90 @@ async def generate_listing_seo_endpoint(
             keywords.append(cl.primary_phrase)
             keywords.extend(cl.attributes)
 
+    # Gather real workflow production metadata (dimensions, DPI, transparent background, variants)
+    production_meta: dict[str, Any] = {
+        "width": 4500,
+        "height": 5400,
+        "dpi": 300,
+        "has_transparent_background": True,
+        "variants": [],
+    }
+    workflow_assets = await uow.assets.list_for_workflow(workflow_id)
+    for a in workflow_assets:
+        prov = a.provenance if isinstance(a.provenance, dict) else {}
+        kind = prov.get("kind")
+        if kind in ("production_master", "master_png") or (a.width and a.width >= 4000):
+            if a.width and a.height:
+                production_meta["width"] = a.width
+                production_meta["height"] = a.height
+            if a.has_transparent_pixels is not None:
+                production_meta["has_transparent_background"] = a.has_transparent_pixels
+        elif kind == "variant_deliverable":
+            v_title = prov.get("variant_name") or prov.get("title") or "Variant PNG"
+            if v_title not in production_meta["variants"]:
+                production_meta["variants"].append(v_title)
+
     try:
         seo_draft = await generate_listing_seo(
             concept=concept,
             prompt=latest_prompt,
             keywords=keywords[:15],
             text_provider=text_provider,
+            artwork_summary=latest_prompt.user_intent if latest_prompt else None,
+            production_meta=production_meta,
+            target_field=cast(SeoTargetField, target),
         )
 
-        from app.application.listing import ListingDraftService, record_version_snapshot
         listing_service = ListingDraftService()
         draft = await listing_service.get_or_create_listing(workflow_id, uow)
-        updated_draft = await uow.listing_drafts.update(
-            draft.id,
-            title=seo_draft.title,
-            description=seo_draft.description,
-            tags=seo_draft.tags,
-            ai_disclosure=seo_draft.ai_disclosure,
-        )
 
-        # Trademark screen
-        primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
-            await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-        )
-        trademark_service = TrademarkScreeningService(
-            primary_provider,
-            fallback_provider=fallback_provider,
-            tsdr_adapter=tsdr_adapter,
-            dataset_updated_at=dataset_updated_at,
-        )
-        screened_draft = await listing_service.rescreen_trademark(
-            workflow_id=workflow_id,
-            uow=uow,
-            trademark_service=trademark_service,
-        )
+        update_kwargs: dict[str, Any] = {}
+        if target == "all":
+            update_kwargs = {
+                "title": seo_draft.title,
+                "description": seo_draft.description,
+                "shopping_cart_summary": seo_draft.shopping_cart_summary,
+                "tags": seo_draft.tags,
+                "ai_disclosure": seo_draft.ai_disclosure,
+            }
+        elif target == "title":
+            update_kwargs = {"title": seo_draft.title}
+        elif target == "description":
+            update_kwargs = {"description": seo_draft.description}
+        elif target == "shopping_cart_summary":
+            update_kwargs = {"shopping_cart_summary": seo_draft.shopping_cart_summary}
+        elif target == "tags":
+            update_kwargs = {"tags": seo_draft.tags}
+
+        updated_draft = await uow.listing_drafts.update(draft.id, **update_kwargs)
+
+        # Trademark screen only if title or tags were regenerated
+        screened_draft = updated_draft
+        if target in ("all", "title", "tags"):
+            primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
+                await _resolve_trademark_provider(workflow.owner_id, uow, settings)
+            )
+            trademark_service = TrademarkScreeningService(
+                primary_provider,
+                fallback_provider=fallback_provider,
+                tsdr_adapter=tsdr_adapter,
+                dataset_updated_at=dataset_updated_at,
+            )
+            screened_draft = await listing_service.rescreen_trademark(
+                workflow_id=workflow_id,
+                uow=uow,
+                trademark_service=trademark_service,
+            )
+
         record_version_snapshot(screened_draft, source="ai_generated")
 
-        # Customer package
-        package_service = CustomerPackageService(storage)
-        try:
-            await package_service.build_customer_package(workflow_id, uow)
-        except Exception as pkg_err:
-            # Package builder error shouldn't fail the SEO generation
-            pass
+        # Compile customer package in background / non-blocking
+        if target in ("all", "title", "description"):
+            package_service = CustomerPackageService(storage)
+            try:
+                await package_service.build_customer_package(workflow_id, uow)
+            except Exception:
+                pass
 
         await uow.commit()
     except Exception as exc:
