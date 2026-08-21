@@ -17,7 +17,7 @@ import {
   normalizeProductKey,
   type ProductTypeOption,
 } from "~/config/productTypes";
-import { BLEND_MODE_OPTIONS } from "~/utils/mockupProducts";
+import { BLEND_MODE_OPTIONS, getBlendModeInfo } from "~/utils/mockupProducts";
 
 interface PlacementData {
   left_pct: number;
@@ -241,17 +241,22 @@ async function confirmDeleteCategory(): Promise<void> {
 }
 
 // -------------------------------------------------------------
-// Interactive Placement Canvas Dragging & Resizing Logic
+// Interactive Placement Canvas Dragging, Resizing & Rotating Logic
 // -------------------------------------------------------------
 const interactiveCanvasRef = ref<HTMLDivElement | null>(null);
 const isDraggingArtwork = ref(false);
 const isResizingArtwork = ref(false);
+const isRotatingArtwork = ref(false);
 let dragStartX = 0;
 let dragStartY = 0;
 let initialLeftPct = 0;
 let initialTopPct = 0;
 let initialWidthPct = 0;
 let initialHeightPct = 0;
+let rotateCenterScreenX = 0;
+let rotateCenterScreenY = 0;
+let rotateStartAngleRad = 0;
+let initialAngleDeg = 0;
 
 // Modal: Edit Template (Name & Placement Studio)
 const templateToEdit = ref<MockupTemplate | null>(null);
@@ -310,6 +315,22 @@ function applyEditSquarePreset(): void {
   editPlacement.value.top_pct = 0.30;
   editPlacement.value.width_pct = 0.40;
   editPlacement.value.height_pct = 0.40;
+}
+
+function rotateEditLeft(): void {
+  let a = (editPlacement.value.angle_deg || 0) - 90;
+  while (a < -180) a += 360;
+  editPlacement.value.angle_deg = a;
+}
+
+function rotateEditRight(): void {
+  let a = (editPlacement.value.angle_deg || 0) + 90;
+  while (a > 180) a -= 360;
+  editPlacement.value.angle_deg = a;
+}
+
+function setEditAngle(deg: number): void {
+  editPlacement.value.angle_deg = deg;
 }
 
 // Pointer events for Canvas Dragging & Resizing (Edit Mode)
@@ -392,6 +413,41 @@ function onResizePointerUp(): void {
   window.removeEventListener("pointerup", onResizePointerUp);
 }
 
+function onEditRotatePointerDown(e: PointerEvent): void {
+  if (!interactiveCanvasRef.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  isRotatingArtwork.value = true;
+
+  const rect = interactiveCanvasRef.value.getBoundingClientRect();
+  const boxCenterX = rect.left + (editPlacement.value.left_pct + editPlacement.value.width_pct / 2) * rect.width;
+  const boxCenterY = rect.top + (editPlacement.value.top_pct + editPlacement.value.height_pct / 2) * rect.height;
+
+  rotateCenterScreenX = boxCenterX;
+  rotateCenterScreenY = boxCenterY;
+  rotateStartAngleRad = Math.atan2(e.clientY - boxCenterY, e.clientX - boxCenterX);
+  initialAngleDeg = editPlacement.value.angle_deg || 0;
+
+  window.addEventListener("pointermove", onEditRotatePointerMove);
+  window.addEventListener("pointerup", onEditRotatePointerUp);
+}
+
+function onEditRotatePointerMove(e: PointerEvent): void {
+  if (!isRotatingArtwork.value) return;
+  const currentAngleRad = Math.atan2(e.clientY - rotateCenterScreenY, e.clientX - rotateCenterScreenX);
+  const deltaDeg = (currentAngleRad - rotateStartAngleRad) * (180 / Math.PI);
+  let newAngle = Math.round(initialAngleDeg + deltaDeg);
+  while (newAngle > 180) newAngle -= 360;
+  while (newAngle < -180) newAngle += 360;
+  editPlacement.value.angle_deg = newAngle;
+}
+
+function onEditRotatePointerUp(): void {
+  isRotatingArtwork.value = false;
+  window.removeEventListener("pointermove", onEditRotatePointerMove);
+  window.removeEventListener("pointerup", onEditRotatePointerUp);
+}
+
 async function handleSaveEdit(): Promise<void> {
   if (!templateToEdit.value) return;
   isUpdating.value = true;
@@ -440,6 +496,8 @@ const uploadCustomTypeName = ref("");
 const uploadImageFile = ref<File | null>(null);
 const uploadImagePreviewUrl = ref<string | null>(null);
 const rawUploadFileUrl = ref<string | null>(null);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const isDraggingFile = ref(false);
 const uploadCanvasRef = ref<HTMLDivElement | null>(null);
 const uploadPlacement = ref<PlacementData>({
   left_pct: 0.28,
@@ -494,6 +552,7 @@ function openUploadModal(forcedCategory?: string): void {
   rawUploadFileUrl.value = null;
   uploadStep.value = "file";
   uploadError.value = null;
+  isDraggingFile.value = false;
   showUploadModal.value = true;
 }
 
@@ -508,6 +567,33 @@ function handleFileSelect(e: Event): void {
     uploadName.value = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
   }
   uploadStep.value = "placement";
+}
+
+function onFileDragOver(e: DragEvent): void {
+  e.preventDefault();
+  isDraggingFile.value = true;
+}
+
+function onFileDragLeave(e: DragEvent): void {
+  e.preventDefault();
+  isDraggingFile.value = false;
+}
+
+function onFileDrop(e: DragEvent): void {
+  e.preventDefault();
+  isDraggingFile.value = false;
+  if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+    const file = e.dataTransfer.files[0];
+    if (file.type.startsWith("image/")) {
+      uploadImageFile.value = file;
+      rawUploadFileUrl.value = URL.createObjectURL(file);
+      uploadImagePreviewUrl.value = rawUploadFileUrl.value;
+      if (!uploadName.value) {
+        uploadName.value = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+      }
+      uploadStep.value = "placement";
+    }
+  }
 }
 
 function handleUploadCropComplete(result: {
@@ -545,6 +631,22 @@ function applyUploadSquarePreset(): void {
   uploadPlacement.value.top_pct = 0.30;
   uploadPlacement.value.width_pct = 0.40;
   uploadPlacement.value.height_pct = 0.40;
+}
+
+function rotateUploadLeft(): void {
+  let a = (uploadPlacement.value.angle_deg || 0) - 90;
+  while (a < -180) a += 360;
+  uploadPlacement.value.angle_deg = a;
+}
+
+function rotateUploadRight(): void {
+  let a = (uploadPlacement.value.angle_deg || 0) + 90;
+  while (a > 180) a -= 360;
+  uploadPlacement.value.angle_deg = a;
+}
+
+function setUploadAngle(deg: number): void {
+  uploadPlacement.value.angle_deg = deg;
 }
 
 function onUploadArtworkPointerDown(e: PointerEvent): void {
@@ -624,6 +726,41 @@ function onUploadResizePointerUp(): void {
   isResizingArtwork.value = false;
   window.removeEventListener("pointermove", onUploadResizePointerMove);
   window.removeEventListener("pointerup", onUploadResizePointerUp);
+}
+
+function onUploadRotatePointerDown(e: PointerEvent): void {
+  if (!uploadCanvasRef.value) return;
+  e.preventDefault();
+  e.stopPropagation();
+  isRotatingArtwork.value = true;
+
+  const rect = uploadCanvasRef.value.getBoundingClientRect();
+  const boxCenterX = rect.left + (uploadPlacement.value.left_pct + uploadPlacement.value.width_pct / 2) * rect.width;
+  const boxCenterY = rect.top + (uploadPlacement.value.top_pct + uploadPlacement.value.height_pct / 2) * rect.height;
+
+  rotateCenterScreenX = boxCenterX;
+  rotateCenterScreenY = boxCenterY;
+  rotateStartAngleRad = Math.atan2(e.clientY - boxCenterY, e.clientX - boxCenterX);
+  initialAngleDeg = uploadPlacement.value.angle_deg || 0;
+
+  window.addEventListener("pointermove", onUploadRotatePointerMove);
+  window.addEventListener("pointerup", onUploadRotatePointerUp);
+}
+
+function onUploadRotatePointerMove(e: PointerEvent): void {
+  if (!isRotatingArtwork.value) return;
+  const currentAngleRad = Math.atan2(e.clientY - rotateCenterScreenY, e.clientX - rotateCenterScreenX);
+  const deltaDeg = (currentAngleRad - rotateStartAngleRad) * (180 / Math.PI);
+  let newAngle = Math.round(initialAngleDeg + deltaDeg);
+  while (newAngle > 180) newAngle -= 360;
+  while (newAngle < -180) newAngle += 360;
+  uploadPlacement.value.angle_deg = newAngle;
+}
+
+function onUploadRotatePointerUp(): void {
+  isRotatingArtwork.value = false;
+  window.removeEventListener("pointermove", onUploadRotatePointerMove);
+  window.removeEventListener("pointerup", onUploadRotatePointerUp);
 }
 
 async function handleUploadSubmit(): Promise<void> {
@@ -1059,119 +1196,171 @@ onMounted(() => {
     <!-- Modal: Interactive Placement Adjustment Studio (Edit Template) -->
     <div
       v-if="templateToEdit"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="templateToEdit = null"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-4xl w-full p-6 space-y-4 max-h-[92vh] flex flex-col">
+      <div class="bg-card rounded-2xl shadow-2xl border border-border max-w-5xl w-full flex flex-col max-h-[92vh] overflow-hidden">
         <!-- Header -->
-        <div class="flex items-center justify-between border-b border-border pb-3">
-          <div class="flex items-center gap-2">
-            <Icon name="lucide:move" class="size-4 text-primary" aria-hidden="true" />
+        <div class="flex items-center justify-between border-b border-border p-4 sm:p-5 bg-card/50">
+          <div class="flex items-center gap-3">
+            <div class="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 shadow-2xs">
+              <Icon name="lucide:move" class="size-5" aria-hidden="true" />
+            </div>
             <div>
-              <h3 class="text-sm font-bold text-foreground">Configure PNG Placement & Print Area</h3>
-              <p class="text-[11px] text-muted-foreground">Drag or resize the print box to set where master PNGs will be centered on this mockup</p>
+              <h3 class="text-base sm:text-lg font-bold text-foreground">Configure PNG Placement & Print Area</h3>
+              <p class="text-xs text-muted-foreground">Adjust placement bounding box, rotation angle, and texture blend mode</p>
             </div>
           </div>
-          <button type="button" class="text-muted-foreground hover:text-foreground cursor-pointer" @click="templateToEdit = null">
+          <button
+            type="button"
+            class="size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+            @click="templateToEdit = null"
+          >
             <Icon name="lucide:x" class="size-4" aria-hidden="true" />
           </button>
         </div>
 
         <!-- 2-Column Split: Interactive Canvas (Left) + Placement Controls (Right) -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-1 p-1 items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-1 p-5 items-start">
           <!-- Left Column (7 cols): Interactive Visual Canvas -->
-          <div class="lg:col-span-7 space-y-2.5">
-            <div class="flex items-center justify-between">
+          <div class="lg:col-span-7 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
                 <Icon name="lucide:layout" class="size-3.5 text-primary" aria-hidden="true" />
                 <span>Interactive Placement Canvas</span>
               </span>
 
-              <!-- Quick Placement Preset Segmented Toolbar -->
-              <div class="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-border/80 shadow-2xs">
-                <button
-                  type="button"
-                  class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                  title="Center artwork box"
-                  @click="centerEditPlacement"
-                >
-                  <Icon name="lucide:align-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                  <span>Center Box</span>
-                </button>
-                <button
-                  type="button"
-                  class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                  title="Apply full center preset"
-                  @click="applyEditFullCenterPreset"
-                >
-                  <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                  <span>Full Center</span>
-                </button>
-                <button
-                  type="button"
-                  class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                  title="Apply left chest preset"
-                  @click="applyEditChestPreset"
-                >
-                  <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                  <span>Chest Logo</span>
-                </button>
-                <button
-                  type="button"
-                  class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
-                  title="Apply square 1:1 preset"
-                  @click="applyEditSquarePreset"
-                >
-                  <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                  <span>Square</span>
-                </button>
+              <!-- Quick Placement & Rotation Segmented Toolbar -->
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <div class="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border shadow-2xs">
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    title="Center artwork box"
+                    @click="centerEditPlacement"
+                  >
+                    <Icon name="lucide:align-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Center</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    title="Apply full center preset"
+                    @click="applyEditFullCenterPreset"
+                  >
+                    <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Full</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    title="Apply left chest preset"
+                    @click="applyEditChestPreset"
+                  >
+                    <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Chest</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    title="Apply square 1:1 preset"
+                    @click="applyEditSquarePreset"
+                  >
+                    <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>1:1</span>
+                  </button>
+                </div>
+
+                <!-- Rotation Quick Tools -->
+                <div class="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border shadow-2xs">
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
+                    title="Rotate 90 degrees counter-clockwise"
+                    @click="rotateEditLeft"
+                  >
+                    <Icon name="lucide:rotate-ccw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>-90°</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
+                    title="Rotate 90 degrees clockwise"
+                    @click="rotateEditRight"
+                  >
+                    <Icon name="lucide:rotate-cw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>+90°</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
+                    title="Reset rotation to 0°"
+                    @click="setEditAngle(0)"
+                  >
+                    <span>0°</span>
+                  </button>
+                </div>
               </div>
             </div>
 
             <!-- Canvas Viewport Frame -->
-            <div class="relative w-full max-h-[360px] bg-slate-100/60 rounded-xl border border-border overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[240px]">
+            <div class="relative w-full max-h-[380px] bg-slate-950/90 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-3 shadow-inner min-h-[260px]">
               <!-- Exact Image-Fitting Interactive Canvas -->
               <div
                 ref="interactiveCanvasRef"
-                class="relative inline-block select-none touch-none max-h-[340px] max-w-full"
+                class="relative inline-block select-none touch-none max-h-[350px] max-w-full"
               >
                 <!-- Template Background Image -->
                 <img
                   :src="templateToEdit.url"
                   alt="Template"
-                  class="max-h-[340px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-xs"
+                  class="max-h-[350px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-md"
                 >
 
                 <!-- Alignment Crosshairs -->
                 <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-primary/30 pointer-events-none" />
                 <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-primary/30 pointer-events-none" />
 
-                <!-- Draggable & Resizable Placement Box -->
+                <!-- Draggable, Resizable & Rotatable Placement Box -->
                 <div
-                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50"
+                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50 select-none"
                   :style="{
                     left: `${editPlacement.left_pct * 100}%`,
                     top: `${editPlacement.top_pct * 100}%`,
                     width: `${editPlacement.width_pct * 100}%`,
                     height: `${editPlacement.height_pct * 100}%`,
+                    transform: `rotate(${editPlacement.angle_deg || 0}deg)`,
+                    transformOrigin: 'center center',
                   }"
                   @pointerdown="onArtworkPointerDown"
                 >
+                  <!-- Top Rotation Stalk & Handle -->
+                  <div class="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto select-none">
+                    <div
+                      class="size-5 rounded-full bg-primary text-white border-2 border-white shadow-md flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
+                      title="Drag to rotate print area"
+                      @pointerdown="onEditRotatePointerDown"
+                    >
+                      <Icon name="lucide:rotate-cw" class="size-2.5 text-white" aria-hidden="true" />
+                    </div>
+                    <div class="w-0.5 h-2 bg-primary/70" />
+                  </div>
+
                   <!-- Live Coordinates Pill -->
-                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-slate-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
-                    {{ Math.round(editPlacement.left_pct * 100) }}%, {{ Math.round(editPlacement.top_pct * 100) }}% ({{ Math.round(editPlacement.width_pct * 100) }}×{{ Math.round(editPlacement.height_pct * 100) }}%)
+                  <div class="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-md border border-slate-700/60">
+                    {{ Math.round(editPlacement.left_pct * 100) }}%, {{ Math.round(editPlacement.top_pct * 100) }}% · {{ Math.round(editPlacement.width_pct * 100) }}×{{ Math.round(editPlacement.height_pct * 100) }}% · {{ editPlacement.angle_deg || 0 }}°
                   </div>
 
                   <!-- Centered Print Area Icon -->
                   <div class="w-full h-full pointer-events-none select-none flex items-center justify-center">
-                    <div class="h-6 w-6 rounded-md bg-primary/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
-                      <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
+                    <div class="size-7 rounded-lg bg-primary/90 text-white flex items-center justify-center shadow-md backdrop-blur-xs">
+                      <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
                     </div>
                   </div>
 
                   <!-- Corner Resize Handle -->
                   <div
-                    class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-primary border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                    class="absolute -bottom-1.5 -right-1.5 size-4.5 bg-primary border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
                     title="Drag to resize print area"
                     @pointerdown="onResizePointerDown"
                   >
@@ -1182,22 +1371,22 @@ onMounted(() => {
             </div>
 
             <p class="text-[11px] text-muted-foreground text-center">
-              💡 Click and drag the box to move · Drag the bottom-right corner circle to resize
+              💡 Drag box to move · Drag bottom-right corner to scale · Drag top handle or use sliders to rotate
             </p>
           </div>
 
           <!-- Right Column (5 cols): Placement Precision Controls & Metadata -->
           <div class="lg:col-span-5 space-y-4">
             <div class="space-y-1.5">
-              <Label class="text-xs font-bold">Template Title</Label>
-              <Input v-model="editName" class="h-8 text-xs" />
+              <Label class="text-xs font-bold text-foreground">Template Name</Label>
+              <Input v-model="editName" class="h-8.5 text-xs" />
             </div>
 
             <div class="space-y-1.5">
-              <Label class="text-xs font-bold">Product Category</Label>
+              <Label class="text-xs font-bold text-foreground">Product Category</Label>
               <select
                 v-model="editProductType"
-                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground"
+                class="flex h-8.5 w-full rounded-lg border border-border bg-white px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
               >
                 <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -1205,26 +1394,26 @@ onMounted(() => {
               </select>
             </div>
 
-            <div class="space-y-1.5">
-              <Label class="text-xs font-bold">Texture Blend Mode</Label>
-              <select
-                v-model="editPlacement.blend_mode"
-                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs text-foreground font-medium"
-              >
-                <option v-for="opt in BLEND_MODE_OPTIONS" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </option>
-              </select>
-            </div>
+            <!-- Precision Sliders Card -->
+            <div class="p-3.5 bg-secondary/40 rounded-xl border border-border space-y-3">
+              <div class="flex items-center justify-between text-[11px] font-bold text-foreground uppercase tracking-wider">
+                <span class="flex items-center gap-1.5">
+                  <Icon name="lucide:sliders" class="size-3.5 text-primary" aria-hidden="true" />
+                  <span>Placement &amp; Rotation</span>
+                </span>
+                <button
+                  type="button"
+                  class="text-[10px] text-primary hover:underline font-semibold cursor-pointer lowercase"
+                  @click="centerEditPlacement(); setEditAngle(0)"
+                >
+                  reset placement
+                </button>
+              </div>
 
-            <!-- Precision Sliders -->
-            <div class="p-3 bg-secondary/40 rounded-xl border border-border space-y-3">
-              <h5 class="text-[11px] font-bold text-foreground uppercase tracking-wider">Placement Sliders</h5>
-
-              <div class="space-y-2">
+              <div class="space-y-2.5">
                 <div class="space-y-1">
                   <div class="flex justify-between text-[11px]">
-                    <span class="text-secondary-foreground">Box Width</span>
+                    <span class="text-secondary-foreground font-medium">Box Width</span>
                     <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.width_pct * 100) }}%</span>
                   </div>
                   <input v-model.number="editPlacement.width_pct" type="range" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
@@ -1232,7 +1421,7 @@ onMounted(() => {
 
                 <div class="space-y-1">
                   <div class="flex justify-between text-[11px]">
-                    <span class="text-secondary-foreground">Box Height</span>
+                    <span class="text-secondary-foreground font-medium">Box Height</span>
                     <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.height_pct * 100) }}%</span>
                   </div>
                   <input v-model.number="editPlacement.height_pct" type="range" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
@@ -1240,7 +1429,7 @@ onMounted(() => {
 
                 <div class="space-y-1">
                   <div class="flex justify-between text-[11px]">
-                    <span class="text-secondary-foreground">Left Position</span>
+                    <span class="text-secondary-foreground font-medium">Horizontal (X)</span>
                     <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.left_pct * 100) }}%</span>
                   </div>
                   <input v-model.number="editPlacement.left_pct" type="range" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
@@ -1248,22 +1437,99 @@ onMounted(() => {
 
                 <div class="space-y-1">
                   <div class="flex justify-between text-[11px]">
-                    <span class="text-secondary-foreground">Top Position</span>
+                    <span class="text-secondary-foreground font-medium">Vertical (Y)</span>
                     <span class="font-mono font-bold text-foreground">{{ Math.round(editPlacement.top_pct * 100) }}%</span>
                   </div>
                   <input v-model.number="editPlacement.top_pct" type="range" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
                 </div>
+
+                <!-- Rotation Angle Slider & Quick Angle Buttons -->
+                <div class="space-y-1.5 pt-2 border-t border-border/60">
+                  <div class="flex justify-between items-center text-[11px]">
+                    <span class="text-secondary-foreground font-semibold flex items-center gap-1">
+                      <Icon name="lucide:rotate-cw" class="size-3 text-primary" aria-hidden="true" />
+                      <span>Rotation Angle</span>
+                    </span>
+                    <span class="font-mono font-bold text-foreground bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-border text-[10px]">
+                      {{ editPlacement.angle_deg || 0 }}°
+                    </span>
+                  </div>
+                  <input
+                    v-model.number="editPlacement.angle_deg"
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    class="w-full h-1.5 accent-primary cursor-pointer"
+                  >
+                  <div class="flex items-center justify-between gap-1 pt-0.5">
+                    <button
+                      v-for="deg in [-90, -45, 0, 45, 90]"
+                      :key="deg"
+                      type="button"
+                      class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-all cursor-pointer"
+                      :class="editPlacement.angle_deg === deg ? 'bg-primary text-white shadow-2xs font-bold' : 'bg-white dark:bg-slate-900 text-muted-foreground hover:text-foreground border border-border'"
+                      @click="setEditAngle(deg)"
+                    >
+                      {{ deg > 0 ? `+${deg}°` : `${deg}°` }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Texture Blend Mode Section -->
+            <div class="space-y-2 pt-1">
+              <div class="flex items-center justify-between">
+                <Label class="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Icon name="lucide:palette" class="size-3.5 text-primary" aria-hidden="true" />
+                  <span>Texture Blend Mode</span>
+                </Label>
+                <Badge variant="outline" class="text-[10px] font-mono font-bold uppercase">
+                  {{ getBlendModeInfo(editPlacement.blend_mode).shortLabel }}
+                </Badge>
+              </div>
+
+              <!-- Blend Mode Grid -->
+              <div class="grid grid-cols-2 gap-1.5">
+                <button
+                  v-for="opt in BLEND_MODE_OPTIONS"
+                  :key="opt.value"
+                  type="button"
+                  class="flex flex-col text-left p-2 rounded-xl border transition-all cursor-pointer relative"
+                  :class="[
+                    editPlacement.blend_mode === opt.value
+                      ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
+                      : 'bg-white border-border/80 hover:border-slate-300 hover:bg-slate-50/50'
+                  ]"
+                  @click="editPlacement.blend_mode = opt.value"
+                >
+                  <div class="flex items-center justify-between gap-1 w-full mb-1">
+                    <span class="text-[11px] font-bold truncate" :class="editPlacement.blend_mode === opt.value ? 'text-primary font-bold' : 'text-foreground'">
+                      {{ opt.shortLabel }}
+                    </span>
+                    <Icon
+                      :name="opt.iconName"
+                      class="size-3 shrink-0"
+                      :class="editPlacement.blend_mode === opt.value ? 'text-primary' : 'text-muted-foreground'"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <span class="text-[10px] text-muted-foreground line-clamp-1 leading-tight">
+                    {{ opt.badge }}
+                  </span>
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        <Alert v-if="updateError" variant="destructive">
+        <Alert v-if="updateError" variant="destructive" class="mx-5 mb-2">
           <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
           <AlertDescription>{{ updateError }}</AlertDescription>
         </Alert>
 
-        <div class="flex justify-end gap-2 pt-3 border-t border-border">
+        <div class="flex justify-end gap-2 p-4 sm:p-5 border-t border-border bg-card/50">
           <Button variant="outline" size="sm" class="text-xs cursor-pointer" :disabled="isUpdating" @click="templateToEdit = null">
             Cancel
           </Button>
@@ -1285,36 +1551,105 @@ onMounted(() => {
     <!-- Modal: Upload Mockup Template with Visual Placement Canvas -->
     <div
       v-if="showUploadModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="showUploadModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-4xl w-full p-6 space-y-4 max-h-[92vh] flex flex-col">
+      <div class="bg-card rounded-2xl shadow-2xl border border-border max-w-5xl w-full flex flex-col max-h-[92vh] overflow-hidden">
         <!-- Header -->
-        <div class="flex items-center justify-between border-b border-border pb-3">
-          <div class="flex items-center gap-2">
-            <Icon name="lucide:upload" class="size-4 text-primary" aria-hidden="true" />
-            <h3 class="text-sm font-bold text-foreground">Upload Mockup Template & Set Placement</h3>
+        <div class="flex items-center justify-between border-b border-border p-4 sm:p-5 bg-card/50">
+          <div class="flex items-center gap-3">
+            <div class="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 shadow-2xs">
+              <Icon name="lucide:upload" class="size-5" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-bold text-foreground">Upload Mockup Template &amp; Set Placement</h3>
+              <p class="text-xs text-muted-foreground">
+                {{ uploadStep === 'file' ? 'Step 1 of 3: Select blank mockup image' : uploadStep === 'crop' ? 'Step 2 of 3: Crop and frame photo' : 'Step 3 of 3: Position print boundary and rotation' }}
+              </p>
+            </div>
           </div>
-          <button type="button" class="text-muted-foreground hover:text-foreground cursor-pointer" @click="showUploadModal = false">
-            <Icon name="lucide:x" class="size-4" aria-hidden="true" />
-          </button>
+
+          <div class="flex items-center gap-2">
+            <!-- Step navigation indicators -->
+            <div class="hidden sm:flex items-center gap-1 bg-secondary/60 p-1 rounded-lg border border-border text-[11px] font-semibold">
+              <span
+                class="px-2 py-0.5 rounded-md transition-all"
+                :class="uploadStep === 'file' ? 'bg-white text-primary shadow-2xs font-bold' : 'text-muted-foreground'"
+              >
+                1. Select
+              </span>
+              <Icon name="lucide:chevron-right" class="size-3 text-muted-foreground/60" />
+              <span
+                class="px-2 py-0.5 rounded-md transition-all"
+                :class="uploadStep === 'crop' ? 'bg-white text-primary shadow-2xs font-bold' : 'text-muted-foreground'"
+              >
+                2. Crop
+              </span>
+              <Icon name="lucide:chevron-right" class="size-3 text-muted-foreground/60" />
+              <span
+                class="px-2 py-0.5 rounded-md transition-all"
+                :class="uploadStep === 'placement' ? 'bg-white text-primary shadow-2xs font-bold' : 'text-muted-foreground'"
+              >
+                3. Placement
+              </span>
+            </div>
+
+            <button
+              type="button"
+              class="size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+              @click="showUploadModal = false"
+            >
+              <Icon name="lucide:x" class="size-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
-        <!-- Step 1: File Selection -->
-        <div v-if="uploadStep === 'file'" class="space-y-4 py-4">
-          <div class="space-y-2">
-            <Label class="text-xs font-bold">Select Blank Mockup Image</Label>
+        <!-- Step 1: Drag & Drop File Selection Dropzone -->
+        <div v-if="uploadStep === 'file'" class="p-6 sm:p-8 space-y-6">
+          <div
+            class="border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-4 relative group"
+            :class="[
+              isDraggingFile
+                ? 'border-primary bg-primary/10 shadow-lg scale-[1.01]'
+                : 'border-border/80 hover:border-primary/60 bg-secondary/20 hover:bg-secondary/40'
+            ]"
+            @dragover.prevent="onFileDragOver"
+            @dragleave.prevent="onFileDragLeave"
+            @drop.prevent="onFileDrop"
+            @click="fileInputRef?.click()"
+          >
             <input
+              ref="fileInputRef"
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              class="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-secondary file:text-primary hover:file:bg-slate-200 cursor-pointer border border-dashed border-border rounded-xl p-4 text-center bg-secondary/30"
+              class="hidden"
               @change="handleFileSelect"
             >
+
+            <div class="size-16 rounded-2xl bg-white shadow-md border border-border flex items-center justify-center text-primary group-hover:scale-110 group-hover:text-primary transition-all">
+              <Icon name="lucide:cloud-upload" class="size-8" aria-hidden="true" />
+            </div>
+
+            <div class="space-y-1.5 max-w-sm mx-auto">
+              <h4 class="text-base font-bold text-foreground">
+                Choose a Mockup Photo or Drag &amp; Drop Here
+              </h4>
+              <p class="text-xs text-muted-foreground">
+                Upload a clean, high-resolution blank product photo (t-shirt, mug, tote bag, poster, etc.)
+              </p>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap justify-center pt-2">
+              <Badge variant="secondary" class="text-[11px] px-2.5 py-0.5 font-medium">PNG</Badge>
+              <Badge variant="secondary" class="text-[11px] px-2.5 py-0.5 font-medium">JPEG</Badge>
+              <Badge variant="secondary" class="text-[11px] px-2.5 py-0.5 font-medium">WEBP</Badge>
+              <span class="text-[11px] text-muted-foreground ml-1">Up to 20MB · Recommended 2000×2000 px+</span>
+            </div>
           </div>
         </div>
 
-        <!-- Step 2: Inline Photo Cropper (No nested modals!) -->
-        <div v-else-if="uploadStep === 'crop'" class="py-2">
+        <!-- Step 2: Inline Photo Cropper -->
+        <div v-else-if="uploadStep === 'crop'" class="p-5 flex-1 overflow-y-auto">
           <ImageCropperView
             :image-url="rawUploadFileUrl || uploadImagePreviewUrl"
             :file-name="uploadImageFile?.name"
@@ -1324,110 +1659,156 @@ onMounted(() => {
         </div>
 
         <!-- Step 3: Visual Placement Studio -->
-        <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-1 p-1 items-start">
+        <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-y-auto flex-1 p-5 items-start">
           <!-- Left Column (7 cols): Interactive Visual Canvas -->
-          <div class="lg:col-span-7 space-y-2.5">
-            <div class="flex items-center justify-between">
+          <div class="lg:col-span-7 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
                 <Icon name="lucide:layout" class="size-3.5 text-primary" aria-hidden="true" />
                 <span>Designate PNG Print Area</span>
               </span>
 
-              <!-- Quick Placement Preset Segmented Toolbar -->
-              <div class="flex items-center gap-2">
+              <!-- Quick Placement & Rotation Segmented Toolbar -->
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   class="px-2.5 py-1 text-[11px] font-bold bg-blue-50 hover:bg-blue-100 text-primary rounded-lg transition-all cursor-pointer border border-blue-200 shadow-2xs hover:shadow-xs inline-flex items-center gap-1.5"
-                  title="Crop and crop template photo"
+                  title="Crop template photo"
                   @click="uploadStep = 'crop'"
                 >
                   <Icon name="lucide:crop" class="size-3.5" aria-hidden="true" />
                   <span>Crop / Cut</span>
                 </button>
 
-                <div class="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-border/80 shadow-2xs">
+                <div class="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border shadow-2xs">
                   <button
                     type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
                     title="Center artwork box"
                     @click="centerUploadPlacement"
                   >
                     <Icon name="lucide:align-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Center Box</span>
+                    <span>Center</span>
                   </button>
                   <button
                     type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
                     title="Apply full center preset"
                     @click="applyUploadFullCenterPreset"
                   >
                     <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Full Center</span>
+                    <span>Full</span>
                   </button>
                   <button
                     type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
                     title="Apply left chest preset"
                     @click="applyUploadChestPreset"
                   >
                     <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Chest Logo</span>
+                    <span>Chest</span>
                   </button>
                   <button
                     type="button"
-                    class="px-2 py-1 text-[11px] font-semibold text-slate-700 hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shadow-2xs hover:shadow-xs"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap shadow-2xs hover:shadow-xs"
                     title="Apply square 1:1 preset"
                     @click="applyUploadSquarePreset"
                   >
                     <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
-                    <span>Square</span>
+                    <span>1:1</span>
+                  </button>
+                </div>
+
+                <!-- Rotation Quick Buttons -->
+                <div class="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border shadow-2xs">
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
+                    title="Rotate 90 degrees counter-clockwise"
+                    @click="rotateUploadLeft"
+                  >
+                    <Icon name="lucide:rotate-ccw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>-90°</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
+                    title="Rotate 90 degrees clockwise"
+                    @click="rotateUploadRight"
+                  >
+                    <Icon name="lucide:rotate-cw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>+90°</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white rounded-md transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs"
+                    title="Reset rotation to 0°"
+                    @click="setUploadAngle(0)"
+                  >
+                    <span>0°</span>
                   </button>
                 </div>
               </div>
             </div>
 
             <!-- Canvas Viewport Frame -->
-            <div class="relative w-full max-h-[360px] bg-slate-100/60 rounded-xl border border-border overflow-hidden flex items-center justify-center p-2 shadow-inner min-h-[240px]">
+            <div class="relative w-full max-h-[380px] bg-slate-950/90 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-3 shadow-inner min-h-[260px]">
               <!-- Exact Image-Fitting Upload Canvas -->
               <div
                 v-if="uploadImagePreviewUrl"
                 ref="uploadCanvasRef"
-                class="relative inline-block select-none touch-none max-h-[340px] max-w-full"
+                class="relative inline-block select-none touch-none max-h-[350px] max-w-full"
               >
                 <img
                   :src="uploadImagePreviewUrl"
                   alt="Upload Preview"
-                  class="max-h-[340px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-xs"
+                  class="max-h-[350px] max-w-full w-auto h-auto block rounded-lg pointer-events-none object-contain shadow-md"
                 >
 
                 <!-- Alignment Crosshairs -->
                 <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-primary/30 pointer-events-none" />
                 <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-primary/30 pointer-events-none" />
 
-                <!-- Draggable & Resizable Placement Box -->
+                <!-- Draggable, Resizable & Rotatable Placement Box -->
                 <div
-                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50"
+                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50 select-none"
                   :style="{
                     left: `${uploadPlacement.left_pct * 100}%`,
                     top: `${uploadPlacement.top_pct * 100}%`,
                     width: `${uploadPlacement.width_pct * 100}%`,
                     height: `${uploadPlacement.height_pct * 100}%`,
+                    transform: `rotate(${uploadPlacement.angle_deg || 0}deg)`,
+                    transformOrigin: 'center center',
                   }"
                   @pointerdown="onUploadArtworkPointerDown"
                 >
-                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-slate-900/90 text-white rounded text-[8px] font-mono whitespace-nowrap pointer-events-none shadow-xs">
-                    {{ Math.round(uploadPlacement.left_pct * 100) }}%, {{ Math.round(uploadPlacement.top_pct * 100) }}% ({{ Math.round(uploadPlacement.width_pct * 100) }}×{{ Math.round(uploadPlacement.height_pct * 100) }}%)
+                  <!-- Top Rotation Stalk & Handle -->
+                  <div class="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto select-none">
+                    <div
+                      class="size-5 rounded-full bg-primary text-white border-2 border-white shadow-md flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
+                      title="Drag to rotate print area"
+                      @pointerdown="onUploadRotatePointerDown"
+                    >
+                      <Icon name="lucide:rotate-cw" class="size-2.5 text-white" aria-hidden="true" />
+                    </div>
+                    <div class="w-0.5 h-2 bg-primary/70" />
+                  </div>
+
+                  <!-- Live Coordinates Pill -->
+                  <div class="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-md border border-slate-700/60">
+                    {{ Math.round(uploadPlacement.left_pct * 100) }}%, {{ Math.round(uploadPlacement.top_pct * 100) }}% · {{ Math.round(uploadPlacement.width_pct * 100) }}×{{ Math.round(uploadPlacement.height_pct * 100) }}% · {{ uploadPlacement.angle_deg || 0 }}°
                   </div>
 
                   <!-- Centered Print Area Icon -->
                   <div class="w-full h-full pointer-events-none select-none flex items-center justify-center">
-                    <div class="h-6 w-6 rounded-md bg-primary/90 text-white flex items-center justify-center shadow-xs backdrop-blur-xs">
-                      <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
+                    <div class="size-7 rounded-lg bg-primary/90 text-white flex items-center justify-center shadow-md backdrop-blur-xs">
+                      <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
                     </div>
                   </div>
 
+                  <!-- Corner Resize Handle -->
                   <div
-                    class="absolute -bottom-1.5 -right-1.5 h-4 w-4 bg-primary border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
+                    class="absolute -bottom-1.5 -right-1.5 size-4.5 bg-primary border-2 border-white rounded-full cursor-nwse-resize hover:scale-125 transition-transform flex items-center justify-center shadow-md touch-none"
                     title="Drag to resize print area"
                     @pointerdown="onUploadResizePointerDown"
                   >
@@ -1438,20 +1819,20 @@ onMounted(() => {
             </div>
 
             <p class="text-[11px] text-muted-foreground text-center">
-              💡 Drag to position · Drag corner handle to resize print bounding box
+              💡 Drag to position · Drag corner handle to resize · Drag top handle or use sliders to rotate
             </p>
           </div>
 
           <!-- Right Column (5 cols): Metadata & Category -->
-          <div class="lg:col-span-5 space-y-3.5">
+          <div class="lg:col-span-5 space-y-4">
             <div class="space-y-1.5">
-              <Label class="text-xs font-bold">Template Title</Label>
-              <Input v-model="uploadName" placeholder="e.g. Vintage Mug on Marble Table" class="h-8 text-xs" />
+              <Label class="text-xs font-bold text-foreground">Template Name</Label>
+              <Input v-model="uploadName" placeholder="e.g. Vintage Mug on Marble Table" class="h-8.5 text-xs" />
             </div>
 
             <div class="space-y-1.5">
               <div class="flex items-center justify-between">
-                <Label class="text-xs font-bold">Product Category</Label>
+                <Label class="text-xs font-bold text-foreground">Product Category</Label>
                 <button
                   v-if="!showCategoryDropdown && selectedCategory !== 'all'"
                   type="button"
@@ -1482,7 +1863,7 @@ onMounted(() => {
               <select
                 v-else
                 v-model="uploadProductType"
-                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground"
+                class="flex h-8.5 w-full rounded-lg border border-border bg-white px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
               >
                 <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -1493,29 +1874,145 @@ onMounted(() => {
 
             <div v-if="showCategoryDropdown && uploadProductType === 'custom'" class="space-y-1.5 animate-in fade-in">
               <Label class="text-xs font-bold text-primary">Custom Category Name</Label>
-              <Input v-model="uploadCustomTypeName" placeholder="e.g. Canvas Print, Pillow, Blanket" class="h-8 text-xs border-border" />
+              <Input v-model="uploadCustomTypeName" placeholder="e.g. Canvas Print, Pillow, Blanket" class="h-8.5 text-xs border-border" />
             </div>
 
-            <div class="space-y-1.5">
-              <Label class="text-xs font-bold">Texture Blend Mode</Label>
-              <select
-                v-model="uploadPlacement.blend_mode"
-                class="flex h-8 w-full rounded-md border border-border bg-white px-3 py-1 text-xs shadow-2xs text-foreground font-medium"
-              >
-                <option v-for="opt in BLEND_MODE_OPTIONS" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </option>
-              </select>
+            <!-- Precision Sliders Card -->
+            <div class="p-3.5 bg-secondary/40 rounded-xl border border-border space-y-3">
+              <div class="flex items-center justify-between text-[11px] font-bold text-foreground uppercase tracking-wider">
+                <span class="flex items-center gap-1.5">
+                  <Icon name="lucide:sliders" class="size-3.5 text-primary" aria-hidden="true" />
+                  <span>Placement &amp; Rotation</span>
+                </span>
+                <button
+                  type="button"
+                  class="text-[10px] text-primary hover:underline font-semibold cursor-pointer lowercase"
+                  @click="centerUploadPlacement(); setUploadAngle(0)"
+                >
+                  reset placement
+                </button>
+              </div>
+
+              <div class="space-y-2.5">
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="text-secondary-foreground font-medium">Box Width</span>
+                    <span class="font-mono font-bold text-foreground">{{ Math.round(uploadPlacement.width_pct * 100) }}%</span>
+                  </div>
+                  <input v-model.number="uploadPlacement.width_pct" type="range" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
+                </div>
+
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="text-secondary-foreground font-medium">Box Height</span>
+                    <span class="font-mono font-bold text-foreground">{{ Math.round(uploadPlacement.height_pct * 100) }}%</span>
+                  </div>
+                  <input v-model.number="uploadPlacement.height_pct" type="range" min="0.1" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
+                </div>
+
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="text-secondary-foreground font-medium">Horizontal (X)</span>
+                    <span class="font-mono font-bold text-foreground">{{ Math.round(uploadPlacement.left_pct * 100) }}%</span>
+                  </div>
+                  <input v-model.number="uploadPlacement.left_pct" type="range" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
+                </div>
+
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="text-secondary-foreground font-medium">Vertical (Y)</span>
+                    <span class="font-mono font-bold text-foreground">{{ Math.round(uploadPlacement.top_pct * 100) }}%</span>
+                  </div>
+                  <input v-model.number="uploadPlacement.top_pct" type="range" min="0.0" max="0.9" step="0.01" class="w-full h-1.5 accent-primary cursor-pointer">
+                </div>
+
+                <!-- Rotation Angle Slider & Quick Angle Buttons -->
+                <div class="space-y-1.5 pt-2 border-t border-border/60">
+                  <div class="flex justify-between items-center text-[11px]">
+                    <span class="text-secondary-foreground font-semibold flex items-center gap-1">
+                      <Icon name="lucide:rotate-cw" class="size-3 text-primary" aria-hidden="true" />
+                      <span>Rotation Angle</span>
+                    </span>
+                    <span class="font-mono font-bold text-foreground bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-border text-[10px]">
+                      {{ uploadPlacement.angle_deg || 0 }}°
+                    </span>
+                  </div>
+                  <input
+                    v-model.number="uploadPlacement.angle_deg"
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    class="w-full h-1.5 accent-primary cursor-pointer"
+                  >
+                  <div class="flex items-center justify-between gap-1 pt-0.5">
+                    <button
+                      v-for="deg in [-90, -45, 0, 45, 90]"
+                      :key="deg"
+                      type="button"
+                      class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-all cursor-pointer"
+                      :class="uploadPlacement.angle_deg === deg ? 'bg-primary text-white shadow-2xs font-bold' : 'bg-white dark:bg-slate-900 text-muted-foreground hover:text-foreground border border-border'"
+                      @click="setUploadAngle(deg)"
+                    >
+                      {{ deg > 0 ? `+${deg}°` : `${deg}°` }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Texture Blend Mode Section -->
+            <div class="space-y-2 pt-1">
+              <div class="flex items-center justify-between">
+                <Label class="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Icon name="lucide:palette" class="size-3.5 text-primary" aria-hidden="true" />
+                  <span>Texture Blend Mode</span>
+                </Label>
+                <Badge variant="outline" class="text-[10px] font-mono font-bold uppercase">
+                  {{ getBlendModeInfo(uploadPlacement.blend_mode).shortLabel }}
+                </Badge>
+              </div>
+
+              <!-- Blend Mode Grid -->
+              <div class="grid grid-cols-2 gap-1.5">
+                <button
+                  v-for="opt in BLEND_MODE_OPTIONS"
+                  :key="opt.value"
+                  type="button"
+                  class="flex flex-col text-left p-2 rounded-xl border transition-all cursor-pointer relative"
+                  :class="[
+                    uploadPlacement.blend_mode === opt.value
+                      ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
+                      : 'bg-white border-border/80 hover:border-slate-300 hover:bg-slate-50/50'
+                  ]"
+                  @click="uploadPlacement.blend_mode = opt.value"
+                >
+                  <div class="flex items-center justify-between gap-1 w-full mb-1">
+                    <span class="text-[11px] font-bold truncate" :class="uploadPlacement.blend_mode === opt.value ? 'text-primary font-bold' : 'text-foreground'">
+                      {{ opt.shortLabel }}
+                    </span>
+                    <Icon
+                      :name="opt.iconName"
+                      class="size-3 shrink-0"
+                      :class="uploadPlacement.blend_mode === opt.value ? 'text-primary' : 'text-muted-foreground'"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <span class="text-[10px] text-muted-foreground line-clamp-1 leading-tight">
+                    {{ opt.badge }}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <Alert v-if="uploadError" variant="destructive">
+        <Alert v-if="uploadError" variant="destructive" class="mx-5 mb-2">
           <Icon name="lucide:circle-alert" class="size-4" aria-hidden="true" />
           <AlertDescription>{{ uploadError }}</AlertDescription>
         </Alert>
 
-        <div class="flex justify-end gap-2 pt-3 border-t border-border">
+        <div class="flex justify-end gap-2 p-4 sm:p-5 border-t border-border bg-card/50">
           <Button variant="outline" size="sm" class="text-xs cursor-pointer" :disabled="isUploading" @click="showUploadModal = false">
             Cancel
           </Button>
