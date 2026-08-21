@@ -35,6 +35,7 @@ from app.api.schemas import (
     Gate3DecisionRequest,
     GateDecisionRequest,
     GenerateArtworkRequest,
+    KeywordClusterResponse,
     ListingDraftResponse,
     OriginalIdeaResponse,
     PackageFileItem,
@@ -45,7 +46,9 @@ from app.api.schemas import (
     ReorderMockupsRequest,
     ReResolveTaxonomyRequest,
     ReResolveTaxonomyResponse,
+    ResearchEvidenceResponse,
     ResearchRunResponse,
+    ResearchSummaryResponse,
     RestoreListingVersionRequest,
     ShopSectionResponse,
     StartProductionRequest,
@@ -367,6 +370,46 @@ async def list_research_runs(
 
 
 @router.get(
+    "/{workflow_id}/research/summary",
+    response_model=ResearchSummaryResponse,
+    summary="Fetch evidence, keyword clusters, and summary observations for latest research run",
+)
+async def get_research_summary(
+    workflow_id: uuid.UUID, user: CurrentUser, uow: UowDep
+) -> ResearchSummaryResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    latest_run = await uow.research.get_latest_run(workflow_id)
+    if not latest_run:
+        return ResearchSummaryResponse(run=None, evidence=[], keyword_clusters=[])
+
+    evidence_records = await uow.research.get_evidence_for_run(latest_run.id)
+    cluster_records = await uow.research.get_keyword_clusters_for_run(latest_run.id)
+
+    # Pull observations from candidate pool if available
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    observations: list[str] = []
+    if concepts and concepts[0].score_breakdown:
+        pool = concepts[0].score_breakdown.get("all_candidate_pool", [])
+        if isinstance(pool, list):
+            for c in pool:
+                if isinstance(c, dict) and "why_it_could_sell" in c:
+                    observations.append(f"{c.get('title')}: {c.get('why_it_could_sell')}")
+
+    return ResearchSummaryResponse(
+        run=ResearchRunResponse.model_validate(latest_run),
+        evidence=[ResearchEvidenceResponse.model_validate(e) for e in evidence_records],
+        keyword_clusters=[KeywordClusterResponse.model_validate(k) for k in cluster_records],
+        proven_market_observations=observations[:6],
+    )
+
+
+@router.get(
     "/{workflow_id}/concepts",
     response_model=list[ProductConceptResponse],
     summary="List product concepts for this workflow",
@@ -551,6 +594,178 @@ async def screen_concept_trademark_endpoint(
 
     await uow.commit()
 
+    concept_dict = {
+        "id": concept.id,
+        "workflow_id": concept.workflow_id,
+        "original_idea_id": concept.original_idea_id,
+        "research_run_id": concept.research_run_id,
+        "title": concept.title,
+        "description": concept.description,
+        "origin": concept.origin.value if hasattr(concept.origin, "value") else str(concept.origin),
+        "differentiation": concept.differentiation,
+        "target_buyer": concept.target_buyer,
+        "buyer_use_case": concept.buyer_use_case,
+        "seasonality": concept.seasonality.value if hasattr(concept.seasonality, "value") else str(concept.seasonality),
+        "risk_level": concept.risk_level.value if hasattr(concept.risk_level, "value") else str(concept.risk_level),
+        "risk_note": concept.risk_note,
+        "score": concept.score,
+        "score_breakdown": concept.score_breakdown,
+        "score_explanation": concept.score_explanation,
+        "status": concept.status.value if hasattr(concept.status, "value") else str(concept.status),
+        "created_at": concept.created_at,
+        "prompts": [DesignPromptResponse.model_validate(p) for p in prompts],
+    }
+    return ProductConceptResponse.model_validate(concept_dict)
+
+
+@router.post(
+    "/{workflow_id}/concepts/{concept_id}/refresh",
+    response_model=ProductConceptResponse,
+    summary="Refresh and replace a single concept with an alternative opportunity from candidate pool",
+)
+async def refresh_concept_endpoint(
+    workflow_id: uuid.UUID,
+    concept_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    settings: SettingsDep,
+) -> ProductConceptResponse:
+    workflow = await uow.workflows.get(workflow_id)
+    if not workflow or workflow.owner_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No workflow with that ID",
+        )
+
+    concept = await uow.concepts.get(concept_id)
+    if not concept or concept.workflow_id != workflow_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No concept with that ID in this workflow",
+        )
+
+    all_concepts = await uow.concepts.list_for_workflow(workflow_id)
+    pool = concept.score_breakdown.get("all_candidate_pool", []) if concept.score_breakdown else []
+    if not pool or not isinstance(pool, list):
+        prompts = await uow.concepts.prompts(concept.id)
+        concept_dict = {
+            "id": concept.id,
+            "workflow_id": concept.workflow_id,
+            "original_idea_id": concept.original_idea_id,
+            "research_run_id": concept.research_run_id,
+            "title": concept.title,
+            "description": concept.description,
+            "origin": concept.origin.value if hasattr(concept.origin, "value") else str(concept.origin),
+            "differentiation": concept.differentiation,
+            "target_buyer": concept.target_buyer,
+            "buyer_use_case": concept.buyer_use_case,
+            "seasonality": concept.seasonality.value if hasattr(concept.seasonality, "value") else str(concept.seasonality),
+            "risk_level": concept.risk_level.value if hasattr(concept.risk_level, "value") else str(concept.risk_level),
+            "risk_note": concept.risk_note,
+            "score": concept.score,
+            "score_breakdown": concept.score_breakdown,
+            "score_explanation": concept.score_explanation,
+            "status": concept.status.value if hasattr(concept.status, "value") else str(concept.status),
+            "created_at": concept.created_at,
+            "prompts": [DesignPromptResponse.model_validate(p) for p in prompts],
+        }
+        return ProductConceptResponse.model_validate(concept_dict)
+
+    # Active concept titles to avoid duplicate
+    active_titles = {c.title.lower() for c in all_concepts if c.id != concept.id}
+
+    # Find next available candidate
+    replacement_cand = None
+    for cand in pool:
+        if isinstance(cand, dict) and cand.get("title", "").lower() not in active_titles and cand.get("title", "").lower() != concept.title.lower():
+            replacement_cand = cand
+            break
+
+    if not replacement_cand and pool:
+        replacement_cand = pool[0]
+
+    if replacement_cand:
+        concept.title = replacement_cand.get("title", concept.title)
+        concept.description = replacement_cand.get("concept_summary", concept.description)
+        concept.differentiation = replacement_cand.get("why_it_could_sell", concept.differentiation)
+        concept.target_buyer = replacement_cand.get("target_buyer", concept.target_buyer)
+        concept.buyer_use_case = f"{replacement_cand.get('niche', '')} - {replacement_cand.get('season_or_event', '')}"
+
+        overall_val = replacement_cand.get("overall_score", 80)
+        concept.score = max(1.00, min(5.00, round(overall_val / 20.0, 2)))
+
+        # Screen USPTO for replacement candidate
+        from app.application.trademark import TrademarkScreeningService
+        primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
+            await _resolve_trademark_provider(workflow.owner_id, uow, settings)
+        )
+        trademark_service = TrademarkScreeningService(
+            primary_provider,
+            fallback_provider=fallback_provider,
+            tsdr_adapter=tsdr_adapter,
+            dataset_updated_at=dataset_updated_at,
+        )
+        tm_risk, tm_findings = await trademark_service.screen_concept_trademark(
+            slogan=replacement_cand.get("slogan"),
+            title=concept.title,
+            description=concept.description,
+        )
+
+        risk_level_val = "low"
+        risk_note_val = "Passed preliminary phrase screen."
+        if tm_risk in (RiskLevel.HIGH, RiskLevel.MEDIUM):
+            risk_level_val = tm_risk.value
+            reasons = tm_findings.get("reasons", [])
+            if reasons:
+                risk_note_val = "; ".join(reasons)
+
+        concept.risk_level = RiskLevel(risk_level_val)
+        concept.risk_note = risk_note_val
+
+        updated_breakdown = dict(concept.score_breakdown or {})
+        updated_breakdown.update({
+            "overall_score": overall_val,
+            "scores": replacement_cand.get("scores", {}),
+            "competition": replacement_cand.get("competition", "Medium"),
+            "trend_direction": replacement_cand.get("trend_direction", "Rising"),
+            "market_validation": replacement_cand.get("market_validation", "Strong"),
+            "timing_label": replacement_cand.get("timing_label", "Sell Now"),
+            "recommended_launch_window": replacement_cand.get("recommended_launch_window", "Immediate"),
+            "target_buyer": replacement_cand.get("target_buyer"),
+            "niche": replacement_cand.get("niche"),
+            "season_or_event": replacement_cand.get("season_or_event"),
+            "why_it_could_sell": replacement_cand.get("why_it_could_sell"),
+            "evidence_summary": replacement_cand.get("evidence_summary", []),
+            "keyword_cluster": replacement_cand.get("keyword_cluster", []),
+            "color_palette": replacement_cand.get("color_palette", []),
+            "design_style": replacement_cand.get("design_style"),
+            "visual_direction": replacement_cand.get("visual_direction"),
+            "recommended_products": replacement_cand.get("recommended_products", []),
+            "trademark_report": tm_findings,
+        })
+        concept.score_breakdown = updated_breakdown
+
+        # Add new prompt version
+        rec_products = replacement_cand.get("recommended_products", [])
+        uses = [p["product"] for p in rec_products if isinstance(p, dict) and p.get("fit", 0) >= 75]
+        palette_str = ", ".join(replacement_cand.get("color_palette", []))
+
+        await uow.concepts.add_prompt_version(
+            concept,
+            positive_prompt=replacement_cand.get("positive_prompt", f"{concept.title}, isolated on transparent background"),
+            negative_prompt=replacement_cand.get("negative_prompt", "background, photo, watermark"),
+            typography_instructions=replacement_cand.get("typography_instructions"),
+            exact_slogan=replacement_cand.get("slogan"),
+            change_note="Refreshed concept alternative.",
+            intended_product_uses=uses or ["tshirt", "mug"],
+            style_notes=replacement_cand.get("design_style"),
+            palette=palette_str,
+            post_generation_checklist=["transparent background", "clean uncropped edges"],
+            generation_metadata={"aspect": "1:1", "quality_tier": "draft"},
+        )
+        await uow.commit()
+
+    prompts = await uow.concepts.prompts(concept.id)
     concept_dict = {
         "id": concept.id,
         "workflow_id": concept.workflow_id,

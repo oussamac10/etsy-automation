@@ -223,6 +223,15 @@ class KeywordClusterResponse(BaseModel):
     relevance_rank: int
 
 
+class ResearchSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    run: ResearchRunResponse | None = None
+    evidence: list[ResearchEvidenceResponse] = []
+    keyword_clusters: list[KeywordClusterResponse] = []
+    proven_market_observations: list[str] = []
+
+
 class DesignPromptResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
