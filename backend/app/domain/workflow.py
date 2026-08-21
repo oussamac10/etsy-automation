@@ -254,8 +254,14 @@ def _build_allowed_transitions() -> Mapping[RunStatus, frozenset[RunStatus]]:
     transitions[RunStatus.CANCELLED].add(RunStatus.PRODUCTION)
     transitions[RunStatus.CANCELLED].add(RunStatus.LISTING_REVIEW)
 
-    # Re-running opportunity discovery / market research from review states.
+    # Re-running opportunity discovery / market research from review / subsequent states.
     transitions[RunStatus.IDEA_REVIEW].add(RunStatus.RESEARCH_QUEUED)
+    transitions[RunStatus.IDEA_APPROVED].add(RunStatus.RESEARCH_QUEUED)
+    transitions[RunStatus.ART_REVIEW].add(RunStatus.RESEARCH_QUEUED)
+    transitions[RunStatus.ART_GENERATION].add(RunStatus.RESEARCH_QUEUED)
+    transitions[RunStatus.ARTWORK_APPROVED].add(RunStatus.RESEARCH_QUEUED)
+    transitions[RunStatus.PRODUCTION].add(RunStatus.RESEARCH_QUEUED)
+    transitions[RunStatus.LISTING_REVIEW].add(RunStatus.RESEARCH_QUEUED)
 
     for status in RunStatus:
         # A cancelled workflow is not live, so cancelling it again is refused
@@ -334,7 +340,11 @@ def advance(current: RunStatus, requested: RunStatus) -> RunStatus:
     """
     if current in TERMINAL_STATUSES:
         raise IllegalTransitionError(current, requested, f"{current} is terminal")
-    if current in GATED_STATUSES and requested is not RunStatus.CANCELLED:
+    if (
+        current in GATED_STATUSES
+        and requested is not RunStatus.CANCELLED
+        and requested is not RunStatus.RESEARCH_QUEUED
+    ):
         raise IllegalTransitionError(
             current,
             requested,

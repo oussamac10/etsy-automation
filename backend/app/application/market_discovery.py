@@ -245,7 +245,8 @@ class MarketOpportunityDiscoveryService:
                     continue
 
         if not raw_candidates:
-            fallback_niches = preferred_niche or ["Seasonal Holiday", "Botanical Nature", "Cozy Coffee & Books", "Healthcare / Nurse"]
+            clean_pref = [n for n in (preferred_niche or []) if "Trend Discovery" not in n]
+            fallback_niches = clean_pref + ["Botanical Nature", "Cozy Coffee & Books", "Retro Vintage Mascots", "Healthcare & Teachers", "Outdoor Adventure"]
             for f_idx, f_niche in enumerate(fallback_niches[:4]):
                 raw_candidates.append({
                     "id": f"cand-fb-{f_idx + 1}",
@@ -255,7 +256,7 @@ class MarketOpportunityDiscoveryService:
                     "niche": f_niche,
                     "season_or_event": occasions[0] if occasions else (seasons[0] if seasons else "Evergreen"),
                     "visual_direction": f"Isolated central {f_niche} graphic on transparent background",
-                    "design_style": desired_styles[0] if desired_styles else "Modern Watercolor",
+                    "design_style": desired_styles[0] if desired_styles else "Modern Illustration",
                     "slogan": None,
                     "color_palette": ["#2D3142", "#4F5D75", "#BFC0C0"],
                     "keyword_cluster": [f"{f_niche.lower()} png", f"{f_niche.lower()} clipart", "digital download sublimation"],

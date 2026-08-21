@@ -398,10 +398,15 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 await uow.commit()
 
             # Multi-angle market scan
+            preferred_niche_list = (
+                [workflow.name]
+                if workflow.name and "Trend Discovery" not in workflow.name
+                else None
+            )
             evidence_tuples = await discovery_service.run_market_scan(
                 target_country=workflow.target_country,
                 output_language=workflow.output_language,
-                preferred_niche=[workflow.name] if workflow.name and workflow.name != "Trend Discovery" else None,
+                preferred_niche=preferred_niche_list,
                 target_buyer=[workflow.target_buyer] if workflow.target_buyer else None,
                 intended_products=workflow.intended_product_uses,
                 desired_styles=[idea_style] if idea_style else None,
@@ -415,7 +420,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                     target_country=workflow.target_country,
                     output_language=workflow.output_language,
                     intended_products=workflow.intended_product_uses,
-                    preferred_niche=[workflow.name] if workflow.name and workflow.name != "Trend Discovery" else None,
+                    preferred_niche=preferred_niche_list,
                     target_buyer=[workflow.target_buyer] if workflow.target_buyer else None,
                     desired_styles=[idea_style] if idea_style else None,
                     occasions=[idea_season] if idea_season else None,

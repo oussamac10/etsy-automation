@@ -436,7 +436,7 @@ function confirmHighRiskApproval() {
         </div>
 
         <Button
-          v-if="workflow.state === 'IDEA_REVIEW'"
+          v-if="workflow.state !== 'RESEARCH_QUEUED' && workflow.state !== 'RESEARCHING' && workflow.state !== 'PUBLISHED'"
           variant="outline"
           size="sm"
           :disabled="isStartingNewResearch"
@@ -445,7 +445,7 @@ function confirmHighRiskApproval() {
         >
           <Icon v-if="isStartingNewResearch" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
           <Icon v-else name="lucide:rotate-ccw" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>Find 3 New Opportunities</span>
+          <span>{{ workflow.state !== 'IDEA_REVIEW' ? 'Step Back & Generate 3 Ideas' : 'Find 3 New Opportunities' }}</span>
         </Button>
       </div>
 
