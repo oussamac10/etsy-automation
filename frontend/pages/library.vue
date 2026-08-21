@@ -290,29 +290,106 @@ let initialAngleDeg = 0;
 const templateToEdit = ref<MockupTemplate | null>(null);
 const editName = ref("");
 const editProductType = ref("");
-const editPlacement = ref<PlacementData>({
-  left_pct: 0.25,
-  top_pct: 0.25,
-  width_pct: 0.5,
-  height_pct: 0.5,
-  angle_deg: 0,
-  blend_mode: "multiply",
+const editPlacements = ref<PlacementData[]>([
+  {
+    id: "zone-1",
+    left_pct: 0.25,
+    top_pct: 0.25,
+    width_pct: 0.5,
+    height_pct: 0.5,
+    angle_deg: 0,
+    blend_mode: "multiply",
+  },
+]);
+const activeEditZoneIndex = ref(0);
+
+const editPlacement = computed<PlacementData>({
+  get: () => editPlacements.value[activeEditZoneIndex.value] || editPlacements.value[0] || {
+    left_pct: 0.25,
+    top_pct: 0.25,
+    width_pct: 0.5,
+    height_pct: 0.5,
+    angle_deg: 0,
+    blend_mode: "multiply",
+  },
+  set: (val: PlacementData) => {
+    if (editPlacements.value[activeEditZoneIndex.value]) {
+      editPlacements.value[activeEditZoneIndex.value] = val;
+    }
+  },
 });
 const isUpdating = ref(false);
 const updateError = ref<string | null>(null);
+
+function addEditZone(): void {
+  const count = editPlacements.value.length;
+  const offset = (count * 0.06) % 0.25;
+  const newZone: PlacementData = {
+    id: `zone-${Date.now()}-${count + 1}`,
+    left_pct: Math.min(0.65, 0.28 + offset),
+    top_pct: Math.min(0.65, 0.25 + offset),
+    width_pct: 0.40,
+    height_pct: 0.40,
+    angle_deg: 0,
+    blend_mode: editPlacement.value.blend_mode || "multiply",
+  };
+  editPlacements.value.push(newZone);
+  activeEditZoneIndex.value = editPlacements.value.length - 1;
+}
+
+function duplicateEditZone(idx: number): void {
+  const source = editPlacements.value[idx] || editPlacements.value[0];
+  if (!source) return;
+  const newZone: PlacementData = {
+    id: `zone-${Date.now()}`,
+    left_pct: Math.min(0.70, Math.round((source.left_pct + 0.05) * 100) / 100),
+    top_pct: Math.min(0.70, Math.round((source.top_pct + 0.05) * 100) / 100),
+    width_pct: source.width_pct,
+    height_pct: source.height_pct,
+    angle_deg: source.angle_deg || 0,
+    blend_mode: source.blend_mode || "multiply",
+  };
+  editPlacements.value.push(newZone);
+  activeEditZoneIndex.value = editPlacements.value.length - 1;
+}
+
+function removeEditZone(idx: number): void {
+  if (editPlacements.value.length <= 1) return;
+  editPlacements.value.splice(idx, 1);
+  if (activeEditZoneIndex.value >= editPlacements.value.length) {
+    activeEditZoneIndex.value = Math.max(0, editPlacements.value.length - 1);
+  }
+}
 
 function openEditModal(t: MockupTemplate): void {
   templateToEdit.value = t;
   editName.value = t.name;
   editProductType.value = t.product_type;
-  editPlacement.value = {
-    left_pct: t.placement.left_pct <= 1.0 ? t.placement.left_pct : t.placement.left_pct / 100,
-    top_pct: t.placement.top_pct <= 1.0 ? t.placement.top_pct : t.placement.top_pct / 100,
-    width_pct: t.placement.width_pct <= 1.0 ? t.placement.width_pct : t.placement.width_pct / 100,
-    height_pct: t.placement.height_pct <= 1.0 ? t.placement.height_pct : t.placement.height_pct / 100,
-    angle_deg: t.placement.angle_deg || 0,
-    blend_mode: t.placement.blend_mode || "multiply",
-  };
+  if (t.placements && t.placements.length > 0) {
+    editPlacements.value = t.placements.map((p, idx) => ({
+      id: p.id || `zone-${idx + 1}`,
+      left_pct: p.left_pct <= 1.0 ? p.left_pct : p.left_pct / 100,
+      top_pct: p.top_pct <= 1.0 ? p.top_pct : p.top_pct / 100,
+      width_pct: p.width_pct <= 1.0 ? p.width_pct : p.width_pct / 100,
+      height_pct: p.height_pct <= 1.0 ? p.height_pct : p.height_pct / 100,
+      angle_deg: p.angle_deg || 0,
+      blend_mode: p.blend_mode || "multiply",
+      artwork_source_id: p.artwork_source_id || null,
+    }));
+  } else {
+    editPlacements.value = [
+      {
+        id: "zone-1",
+        left_pct: t.placement.left_pct <= 1.0 ? t.placement.left_pct : t.placement.left_pct / 100,
+        top_pct: t.placement.top_pct <= 1.0 ? t.placement.top_pct : t.placement.top_pct / 100,
+        width_pct: t.placement.width_pct <= 1.0 ? t.placement.width_pct : t.placement.width_pct / 100,
+        height_pct: t.placement.height_pct <= 1.0 ? t.placement.height_pct : t.placement.height_pct / 100,
+        angle_deg: t.placement.angle_deg || 0,
+        blend_mode: t.placement.blend_mode || "multiply",
+      },
+    ];
+  }
+  activeEditZoneIndex.value = 0;
   updateError.value = null;
 }
 
@@ -493,7 +570,8 @@ async function handleSaveEdit(): Promise<void> {
         body: {
           name: editName.value.trim() || templateToEdit.value.name,
           product_type: editProductType.value,
-          placement: editPlacement.value,
+          placement: editPlacements.value[0],
+          placements: editPlacements.value,
         },
         credentials: "include",
       }
@@ -528,16 +606,77 @@ const rawUploadFileUrl = ref<string | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const isDraggingFile = ref(false);
 const uploadCanvasRef = ref<HTMLDivElement | null>(null);
-const uploadPlacement = ref<PlacementData>({
-  left_pct: 0.28,
-  top_pct: 0.25,
-  width_pct: 0.44,
-  height_pct: 0.48,
-  angle_deg: 0,
-  blend_mode: "multiply",
+
+const uploadPlacements = ref<PlacementData[]>([
+  {
+    id: "zone-1",
+    left_pct: 0.28,
+    top_pct: 0.25,
+    width_pct: 0.44,
+    height_pct: 0.48,
+    angle_deg: 0,
+    blend_mode: "multiply",
+  },
+]);
+const activeUploadZoneIndex = ref(0);
+
+const uploadPlacement = computed<PlacementData>({
+  get: () => uploadPlacements.value[activeUploadZoneIndex.value] || uploadPlacements.value[0] || {
+    left_pct: 0.28,
+    top_pct: 0.25,
+    width_pct: 0.44,
+    height_pct: 0.48,
+    angle_deg: 0,
+    blend_mode: "multiply",
+  },
+  set: (val: PlacementData) => {
+    if (uploadPlacements.value[activeUploadZoneIndex.value]) {
+      uploadPlacements.value[activeUploadZoneIndex.value] = val;
+    }
+  },
 });
 const isUploading = ref(false);
 const uploadError = ref<string | null>(null);
+
+function addUploadZone(): void {
+  const count = uploadPlacements.value.length;
+  const offset = (count * 0.06) % 0.25;
+  const newZone: PlacementData = {
+    id: `zone-${Date.now()}-${count + 1}`,
+    left_pct: Math.min(0.65, 0.28 + offset),
+    top_pct: Math.min(0.65, 0.25 + offset),
+    width_pct: 0.40,
+    height_pct: 0.40,
+    angle_deg: 0,
+    blend_mode: uploadPlacement.value.blend_mode || "multiply",
+  };
+  uploadPlacements.value.push(newZone);
+  activeUploadZoneIndex.value = uploadPlacements.value.length - 1;
+}
+
+function duplicateUploadZone(idx: number): void {
+  const source = uploadPlacements.value[idx] || uploadPlacements.value[0];
+  if (!source) return;
+  const newZone: PlacementData = {
+    id: `zone-${Date.now()}`,
+    left_pct: Math.min(0.70, Math.round((source.left_pct + 0.05) * 100) / 100),
+    top_pct: Math.min(0.70, Math.round((source.top_pct + 0.05) * 100) / 100),
+    width_pct: source.width_pct,
+    height_pct: source.height_pct,
+    angle_deg: source.angle_deg || 0,
+    blend_mode: source.blend_mode || "multiply",
+  };
+  uploadPlacements.value.push(newZone);
+  activeUploadZoneIndex.value = uploadPlacements.value.length - 1;
+}
+
+function removeUploadZone(idx: number): void {
+  if (uploadPlacements.value.length <= 1) return;
+  uploadPlacements.value.splice(idx, 1);
+  if (activeUploadZoneIndex.value >= uploadPlacements.value.length) {
+    activeUploadZoneIndex.value = Math.max(0, uploadPlacements.value.length - 1);
+  }
+}
 
 function openUploadModal(forcedCategory?: string): void {
   const targetCategory = forcedCategory || (selectedCategory.value !== "all" ? selectedCategory.value : "mug");
@@ -546,8 +685,10 @@ function openUploadModal(forcedCategory?: string): void {
   showCategoryDropdown.value = selectedCategory.value === "all";
 
   const norm = normalizeProductKey(targetCategory);
+  let basePlacement: PlacementData;
   if (norm === "tshirt" || norm === "sweatshirt" || norm === "tote_bag") {
-    uploadPlacement.value = {
+    basePlacement = {
+      id: "zone-1",
       left_pct: 0.28,
       top_pct: 0.25,
       width_pct: 0.44,
@@ -556,7 +697,8 @@ function openUploadModal(forcedCategory?: string): void {
       blend_mode: "multiply",
     };
   } else if (norm === "poster") {
-    uploadPlacement.value = {
+    basePlacement = {
+      id: "zone-1",
       left_pct: 0.20,
       top_pct: 0.20,
       width_pct: 0.60,
@@ -565,7 +707,8 @@ function openUploadModal(forcedCategory?: string): void {
       blend_mode: "over",
     };
   } else {
-    uploadPlacement.value = {
+    basePlacement = {
+      id: "zone-1",
       left_pct: 0.28,
       top_pct: 0.25,
       width_pct: 0.44,
@@ -574,6 +717,8 @@ function openUploadModal(forcedCategory?: string): void {
       blend_mode: "over",
     };
   }
+  uploadPlacements.value = [basePlacement];
+  activeUploadZoneIndex.value = 0;
 
   uploadName.value = "";
   uploadImageFile.value = null;
@@ -830,7 +975,8 @@ async function handleUploadSubmit(): Promise<void> {
           product_type: finalProductType,
           image_base64: base64,
           content_type: uploadImageFile.value.type || "image/jpeg",
-          placement: uploadPlacement.value,
+          placement: uploadPlacements.value[0],
+          placements: uploadPlacements.value,
         },
         credentials: "include",
       }
@@ -1313,6 +1459,71 @@ onMounted(() => {
               <span class="text-[10px] text-muted-foreground font-mono">1:1 Aspect Frame</span>
             </div>
 
+            <!-- Print Zones Toolbar (Multi-Zone Placement Support) -->
+            <div class="flex items-center justify-between p-2 rounded-xl bg-secondary/60 border border-border flex-wrap gap-2">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-xs font-bold text-foreground flex items-center gap-1 mr-1">
+                  <Icon name="lucide:layers" class="size-3.5 text-primary" aria-hidden="true" />
+                  <span>Print Zones ({{ editPlacements.length }})</span>
+                </span>
+
+                <!-- Zone Pills -->
+                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                  <button
+                    v-for="(zone, idx) in editPlacements"
+                    :key="zone.id || `edit-zone-${idx}`"
+                    type="button"
+                    class="px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                    :class="[
+                      activeEditZoneIndex === idx
+                        ? 'bg-primary text-white shadow-2xs font-bold'
+                        : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+                    ]"
+                    @click="activeEditZoneIndex = idx"
+                  >
+                    <span>Zone {{ idx + 1 }}</span>
+                    <span v-if="zone.angle_deg" class="text-[9px] opacity-80">({{ zone.angle_deg }}°)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Zone Actions: Add, Duplicate, Delete -->
+              <div class="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="h-7 text-xs px-2 gap-1 bg-white font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
+                  title="Add new print zone"
+                  @click="addEditZone"
+                >
+                  <Icon name="lucide:plus" class="size-3" aria-hidden="true" />
+                  <span>Add Zone</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-muted-foreground hover:text-foreground"
+                  title="Duplicate current zone"
+                  @click="duplicateEditZone(activeEditZoneIndex)"
+                >
+                  <Icon name="lucide:copy" class="size-3" aria-hidden="true" />
+                  <span>Duplicate</span>
+                </Button>
+
+                <Button
+                  v-if="editPlacements.length > 1"
+                  variant="outline"
+                  size="sm"
+                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-destructive hover:bg-red-50 hover:border-red-200"
+                  title="Remove current zone"
+                  @click="removeEditZone(activeEditZoneIndex)"
+                >
+                  <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+
             <!-- Canvas Viewport Frame -->
             <div class="relative w-full aspect-square max-h-[460px] min-h-[320px] bg-slate-950/90 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-3 shadow-inner">
               <!-- Exact Image-Fitting Interactive Canvas -->
@@ -1331,9 +1542,31 @@ onMounted(() => {
                 <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-primary/30 pointer-events-none" />
                 <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-primary/30 pointer-events-none" />
 
+                <!-- Inactive Selectable Zones -->
+                <template v-for="(zone, idx) in editPlacements" :key="zone.id || `ed-zone-${idx}`">
+                  <div
+                    v-if="idx !== activeEditZoneIndex"
+                    class="absolute cursor-pointer border border-dashed border-white/70 hover:border-primary bg-white/5 hover:bg-primary/15 transition-all rounded-xs z-10 group/zone"
+                    :style="{
+                      left: `${zone.left_pct * 100}%`,
+                      top: `${zone.top_pct * 100}%`,
+                      width: `${zone.width_pct * 100}%`,
+                      height: `${zone.height_pct * 100}%`,
+                      transform: `rotate(${zone.angle_deg || 0}deg)`,
+                      transformOrigin: 'center center',
+                    }"
+                    :title="`Click to select Zone ${idx + 1}`"
+                    @pointerdown.stop="activeEditZoneIndex = idx"
+                  >
+                    <span class="absolute -top-5 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-slate-900/90 text-white rounded text-[9px] font-mono border border-slate-700 pointer-events-none shadow-xs group-hover/zone:border-primary group-hover/zone:text-primary">
+                      Zone {{ idx + 1 }}
+                    </span>
+                  </div>
+                </template>
+
                 <!-- Draggable, Resizable & Rotatable Placement Box -->
                 <div
-                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50 select-none"
+                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50 select-none z-20"
                   :style="{
                     left: `${editPlacement.left_pct * 100}%`,
                     top: `${editPlacement.top_pct * 100}%`,
@@ -1357,8 +1590,9 @@ onMounted(() => {
                   </div>
 
                   <!-- Live Coordinates Pill -->
-                  <div class="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-md border border-slate-700/60">
-                    {{ Math.round(editPlacement.left_pct * 100) }}%, {{ Math.round(editPlacement.top_pct * 100) }}% · {{ Math.round(editPlacement.width_pct * 100) }}×{{ Math.round(editPlacement.height_pct * 100) }}% · {{ editPlacement.angle_deg || 0 }}°
+                  <div class="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-md border border-slate-700/60 flex items-center gap-1">
+                    <span v-if="editPlacements.length > 1" class="text-primary font-bold">Zone {{ activeEditZoneIndex + 1 }}:</span>
+                    <span>{{ Math.round(editPlacement.left_pct * 100) }}%, {{ Math.round(editPlacement.top_pct * 100) }}% · {{ Math.round(editPlacement.width_pct * 100) }}×{{ Math.round(editPlacement.height_pct * 100) }}% · {{ editPlacement.angle_deg || 0 }}°</span>
                   </div>
 
                   <!-- Centered Print Area Icon -->
@@ -1762,6 +1996,71 @@ onMounted(() => {
               </button>
             </div>
 
+            <!-- Print Zones Toolbar (Multi-Zone Placement Support) -->
+            <div class="flex items-center justify-between p-2 rounded-xl bg-secondary/60 border border-border flex-wrap gap-2">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-xs font-bold text-foreground flex items-center gap-1 mr-1">
+                  <Icon name="lucide:layers" class="size-3.5 text-primary" aria-hidden="true" />
+                  <span>Print Zones ({{ uploadPlacements.length }})</span>
+                </span>
+
+                <!-- Zone Pills -->
+                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                  <button
+                    v-for="(zone, idx) in uploadPlacements"
+                    :key="zone.id || `upload-zone-${idx}`"
+                    type="button"
+                    class="px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                    :class="[
+                      activeUploadZoneIndex === idx
+                        ? 'bg-primary text-white shadow-2xs font-bold'
+                        : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+                    ]"
+                    @click="activeUploadZoneIndex = idx"
+                  >
+                    <span>Zone {{ idx + 1 }}</span>
+                    <span v-if="zone.angle_deg" class="text-[9px] opacity-80">({{ zone.angle_deg }}°)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Zone Actions: Add, Duplicate, Delete -->
+              <div class="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="h-7 text-xs px-2 gap-1 bg-white font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
+                  title="Add new print zone"
+                  @click="addUploadZone"
+                >
+                  <Icon name="lucide:plus" class="size-3" aria-hidden="true" />
+                  <span>Add Zone</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-muted-foreground hover:text-foreground"
+                  title="Duplicate current zone"
+                  @click="duplicateUploadZone(activeUploadZoneIndex)"
+                >
+                  <Icon name="lucide:copy" class="size-3" aria-hidden="true" />
+                  <span>Duplicate</span>
+                </Button>
+
+                <Button
+                  v-if="uploadPlacements.length > 1"
+                  variant="outline"
+                  size="sm"
+                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-destructive hover:bg-red-50 hover:border-red-200"
+                  title="Remove current zone"
+                  @click="removeUploadZone(activeUploadZoneIndex)"
+                >
+                  <Icon name="lucide:trash-2" class="size-3" aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+
             <!-- Canvas Viewport Frame -->
             <div class="relative w-full aspect-square max-h-[460px] min-h-[320px] bg-slate-950/90 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-3 shadow-inner">
               <!-- Exact Image-Fitting Upload Canvas -->
@@ -1780,9 +2079,31 @@ onMounted(() => {
                 <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-primary/30 pointer-events-none" />
                 <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-primary/30 pointer-events-none" />
 
+                <!-- Inactive Selectable Zones -->
+                <template v-for="(zone, idx) in uploadPlacements" :key="zone.id || `up-zone-${idx}`">
+                  <div
+                    v-if="idx !== activeUploadZoneIndex"
+                    class="absolute cursor-pointer border border-dashed border-white/70 hover:border-primary bg-white/5 hover:bg-primary/15 transition-all rounded-xs z-10 group/zone"
+                    :style="{
+                      left: `${zone.left_pct * 100}%`,
+                      top: `${zone.top_pct * 100}%`,
+                      width: `${zone.width_pct * 100}%`,
+                      height: `${zone.height_pct * 100}%`,
+                      transform: `rotate(${zone.angle_deg || 0}deg)`,
+                      transformOrigin: 'center center',
+                    }"
+                    :title="`Click to select Zone ${idx + 1}`"
+                    @pointerdown.stop="activeUploadZoneIndex = idx"
+                  >
+                    <span class="absolute -top-5 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-slate-900/90 text-white rounded text-[9px] font-mono border border-slate-700 pointer-events-none shadow-xs group-hover/zone:border-primary group-hover/zone:text-primary">
+                      Zone {{ idx + 1 }}
+                    </span>
+                  </div>
+                </template>
+
                 <!-- Draggable, Resizable & Rotatable Placement Box -->
                 <div
-                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50 select-none"
+                  class="absolute border-2 border-primary bg-primary/20 backdrop-blur-[0.5px] cursor-grab active:cursor-grabbing flex items-center justify-center rounded-xs transition-shadow shadow-md hover:ring-2 hover:ring-primary/50 select-none z-20"
                   :style="{
                     left: `${uploadPlacement.left_pct * 100}%`,
                     top: `${uploadPlacement.top_pct * 100}%`,
@@ -1806,8 +2127,9 @@ onMounted(() => {
                   </div>
 
                   <!-- Live Coordinates Pill -->
-                  <div class="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-md border border-slate-700/60">
-                    {{ Math.round(uploadPlacement.left_pct * 100) }}%, {{ Math.round(uploadPlacement.top_pct * 100) }}% · {{ Math.round(uploadPlacement.width_pct * 100) }}×{{ Math.round(uploadPlacement.height_pct * 100) }}% · {{ uploadPlacement.angle_deg || 0 }}°
+                  <div class="absolute -top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-slate-900/90 text-white rounded-md text-[9px] font-mono whitespace-nowrap pointer-events-none shadow-md border border-slate-700/60 flex items-center gap-1">
+                    <span v-if="uploadPlacements.length > 1" class="text-primary font-bold">Zone {{ activeUploadZoneIndex + 1 }}:</span>
+                    <span>{{ Math.round(uploadPlacement.left_pct * 100) }}%, {{ Math.round(uploadPlacement.top_pct * 100) }}% · {{ Math.round(uploadPlacement.width_pct * 100) }}×{{ Math.round(uploadPlacement.height_pct * 100) }}% · {{ uploadPlacement.angle_deg || 0 }}°</span>
                   </div>
 
                   <!-- Centered Print Area Icon -->

@@ -282,6 +282,61 @@ function centerBoth(): void {
   }
 }
 
+function applyFullCenterPreset(): void {
+  const z = placements.value[activePlacementIndex.value];
+  if (z) {
+    z.left_pct = 28;
+    z.top_pct = 25;
+    z.width_pct = 44;
+    z.height_pct = 48;
+  }
+}
+
+function applyChestPreset(): void {
+  const z = placements.value[activePlacementIndex.value];
+  if (z) {
+    z.left_pct = 52;
+    z.top_pct = 26;
+    z.width_pct = 22;
+    z.height_pct = 24;
+  }
+}
+
+function applySquarePreset(): void {
+  const z = placements.value[activePlacementIndex.value];
+  if (z) {
+    z.left_pct = 30;
+    z.top_pct = 30;
+    z.width_pct = 40;
+    z.height_pct = 40;
+  }
+}
+
+function rotateActiveLeft(): void {
+  const z = placements.value[activePlacementIndex.value];
+  if (z) {
+    let a = (z.angle_deg || 0) - 90;
+    while (a < -180) a += 360;
+    z.angle_deg = a;
+  }
+}
+
+function rotateActiveRight(): void {
+  const z = placements.value[activePlacementIndex.value];
+  if (z) {
+    let a = (z.angle_deg || 0) + 90;
+    while (a > 180) a -= 360;
+    z.angle_deg = a;
+  }
+}
+
+function setActiveAngle(deg: number): void {
+  const z = placements.value[activePlacementIndex.value];
+  if (z) {
+    z.angle_deg = deg;
+  }
+}
+
 async function loadTemplatesForProduct(): Promise<void> {
   isFetchingTemplates.value = true;
   try {
@@ -828,6 +883,94 @@ async function handleGenerateMockup(): Promise<void> {
                 @update:active-placement-index="(idx) => activePlacementIndex = idx"
                 @update-placements="(list) => placements = list"
               />
+
+              <!-- Quick Placement & Rotation Segmented Toolbar Below Canvas -->
+              <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/40 border border-border flex-wrap">
+                <!-- Alignment Presets -->
+                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                    title="Center artwork box"
+                    @click="centerBoth"
+                  >
+                    <Icon name="lucide:crosshair" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Center</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                    title="Center horizontally"
+                    @click="centerHorizontal"
+                  >
+                    <Icon name="lucide:align-horizontal-justify-center" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Center X</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                    title="Apply full center preset"
+                    @click="applyFullCenterPreset"
+                  >
+                    <Icon name="lucide:maximize-2" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Full</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                    title="Apply left chest preset"
+                    @click="applyChestPreset"
+                  >
+                    <Icon name="lucide:target" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>Chest</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                    title="Apply square 1:1 preset"
+                    @click="applySquarePreset"
+                  >
+                    <Icon name="lucide:square" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>1:1</span>
+                  </button>
+                </div>
+
+                <!-- Rotation Quick Actions -->
+                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-0.5"
+                    title="Rotate 90 degrees counter-clockwise"
+                    @click="rotateActiveLeft"
+                  >
+                    <Icon name="lucide:rotate-ccw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>-90°</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-0.5"
+                    title="Rotate 90 degrees clockwise"
+                    @click="rotateActiveRight"
+                  >
+                    <Icon name="lucide:rotate-cw" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                    <span>+90°</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
+                    title="Reset angle to 0°"
+                    @click="setActiveAngle(0)"
+                  >
+                    <span>0°</span>
+                  </button>
+                </div>
+              </div>
 
               <p class="text-[11px] text-muted-foreground text-center">
                 💡 Drag bounding box to move · Drag stalk to rotate · Bottom-right to resize
