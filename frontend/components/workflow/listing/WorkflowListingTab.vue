@@ -714,7 +714,7 @@ const subTabs = computed(() => [
         <div class="space-y-1 min-w-0">
           <p class="font-semibold flex items-center gap-2 text-foreground text-sm">
             <Icon name="lucide:image" class="size-4 shrink-0 text-amber-500" aria-hidden="true" />
-            <span>Artwork Selection Required (Gate 2)</span>
+            <span>Artwork Selection Required</span>
           </p>
           <p class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
             Etsy listing preparation, trademark screening, and customer delivery packaging require an approved master artwork candidate. Please visit <b>Step 2 (Artwork Studio)</b> to generate and approve your design before configuring listing details.
@@ -989,7 +989,7 @@ const subTabs = computed(() => [
             <span>Ready for Etsy?</span>
           </h3>
           <p class="text-xs text-muted-foreground">
-            Review the final listing configuration before approving Gate 3.
+            Review the final listing configuration before approving for Etsy draft creation.
           </p>
         </div>
 
@@ -1130,13 +1130,13 @@ const subTabs = computed(() => [
           </Card>
         </div>
 
-        <!-- Centralized Gate Readiness Checklist -->
+        <!-- Centralized Listing Readiness Checklist -->
         <Card class="border-border bg-card shadow-xs">
           <CardHeader class="p-4 sm:p-5 pb-3 flex flex-row items-center justify-between gap-3">
             <div class="space-y-0.5">
               <CardTitle class="text-sm font-semibold flex items-center gap-2">
                 <Icon name="lucide:list-checks" class="size-4 text-primary" aria-hidden="true" />
-                <span>Gate 3 Readiness Checklist</span>
+                <span>Listing Readiness Checklist</span>
               </CardTitle>
             </div>
             <Badge
@@ -1187,7 +1187,7 @@ const subTabs = computed(() => [
           </CardContent>
         </Card>
 
-        <!-- Sticky Gate 3 Decision Bar (Only in Final Review) -->
+        <!-- Sticky Listing Approval Decision Bar (Only in Final Review) -->
         <div
           v-if="!isApproved"
           class="bg-card/95 backdrop-blur-md border border-border/80 rounded-xl p-3.5 sm:p-4 shadow-lg ring-1 ring-black/5 dark:ring-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 sticky bottom-3 sm:bottom-4 z-10"
@@ -1195,7 +1195,7 @@ const subTabs = computed(() => [
           <div class="space-y-1 text-center sm:text-left min-w-0">
             <h3 class="text-sm font-semibold text-foreground flex items-center justify-center sm:justify-start gap-2">
               <Icon name="lucide:shield-check" class="size-4 text-primary shrink-0" aria-hidden="true" />
-              <span>Gate 3: Listing &amp; IP Approval</span>
+              <span>Listing &amp; IP Approval</span>
             </h3>
             <div v-if="canApprove" class="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-muted-foreground">
               <Icon name="lucide:circle-check" class="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />

@@ -33,13 +33,13 @@ onMounted(async () => {
       <div class="space-y-1">
         <div class="flex items-center gap-2">
           <Icon name="lucide:store" class="size-5 text-primary" aria-hidden="true" />
-          <h2 class="text-base sm:text-lg font-bold tracking-tight">Step 5: Etsy Listing Dispatch</h2>
+          <h2 class="text-base sm:text-lg font-bold tracking-tight">Step 5: Etsy Draft</h2>
           <Badge variant="success" class="text-[10px] font-mono font-medium">
-            Gate 3 Approved
+            Listing Approved
           </Badge>
         </div>
         <p class="text-xs text-slate-300 max-w-2xl leading-normal">
-          Your digital artwork, tags, pricing, and metadata are approved. Click below to push your listing directly to Etsy as a draft.
+          Your digital artwork, tags, pricing, and metadata are approved. Click below to create your official draft listing on Etsy.
         </p>
       </div>
     </div>

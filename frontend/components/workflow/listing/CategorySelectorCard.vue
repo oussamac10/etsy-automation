@@ -387,7 +387,6 @@ defineExpose({
                   >
                     Fitness unavailable
                   </Badge>
-                  <Badge variant="outline" class="font-mono text-[10px] py-0">ID: {{ cat.id }}</Badge>
                   <Icon
                     v-if="selectedNode?.id === cat.id"
                     name="lucide:check"

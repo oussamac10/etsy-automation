@@ -163,16 +163,16 @@ const reasons = computed<string[]>(() => {
       </div>
 
       <!-- Warning Acknowledgement Checkbox (only shown for Medium Risk) -->
-      <div v-if="isWarning && !acknowledgedAt" class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs space-y-2">
-        <p class="font-semibold text-amber-900 dark:text-amber-200">Owner Acknowledgement Required</p>
+      <div v-if="isWarning && !acknowledgedAt" class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+        <p class="font-semibold text-foreground">Acknowledgement Required</p>
         <label class="flex items-start gap-2 cursor-pointer">
           <input
             type="checkbox"
-            class="mt-0.5 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+            class="mt-0.5 rounded border-amber-500 text-amber-600 focus:ring-amber-500"
             :checked="warningAcknowledged"
             @change="emit('update:warningAcknowledged', ($event.target as HTMLInputElement).checked)"
           />
-          <span class="text-[11px] text-amber-950 dark:text-amber-100 leading-normal">
+          <span class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
             I acknowledge this automated screening is preliminary and does not constitute legal clearance advice.
           </span>
         </label>

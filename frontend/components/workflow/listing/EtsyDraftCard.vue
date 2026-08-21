@@ -368,7 +368,7 @@ async function copyListingId() {
           data-testid="etsy-badge-pending-gate"
         >
           <Icon name="lucide:clock-3" class="size-3 text-muted-foreground" aria-hidden="true" />
-          <span>Awaiting Gate 3</span>
+          <span>Awaiting Approval</span>
         </Badge>
         <Badge
           v-else
@@ -703,10 +703,10 @@ async function copyListingId() {
       >
         <div class="text-xs text-muted-foreground space-y-0.5">
           <div class="font-semibold text-foreground">
-            {{ isDraftRemoved ? 'Create New Etsy Draft' : isGate3Approved ? 'Ready for Draft Creation' : 'Gate 3 Approval Required' }}
+            {{ isDraftRemoved ? 'Create New Etsy Draft' : isGate3Approved ? 'Ready for Draft Creation' : 'Listing Approval Required' }}
           </div>
           <div>
-            {{ isDraftRemoved ? 'Generate a new official Etsy draft listing with the approved campaign files.' : isGate3Approved ? 'Creates an official draft listing on your connected Etsy shop with all approved assets.' : 'Approve Gate 3 below to authorize and create draft listing on Etsy.' }}
+            {{ isDraftRemoved ? 'Generate a new official Etsy draft listing with the approved campaign files.' : isGate3Approved ? 'Creates an official draft listing on your connected Etsy shop with all approved assets.' : 'Approve listing review to authorize and create draft listing on Etsy.' }}
           </div>
         </div>
 
