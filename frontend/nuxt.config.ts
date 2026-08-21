@@ -53,7 +53,7 @@ export default defineNuxtConfig({
         {
           name: "description",
           content:
-            "Autonomous research-to-draft digital product studio with human approval at every gate.",
+            "Autonomous research-to-draft digital product studio with complete creative control at every milestone.",
         },
       ],
       link: [

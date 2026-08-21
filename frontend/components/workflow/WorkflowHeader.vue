@@ -67,7 +67,6 @@ function handleDelete() {
         <h1 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground break-words leading-tight">
           {{ workflow.name }}
         </h1>
-        <p class="text-[11px] sm:text-xs text-muted-foreground font-mono truncate max-w-full">ID: {{ workflow.id }}</p>
       </div>
 
       <!-- Actions Toolbar -->

@@ -191,7 +191,7 @@ function confirmHighRiskApproval() {
       </div>
       <h2 class="text-lg font-bold text-destructive mb-1">Research Campaign Failed</h2>
       <p class="text-xs text-red-700 max-w-md mx-auto mb-4">
-        Reason: {{ latestRun?.failure_reason || 'An unexpected worker error occurred.' }}
+        Reason: {{ latestRun?.failure_reason || 'An unexpected error occurred. Please try again.' }}
       </p>
       <Button variant="destructive" size="default" class="font-semibold cursor-pointer" @click="emit('startResearch')">
         <Icon name="lucide:rotate-ccw" class="size-4 mr-1.5" aria-hidden="true" />
@@ -207,7 +207,7 @@ function confirmHighRiskApproval() {
         <div>
           <AlertTitle class="font-bold text-foreground">Choose one concept to continue.</AlertTitle>
           <AlertDescription class="text-xs text-secondary-foreground mt-0.5">
-            Review the AI-generated concepts and early USPTO trademark clearance below. Approve your preferred concept to proceed to Phase 6 Artwork Generation.
+            Review the AI-generated concepts and early USPTO trademark clearance below. Approve your preferred concept to proceed to Artwork Generation.
           </AlertDescription>
         </div>
       </Alert>
@@ -215,7 +215,7 @@ function confirmHighRiskApproval() {
       <Alert v-if="workflow.state === 'IDEA_APPROVED'" variant="success">
         <Icon name="lucide:circle-check" class="size-4 text-emerald-600" aria-hidden="true" />
         <div>
-          <AlertTitle class="font-bold text-emerald-800">Concept Approved — Gate 1 Passed</AlertTitle>
+          <AlertTitle class="font-bold text-emerald-800">Concept Approved</AlertTitle>
           <AlertDescription class="text-xs text-emerald-700 mt-0.5">
             The selected concept is locked. Head to the <b>Artwork Studio</b> tab to generate and review candidate designs.
           </AlertDescription>

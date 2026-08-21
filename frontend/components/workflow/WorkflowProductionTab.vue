@@ -314,9 +314,9 @@ async function handleMoveMockup(asset: MockupAsset, direction: "up" | "down"): P
           <div class="flex items-center gap-2">
             <Icon name="lucide:file-image" class="size-5 text-primary" aria-hidden="true" />
             <div>
-              <CardTitle class="text-base font-bold">Phase 7: Print-Ready PNG Production & Realistic Mockups</CardTitle>
+              <CardTitle class="text-base font-bold">Print-Ready PNG Production & Realistic Mockups</CardTitle>
               <CardDescription class="text-xs text-muted-foreground">
-                Deterministic 4500×5400 px @ 300 DPI master PNG with transparency, safe trim, slogan typography, QA & multi-mockup gallery
+                High-resolution 4500×5400 px @ 300 DPI master PNG with transparency, safe trim, slogan typography, QA & multi-mockup gallery
               </CardDescription>
             </div>
           </div>

@@ -148,7 +148,7 @@ const displayProductUses = computed<string[]>(() => {
         @click="emit('navigate', 'concepts')"
       >
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Phase 1-3</span>
+          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Step 1</span>
           <Icon name="lucide:arrow-right" class="size-4 text-muted-foreground" aria-hidden="true" />
         </div>
         <p class="text-sm font-semibold text-foreground">Market Research & Concept</p>
@@ -162,7 +162,7 @@ const displayProductUses = computed<string[]>(() => {
         @click="emit('navigate', 'artwork')"
       >
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Phase 4-6</span>
+          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Step 2</span>
           <Icon name="lucide:arrow-right" class="size-4 text-muted-foreground" aria-hidden="true" />
         </div>
         <p class="text-sm font-semibold text-foreground">Artwork Studio</p>
@@ -176,7 +176,7 @@ const displayProductUses = computed<string[]>(() => {
         @click="emit('navigate', 'production')"
       >
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Phase 7-8</span>
+          <span class="text-xs font-bold text-foreground uppercase tracking-wider">Step 3</span>
           <Icon name="lucide:arrow-right" class="size-4 text-muted-foreground" aria-hidden="true" />
         </div>
         <p class="text-sm font-semibold text-foreground">Production & Mockups</p>

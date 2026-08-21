@@ -186,11 +186,11 @@ const isListingActive = computed(() => {
         variant="success"
         class="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider shrink-0 hidden lg:inline-flex"
       >
-        Gate 3
+        Approved
       </Badge>
     </button>
 
-    <!-- Tab 6: Etsy Dispatch (Only visible once Gate 3 is approved) -->
+    <!-- Tab 6: Etsy Draft (Only visible once listing is approved) -->
     <button
       v-if="isGate3Done"
       type="button"
@@ -204,7 +204,7 @@ const isListingActive = computed(() => {
     >
       <Icon v-if="workflowState === 'ETSY_DRAFT_CREATED'" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
       <Icon v-else name="lucide:store" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <span class="truncate hidden 2xl:inline">5. Etsy Dispatch</span>
+      <span class="truncate hidden 2xl:inline">5. Etsy Draft</span>
       <span class="truncate hidden sm:inline 2xl:hidden">5. Etsy</span>
       <span class="truncate sm:hidden">5</span>
       <Badge

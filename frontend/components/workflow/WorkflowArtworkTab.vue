@@ -253,9 +253,9 @@ onUnmounted(() => {
           <div class="flex items-center gap-2">
             <Icon name="lucide:image" class="size-5 text-primary" aria-hidden="true" />
             <div>
-              <CardTitle class="text-lg font-bold">Phase 6: Artwork Generation & Approval (Gate 2)</CardTitle>
+              <CardTitle class="text-lg font-bold">Artwork Generation & Approval</CardTitle>
               <CardDescription class="text-xs text-muted-foreground">
-                Select provider/model and approve the generated candidate design before producing print files.
+                Select AI generator and approve the preferred candidate design before producing print files.
               </CardDescription>
             </div>
           </div>
@@ -755,7 +755,7 @@ onUnmounted(() => {
                 @click="emit('approve', previewingAsset.id); previewingAsset = null"
               >
                 <Icon name="lucide:circle-check" class="size-3.5" />
-                <span>Approve This Design (Gate 2)</span>
+                <span>Approve This Artwork</span>
               </Button>
             </template>
 
