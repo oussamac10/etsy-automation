@@ -94,6 +94,30 @@ const allCategoryOptions = computed(() => {
   return Array.from(mergedMap.values());
 });
 
+const tplAspectRatios = ref<Record<string, number>>({});
+
+function onCardImageLoaded(id: string, e: Event): void {
+  const img = e.target as HTMLImageElement;
+  if (img.naturalWidth && img.naturalHeight) {
+    tplAspectRatios.value[id] = img.naturalWidth / img.naturalHeight;
+  }
+}
+
+function preloadTemplateAspectRatios(tplList: MockupTemplate[]): void {
+  if (typeof window === "undefined") return;
+  for (const t of tplList) {
+    if (t?.url && !tplAspectRatios.value[t.id]) {
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          tplAspectRatios.value[t.id] = img.naturalWidth / img.naturalHeight;
+        }
+      };
+      img.src = t.url;
+    }
+  }
+}
+
 async function loadTemplates(): Promise<void> {
   isLoading.value = true;
   pageError.value = null;
@@ -107,6 +131,7 @@ async function loadTemplates(): Promise<void> {
       { headers, credentials: "include" }
     );
     templates.value = data || [];
+    preloadTemplateAspectRatios(templates.value);
   } catch (err: unknown) {
     const errorObj = err as { data?: { detail?: string }; message?: string };
     pageError.value = errorObj.data?.detail || errorObj.message || "Failed to load mockup templates.";
@@ -474,6 +499,7 @@ async function handleSaveEdit(): Promise<void> {
     const idx = templates.value.findIndex((t) => t.id === templateToEdit.value?.id);
     if (idx !== -1 && updated) {
       templates.value[idx] = updated;
+      preloadTemplateAspectRatios([updated]);
     }
     templateToEdit.value = null;
   } catch (err: unknown) {
@@ -809,6 +835,7 @@ async function handleUploadSubmit(): Promise<void> {
 
     if (created) {
       templates.value.unshift(created);
+      preloadTemplateAspectRatios([created]);
     }
 
     showUploadModal.value = false;
@@ -1060,24 +1087,28 @@ onMounted(() => {
           :key="tpl.id"
           class="overflow-hidden bg-white border border-border shadow-2xs hover:shadow-md transition-all flex flex-col group"
         >
-          <!-- Thumbnail Area with Hover Placement Overlay (Strict Image Aspect Match) -->
-          <div class="aspect-square bg-slate-950/80 overflow-hidden relative flex items-center justify-center p-2.5 border-b border-border">
-            <!-- Exact Image-Fitting Wrapper -->
-            <div class="relative inline-block max-w-full max-h-full">
+          <!-- Thumbnail Area with Hover Placement Overlay (Strict 1:1 Aspect Frame) -->
+          <div class="aspect-square bg-slate-950/90 overflow-hidden relative flex items-center justify-center p-2.5 border-b border-border select-none">
+            <!-- Exact Image-Fitting Aspect Ratio Container -->
+            <div
+              class="relative max-w-full max-h-full flex items-center justify-center rounded-md overflow-visible"
+              :style="tplAspectRatios[tpl.id] ? { aspectRatio: `${tplAspectRatios[tpl.id]}` } : { width: '100%', height: '100%' }"
+            >
               <img
                 :src="tpl.url"
                 :alt="tpl.name"
-                class="max-w-full max-h-full w-auto h-auto block object-contain rounded-md shadow-xs"
+                class="w-full h-full object-contain rounded-md shadow-xs block select-none pointer-events-none"
+                @load="(e) => onCardImageLoaded(tpl.id, e)"
               >
 
               <!-- Bounding Box Indicator Overlay on Hover -->
               <div
                 class="absolute border-2 border-primary bg-primary/25 backdrop-blur-[0.5px] pointer-events-none rounded-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xs"
                 :style="{
-                  left: `${(tpl.placement?.left_pct ?? 0.25) * 100}%`,
-                  top: `${(tpl.placement?.top_pct ?? 0.25) * 100}%`,
-                  width: `${(tpl.placement?.width_pct ?? 0.5) * 100}%`,
-                  height: `${(tpl.placement?.height_pct ?? 0.5) * 100}%`,
+                  left: `${(tpl.placement?.left_pct != null ? (tpl.placement.left_pct <= 1.0 ? tpl.placement.left_pct : tpl.placement.left_pct / 100) : 0.25) * 100}%`,
+                  top: `${(tpl.placement?.top_pct != null ? (tpl.placement.top_pct <= 1.0 ? tpl.placement.top_pct : tpl.placement.top_pct / 100) : 0.25) * 100}%`,
+                  width: `${(tpl.placement?.width_pct != null ? (tpl.placement.width_pct <= 1.0 ? tpl.placement.width_pct : tpl.placement.width_pct / 100) : 0.50) * 100}%`,
+                  height: `${(tpl.placement?.height_pct != null ? (tpl.placement.height_pct <= 1.0 ? tpl.placement.height_pct : tpl.placement.height_pct / 100) : 0.50) * 100}%`,
                   transform: `rotate(${tpl.placement?.angle_deg ?? 0}deg)`,
                   transformOrigin: 'center center',
                 }"
