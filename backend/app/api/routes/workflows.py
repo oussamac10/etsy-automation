@@ -2218,7 +2218,7 @@ async def generate_listing_seo_endpoint(
             prompt=latest_prompt,
             keywords=keywords[:15],
             text_provider=text_provider,
-            artwork_summary=latest_prompt.user_intent if latest_prompt else None,
+            artwork_summary=latest_prompt.positive_prompt if latest_prompt else (concept.description if concept else None),
             production_meta=production_meta,
             target_field=cast(SeoTargetField, target),
         )

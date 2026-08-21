@@ -135,7 +135,7 @@ Write directly and clearly for real human buyers. Do NOT write like a marketing 
 PRODUCT CONTEXT:
 - Concept / Title: {concept.title}
 - Concept Details: {concept.description}
-- Artwork Summary: {artwork_summary or prompt.user_intent if prompt else 'N/A'}
+- Artwork Summary: {artwork_summary or (prompt.positive_prompt if prompt else 'N/A')}
 - Slogan / Text in Art: {slogan or 'None'}
 - Target Buyer / Niche: {concept.target_buyer or 'Apparel crafters, sublimation creators, POD buyers'}
 - Seasonality / Occasion: {concept.seasonality or 'Evergreen'}
