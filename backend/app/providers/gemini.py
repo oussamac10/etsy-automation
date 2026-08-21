@@ -340,7 +340,7 @@ class GeminiSynthesisAdapter:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-2.5-flash",
+        model: str = "gemini-3.6-flash",
         timeout_seconds: float = 60.0,
     ) -> None:
         self._api_key = api_key
@@ -377,11 +377,13 @@ class GeminiSynthesisAdapter:
 
         # Prioritize active Google AI Studio models
         preferred_models = [
-            "gemini-2.5-flash",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.7-flash",
+            "gemini-3.1-pro-preview",
             "gemini-2.0-flash",
             "gemini-1.5-flash",
-            "gemini-2.5-pro",
-            "gemini-1.5-pro",
         ]
         models_to_try: list[str] = []
         if self._model and self._model not in ("gemini-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash"):
@@ -423,6 +425,9 @@ class GeminiSynthesisAdapter:
                                 retry_after_seconds=5.0,
                                 message=f"Gemini server error: {response.status_code}",
                             )
+                            break
+                        elif response.status_code == 404:
+                            # Model not found on this endpoint, try next model
                             break
                         elif response.status_code >= 400:
                             # If schema was rejected as invalid argument, try removing responseSchema and retry
