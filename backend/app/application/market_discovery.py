@@ -13,6 +13,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from app.domain.opportunity_scoring import (
     CandidateOpportunity,
     CompetitionClassification,
@@ -39,6 +41,45 @@ from app.ports.providers import (
 logger = logging.getLogger("app.application.market_discovery")
 
 
+class CandidatePromptSchema(BaseModel):
+    positive_prompt: str = Field(description="Visual art prompt, transparent background, isolated")
+    negative_prompt: str = Field(default="background, scene, photo, realistic human, watermark", description="Negative prompt")
+    typography_instructions: str | None = Field(default=None)
+    exact_slogan: str | None = Field(default=None)
+
+
+class CandidateOpportunitySchema(BaseModel):
+    id: str = Field(default_factory=lambda: f"cand-{uuid.uuid4().hex[:6]}")
+    title: str
+    concept_summary: str
+    target_buyer: str
+    niche: str
+    season_or_event: str
+    visual_direction: str
+    design_style: str
+    slogan: str | None = None
+    color_palette: list[str] = Field(default_factory=list)
+    keyword_cluster: list[str] = Field(default_factory=list)
+    why_it_could_sell: str
+    evidence_summary: list[str] = Field(default_factory=list)
+    demand_signal: int = Field(default=80, ge=0, le=100)
+    competition_signal: int = Field(default=75, ge=0, le=100)
+    trend_signal: int = Field(default=80, ge=0, le=100)
+    buyer_intent_signal: int = Field(default=85, ge=0, le=100)
+    competition_level: str = Field(default="Medium")
+    trend_direction: str = Field(default="Rising")
+    market_validation: str = Field(default="Strong")
+    ip_risk: str = Field(default="Low")
+    prompt: CandidatePromptSchema
+
+
+class MarketDiscoveryPoolSchema(BaseModel):
+    confidence: float = Field(default=0.85, ge=0.0, le=1.0)
+    confidence_explanation: str = Field(default="Strong evidence across search signals")
+    proven_market_observations: list[str] = Field(default_factory=list)
+    candidates: list[CandidateOpportunitySchema] = Field(default_factory=list)
+
+
 DISCOVERY_SYSTEM_PROMPT = """You are an expert Market Opportunity Discovery Engine for Etsy digital PNG products.
 Your mission is to answer: "What should I design next that has a realistic commercial chance to sell?"
 
@@ -46,62 +87,15 @@ Core Principle:
 Do NOT copy Etsy best sellers. Use best sellers and proven patterns strictly as EVIDENCE of demand.
 Identify under-served angles, rising trends, specific high-intent buyers, and timely seasonal opportunities.
 
-You must generate a pool of 10 to 20 DISTINCT candidate opportunities.
-Output MUST be a valid JSON object following this exact JSON structure:
-{
-  "confidence": 0.85,
-  "confidence_explanation": "Strong multi-source evidence across healthcare and seasonal niches",
-  "proven_market_observations": [
-    "High demand for profession-specific holiday apparel",
-    "Retro groovy and kawaii aesthetics show strong repeat purchase signals"
-  ],
-  "candidates": [
-    {
-      "id": "cand-1",
-      "title": "Retro Radiology Halloween Crew",
-      "concept_summary": "Hand-drawn retro kawaii skeleton and x-ray illustration designed for radiology tech Halloween shirts and mugs.",
-      "target_buyer": "Radiology Technologists & X-Ray Technicians",
-      "niche": "Healthcare / Radiology",
-      "season_or_event": "Halloween",
-      "visual_direction": "Vintage 70s pastel distressed illustration with cute smiling skeleton and bones",
-      "design_style": "Retro Groovy Kawaii",
-      "slogan": null,
-      "color_palette": ["#E07A5F", "#3D405B", "#81B29A", "#F2CC8F", "#F4F1DE"],
-      "keyword_cluster": [
-        "radiology halloween png",
-        "rad tech shirt design",
-        "xray technician gift",
-        "cute skeleton sublimation"
-      ],
-      "why_it_could_sell": "Combines proven healthcare Halloween seasonal demand with a highly specific radiology buyer group, avoiding saturated general nurse designs.",
-      "evidence_summary": [
-        "Strong seasonal search intent for healthcare Halloween gifts",
-        "Low saturation compared to general RN listings"
-      ],
-      "demand_signal": 92,
-      "competition_signal": 78,
-      "trend_signal": 86,
-      "buyer_intent_signal": 94,
-      "competition_level": "Medium",
-      "trend_direction": "Rising",
-      "market_validation": "Strong",
-      "ip_risk": "Low",
-      "prompt": {
-        "positive_prompt": "Retro 70s kawaii style illustration of a cute smiling skeleton holding an x-ray film, surrounded by retro flowers and autumn pumpkins, soft pastel distressed texture, isolated central artwork on a transparent background, clean uncropped edges, high resolution",
-        "negative_prompt": "background, scene, photo, realistic human, watermark, signature, blurry edges, cropped design",
-        "typography_instructions": null,
-        "exact_slogan": null
-      }
-    }
-  ]
-}
+Generate a pool of 10 to 12 DISTINCT candidate opportunities.
+Output MUST be a valid JSON object matching the MarketDiscoveryPoolSchema.
 
 Rules to strictly follow:
-1. Generate between 10 and 20 candidate opportunities with distinct angles, niches, buyer groups, and styles.
+1. Generate 10 to 12 candidate opportunities with distinct angles, niches, buyer groups, and styles.
 2. NEVER invent exact numeric search numbers (e.g. do not say '12,400 monthly searches'). Use qualitative signals and 0-100 relative signal ratings.
 3. Every prompt MUST specify 'isolated central artwork on a transparent background' and 'clean uncropped edges'.
 4. Keep slogans null or separate from the positive visual prompt.
-5. Provide actionable 'why_it_could_sell' rationales based on market dynamics.
+5. Provide concise, actionable 'why_it_could_sell' rationales based on market dynamics.
 """
 
 
@@ -214,23 +208,44 @@ class MarketOpportunityDiscoveryService:
             TextRequest(
                 prompt=user_prompt,
                 system=DISCOVERY_SYSTEM_PROMPT,
-                max_output_tokens=8192,
+                schema_class=MarketDiscoveryPoolSchema,
+                max_output_tokens=16384,
             )
         )
 
-        try:
-            payload = json.loads(response.text)
-        except Exception:
-            # Fallback if json extraction needed
-            match = re.search(r"\{.*\}", response.text, re.DOTALL)
-            if match:
-                payload = json.loads(match.group(0))
-            else:
-                raise ValueError("Failed to parse structured JSON from text provider.")
+        cleaned_text = response.text.strip()
+        if cleaned_text.startswith("```"):
+            cleaned_text = re.sub(r"^```(?:json)?\n?", "", cleaned_text)
+            cleaned_text = re.sub(r"\n?```$", "", cleaned_text).strip()
 
-        confidence = float(payload.get("confidence", 0.80))
-        proven_observations = payload.get("proven_market_observations", [])
-        raw_candidates = payload.get("candidates", [])
+        payload: dict[str, Any] = {}
+        try:
+            payload = json.loads(cleaned_text)
+        except Exception:
+            match = re.search(r"\{.*\}", cleaned_text, re.DOTALL)
+            if match:
+                try:
+                    payload = json.loads(match.group(0))
+                except Exception:
+                    pass
+
+        confidence = float(payload.get("confidence", 0.85) if isinstance(payload, dict) else 0.85)
+        proven_observations = payload.get("proven_market_observations", []) if isinstance(payload, dict) else []
+        raw_candidates = payload.get("candidates", []) if isinstance(payload, dict) else []
+
+        # If candidates is empty due to parsing, attempt to regex-extract individual candidate objects
+        if not raw_candidates:
+            cand_matches = re.findall(r"\{\s*\"title\"[^\}]+\}", cleaned_text, re.DOTALL)
+            for cm in cand_matches:
+                try:
+                    cand_obj = json.loads(cm)
+                    if isinstance(cand_obj, dict) and "title" in cand_obj:
+                        raw_candidates.append(cand_obj)
+                except Exception:
+                    continue
+
+        if not raw_candidates:
+            raise ValueError(f"Failed to parse candidates from provider response: {response.text[:200]}")
 
         # 3. Process, Score, and Evaluate each candidate deterministically
         candidate_objects: list[CandidateOpportunity] = []

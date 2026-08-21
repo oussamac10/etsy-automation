@@ -355,18 +355,16 @@ class GeminiSynthesisAdapter:
 
         # Resolve response schema if requested
         schema_cls = request.schema_class
-        if schema_cls is None and ("keyword_clusters" in request.prompt or "market evidence" in request.prompt.lower()):
+        if schema_cls is None and ("synthesize market evidence into structured keyword clusters" in request.prompt.lower()):
             schema_cls = ResearchSynthesisSchema
 
+        max_tokens = request.max_output_tokens or 16384
         generation_config: dict[str, Any] = {
             "responseMimeType": "application/json",
-            "maxOutputTokens": 8192,
+            "maxOutputTokens": max_tokens,
         }
         if schema_cls is not None:
             generation_config["responseSchema"] = inline_refs(schema_cls.model_json_schema())
-
-        if request.max_output_tokens:
-            generation_config["maxOutputTokens"] = max(request.max_output_tokens, 8192)
 
         # Format content for Gemini API
         payload: dict[str, Any] = {
@@ -477,15 +475,30 @@ class GeminiSynthesisAdapter:
                                     import json
 
                                     json.loads(cleaned_json_text)
-                                except Exception as exc:
-                                    raise ProviderError(
-                                        kind=ProviderErrorKind.INVALID_REQUEST,
-                                        provider=self.name,
-                                        operation="generate",
-                                        message=(
-                                            f"Model response did not validate against strict schema: {exc}"
-                                        ),
-                                    ) from exc
+                                except Exception:
+                                    # If JSON was truncated at the end, attempt simple bracket/brace completion
+                                    try:
+                                        import json
+
+                                        repaired = cleaned_json_text.rstrip()
+                                        if repaired.endswith(","):
+                                            repaired = repaired[:-1]
+                                        if repaired.count('"') % 2 != 0:
+                                            repaired += '"'
+                                        open_braces = repaired.count("{") - repaired.count("}")
+                                        open_brackets = repaired.count("[") - repaired.count("]")
+                                        repaired += ("]" * max(0, open_brackets)) + ("}" * max(0, open_braces))
+                                        json.loads(repaired)
+                                        text = repaired
+                                    except Exception as exc:
+                                        raise ProviderError(
+                                            kind=ProviderErrorKind.INVALID_REQUEST,
+                                            provider=self.name,
+                                            operation="generate",
+                                            message=(
+                                                f"Model response did not validate against strict schema: {exc}"
+                                            ),
+                                        ) from exc
 
                         usage = data.get("usageMetadata", {})
                         input_tokens = usage.get("promptTokenCount", 0)
