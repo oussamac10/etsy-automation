@@ -143,13 +143,12 @@ describe("Workflow Detail Page - Gate 1 and Phase 6 controls", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    expect(wrapper.text()).toContain("Approve This Concept");
-    expect(wrapper.text()).toContain("Reject Concept");
-    expect(wrapper.text()).toContain("Edit Prompt");
-    expect(wrapper.text()).toContain("Choose one concept to continue.");
+    expect(wrapper.text()).toContain("Use This Idea");
+    expect(wrapper.text()).toContain("See Research");
+    expect(wrapper.text()).toContain("Refresh Idea");
   });
 
-  it("clicking Approve This Concept calls Gate 1 correctly", async () => {
+  it("clicking Use This Idea calls Gate 1 correctly", async () => {
     const postFetch = vi.fn().mockResolvedValue({});
     vi.stubGlobal("$fetch", postFetch.mockImplementation((url: string) => {
       if (url.endsWith("/approvals")) {
@@ -169,7 +168,7 @@ describe("Workflow Detail Page - Gate 1 and Phase 6 controls", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const approveBtn = wrapper.findAll("button").find(b => b.text() === "Approve This Concept");
+    const approveBtn = wrapper.findAll("button").find(b => b.text().includes("Use This Idea"));
     expect(approveBtn).toBeDefined();
     await approveBtn?.trigger("click");
 
