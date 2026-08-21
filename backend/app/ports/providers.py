@@ -413,6 +413,7 @@ class EtsyGateway(Protocol):
         taxonomy_id: int | None = None,
         who_made: str | None = None,
         when_made: str | None = None,
+        is_supply: bool | None = None,
     ) -> bool: ...
 
 

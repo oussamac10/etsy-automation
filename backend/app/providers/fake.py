@@ -1688,6 +1688,7 @@ class FakeEtsyProvider(EtsyGateway):
         taxonomy_id: int | None = None,
         who_made: str | None = None,
         when_made: str | None = None,
+        is_supply: bool | None = None,
     ) -> bool:
         self.call_count += 1
         payload = {
@@ -1702,6 +1703,7 @@ class FakeEtsyProvider(EtsyGateway):
             "taxonomy_id": taxonomy_id,
             "who_made": who_made,
             "when_made": when_made,
+            "is_supply": is_supply,
         }
         self.updated_listings.append(payload)
 

@@ -387,6 +387,7 @@ async def update_remote_etsy_draft(
         should_auto_renew=listing.should_auto_renew,
         who_made=getattr(listing, "who_made", "i_did"),
         when_made=getattr(listing, "when_made", "2020_2026"),
+        is_supply=getattr(listing, "is_supply", False),
     )
 
     # 2. Update Inventory (Price, SKU, Quantity)

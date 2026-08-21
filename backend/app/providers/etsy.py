@@ -777,6 +777,7 @@ class EtsyProvider(EtsyGateway):
         taxonomy_id: int | None = None,
         who_made: str | None = None,
         when_made: str | None = None,
+        is_supply: bool | None = None,
     ) -> bool:
         """Update draft listing fields (e.g. shop_section_id, title, description, tags) on Etsy."""
         url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}"
@@ -798,10 +799,10 @@ class EtsyProvider(EtsyGateway):
             data["should_auto_renew"] = "true" if should_auto_renew else "false"
         if taxonomy_id is not None:
             data["taxonomy_id"] = str(taxonomy_id)
-        if who_made is not None:
-            data["who_made"] = who_made
-        if when_made is not None:
-            data["when_made"] = when_made
+        if who_made is not None or when_made is not None or is_supply is not None:
+            data["who_made"] = who_made or "i_did"
+            data["when_made"] = when_made or "2020_2026"
+            data["is_supply"] = "true" if is_supply else "false"
 
         try:
             await self._execute_with_retry(
