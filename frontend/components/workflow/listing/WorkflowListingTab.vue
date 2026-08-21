@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useListing } from '~/composables/useListing';
+import { useEtsy } from '~/composables/useEtsy';
 import { countSequentialCapitalWords } from '~/utils/tags';
 import { generateFrontendSku } from '~/utils/sku';
 import ListingEditorCard from './ListingEditorCard.vue';
@@ -206,6 +207,22 @@ async function handleSave() {
     }
   } catch {
     // Error set in composable
+  }
+}
+
+const { updateEtsyDraft, isLoading: isUpdatingEtsyDraft } = useEtsy();
+
+async function handleUpdateEtsyDraft() {
+  if (isListingCopyDirty.value || isTagsDirty.value) {
+    await handleSave();
+  }
+  const report = await updateEtsyDraft(props.workflowId);
+  if (report) {
+    await loadListing(props.workflowId);
+    successMessage.value = 'Etsy draft updated successfully with your latest listing changes.';
+    setTimeout(() => {
+      successMessage.value = null;
+    }, 4000);
   }
 }
 
@@ -791,7 +808,9 @@ const subTabs = computed(() => [
             :shopping-cart-summary="localShoppingCartSummary"
             :ai-disclosure="listingDraft.ai_disclosure"
             :version="listingDraft.version"
+            :etsy-listing-id="listingDraft.etsy_listing_id"
             :is-saving="isSaving"
+            :is-updating-etsy-draft="isUpdatingEtsyDraft"
             :is-generating-seo="isGeneratingSeo"
             :generating-target="generatingTarget"
             :has-unsaved-changes="isListingCopyDirty"
@@ -802,6 +821,7 @@ const subTabs = computed(() => [
             @update:description="localDescription = $event"
             @update:shopping-cart-summary="localShoppingCartSummary = $event"
             @save="handleSave"
+            @update-etsy-draft="handleUpdateEtsyDraft"
             @generate-seo="handleGenerateSeo"
             @restore-version="handleRestoreVersion"
             @delete-version="handleDeleteVersion"
