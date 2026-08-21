@@ -246,6 +246,39 @@ describe('Post-Dispatch Etsy Draft Verification UI Suite', () => {
     expect(wrapper.emitted('recheck-completed')).toBeTruthy();
   });
 
+  it('triggers update-draft API endpoint when Update Etsy Draft button is clicked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockVerifiedPayload);
+    vi.stubGlobal('$fetch', fetchMock);
+
+    const wrapper = mount(EtsyDraftVerificationCard, {
+      props: {
+        workflowId: 'wf-101',
+        listingId: '4559404921',
+        verification: mockNeedsAttentionPayload,
+      },
+      global: {
+        stubs: {
+          Icon: { template: '<span class="icon-stub"><slot /></span>' },
+        },
+      },
+    });
+
+    const updateBtn = wrapper.find('[data-testid="etsy-update-draft-btn"]');
+    expect(updateBtn.exists()).toBe(true);
+
+    await updateBtn.trigger('click');
+    await flushPromises();
+
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:8000/api/v1/workflows/wf-101/etsy/update-draft', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+      },
+      credentials: 'include',
+    });
+    expect(wrapper.emitted('recheck-completed')).toBeTruthy();
+  });
+
   it('embeds verification card in EtsyDraftCard when draft is completed', async () => {
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       if (url.includes('/integrations/etsy')) {

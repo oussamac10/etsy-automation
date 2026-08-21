@@ -49,7 +49,6 @@ const localTitle = ref(props.title);
 const localDescription = ref(props.description);
 const localSummary = ref(props.shoppingCartSummary || '');
 const isHistoryOpen = ref(false);
-const isCopiedSummary = ref(false);
 
 watch(() => props.title, (newVal) => {
   localTitle.value = newVal;
@@ -108,21 +107,6 @@ function handleSummaryUpdate(val: string | number) {
   const str = String(val);
   localSummary.value = str;
   emit('update:shoppingCartSummary', str);
-}
-
-async function copySummary() {
-  if (!localSummary.value) return;
-  try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(localSummary.value);
-      isCopiedSummary.value = true;
-      setTimeout(() => {
-        isCopiedSummary.value = false;
-      }, 2500);
-    }
-  } catch {
-    // Fallback or ignore
-  }
 }
 
 function handleRestore(versionNumber: number) {
@@ -284,9 +268,6 @@ function formatSnapshotDate(dateStr?: string) {
               <Icon name="lucide:shopping-bag" class="size-3.5 text-primary" aria-hidden="true" />
               <span>Shopping Cart Summary</span>
             </Label>
-            <Badge variant="outline" class="text-[10px] py-0 font-medium text-muted-foreground border-border/80 bg-background">
-              Manual Etsy Field
-            </Badge>
             <Button
               type="button"
               variant="ghost"
@@ -313,17 +294,6 @@ function formatSnapshotDate(dateStr?: string) {
             >
               {{ summaryLength }} / {{ MAX_SUMMARY_LENGTH }}
             </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              :disabled="!localSummary"
-              class="h-6 px-2 text-[11px] font-medium gap-1 cursor-pointer"
-              @click="copySummary"
-            >
-              <Icon :name="isCopiedSummary ? 'lucide:check' : 'lucide:copy'" class="size-3 text-primary" aria-hidden="true" />
-              <span>{{ isCopiedSummary ? 'Copied' : 'Copy' }}</span>
-            </Button>
           </div>
         </div>
 
@@ -337,7 +307,7 @@ function formatSnapshotDate(dateStr?: string) {
         />
 
         <p class="text-[11px] text-muted-foreground leading-normal">
-          Concise 1–2 sentence buyer summary. Use the <strong>Copy</strong> button to paste into your Etsy listing manager if desired.
+          Concise 1–2 sentence buyer summary.
         </p>
       </div>
 

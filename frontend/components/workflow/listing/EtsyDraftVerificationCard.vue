@@ -16,8 +16,9 @@ const emit = defineEmits<{
   (e: 'recheck-completed', report: EtsyDraftVerification): void;
 }>();
 
-const { verifyEtsyDraft } = useEtsy();
+const { verifyEtsyDraft, updateEtsyDraft } = useEtsy();
 const isRechecking = ref(false);
+const isUpdatingDraft = ref(false);
 const localVerification = ref<EtsyDraftVerification | null>(props.verification || null);
 const expandedKeys = ref<Record<string, boolean>>({});
 
@@ -83,7 +84,7 @@ const toggleExpand = (key: string) => {
 };
 
 const handleRecheck = async () => {
-  if (isRechecking.value || props.disabled) return;
+  if (isRechecking.value || isUpdatingDraft.value || props.disabled) return;
   isRechecking.value = true;
   try {
     const res = await verifyEtsyDraft(props.workflowId);
@@ -98,9 +99,25 @@ const handleRecheck = async () => {
   }
 };
 
+const handleUpdateDraft = async () => {
+  if (isUpdatingDraft.value || isRechecking.value || props.disabled) return;
+  isUpdatingDraft.value = true;
+  try {
+    const res = await updateEtsyDraft(props.workflowId);
+    if (res) {
+      localVerification.value = res;
+      emit('recheck-completed', res);
+    }
+  } catch (err) {
+    console.error('Failed to update Etsy draft:', err);
+  } finally {
+    isUpdatingDraft.value = false;
+  }
+};
+
 function getCheckBadgeText(check: EtsyVerificationCheck): string {
   if (check.status === 'synced') {
-    if (['title', 'description', 'item_metadata', 'category'].includes(check.key) || (check.actual && check.actual.length > 25)) {
+    if (['title', 'description', 'item_metadata', 'category', 'shopping_cart_summary'].includes(check.key) || (check.actual && check.actual.length > 25)) {
       return 'Synced';
     }
     return check.actual || 'Synced';
@@ -188,12 +205,35 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex items-center gap-2 self-start sm:self-auto">
+      <div class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+        <button
+          v-if="summary.warnings > 0 || overallStatus === 'needs_attention'"
+          type="button"
+          :disabled="isUpdatingDraft || isRechecking || disabled"
+          @click="handleUpdateDraft"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
+          data-testid="etsy-update-draft-btn"
+        >
+          <Icon
+            v-if="isUpdatingDraft"
+            name="lucide:loader-circle"
+            class="size-3.5 animate-spin"
+            aria-hidden="true"
+          />
+          <Icon
+            v-else
+            name="lucide:arrow-up-circle"
+            class="size-3.5"
+            aria-hidden="true"
+          />
+          <span>{{ isUpdatingDraft ? 'Updating Draft...' : 'Update Etsy Draft' }}</span>
+        </button>
+
         <button
           type="button"
-          :disabled="isRechecking || disabled"
+          :disabled="isRechecking || isUpdatingDraft || disabled"
           @click="handleRecheck"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50 cursor-pointer"
           data-testid="etsy-recheck-btn"
         >
           <Icon

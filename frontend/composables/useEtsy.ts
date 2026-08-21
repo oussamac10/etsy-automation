@@ -192,6 +192,36 @@ export function useEtsy() {
     }
   }
 
+  async function updateEtsyDraft(
+    workflowId: string
+  ): Promise<EtsyDraftVerification | null> {
+    if (!workflowId) return null;
+    isLoading.value = true;
+    errorMessage.value = null;
+    try {
+      const data = await $fetch<EtsyDraftVerification>(
+        `${apiBase}/api/v1/workflows/${workflowId}/etsy/update-draft`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            ...getCsrfHeaders(),
+          },
+          credentials: 'include',
+        }
+      );
+      if (draftStatus.value) {
+        draftStatus.value.verification = data;
+      }
+      return data;
+    } catch (err: unknown) {
+      errorMessage.value = getApiErrorMessage(err, 'Failed to update Etsy draft.');
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     connectionStatus,
     draftStatus,
@@ -208,5 +238,6 @@ export function useEtsy() {
     fetchDraftStatus,
     reconcileEtsyDraft,
     verifyEtsyDraft,
+    updateEtsyDraft,
   };
 }

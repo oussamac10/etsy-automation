@@ -65,9 +65,6 @@ describe("ListingEditorCard Component with 3 Separate Fields & Targeted Regenera
 
     // Summary counter
     expect(wrapper.text()).toContain(`${defaultProps.shoppingCartSummary.length} / 200`);
-
-    // Manual Etsy Field badge
-    expect(wrapper.text()).toContain("Manual Etsy Field");
   });
 
   it("emits targeted SEO regeneration events for individual fields and Regenerate All", async () => {
@@ -137,33 +134,5 @@ describe("ListingEditorCard Component with 3 Separate Fields & Targeted Regenera
     await descInput.setValue("Updated Description text.");
     expect(wrapper.emitted("update:description")).toBeTruthy();
     expect(wrapper.emitted("update:description")![0]).toEqual(["Updated Description text."]);
-  });
-
-  it("copies shopping cart summary to clipboard when Copy button is clicked", async () => {
-    const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      value: {
-        writeText: writeTextMock,
-      },
-      configurable: true,
-    });
-
-    const wrapper = mount(ListingEditorCard, {
-      props: defaultProps,
-      global: {
-        components: {
-          Icon: IconMock,
-        },
-      },
-    });
-
-    await flushPromises();
-
-    const copyBtn = wrapper.findAll("button").find(b => b.text().includes("Copy"));
-    expect(copyBtn).toBeDefined();
-    await copyBtn!.trigger("click");
-    await flushPromises();
-
-    expect(writeTextMock).toHaveBeenCalledWith(defaultProps.shoppingCartSummary);
   });
 });
