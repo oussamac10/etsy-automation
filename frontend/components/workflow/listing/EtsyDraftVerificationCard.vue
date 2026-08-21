@@ -225,6 +225,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
       <!-- Action Buttons -->
       <div class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
         <button
+          v-if="summary.warnings > 0 || summary.errors > 0 || overallStatus === 'needs_attention'"
           type="button"
           :disabled="isUpdatingDraft || isRechecking || disabled"
           @click="handleUpdateDraft"

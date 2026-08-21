@@ -162,22 +162,6 @@ function formatSnapshotDate(dateStr?: string) {
 
       <div class="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
         <Button
-          v-if="etsyListingId"
-          type="button"
-          variant="outline"
-          size="sm"
-          :disabled="isUpdatingEtsyDraft || isSaving || isGeneratingSeo || isTitleOverLimit || isSummaryOverLimit"
-          class="text-xs h-8 px-2.5 gap-1.5 border-primary/50 text-primary hover:bg-primary/10 cursor-pointer shadow-xs"
-          title="Push current listing changes directly to your remote Etsy draft"
-          data-testid="listing-update-etsy-draft-btn"
-          @click="emit('updateEtsyDraft')"
-        >
-          <Icon v-if="isUpdatingEtsyDraft" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
-          <Icon v-else name="lucide:arrow-up-circle" class="size-3.5" aria-hidden="true" />
-          <span>{{ isUpdatingEtsyDraft ? 'Updating Etsy...' : 'Update Etsy Draft' }}</span>
-        </Button>
-
-        <Button
           type="button"
           variant="outline"
           size="sm"
