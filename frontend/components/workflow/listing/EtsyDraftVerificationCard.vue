@@ -313,7 +313,15 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 />
                 <div class="min-w-0">
                   <span class="font-medium text-foreground">{{ check.label }}</span>
-                  <p v-if="check.message" class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                  <p
+                    v-if="check.message"
+                    class="text-[11px] mt-0.5"
+                    :class="
+                      check.status === 'synced'
+                        ? 'text-muted-foreground truncate max-w-[260px] sm:max-w-[420px] font-normal'
+                        : 'text-amber-600 dark:text-amber-400'
+                    "
+                  >
                     {{ check.message }}
                   </p>
                   <p v-else-if="check.key === 'title' && check.expected" class="text-[11px] text-muted-foreground truncate max-w-[260px] sm:max-w-[420px] mt-0.5 font-normal">
@@ -387,7 +395,15 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 />
                 <div class="min-w-0">
                   <span class="font-medium text-foreground">{{ check.label }}</span>
-                  <p v-if="check.message" class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                  <p
+                    v-if="check.message"
+                    class="text-[11px] mt-0.5"
+                    :class="
+                      check.status === 'synced'
+                        ? 'text-muted-foreground truncate max-w-[260px] sm:max-w-[420px] font-normal'
+                        : 'text-amber-600 dark:text-amber-400'
+                    "
+                  >
                     {{ check.message }}
                   </p>
                 </div>
@@ -444,7 +460,15 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 />
                 <div class="min-w-0">
                   <span class="font-medium text-foreground">{{ check.label }}</span>
-                  <p v-if="check.message" class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                  <p
+                    v-if="check.message"
+                    class="text-[11px] mt-0.5"
+                    :class="
+                      check.status === 'synced'
+                        ? 'text-muted-foreground truncate max-w-[260px] sm:max-w-[420px] font-normal'
+                        : 'text-amber-600 dark:text-amber-400'
+                    "
+                  >
                     {{ check.message }}
                   </p>
                 </div>
@@ -544,7 +568,15 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 />
                 <div class="min-w-0">
                   <span class="font-medium text-foreground">{{ check.label }}</span>
-                  <p v-if="check.message" class="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                  <p
+                    v-if="check.message"
+                    class="text-[11px] mt-0.5"
+                    :class="
+                      check.status === 'synced'
+                        ? 'text-muted-foreground truncate max-w-[260px] sm:max-w-[420px] font-normal'
+                        : 'text-amber-600 dark:text-amber-400'
+                    "
+                  >
                     {{ check.message }}
                   </p>
                 </div>
