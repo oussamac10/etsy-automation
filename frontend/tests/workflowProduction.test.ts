@@ -193,7 +193,8 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
 
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Phase 7: Print-Ready PNG Production");
+    expect(wrapper.text()).toContain("Print-Ready PNG Production & Realistic Mockups");
+    expect(wrapper.text()).not.toContain("Phase 7");
     expect(wrapper.text()).toContain("Start PNG Production");
   });
 

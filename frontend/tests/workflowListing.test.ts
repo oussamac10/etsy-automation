@@ -267,7 +267,8 @@ describe("WorkflowListingTab 5 Sub-Tabs Navigation & Structure", () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="listing-gate2-pending-warning"]').exists()).toBe(true);
-    expect(wrapper.text()).toContain("Artwork Selection Required (Gate 2)");
+    expect(wrapper.text()).toContain("Artwork Selection Required");
+    expect(wrapper.text()).not.toContain("Gate 2");
     expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
   });
 
@@ -298,8 +299,9 @@ describe("WorkflowListingTab 5 Sub-Tabs Navigation & Structure", () => {
     expect(wrapper.text()).toContain("IP & Compliance");
     expect(wrapper.text()).toContain("Buyer Delivery");
 
-    // Gate 3 decision bar MUST be in Final Review
-    expect(wrapper.text()).toContain("Gate 3: Listing & IP Approval");
+    // Listing approval decision bar MUST be in Final Review
+    expect(wrapper.text()).toContain("Listing & IP Approval");
+    expect(wrapper.text()).not.toContain("Gate 3");
     expect(wrapper.text()).toContain("Approve for Etsy Draft");
   });
 
@@ -394,10 +396,10 @@ describe("WorkflowListingTab 5 Sub-Tabs Navigation & Structure", () => {
     });
 
     expect(unapprovedNav.text()).toContain("4. Listing & IP Review");
-    expect(unapprovedNav.text()).not.toContain("5. Etsy Dispatch");
+    expect(unapprovedNav.text()).not.toContain("5. Etsy Draft");
     expect(unapprovedNav.text()).not.toContain("5. Etsy");
 
-    // 2. In READY_FOR_ETSY_DRAFT (Gate 3 approved): 5. Etsy Dispatch tab MUST be visible
+    // 2. In READY_FOR_ETSY_DRAFT (Listing approved): 5. Etsy Draft tab MUST be visible
     const approvedNav = mount(WorkflowStageNav, {
       props: {
         activeTab: "etsy",
@@ -413,10 +415,10 @@ describe("WorkflowListingTab 5 Sub-Tabs Navigation & Structure", () => {
       },
     });
 
-    expect(approvedNav.text()).toContain("5. Etsy Dispatch");
+    expect(approvedNav.text()).toContain("5. Etsy Draft");
   });
 
-  it("emits approved event on Gate 3 approval to trigger redirect to Etsy Dispatch tab", async () => {
+  it("emits approved event on listing approval to trigger redirect to Etsy Draft tab", async () => {
     const fetchMock = vi.fn().mockImplementation((url: string, opts?: any) => {
       if (url.includes("/approvals")) {
         return Promise.resolve({

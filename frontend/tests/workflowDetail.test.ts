@@ -210,7 +210,8 @@ describe("Workflow Detail Page - Gate 1 and Phase 6 controls", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    expect(wrapper.text()).toContain("Phase 6: Artwork Generation & Approval");
+    expect(wrapper.text()).toContain("Artwork Generation & Approval");
+    expect(wrapper.text()).not.toContain("Phase 6");
     expect(wrapper.text()).toContain("Your concept is approved. Generate artwork to continue.");
     expect(wrapper.text()).toContain("Generate Artwork");
   });
