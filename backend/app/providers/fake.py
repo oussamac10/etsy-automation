@@ -1681,6 +1681,8 @@ class FakeEtsyProvider(EtsyGateway):
         listing_id: str,
         title: str | None = None,
         description: str | None = None,
+        tags: list[str] | None = None,
+        materials: list[str] | None = None,
         shop_section_id: int | None = None,
         should_auto_renew: bool | None = None,
         taxonomy_id: int | None = None,
@@ -1693,6 +1695,8 @@ class FakeEtsyProvider(EtsyGateway):
             "shop_id": shop_id,
             "title": title,
             "description": description,
+            "tags": tags,
+            "materials": materials,
             "shop_section_id": shop_section_id,
             "should_auto_renew": should_auto_renew,
             "taxonomy_id": taxonomy_id,
@@ -1710,12 +1714,18 @@ class FakeEtsyProvider(EtsyGateway):
                     item["title"] = title
                 if description is not None:
                     item["description"] = description
+                if tags is not None:
+                    item["tags"] = tags
+                if materials is not None:
+                    item["materials"] = materials
                 if should_auto_renew is not None:
                     item["should_auto_renew"] = should_auto_renew
                 if taxonomy_id is not None:
                     item["taxonomy_id"] = taxonomy_id
+                if who_made is not None:
+                    item["who_made"] = who_made
+                if when_made is not None:
+                    item["when_made"] = when_made
                 break
 
         return True
-
-

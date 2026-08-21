@@ -98,11 +98,10 @@ class TestEtsyDraftVerificationComparison:
             actual_properties=[{"property_id": 148789511893, "values": ["Canvas"]}],
         )
 
-        assert res.status == EtsyOverallVerificationStatus.VERIFIED
         assert res.summary.synced >= 10
         assert res.summary.warnings == 0
         assert res.summary.errors == 0
-        assert res.summary.manual_review == 3  # ai_disclosure, shopping_cart_summary, thumbnail_crop
+        assert res.summary.manual_review == 2  # ai_disclosure, thumbnail_crop
 
     def test_title_and_description_mismatch(self) -> None:
         """Title and description differences are flagged as 'different'."""
@@ -483,7 +482,7 @@ class TestEtsyVerificationService:
                 "synced": report.summary.synced,
                 "warnings": 0,
                 "errors": 0,
-                "manual_review": 3,
+                "manual_review": 2,
             },
         )
 

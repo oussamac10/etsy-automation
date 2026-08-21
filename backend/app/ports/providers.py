@@ -406,6 +406,8 @@ class EtsyGateway(Protocol):
         listing_id: str,
         title: str | None = None,
         description: str | None = None,
+        tags: list[str] | None = None,
+        materials: list[str] | None = None,
         shop_section_id: int | None = None,
         should_auto_renew: bool | None = None,
         taxonomy_id: int | None = None,

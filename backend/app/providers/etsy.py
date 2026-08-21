@@ -770,13 +770,15 @@ class EtsyProvider(EtsyGateway):
         listing_id: str,
         title: str | None = None,
         description: str | None = None,
+        tags: list[str] | None = None,
+        materials: list[str] | None = None,
         shop_section_id: int | None = None,
         should_auto_renew: bool | None = None,
         taxonomy_id: int | None = None,
         who_made: str | None = None,
         when_made: str | None = None,
     ) -> bool:
-        """Update draft listing fields (e.g. shop_section_id, title, description) on Etsy."""
+        """Update draft listing fields (e.g. shop_section_id, title, description, tags) on Etsy."""
         url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}"
         headers = self._default_headers(access_token)
         headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -786,6 +788,10 @@ class EtsyProvider(EtsyGateway):
             data["title"] = title[:140]
         if description is not None:
             data["description"] = description
+        if tags is not None:
+            data["tags"] = ",".join(tags[:13])
+        if materials is not None:
+            data["materials"] = ",".join(materials)
         if shop_section_id is not None:
             data["shop_section_id"] = shop_section_id
         if should_auto_renew is not None:

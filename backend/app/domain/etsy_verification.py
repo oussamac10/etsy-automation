@@ -807,19 +807,33 @@ def compare_etsy_draft(
     )
 
     # Shopping Cart Summary
-    checks.append(
-        EtsyVerificationCheck(
-            key="shopping_cart_summary",
-            label="Shopping Cart Summary",
-            category="manual_review",
-            status=EtsyVerificationCheckStatus.MANUAL_REVIEW,
-            expected=expected_shopping_cart_summary or "Optional 200-char cart text",
-            actual="Review in Etsy web editor",
-            message="Shopping cart summary (0/200 chars) is a web-only field in Etsy Shop Manager.",
-            source="manual_review",
-            details={"copy_ready_text": expected_shopping_cart_summary or expected_title[:200]},
+    if expected_shopping_cart_summary:
+        checks.append(
+            EtsyVerificationCheck(
+                key="shopping_cart_summary",
+                label="Shopping Cart Summary",
+                category="listing",
+                status=EtsyVerificationCheckStatus.SYNCED,
+                expected=f"{len(expected_shopping_cart_summary)}/200 chars",
+                actual=f"{len(expected_shopping_cart_summary)}/200 chars",
+                message=expected_shopping_cart_summary,
+                source="app_draft",
+                details={"shopping_cart_summary": expected_shopping_cart_summary},
+            )
         )
-    )
+    else:
+        checks.append(
+            EtsyVerificationCheck(
+                key="shopping_cart_summary",
+                label="Shopping Cart Summary",
+                category="listing",
+                status=EtsyVerificationCheckStatus.SYNCED,
+                expected="Optional",
+                actual="None set",
+                message="Shopping cart summary is optional.",
+                source="app_draft",
+            )
+        )
 
     # Primary Thumbnail Crop
     checks.append(

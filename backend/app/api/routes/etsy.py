@@ -518,6 +518,39 @@ async def verify_etsy_draft_endpoint(
         etsy_gateway=etsy_gateway,
         storage=storage,
     )
+@router.post(
+    "/workflows/{workflow_id}/etsy/update-draft",
+    response_model=EtsyDraftVerificationResponse,
+    summary="Update remote Etsy listing draft with local changes and re-verify",
+)
+async def update_etsy_draft_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+    etsy_gateway: EtsyGatewayDep,
+    cipher: CipherDep,
+    storage: StorageDep,
+) -> EtsyDraftVerificationResponse:
+    """Push current local listing draft fields (title, description, tags, section, inventory) to Etsy and re-verify."""
+    if cipher is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Credential cipher is not configured on the server",
+        )
+    try:
+        report = await etsy_verification.update_remote_etsy_draft(
+            workflow_id=workflow_id,
+            owner_id=user.id,
+            uow=uow,
+            cipher=cipher,
+            etsy_gateway=etsy_gateway,
+            storage=storage,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
     return EtsyDraftVerificationResponse.model_validate(report.to_dict())
 
 

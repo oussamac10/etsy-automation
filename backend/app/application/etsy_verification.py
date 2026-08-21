@@ -331,3 +331,121 @@ async def verify_etsy_draft_listing(
     await uow.commit()
 
     return verification
+
+
+async def update_remote_etsy_draft(
+    workflow_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    uow: UnitOfWork,
+    cipher: CredentialCipher,
+    etsy_gateway: EtsyGateway,
+    storage: ObjectStorage | None = None,
+) -> EtsyDraftVerification:
+    """Update remote Etsy draft listing with latest local ListingDraft data and re-verify."""
+    workflow = await uow.workflows.get(workflow_id)
+    if workflow is None:
+        raise EntityNotFoundError("ProductWorkflow", workflow_id)
+    if workflow.owner_id != owner_id:
+        raise DomainError("Permission denied: You do not own this workflow.")
+
+    listing = await uow.listing_drafts.get_by_workflow(workflow_id)
+    if listing is None:
+        raise EntityNotFoundError("ListingDraft", workflow_id)
+
+    listing_id = getattr(listing, "etsy_listing_id", None)
+    if not listing_id:
+        raise DomainError("Cannot update Etsy draft: listing has not been created on Etsy yet.")
+
+    conn = await uow.shop_connections.get_by_user_id(owner_id)
+    shop_id = getattr(conn, "etsy_shop_id", None) or getattr(conn, "shop_id", None)
+    if conn is None or not conn.is_connected or not shop_id:
+        raise DomainError("Etsy shop is not connected.")
+
+    access_token = await get_valid_access_token(
+        uow=uow,
+        cipher=cipher,
+        etsy_gateway=etsy_gateway,
+        owner_id=owner_id,
+    )
+
+    # 1. Update Core Listing Fields (Title, Description, Tags, Section, Renewal, Taxonomy)
+    resolved_sec_id: int | None = None
+    raw_sec_id = getattr(listing, "shop_section_id", None)
+    if raw_sec_id and str(raw_sec_id).isdigit():
+        resolved_sec_id = int(str(raw_sec_id))
+
+    await etsy_gateway.update_listing(
+        access_token=access_token,
+        shop_id=shop_id,
+        listing_id=listing_id,
+        title=listing.title,
+        description=listing.description,
+        tags=listing.tags,
+        materials=getattr(listing, "materials", None),
+        shop_section_id=resolved_sec_id,
+        taxonomy_id=listing.taxonomy_id,
+        should_auto_renew=listing.should_auto_renew,
+        who_made=getattr(listing, "who_made", "i_did"),
+        when_made=getattr(listing, "when_made", "2020_2026"),
+    )
+
+    # 2. Update Inventory (Price, SKU, Quantity)
+    active_sku = getattr(listing, "sku", None)
+    if active_sku or listing.price_minor_units:
+        try:
+            await etsy_gateway.update_listing_inventory(
+                access_token=access_token,
+                listing_id=listing_id,
+                sku=active_sku or "",
+                price_cents=listing.price_minor_units,
+                quantity=listing.quantity or 999,
+            )
+        except Exception as exc:
+            logger.warning("etsy_update_inventory_failed", error=str(exc))
+
+    # 3. Update Taxonomy Properties if configured
+    raw_props = getattr(listing, "etsy_properties", None)
+    active_props = raw_props if isinstance(raw_props, dict) else {}
+    if active_props and listing.taxonomy_id:
+        from app.domain.taxonomy_properties import revalidate_listing_taxonomy_properties
+
+        try:
+            available_taxonomy_props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=listing.taxonomy_id)
+        except Exception:
+            available_taxonomy_props = []
+
+        validated_props = (
+            revalidate_listing_taxonomy_properties(
+                existing_properties=active_props,
+                available_properties=available_taxonomy_props,
+            )
+            or active_props
+        )
+
+        for prop_id_str, prop_data in validated_props.items():
+            if isinstance(prop_data, dict):
+                pid = prop_data.get("property_id") or int(prop_id_str)
+                v_ids = prop_data.get("value_ids")
+                v_names = prop_data.get("values")
+                try:
+                    await etsy_gateway.update_listing_property(
+                        access_token=access_token,
+                        shop_id=shop_id,
+                        listing_id=listing_id,
+                        property_id=int(pid),
+                        value_ids=v_ids,
+                        values=v_names,
+                    )
+                except Exception as exc:
+                    logger.warning("etsy_update_property_failed", property_id=pid, error=str(exc))
+
+    # 4. Re-verify the updated listing to produce fresh report
+    report = await verify_etsy_draft_listing(
+        workflow_id=workflow_id,
+        owner_id=owner_id,
+        uow=uow,
+        cipher=cipher,
+        etsy_gateway=etsy_gateway,
+        storage=storage,
+    )
+    return report
