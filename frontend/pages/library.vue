@@ -1060,37 +1060,50 @@ onMounted(() => {
           :key="tpl.id"
           class="overflow-hidden bg-white border border-border shadow-2xs hover:shadow-md transition-all flex flex-col group"
         >
-          <!-- Thumbnail Area with Hover Placement Overlay -->
-          <div class="aspect-square bg-secondary/30 overflow-hidden relative flex items-center justify-center p-2.5 border-b border-border">
-            <img
-              :src="tpl.url"
-              :alt="tpl.name"
-              class="object-contain w-full h-full rounded-lg transition-transform duration-200 group-hover:scale-105"
-            >
+          <!-- Thumbnail Area with Hover Placement Overlay (Strict Image Aspect Match) -->
+          <div class="aspect-square bg-slate-950/80 overflow-hidden relative flex items-center justify-center p-2.5 border-b border-border">
+            <!-- Exact Image-Fitting Wrapper -->
+            <div class="relative inline-block max-w-full max-h-full">
+              <img
+                :src="tpl.url"
+                :alt="tpl.name"
+                class="max-w-full max-h-full w-auto h-auto block object-contain rounded-md shadow-xs"
+              >
+
+              <!-- Bounding Box Indicator Overlay on Hover -->
+              <div
+                class="absolute border-2 border-primary bg-primary/25 backdrop-blur-[0.5px] pointer-events-none rounded-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xs"
+                :style="{
+                  left: `${(tpl.placement?.left_pct ?? 0.25) * 100}%`,
+                  top: `${(tpl.placement?.top_pct ?? 0.25) * 100}%`,
+                  width: `${(tpl.placement?.width_pct ?? 0.5) * 100}%`,
+                  height: `${(tpl.placement?.height_pct ?? 0.5) * 100}%`,
+                  transform: `rotate(${tpl.placement?.angle_deg ?? 0}deg)`,
+                  transformOrigin: 'center center',
+                }"
+              >
+                <div class="size-5 rounded-md bg-primary/90 text-white flex items-center justify-center shadow-xs">
+                  <Icon name="lucide:sparkles" class="size-3 text-white" aria-hidden="true" />
+                </div>
+              </div>
+            </div>
 
             <!-- Product Type Badge -->
             <Badge
               variant="outline"
-              class="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-xs text-[10px] font-bold shadow-2xs gap-1 inline-flex items-center border-border text-foreground"
+              class="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-xs text-[10px] font-bold shadow-2xs gap-1 inline-flex items-center border-border text-foreground z-10"
             >
               <Icon :name="getProductIconName(tpl.product_type)" class="size-3 text-primary" aria-hidden="true" />
               <span>{{ getProductLabel(tpl.product_type) }}</span>
             </Badge>
 
-            <!-- Bounding Box Indicator Overlay on Hover -->
+            <!-- Rotation Angle Badge on Card if Rotated -->
             <div
-              class="absolute border-2 border-dashed border-primary bg-primary/20 backdrop-blur-[0.5px] pointer-events-none rounded-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-              :style="{
-                left: `${(tpl.placement?.left_pct ?? 0.25) * 100}%`,
-                top: `${(tpl.placement?.top_pct ?? 0.25) * 100}%`,
-                width: `${(tpl.placement?.width_pct ?? 0.5) * 100}%`,
-                height: `${(tpl.placement?.height_pct ?? 0.5) * 100}%`,
-                transform: `rotate(${tpl.placement?.angle_deg ?? 0}deg)`,
-              }"
+              v-if="tpl.placement?.angle_deg"
+              class="absolute bottom-2.5 right-2.5 px-1.5 py-0.5 rounded bg-slate-900/90 text-white text-[9px] font-mono border border-slate-700/60 shadow-xs z-10 flex items-center gap-1"
             >
-              <div class="h-6 w-6 rounded-md bg-white/90 backdrop-blur-xs text-primary flex items-center justify-center shadow-xs">
-                <Icon name="lucide:sparkles" class="size-3.5 text-primary" aria-hidden="true" />
-              </div>
+              <Icon name="lucide:rotate-cw" class="size-2.5 text-primary" aria-hidden="true" />
+              <span>{{ tpl.placement.angle_deg }}°</span>
             </div>
           </div>
 
