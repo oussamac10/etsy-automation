@@ -190,6 +190,14 @@ const chosenCandidateId = computed(() => {
 });
 
 const approvedConcept = computed(() => {
+  if (
+    workflow.value?.state === "IDEA_REVIEW" ||
+    workflow.value?.state === "RESEARCHING" ||
+    workflow.value?.state === "RESEARCH_QUEUED" ||
+    workflow.value?.state === "DRAFT"
+  ) {
+    return undefined;
+  }
   return concepts.value.find((c) => c.status?.toUpperCase() === "APPROVED");
 });
 

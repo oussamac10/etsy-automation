@@ -167,6 +167,10 @@ const activeResearchConcept = ref<Concept | null>(null);
 const isLoadingResearch = ref(false);
 const researchSummary = ref<ResearchSummaryData | null>(null);
 
+const visibleConcepts = computed(() => {
+  return props.concepts.filter((c) => c.status?.toUpperCase() !== "ARCHIVED");
+});
+
 function getTrademarkReport(concept: Concept): TrademarkReport | null {
   const report = concept.score_breakdown?.trademark_report;
   if (report && typeof report === "object") {
@@ -449,14 +453,14 @@ function confirmHighRiskApproval() {
         </Button>
       </div>
 
-      <Card v-if="concepts.length === 0" class="p-8 text-center">
+      <Card v-if="visibleConcepts.length === 0" class="p-8 text-center">
         <p class="text-muted-foreground text-xs">No opportunities found for this campaign yet.</p>
       </Card>
 
       <!-- 3 Opportunity Cards Grid/List -->
       <div v-else class="space-y-6">
         <Card
-          v-for="concept in concepts"
+          v-for="concept in visibleConcepts"
           :key="concept.id"
           class="shadow-sm border transition-all duration-150 overflow-hidden"
           :class="[

@@ -532,6 +532,15 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 ]
 
                 # Save 3 Final Opportunities
+                # Archive previous concepts from prior runs for this workflow
+                from sqlalchemy import update
+                await uow.session.execute(
+                    update(ProductConcept)
+                    .where(ProductConcept.workflow_id == workflow_id)
+                    .where(ProductConcept.status != ConceptStatus.ARCHIVED)
+                    .values(status=ConceptStatus.ARCHIVED)
+                )
+
                 for index, concept in enumerate(top_3):
                     overall_val = concept.scores.overall if concept.scores else 80
                     db_score = max(1.00, min(5.00, round(overall_val / 20.0, 2)))
@@ -597,7 +606,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                         score=db_score,
                         score_breakdown=breakdown,
                         score_explanation=concept.why_it_could_sell,
-                        status=ConceptStatus.PROPOSED if index > 0 else ConceptStatus.SHORTLISTED,
+                        status=ConceptStatus.PROPOSED,
                     )
                     await uow.concepts.add(db_concept)
 
