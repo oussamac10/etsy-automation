@@ -460,6 +460,15 @@ async function handleScreenConceptTrademark(conceptId: string): Promise<void> {
   }
 }
 
+function handleConceptRefreshed(updated: Concept) {
+  const idx = concepts.value.findIndex((c) => c.id === updated.id);
+  if (idx !== -1 && updated) {
+    concepts.value[idx] = updated;
+  } else {
+    loadData(true);
+  }
+}
+
 async function startArtwork(provider = "recraft", model = "recraftv4_1"): Promise<void> {
   isArtworkLoading.value = true;
   artworkError.value = null;
@@ -878,6 +887,7 @@ onBeforeUnmount(stopPolling);
               @decide-gate="handleDecideGate"
               @edit-prompt="openReviseForm"
               @screen-trademark="handleScreenConceptTrademark"
+              @concept-refreshed="handleConceptRefreshed"
             />
 
             <!-- Tab: Artwork Studio -->

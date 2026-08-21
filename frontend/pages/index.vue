@@ -522,7 +522,7 @@ onUnmounted(() => {
                   </div>
                   <p class="text-xs font-semibold text-primary mb-1">Market-Led Discovery</p>
                   <p class="text-xs text-muted-foreground leading-relaxed">
-                    AI analyzes seasonal marketplace trends and generates 3 validated design concepts automatically.
+                    Find 3 design opportunities based on current demand, competition, trends, seasonal timing, and buyer intent.
                   </p>
                 </div>
 
@@ -758,7 +758,7 @@ onUnmounted(() => {
               >
                 <span>
                   {{
-                    ideaMode === 'market-led' ? 'Discover 3 Ideas' :
+                    ideaMode === 'market-led' ? 'Find 3 Opportunities' :
                     ideaMode === 'user-idea' ? 'Research My Idea' :
                     'Generate Variations'
                   }}
