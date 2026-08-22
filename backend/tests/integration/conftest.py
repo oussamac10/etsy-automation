@@ -160,6 +160,7 @@ async def api_app(
 
     from app.api.dependencies import build_credential_cipher
     from app.main import create_app
+    from app.providers.s3 import S3ObjectStorage
     from app.providers.telegram import FakeTelegramGateway
 
     app = create_app(settings)  # type: ignore[arg-type]
@@ -169,6 +170,15 @@ async def api_app(
     app.state.redis = aioredis.from_url(settings.redis_url, decode_responses=True)  # type: ignore[attr-defined]
     app.state.http_client = httpx.AsyncClient(timeout=10.0)
     app.state.telegram_gateway = FakeTelegramGateway()
+    app.state.storage = S3ObjectStorage(
+        endpoint_url=settings.s3_endpoint_url,
+        bucket_name=settings.s3_bucket,
+        access_key_id=settings.s3_access_key_id,
+        secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+        region_name=settings.s3_region,
+        force_path_style=settings.s3_force_path_style,
+        public_endpoint_url=settings.s3_public_endpoint_url,
+    )
 
     yield app
 

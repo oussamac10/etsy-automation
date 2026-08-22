@@ -168,6 +168,9 @@ class TestIdeaApprovalGate:
             concept = await uow.concepts.get(concept_id)
             assert concept is not None
             assert concept.status == ConceptStatus.APPROVED
+            workflow = await uow.workflows.get(workflow_id)
+            assert workflow is not None
+            assert workflow.name == concept.title
 
     async def test_repeating_the_same_decision_records_one_approval(
         self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
