@@ -841,3 +841,47 @@ class TestEtsyVerificationService:
         title_check = next(c for c in res.checks if c.key == "title")
         assert title_check.status == EtsyVerificationCheckStatus.SYNCED
 
+    def test_metadata_keys_in_expected_properties_are_ignored(self) -> None:
+        """Metadata keys like etsy_files_out_of_sync and empty properties are ignored."""
+        res = compare_etsy_draft(
+            workflow_id="wf-101",
+            listing_id="4559404921",
+            expected_title="Title",
+            expected_description="Description",
+            expected_tags=["tag"],
+            expected_price_minor=499,
+            expected_currency="USD",
+            expected_quantity=999,
+            expected_sku=None,
+            expected_taxonomy_id=77,
+            expected_taxonomy_path="Digital",
+            expected_shop_section_id=None,
+            expected_shop_section_name=None,
+            expected_should_auto_renew=False,
+            expected_properties={"etsy_files_out_of_sync": True, "82731": {"values": []}},
+            expected_mockup_count=1,
+            expected_file_count=1,
+            expected_filenames=["file.zip"],
+            expected_ai_disclosure=None,
+            expected_shopping_cart_summary=None,
+            actual_listing={
+                "listing_id": 4559404921,
+                "state": "draft",
+                "title": "Title",
+                "description": "Description",
+                "tags": ["tag"],
+                "price": {"amount": 499, "divisor": 100, "currency_code": "USD"},
+                "quantity": 999,
+                "taxonomy_id": 77,
+            },
+            actual_inventory=None,
+            actual_images=[{"listing_image_id": "img-1", "rank": 1}],
+            actual_files=[{"listing_file_id": "f-1", "filename": "file.zip", "rank": 1}],
+            actual_properties=[],
+        )
+
+        # There should be no spurious 'attributes' check failure
+        attr_checks = [c for c in res.checks if c.key == "attributes"]
+        assert len(attr_checks) == 0
+
+

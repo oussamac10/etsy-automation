@@ -669,7 +669,7 @@ def compare_etsy_draft(
             )
 
     # 13. Category Attributes / Properties & Materials
-    expected_props = expected_properties or {}
+    raw_expected_props = expected_properties or {}
     actual_props_map: dict[int, list[str]] = {}
     actual_props_names: dict[int, str] = {}
 
@@ -696,18 +696,30 @@ def compare_etsy_draft(
                 actual_props_map[common_mat_pid] = mat_strings
                 actual_props_names[common_mat_pid] = "Materials"
 
-    total_expected_props = len(expected_props)
+    # Filter expected_props to only valid numeric taxonomy property IDs with actual values configured
+    cleaned_expected_props: dict[int, Any] = {}
+    for p_id_raw, val in raw_expected_props.items():
+        if not str(p_id_raw).isdigit():
+            continue
+        pid = int(p_id_raw)
+        if isinstance(val, dict):
+            vals = val.get("values") or ([val["value"]] if val.get("value") is not None and str(val["value"]).strip() else [])
+            if not vals:
+                continue
+        elif isinstance(val, list):
+            if not [item for item in val if item is not None and str(item).strip()]:
+                continue
+        elif val is None or not str(val).strip():
+            continue
+        cleaned_expected_props[pid] = val
+
+    total_expected_props = len(cleaned_expected_props)
     if total_expected_props > 0:
         matched_props = 0
         prop_details: list[dict[str, Any]] = []
         diff_summaries: list[str] = []
 
-        for p_id_str, val in expected_props.items():
-            try:
-                pid = int(p_id_str)
-            except ValueError:
-                continue
-
+        for pid, val in cleaned_expected_props.items():
             # Extract expected values and property display name
             prop_name: str | None = None
             if isinstance(val, dict):
@@ -792,7 +804,7 @@ def compare_etsy_draft(
                     status=EtsyVerificationCheckStatus.DIFFERENT,
                     expected=f"{total_expected_props} configured",
                     actual=f"{matched_props} / {total_expected_props} verified on Etsy",
-                    message=f"{total_expected_props - matched_props} attribute(s) differ on Etsy: {diff_text}.",
+                    message=f"{total_expected_props - matched_props} attribute(s) differ on Etsy: {diff_text}." if diff_text else f"{total_expected_props - matched_props} attribute(s) differ on Etsy.",
                     details={"properties": prop_details},
                 )
             )

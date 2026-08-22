@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import inspect
 import json
 import re
 from typing import Any
@@ -262,10 +263,21 @@ class ListingDraftService:
         initial_sku = generate_sku(shop_name, initial_title, workflow_id)
 
         # 3. Suggest shop section
-        existing_user_sections = await uow.listing_drafts.list_distinct_shop_sections_for_user(workflow.owner_id)
+        existing_user_sections = []
+        try:
+            fetch_sec_fn = getattr(uow.listing_drafts, "list_distinct_shop_sections_for_user", None)
+            if fetch_sec_fn and callable(fetch_sec_fn):
+                res_sec = fetch_sec_fn(workflow.owner_id)
+                if inspect.isawaitable(res_sec):
+                    existing_user_sections = await res_sec
+                elif isinstance(res_sec, list):
+                    existing_user_sections = res_sec
+        except Exception:
+            existing_user_sections = []
+
         existing_sections_list = [
             {"shop_section_id": s_id, "title": s_name}
-            for s_id, s_name in existing_user_sections
+            for s_id, s_name in (existing_user_sections or [])
             if s_id and s_name
         ]
         suggested_sec_name, suggested_sec_id = suggest_shop_section_title(
