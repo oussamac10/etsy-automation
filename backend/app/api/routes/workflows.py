@@ -2430,15 +2430,25 @@ async def generate_listing_seo_endpoint(
     # 2. Extract forbidden anchors from unselected concepts in this workflow to prevent leakage
     all_concepts = await uow.concepts.list_for_workflow(workflow_id)
     forbidden_anchors: list[str] = []
-    current_tokens = set(re.findall(r"[a-zA-Z0-9]+", ctx.concept.title.lower()))
+    current_tokens = set(re.findall(r"[a-z0-9]+", ctx.concept.title.lower()))
+    generic_words = {
+        "cute", "vintage", "design", "graphic", "clipart", "sublimation",
+        "download", "retro", "print", "png", "svg", "eps", "craft", "high",
+        "resolution", "standard", "quality", "digital", "instant", "commercial",
+        "personal", "physical", "product", "products", "item", "items", "file",
+        "files", "look", "style", "theme", "aesthetic", "pattern", "trend",
+        "discovery", "art", "artwork", "illustration", "vector", "drawing",
+        "bundle", "pack", "collection", "printable", "ready", "scale", "tees",
+        "shirt", "shirts", "gifts", "gift", "idea", "lover", "lovers", "best",
+        "cool", "stay", "wild", "love", "home", "life", "baby", "color", "dark",
+        "light", "girl", "boys", "kids", "card", "room", "wall"
+    }
     for other_c in all_concepts:
         if other_c.id != ctx.concept.id:
-            for w in re.findall(r"[a-zA-Z0-9]+", (other_c.title or "").lower()):
-                if len(w) > 3 and w not in current_tokens and w not in {
-                    "cute", "vintage", "design", "graphic", "clipart", "sublimation",
-                    "download", "retro", "print", "png", "svg", "eps", "craft"
-                }:
-                    forbidden_anchors.append(w)
+            for w in re.findall(r"[a-z0-9]+", (other_c.title or "").lower()):
+                if len(w) > 3 and w not in current_tokens and w not in generic_words:
+                    if not any(w in ct or ct in w for ct in current_tokens):
+                        forbidden_anchors.append(w)
 
     # 3. Text provider resolution
     text_provider: Any = FakeTextProvider()

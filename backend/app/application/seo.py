@@ -115,12 +115,19 @@ def validate_semantic_consistency(
 
     # Extract meaningful anchor tokens from active concept title
     concept_tokens = [
-        w for w in re.findall(r"[a-zA-Z0-9]+", clean_concept_title)
-        if len(w) > 2 and w not in {"the", "and", "for", "with", "png", "svg", "eps", "clipart", "design", "graphic", "download", "sublimation"}
+        w for w in re.findall(r"[a-z0-9]+", clean_concept_title)
+        if len(w) > 2 and w not in {
+            "the", "and", "for", "with", "png", "svg", "eps", "clipart",
+            "design", "graphic", "download", "sublimation"
+        }
     ]
 
-    # Verify at least one primary concept token exists in generated title or description
-    if concept_tokens and not any(token in combined_text for token in concept_tokens):
+    # Verify at least one primary concept token exists in generated copy
+    combined_tokens = set(re.findall(r"[a-z0-9]+", combined_text))
+    if concept_tokens and not any(
+        token in combined_tokens or any(token in ct for ct in combined_tokens)
+        for token in concept_tokens
+    ):
         logger.warning(
             "seo_semantic_anchor_missing",
             concept_title=concept_title,
@@ -132,12 +139,18 @@ def validate_semantic_consistency(
             f"None of the active concept anchors ({', '.join(concept_tokens[:4])}) were found in the output."
         )
 
-    # Verify forbidden anchors are absent
+    # Verify forbidden anchors are absent using strict whole-token matching
     if forbidden_anchors:
-        concept_words_set = set(re.findall(r"[a-zA-Z0-9]+", clean_concept_title))
+        concept_words_set = set(re.findall(r"[a-z0-9]+", clean_concept_title))
         for fa in forbidden_anchors:
             fa_clean = fa.strip().lower()
-            if fa_clean and fa_clean not in concept_words_set and fa_clean in combined_text:
+            if not fa_clean or len(fa_clean) < 4:
+                continue
+            # Skip if fa_clean matches or overlaps any active concept token
+            if fa_clean in concept_words_set or any(fa_clean in cw or cw in fa_clean for cw in concept_words_set):
+                continue
+            # Check whole-word presence in combined tokens
+            if fa_clean in combined_tokens:
                 logger.warning(
                     "seo_forbidden_anchor_detected",
                     forbidden_anchor=fa_clean,
