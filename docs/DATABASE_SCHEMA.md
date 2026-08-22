@@ -118,7 +118,7 @@ erDiagram
 | `is_paused` | `BOOLEAN` | NO | `False` | - | - |
 | `default_digital_price_minor` | `BIGINT` | NO | `499` | - | - |
 | `default_digital_quantity` | `INTEGER` | NO | `999` | - | - |
-| `default_auto_renew` | `BOOLEAN` | NO | `False` | - | - |
+| `default_auto_renew` | `BOOLEAN` | NO | `True` | - | - |
 | `default_shop_section_strategy` | `VARCHAR(50)` | NO | `auto` | - | - |
 | `created_at` | `DATETIME` | NO | `dynamic` | - | - |
 | `updated_at` | `DATETIME` | NO | `dynamic` | - | - |
