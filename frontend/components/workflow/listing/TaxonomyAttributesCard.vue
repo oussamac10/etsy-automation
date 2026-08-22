@@ -346,14 +346,14 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
 
 <template>
   <Card class="border-border bg-card shadow-xs" data-testid="taxonomy-attributes-card">
-    <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
-      <div class="space-y-0.5">
-        <CardTitle class="text-sm font-semibold flex items-center gap-2 flex-wrap">
-          <Icon name="lucide:sliders-horizontal" class="size-4 text-primary" aria-hidden="true" />
+    <CardHeader class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 sm:p-4 pb-2.5">
+      <div class="space-y-0.5 min-w-0">
+        <CardTitle class="text-xs sm:text-sm font-semibold flex items-center gap-1.5 flex-wrap">
+          <Icon name="lucide:sliders-horizontal" class="size-3.5 sm:size-4 text-primary shrink-0" aria-hidden="true" />
           <span>Category Attributes</span>
           <Badge
             :variant="totalSelectedCount > 0 ? 'success' : 'secondary'"
-            class="text-[10px] font-mono font-medium"
+            class="text-[9px] sm:text-[10px] font-mono font-medium py-0 px-1.5"
           >
             <span v-if="totalSelectedCount > 0" class="size-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" aria-hidden="true" />
             {{ totalSelectedCount }} selected
@@ -367,7 +367,7 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
             <Icon name="lucide:info" class="size-3.5" aria-hidden="true" />
           </button>
         </CardTitle>
-        <CardDescription class="text-xs">
+        <CardDescription class="text-2xs sm:text-xs text-muted-foreground">
           Details provided by Etsy for this category. All selections are completely manual.
         </CardDescription>
       </div>
@@ -378,7 +378,7 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           type="button"
           variant="outline"
           size="sm"
-          class="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer gap-1"
+          class="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer gap-1"
           title="Clean invalid or stale attributes from prior categories"
           @click="reconcileStaleAttributes"
         >
@@ -392,7 +392,7 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           type="button"
           variant="ghost"
           size="sm"
-          class="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+          class="h-7 px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
           title="Clear optional attribute selections"
           @click="clearOptionalAttributes"
         >
@@ -406,21 +406,21 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           variant="default"
           size="sm"
           :disabled="isSaving"
-          class="h-8 gap-1.5 text-xs font-medium shrink-0 cursor-pointer"
+          class="h-7 gap-1 text-xs font-medium shrink-0 cursor-pointer px-2.5"
           @click="emit('save')"
         >
-          <Icon v-if="isSaving" name="lucide:loader-2" class="size-3.5 animate-spin" aria-hidden="true" />
-          <Icon v-else name="lucide:save" class="size-3.5" aria-hidden="true" />
+          <Icon v-if="isSaving" name="lucide:loader-2" class="size-3 animate-spin" aria-hidden="true" />
+          <Icon v-else name="lucide:save" class="size-3" aria-hidden="true" />
           <span>Save Attributes</span>
         </Button>
       </div>
     </CardHeader>
 
-    <CardContent class="p-4 sm:p-5 pt-0 space-y-4">
+    <CardContent class="p-3 sm:p-4 pt-0 space-y-3">
       <!-- Info Tooltip Banner -->
-      <div v-if="showInfoTooltip" class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-foreground space-y-1">
+      <div v-if="showInfoTooltip" class="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-foreground space-y-1">
         <p class="font-medium text-foreground">What are Category Attributes?</p>
-        <p class="text-muted-foreground leading-relaxed">
+        <p class="text-muted-foreground leading-relaxed text-[11px]">
           Etsy taxonomy attributes allow shoppers to filter search results by specific dimensions like Materials, Subject, Aspect Ratio, Room, Orientation, and Framing.
         </p>
       </div>
@@ -428,12 +428,12 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
       <!-- Warning Banner for Mismatched Required Attributes -->
       <div
         v-if="fitness?.has_mismatched_required_attributes || fitness?.blocking_mismatch || (fitness?.warnings && fitness.warnings.length > 0)"
-        class="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        class="p-2.5 sm:p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
         data-testid="category-attribute-mismatch-warning"
       >
-        <div class="space-y-1 min-w-0">
-          <p class="font-semibold flex items-center gap-1.5 text-foreground">
-            <Icon name="lucide:alert-triangle" class="size-4 shrink-0 text-amber-500" aria-hidden="true" />
+        <div class="space-y-0.5 min-w-0">
+          <p class="font-semibold flex items-center gap-1.5 text-foreground text-xs">
+            <Icon name="lucide:alert-triangle" class="size-3.5 shrink-0 text-amber-500" aria-hidden="true" />
             <span>Category mismatch</span>
           </p>
           <p class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
@@ -445,55 +445,58 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           type="button"
           variant="outline"
           size="sm"
-          class="h-8 text-xs shrink-0 cursor-pointer self-start sm:self-auto bg-background text-foreground border-border hover:bg-muted"
+          class="h-7 text-xs shrink-0 cursor-pointer self-start sm:self-auto bg-background text-foreground border-border hover:bg-muted px-2.5"
           @click="emit('reviewCategory')"
         >
-          <Icon name="lucide:folder-tree" class="size-3.5 mr-1 text-primary" aria-hidden="true" />
+          <Icon name="lucide:folder-tree" class="size-3 mr-1 text-primary" aria-hidden="true" />
           <span>Review Etsy Category</span>
         </Button>
       </div>
 
       <!-- Loading State -->
-      <div v-if="isLoading" class="py-6 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
-        <Icon name="lucide:loader-2" class="size-5 animate-spin text-primary" aria-hidden="true" />
+      <div v-if="isLoading" class="py-4 flex flex-col items-center justify-center gap-1.5 text-muted-foreground text-xs">
+        <Icon name="lucide:loader-2" class="size-4 animate-spin text-primary" aria-hidden="true" />
         <span>Loading Etsy category properties...</span>
       </div>
 
       <!-- Empty State -->
       <div
         v-else-if="usableProperties.length === 0"
-        class="py-6 text-center text-xs text-muted-foreground space-y-1"
+        class="py-4 text-center text-xs text-muted-foreground space-y-1"
         data-testid="empty-attributes-state"
       >
-        <Icon name="lucide:sliders-horizontal" class="size-6 text-muted-foreground/50 mx-auto" aria-hidden="true" />
+        <Icon name="lucide:sliders-horizontal" class="size-5 text-muted-foreground/50 mx-auto" aria-hidden="true" />
         <p class="font-medium">No customizable attributes for this category</p>
         <p class="text-2xs text-muted-foreground">Etsy does not define specific tag attributes for this category node.</p>
       </div>
 
-      <!-- Properties Form -->
-      <div v-else class="space-y-4">
+      <!-- Properties Form (Responsive 2-Column Grid) -->
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
         <div
           v-for="prop in usableProperties"
           :key="prop.property_id"
-          class="space-y-2 p-3.5 rounded-lg border border-border/60 bg-muted/10 transition-colors"
+          class="space-y-1.5 p-2.5 rounded-lg border border-border/60 bg-muted/10 transition-colors"
+          :class="{
+            'md:col-span-2': prop.is_multivalued && prop.possible_values && prop.possible_values.length > 25
+          }"
           :data-testid="`property-row-${prop.property_id}`"
         >
-          <div class="flex items-center justify-between gap-2 flex-wrap">
-            <div class="flex items-center gap-2">
-              <Label class="text-xs font-semibold text-foreground">
+          <div class="flex items-center justify-between gap-1.5 flex-wrap">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <Label class="text-xs font-semibold text-foreground truncate">
                 {{ getPropertyDisplayName(prop) }}
               </Label>
               <Badge
                 v-if="prop.is_required"
                 :variant="isPropertyMissingRequired(prop) ? 'destructive' : isPropertyMismatched(prop) ? 'warning' : 'success'"
-                class="text-[10px] py-0 font-medium"
+                class="text-[9px] py-0 px-1 font-medium"
               >
                 * Required
               </Badge>
-              <Badge v-else variant="outline" class="text-[10px] py-0 text-muted-foreground">
+              <Badge v-else variant="outline" class="text-[9px] py-0 px-1 text-muted-foreground">
                 Optional
               </Badge>
-              <span v-if="prop.max_values_allowed && prop.is_multivalued" class="text-[11px] text-muted-foreground">
+              <span v-if="prop.max_values_allowed && prop.is_multivalued" class="text-[10px] text-muted-foreground">
                 (Max {{ prop.max_values_allowed }})
               </span>
             </div>
@@ -518,18 +521,18 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           </div>
 
           <!-- TYPE 1: Measurement Scale Property (e.g. Width, Height) -->
-          <div v-if="prop.scales && prop.scales.length > 0 && (!prop.possible_values || prop.possible_values.length === 0)" class="flex items-center gap-2 pt-1">
-            <div class="w-32">
+          <div v-if="prop.scales && prop.scales.length > 0 && (!prop.possible_values || prop.possible_values.length === 0)" class="flex items-center gap-1.5 pt-0.5">
+            <div class="w-24">
               <Input
                 type="number"
                 placeholder="e.g. 15"
-                class="h-8 text-xs font-mono"
+                class="h-7.5 text-xs font-mono"
                 :model-value="localPropertiesMap[String(prop.property_id)]?.value || ''"
                 @update:model-value="onMeasurementValueChange(prop, String($event))"
               />
             </div>
             <select
-              class="flex h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              class="flex h-7.5 rounded-md border border-input bg-background px-2 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               :value="localPropertiesMap[String(prop.property_id)]?.scale_id || prop.scales[0]?.scale_id || 5"
               @change="onMeasurementScaleChange(prop, Number(($event.target as HTMLSelectElement).value))"
             >
@@ -540,13 +543,13 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           </div>
 
           <!-- TYPE 2: Large Multi-valued Property with Searchable Combobox (e.g. Materials with 500+ choices) -->
-          <div v-else-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 25" class="space-y-2 pt-1">
+          <div v-else-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 25" class="space-y-1.5 pt-0.5">
             <!-- Selected Pills -->
-            <div v-if="localPropertiesMap[String(prop.property_id)]?.values?.length" class="flex flex-wrap gap-1.5 pb-1">
+            <div v-if="localPropertiesMap[String(prop.property_id)]?.values?.length" class="flex flex-wrap gap-1 pb-0.5">
               <span
                 v-for="valName in localPropertiesMap[String(prop.property_id)]?.values"
                 :key="valName"
-                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-primary text-primary-foreground shadow-2xs"
+                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-primary text-primary-foreground shadow-2xs"
               >
                 <span>{{ valName }}</span>
                 <button
@@ -555,30 +558,30 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
                   :title="`Remove ${valName}`"
                   @click="removeSelectedValue(prop.property_id, valName)"
                 >
-                  <Icon name="lucide:x" class="size-3" aria-hidden="true" />
+                  <Icon name="lucide:x" class="size-2.5" aria-hidden="true" />
                 </button>
               </span>
             </div>
 
             <!-- Search input -->
             <div class="relative">
-              <Icon name="lucide:search" class="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground pointer-events-none" aria-hidden="true" />
+              <Icon name="lucide:search" class="absolute left-2 top-2 size-3 text-muted-foreground pointer-events-none" aria-hidden="true" />
               <input
                 type="text"
                 :placeholder="`Search ${getPropertyDisplayName(prop).toLowerCase()}...`"
-                class="flex h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                class="flex h-7 w-full rounded-md border border-input bg-background pl-7 pr-2.5 py-0.5 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 :value="searchQueryMap[prop.property_id] || ''"
                 @input="searchQueryMap[prop.property_id] = ($event.target as HTMLInputElement).value"
               />
             </div>
 
             <!-- Filtered Choices -->
-            <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 border border-border/40 rounded-md bg-card/60">
+            <div class="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1 border border-border/40 rounded-md bg-card/60">
               <button
                 v-for="val in getFilteredComboboxValues(prop)"
                 :key="val.value_id"
                 type="button"
-                class="px-2 py-1 rounded text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
+                class="px-1.5 py-0.5 rounded text-[11px] transition-colors cursor-pointer border flex items-center gap-1"
                 :class="
                   isValueSelected(prop.property_id, val.name)
                     ? 'bg-primary text-primary-foreground border-primary font-medium'
@@ -589,7 +592,7 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
                 <Icon
                   v-if="isValueSelected(prop.property_id, val.name)"
                   name="lucide:check"
-                  class="size-3"
+                  class="size-2.5"
                   aria-hidden="true"
                 />
                 <span>{{ val.name }}</span>
@@ -598,12 +601,12 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           </div>
 
           <!-- TYPE 3: Small Multi-valued Property (<= 25 items, e.g. Aspect ratio, Room, Subject) -->
-          <div v-else-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="flex flex-wrap gap-1.5 pt-1">
+          <div v-else-if="prop.is_multivalued && prop.possible_values && prop.possible_values.length > 0" class="flex flex-wrap gap-1 pt-0.5">
             <button
               v-for="val in prop.possible_values"
               :key="val.value_id"
               type="button"
-              class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
+              class="px-2 py-0.5 rounded-md text-[11px] transition-colors cursor-pointer border flex items-center gap-1"
               :class="
                 isValueSelected(prop.property_id, val.name)
                   ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
@@ -614,7 +617,7 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
               <Icon
                 v-if="isValueSelected(prop.property_id, val.name)"
                 name="lucide:check"
-                class="size-3"
+                class="size-2.5"
                 aria-hidden="true"
               />
               <span>{{ val.name }}</span>
@@ -624,13 +627,13 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           <!-- TYPE 4: Single-valued Property (<= 6 items): Radio/Pill Chips -->
           <div
             v-else-if="!prop.is_multivalued && prop.possible_values && prop.possible_values.length <= 6 && prop.possible_values.length > 0"
-            class="flex flex-wrap gap-1.5 pt-1"
+            class="flex flex-wrap gap-1 pt-0.5"
           >
             <button
               v-for="val in prop.possible_values"
               :key="val.value_id"
               type="button"
-              class="px-2.5 py-1 rounded-md text-xs transition-colors cursor-pointer border flex items-center gap-1.5"
+              class="px-2 py-0.5 rounded-md text-[11px] transition-colors cursor-pointer border flex items-center gap-1"
               :class="
                 isValueSelected(prop.property_id, val.name)
                   ? 'bg-primary text-primary-foreground border-primary font-medium shadow-2xs'
@@ -641,7 +644,7 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
               <Icon
                 v-if="isValueSelected(prop.property_id, val.name)"
                 name="lucide:check"
-                class="size-3"
+                class="size-2.5"
                 aria-hidden="true"
               />
               <span>{{ val.name }}</span>
@@ -649,9 +652,9 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           </div>
 
           <!-- TYPE 5: Single-valued Property (> 6 items): Clean Select Dropdown -->
-          <div v-else-if="prop.possible_values && prop.possible_values.length > 6" class="pt-1">
+          <div v-else-if="prop.possible_values && prop.possible_values.length > 6" class="pt-0.5">
             <select
-              class="flex h-8 w-full max-w-sm rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              class="flex h-7.5 w-full rounded-md border border-input bg-background px-2 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               :value="localPropertiesMap[String(prop.property_id)]?.values?.[0] || ''"
               @change="onDropdownSelect(prop, $event)"
             >
