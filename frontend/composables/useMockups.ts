@@ -50,12 +50,12 @@ export function useMockups(
 
     for (const k in map) {
       map[k].sort((a, b) => {
-        const aOrd = Number(a.provenance?.listing_order ?? 999);
-        const bOrd = Number(b.provenance?.listing_order ?? 999);
-        if (aOrd !== bOrd) return aOrd - bOrd;
         const aCov = a.provenance?.is_cover ? 0 : 1;
         const bCov = b.provenance?.is_cover ? 0 : 1;
         if (aCov !== bCov) return aCov - bCov;
+        const aOrd = Number(a.provenance?.listing_order ?? 999);
+        const bOrd = Number(b.provenance?.listing_order ?? 999);
+        if (aOrd !== bOrd) return aOrd - bOrd;
         const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
         const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
         return bTime - aTime;
