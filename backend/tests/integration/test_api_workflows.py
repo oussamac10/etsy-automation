@@ -129,6 +129,39 @@ class TestReadWorkflows:
         )
         assert response.json()["total"] == 0
 
+    async def test_list_returns_shop_section_info(
+        self, client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+    ) -> None:
+        created = (await client.post("/api/v1/workflows", json=_payload())).json()
+        wf_id = uuid.UUID(created["id"])
+
+        async with UnitOfWork(session_factory) as uow:
+            from app.infrastructure.models import ListingDraft
+            draft = ListingDraft(
+                workflow_id=wf_id,
+                title="Listing with Section",
+                description="Desc",
+                tags=["tag"],
+                price_minor_units=499,
+                currency="USD",
+                taxonomy_id=77,
+                taxonomy_path="Digital",
+                quantity=999,
+                shop_section_id="59973386",
+                shop_section_name="Animals",
+            )
+            await uow.listing_drafts.add(draft)
+            await uow.commit()
+
+        response = await client.get("/api/v1/workflows")
+        assert response.status_code == 200
+        items = response.json()["items"]
+        matched = next((i for i in items if i["id"] == created["id"]), None)
+        assert matched is not None
+        assert matched["shop_section_id"] == "59973386"
+        assert matched["shop_section_name"] == "Animals"
+
+
 
 class TestSubmitIdea:
     async def test_stores_the_owner_text_verbatim(self, client: httpx.AsyncClient) -> None:

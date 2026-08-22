@@ -603,6 +603,8 @@ class ListingDraftRepository(Protocol):
 
     async def get_by_workflow(self, workflow_id: uuid.UUID) -> ListingDraft | None: ...
 
+    async def get_by_workflows(self, workflow_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, ListingDraft]: ...
+
     async def update(
         self,
         draft_id: uuid.UUID,

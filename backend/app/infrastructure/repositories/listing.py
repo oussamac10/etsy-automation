@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 import uuid
 
@@ -32,6 +33,14 @@ class SqlListingDraftRepository:
             select(ListingDraft).where(ListingDraft.workflow_id == workflow_id)
         )
         return result.scalars().first()
+
+    async def get_by_workflows(self, workflow_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, ListingDraft]:
+        if not workflow_ids:
+            return {}
+        result = await self._session.execute(
+            select(ListingDraft).where(ListingDraft.workflow_id.in_(workflow_ids))
+        )
+        return {draft.workflow_id: draft for draft in result.scalars().all()}
 
     async def update(
         self,

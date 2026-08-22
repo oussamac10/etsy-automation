@@ -87,6 +87,8 @@ class WorkflowResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None
+    shop_section_id: str | None = None
+    shop_section_name: str | None = None
 
 
 class WorkflowListResponse(BaseModel):

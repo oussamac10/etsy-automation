@@ -131,8 +131,25 @@ async def list_workflows(
         limit=limit,
         offset=offset,
     )
+    workflow_ids = [item.id for item in items]
+    drafts_map = {}
+    if workflow_ids and hasattr(uow.listing_drafts, "get_by_workflows"):
+        try:
+            drafts_map = await uow.listing_drafts.get_by_workflows(workflow_ids)
+        except Exception:
+            drafts_map = {}
+
+    response_items = []
+    for item in items:
+        resp = WorkflowResponse.model_validate(item)
+        draft = drafts_map.get(item.id)
+        if draft:
+            resp.shop_section_id = draft.shop_section_id
+            resp.shop_section_name = draft.shop_section_name
+        response_items.append(resp)
+
     return WorkflowListResponse(
-        items=[WorkflowResponse.model_validate(item) for item in items],
+        items=response_items,
         total=total,
         limit=limit,
         offset=offset,
@@ -147,7 +164,15 @@ async def list_workflows(
 )
 async def get_workflow(workflow_id: uuid.UUID, user: CurrentUser, uow: UowDep) -> WorkflowResponse:
     workflow = await use_cases.get_workflow(uow, workflow_id, owner_id=user.id)
-    return WorkflowResponse.model_validate(workflow)
+    resp = WorkflowResponse.model_validate(workflow)
+    try:
+        draft = await uow.listing_drafts.get_by_workflow(workflow_id)
+        if draft:
+            resp.shop_section_id = draft.shop_section_id
+            resp.shop_section_name = draft.shop_section_name
+    except Exception:
+        pass
+    return resp
 
 
 @router.post(
