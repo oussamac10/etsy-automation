@@ -469,7 +469,12 @@ class ListingDraftResponse(BaseModel):
     etsy_image_ids: list[str] | None = None
     etsy_file_id: str | None = None
     etsy_file_ids: list[str] | None = None
-    etsy_failure_reason: str | None = None
+    concept_id: uuid.UUID | None = None
+    concept_version: int | None = None
+    artwork_asset_id: uuid.UUID | None = None
+    listing_context_hash: str | None = None
+    is_stale: bool = False
+    stale_reason: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

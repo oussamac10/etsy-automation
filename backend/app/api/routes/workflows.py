@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import inspect
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any, cast
@@ -2012,6 +2013,16 @@ async def _build_listing_response(
                 seen_tags.add(clean)
                 tag_history_list.append(clean)
 
+    from app.application.listing_context import evaluate_listing_staleness, resolve_listing_generation_context
+
+    is_stale = False
+    stale_reason = None
+    try:
+        ctx = await resolve_listing_generation_context(workflow_id, uow)
+        is_stale, stale_reason = evaluate_listing_staleness(draft, ctx)
+    except Exception:
+        pass
+
     return ListingDraftResponse(
         id=draft.id,
         workflow_id=draft.workflow_id,
@@ -2047,6 +2058,12 @@ async def _build_listing_response(
         package_download_url=pkg_url,
         history=history_list,
         tag_history=tag_history_list,
+        concept_id=getattr(draft, "concept_id", None),
+        concept_version=getattr(draft, "concept_version", None),
+        artwork_asset_id=getattr(draft, "artwork_asset_id", None),
+        listing_context_hash=getattr(draft, "listing_context_hash", None),
+        is_stale=is_stale,
+        stale_reason=stale_reason,
         etsy_listing_id=draft.etsy_listing_id,
         etsy_listing_url=(
             f"https://www.etsy.com/your/shops/me/listing-editor/edit/{draft.etsy_listing_id}"
@@ -2387,6 +2404,7 @@ async def generate_listing_seo_endpoint(
     target: str = Query("all", pattern="^(all|title|description|shopping_cart_summary|tags)$"),
 ) -> ListingDraftResponse:
     from app.application.listing import ListingDraftService, record_version_snapshot
+    from app.application.listing_context import resolve_listing_generation_context
     from app.application.package import CustomerPackageService
     from app.application.seo import SeoTargetField, generate_listing_seo
     from app.application.trademark import TrademarkScreeningService
@@ -2400,18 +2418,29 @@ async def generate_listing_seo_endpoint(
             detail="No workflow with that ID",
         )
 
-    concepts = await uow.concepts.list_for_workflow(workflow_id)
-    if not concepts:
+    # 1. Authoritative context resolution & concept-artwork consistency check
+    try:
+        ctx = await resolve_listing_generation_context(workflow_id, uow)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Workflow has no product concept",
+            detail=str(exc),
         )
-    concept = concepts[0]
 
-    prompts = await uow.concepts.prompts(concept.id)
-    latest_prompt = prompts[-1] if prompts else None
+    # 2. Extract forbidden anchors from unselected concepts in this workflow to prevent leakage
+    all_concepts = await uow.concepts.list_for_workflow(workflow_id)
+    forbidden_anchors: list[str] = []
+    current_tokens = set(re.findall(r"[a-zA-Z0-9]+", ctx.concept.title.lower()))
+    for other_c in all_concepts:
+        if other_c.id != ctx.concept.id:
+            for w in re.findall(r"[a-zA-Z0-9]+", (other_c.title or "").lower()):
+                if len(w) > 3 and w not in current_tokens and w not in {
+                    "cute", "vintage", "design", "graphic", "clipart", "sublimation",
+                    "download", "retro", "print", "png", "svg", "eps", "craft"
+                }:
+                    forbidden_anchors.append(w)
 
-    # Text provider resolution
+    # 3. Text provider resolution
     text_provider: Any = FakeTextProvider()
     if settings.provider_mode == "live":
         cred = await uow.credentials.get(workflow.owner_id, ProviderName.GEMINI)
@@ -2423,69 +2452,39 @@ async def generate_listing_seo_endpoint(
                 raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
                 text_provider = GeminiSynthesisAdapter(api_key=raw_key)
 
-    # Keyword clusters from research
-    research_runs = await uow.research.list_runs_for_workflow(workflow_id)
-    keywords: list[str] = []
-    for r in research_runs:
-        clusters = await uow.research.get_keyword_clusters_for_run(r.id)
-        for cl in clusters:
-            keywords.append(cl.primary_phrase)
-            keywords.extend(cl.attributes)
-
-    # Gather real workflow production metadata (dimensions, DPI, transparent background, variants)
-    production_meta: dict[str, Any] = {
-        "width": 4500,
-        "height": 5400,
-        "dpi": 300,
-        "has_transparent_background": True,
-        "variants": [],
-    }
-    workflow_assets = await uow.assets.list_for_workflow(workflow_id)
-    for a in workflow_assets:
-        prov = a.provenance if isinstance(a.provenance, dict) else {}
-        kind = prov.get("kind")
-        if kind in ("production_master", "master_png") or (a.width and a.width >= 4000):
-            if a.width and a.height:
-                production_meta["width"] = a.width
-                production_meta["height"] = a.height
-            if a.has_transparent_pixels is not None:
-                production_meta["has_transparent_background"] = a.has_transparent_pixels
-        elif kind == "variant_deliverable":
-            v_title = prov.get("variant_name") or prov.get("title") or "Variant PNG"
-            if v_title not in production_meta["variants"]:
-                production_meta["variants"].append(v_title)
-
     try:
         seo_draft = await generate_listing_seo(
-            concept=concept,
-            prompt=latest_prompt,
-            keywords=keywords[:15],
+            concept=ctx,
             text_provider=text_provider,
-            artwork_summary=latest_prompt.positive_prompt if latest_prompt else (concept.description if concept else None),
-            production_meta=production_meta,
             target_field=cast(SeoTargetField, target),
+            forbidden_anchors=forbidden_anchors,
         )
 
         listing_service = ListingDraftService()
         draft = await listing_service.get_or_create_listing(workflow_id, uow)
 
-        update_kwargs: dict[str, Any] = {}
+        update_kwargs: dict[str, Any] = {
+            "concept_id": ctx.concept.id,
+            "concept_version": ctx.concept.version,
+            "artwork_asset_id": ctx.artwork.asset_id,
+            "listing_context_hash": ctx.context_hash,
+        }
         if target == "all":
-            update_kwargs = {
+            update_kwargs.update({
                 "title": seo_draft.title,
                 "description": seo_draft.description,
                 "shopping_cart_summary": seo_draft.shopping_cart_summary,
                 "tags": seo_draft.tags,
                 "ai_disclosure": seo_draft.ai_disclosure,
-            }
+            })
         elif target == "title":
-            update_kwargs = {"title": seo_draft.title}
+            update_kwargs["title"] = seo_draft.title
         elif target == "description":
-            update_kwargs = {"description": seo_draft.description}
+            update_kwargs["description"] = seo_draft.description
         elif target == "shopping_cart_summary":
-            update_kwargs = {"shopping_cart_summary": seo_draft.shopping_cart_summary}
+            update_kwargs["shopping_cart_summary"] = seo_draft.shopping_cart_summary
         elif target == "tags":
-            update_kwargs = {"tags": seo_draft.tags}
+            update_kwargs["tags"] = seo_draft.tags
 
         updated_draft = await uow.listing_drafts.update(draft.id, **update_kwargs)
 
@@ -2507,12 +2506,21 @@ async def generate_listing_seo_endpoint(
                 trademark_service=trademark_service,
             )
 
-        record_version_snapshot(screened_draft, source="ai_generated")
+        record_version_snapshot(
+            screened_draft,
+            source="ai_generated",
+            concept_id=ctx.concept.id,
+            concept_version=ctx.concept.version,
+            artwork_asset_id=ctx.artwork.asset_id,
+            context_hash=ctx.context_hash,
+        )
+        findings = dict(screened_draft.ip_findings or {})
+        findings["context_hash"] = ctx.context_hash
         await uow.listing_drafts.update_ip_review(
             screened_draft.id,
             ip_reviewed_phrase=screened_draft.ip_reviewed_phrase,
             ip_risk_level=screened_draft.ip_risk_level,
-            ip_findings=screened_draft.ip_findings,
+            ip_findings=findings,
         )
 
         # Compile customer package in background / non-blocking
@@ -2524,6 +2532,18 @@ async def generate_listing_seo_endpoint(
                 pass
 
         await uow.commit()
+
+        logger.info(
+            "listing_seo_generation_completed",
+            workflow_id=str(workflow_id),
+            selected_concept_id=str(ctx.concept.id),
+            concept_version=ctx.concept.version,
+            artwork_asset_id=str(ctx.artwork.asset_id) if ctx.artwork.asset_id else None,
+            context_hash=ctx.context_hash,
+            target=target,
+        )
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("seo_generation_endpoint_failed", error=str(exc))
         raise HTTPException(
