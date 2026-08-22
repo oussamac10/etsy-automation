@@ -25,10 +25,30 @@ class TestShopSectionResolver:
         suggested, matched_id = suggest_shop_section_title(title=title, tags=tags)
         assert suggested == "Fall PNGs"
 
+    def test_suggest_shop_section_title_highland_cow_with_animals_section(self):
+        title = "Highland Cow Teacher PNG, Back to School Shirt Design, Cute Baby Calf with Glasses and Pencil Bow, Sublimation Clipart"
+        tags = ["teacher highland cow png", "back to school animal clipart", "cute teacher sweater graphic", "fluffy cow with glasses png"]
+        existing_sections = [
+            {"shop_section_id": "59958929", "title": "Medicine"},
+            {"shop_section_id": "59973370", "title": "Food & Coffee PNGs"},
+            {"shop_section_id": "59973386", "title": "Animals"},
+        ]
+        suggested, matched_id = suggest_shop_section_title(title=title, tags=tags, existing_sections=existing_sections)
+        assert suggested == "Animals"
+        assert matched_id == "59973386"
+
+    def test_suggest_shop_section_title_teacher_without_existing(self):
+        title = "Retro Teacher Appreciation Classroom Sublimation PNG"
+        tags = ["teacher gift", "kindergarten teacher", "back to school"]
+        suggested, matched_id = suggest_shop_section_title(title=title, tags=tags)
+        assert suggested == "Teacher & School PNGs"
+        assert matched_id is None
+
     def test_find_matching_existing_section(self):
         existing_sections = [
             {"shop_section_id": "101", "title": "Christmas PNGs"},
             {"shop_section_id": "102", "title": "Sublimation Bundles"},
+            {"shop_section_id": "103", "title": "Animals"},
         ]
 
         # Exact match
@@ -43,6 +63,13 @@ class TestShopSectionResolver:
             suggested_title="Sublimation Bundles", existing_sections=existing_sections
         )
         assert sec_id_fuzz == "102"
+
+        # Stem / containment match ("Pet & Animal PNGs" matches "Animals")
+        sec_id_animal, sec_title_animal = find_matching_existing_section(
+            suggested_title="Pet & Animal PNGs", existing_sections=existing_sections
+        )
+        assert sec_id_animal == "103"
+        assert sec_title_animal == "Animals"
 
         # No match
         no_id, _ = find_matching_existing_section(
