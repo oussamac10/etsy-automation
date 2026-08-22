@@ -746,4 +746,94 @@ def test_build_etsy_dispatch_response_step_model():
     assert resp_done.steps["apply_attributes"].status == "completed"
 
 
+@pytest.mark.asyncio
+async def test_cover_mockup_priority_over_listing_order() -> None:
+    """Verify that a mockup marked as is_cover=True is uploaded at Rank 1 (Thumbnail) even if listing_order is higher than other mockups."""
+    from app.domain.production_resolver import filter_active_user_mockups
+    from app.domain.media_selector import order_listing_mockup_assets
+
+    master_id = uuid.uuid4()
+    poster_mockup_id = uuid.uuid4()
+    mug_mockup_id = uuid.uuid4()
+    bag_mockup_id = uuid.uuid4()
+
+    now = datetime.now(UTC)
+
+    master = MagicMock(spec=Asset)
+    master.id = master_id
+    master.derived_from_id = None
+    master.provenance = {"profile": "etsy-png-standard"}
+    master.storage_key = "workflows/123/master.png"
+
+    # Poster: is_cover=True, listing_order=5
+    poster = MagicMock(spec=Asset)
+    poster.id = poster_mockup_id
+    poster.derived_from_id = master_id
+    poster.storage_key = "workflows/123/mockups/poster.jpg"
+    poster.created_at = now
+    poster.provenance = {
+        "asset_type": "mockup",
+        "source": "user_template",
+        "product_type": "poster",
+        "template_id": "tpl_poster",
+        "template_name": "Poster",
+        "is_cover": True,
+        "listing_order": 5,
+    }
+
+    # Mug: is_cover=False, listing_order=1
+    mug = MagicMock(spec=Asset)
+    mug.id = mug_mockup_id
+    mug.derived_from_id = master_id
+    mug.storage_key = "workflows/123/mockups/mug.jpg"
+    mug.created_at = now + timedelta(seconds=1)
+    mug.provenance = {
+        "asset_type": "mockup",
+        "source": "user_template",
+        "product_type": "mug",
+        "template_id": "tpl_mug",
+        "template_name": "Mug 2",
+        "is_cover": False,
+        "listing_order": 1,
+    }
+
+    # Bag: is_cover=False, listing_order=4
+    bag = MagicMock(spec=Asset)
+    bag.id = bag_mockup_id
+    bag.derived_from_id = master_id
+    bag.storage_key = "workflows/123/mockups/bag.jpg"
+    bag.created_at = now + timedelta(seconds=2)
+    bag.provenance = {
+        "asset_type": "mockup",
+        "source": "user_template",
+        "product_type": "bag",
+        "template_id": "tpl_bag",
+        "template_name": "Tote Bag",
+        "is_cover": False,
+        "listing_order": 4,
+    }
+
+    all_assets = [master, mug, bag, poster]
+
+    # 1. Test filter_active_user_mockups sorts cover first
+    filtered = filter_active_user_mockups(all_assets, master_id)
+    assert len(filtered) == 3
+    assert filtered[0].id == poster_mockup_id
+    assert filtered[1].id == mug_mockup_id
+    assert filtered[2].id == bag_mockup_id
+
+    # 2. Test order_listing_mockup_assets puts poster at Rank 1 even if primary_mockup_asset_id is None
+    ordered = order_listing_mockup_assets(
+        mockups=filtered,
+        master_asset=master,
+        primary_mockup_asset_id=None,
+        max_images=10,
+    )
+    assert len(ordered) == 3
+    assert ordered[0].id == poster_mockup_id  # Rank 1 Thumbnail is Poster!
+    assert ordered[1].id == mug_mockup_id
+    assert ordered[2].id == bag_mockup_id
+
+
+
 
