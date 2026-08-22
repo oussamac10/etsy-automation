@@ -625,6 +625,10 @@ class ListingDraftRepository(Protocol):
         ai_disclosure: str | None = None,
         licence_text: str | None = None,
         customer_instructions: str | None = None,
+        concept_id: uuid.UUID | None = None,
+        concept_version: int | None = None,
+        artwork_asset_id: uuid.UUID | None = None,
+        listing_context_hash: str | None = None,
         expected_version: int | None = None,
     ) -> ListingDraft: ...
 

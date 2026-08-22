@@ -18,7 +18,9 @@ erDiagram
     product_workflows ||--o{ audit_events : "workflow_id -> id"
     product_concepts ||--o{ design_prompts : "concept_id -> id"
     research_runs ||--o{ keyword_clusters : "run_id -> id"
+    assets ||--o{ listing_drafts : "artwork_asset_id -> id"
     assets ||--o{ listing_drafts : "primary_mockup_asset_id -> id"
+    product_concepts ||--o{ listing_drafts : "concept_id -> id"
     product_workflows ||--o{ listing_drafts : "workflow_id -> id"
     original_ideas ||--o{ original_idea_revisions : "idea_id -> id"
     product_workflows ||--o{ original_ideas : "workflow_id -> id"
@@ -613,6 +615,10 @@ erDiagram
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `id` | `CHAR(32)` | NO | `dynamic` | ✅ | - |
 | `workflow_id` | `CHAR(32)` | NO | - | - | `product_workflows.id` |
+| `concept_id` | `CHAR(32)` | YES | - | - | `product_concepts.id` |
+| `concept_version` | `INTEGER` | YES | - | - | - |
+| `artwork_asset_id` | `CHAR(32)` | YES | - | - | `assets.id` |
+| `listing_context_hash` | `VARCHAR(64)` | YES | - | - | - |
 | `title` | `VARCHAR(200)` | NO | - | - | - |
 | `description` | `TEXT` | NO | - | - | - |
 | `tags` | `ARRAY` | NO | `dynamic` | - | - |
@@ -656,7 +662,7 @@ erDiagram
 
 - **Unique Constraints**: `etsy_listing_id`, `workflow_id`
 - **Check Constraints**: `ck_listing_drafts_listing_price_non_negative` (`price_minor_units IS NULL OR price_minor_units >= 0`), `ck_listing_drafts_listing_quantity_positive` (`quantity > 0`), `ck_listing_drafts_listing_tag_limit` (`cardinality(tags) <= 13`), `ck_listing_drafts_listing_version_positive` (`version >= 1`)
-- **Indexes**: `ix_listing_drafts_sku` on `sku`
+- **Indexes**: `ix_listing_drafts_concept_id` on `concept_id`, `ix_listing_drafts_listing_context_hash` on `listing_context_hash`, `ix_listing_drafts_sku` on `sku`
 
 #### `trademark_records`
 

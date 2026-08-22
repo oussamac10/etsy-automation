@@ -99,6 +99,16 @@ class ListingDraft(UuidMixin, TimestampMixin, Base):
         unique=True,
     )
 
+    #: Upstream source provenance and deterministic context hash for staleness detection.
+    concept_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("product_concepts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    concept_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    artwork_asset_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("assets.id", ondelete="SET NULL"), nullable=True
+    )
+    listing_context_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     #: Validated against the Etsy limits in packages/domain/src/tags.ts (max 13,

@@ -55,6 +55,10 @@ class SqlListingDraftRepository:
         ai_disclosure: str | None = None,
         licence_text: str | None = None,
         customer_instructions: str | None = None,
+        concept_id: uuid.UUID | None = None,
+        concept_version: int | None = None,
+        artwork_asset_id: uuid.UUID | None = None,
+        listing_context_hash: str | None = None,
         expected_version: int | None = None,
     ) -> ListingDraft:
         draft = await self.get(draft_id)
@@ -120,6 +124,18 @@ class SqlListingDraftRepository:
             has_changes = True
         if customer_instructions is not None and draft.customer_instructions != customer_instructions:
             draft.customer_instructions = customer_instructions
+            has_changes = True
+        if concept_id is not None and draft.concept_id != concept_id:
+            draft.concept_id = concept_id
+            has_changes = True
+        if concept_version is not None and draft.concept_version != concept_version:
+            draft.concept_version = concept_version
+            has_changes = True
+        if artwork_asset_id is not None and draft.artwork_asset_id != artwork_asset_id:
+            draft.artwork_asset_id = artwork_asset_id
+            has_changes = True
+        if listing_context_hash is not None and draft.listing_context_hash != listing_context_hash:
+            draft.listing_context_hash = listing_context_hash
             has_changes = True
 
         if has_changes:
