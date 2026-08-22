@@ -50,7 +50,7 @@ def filter_active_user_mockups(
         created_dt = a.created_at or datetime(1970, 1, 1, tzinfo=UTC)
         if created_dt.tzinfo is None:
             created_dt = created_dt.replace(tzinfo=UTC)
-        return (order, 0 if is_cov else 1, -created_dt.timestamp())
+        return (0 if is_cov else 1, order, -created_dt.timestamp())
 
     return sorted(valid_mockups, key=_mockup_sort_key)
 

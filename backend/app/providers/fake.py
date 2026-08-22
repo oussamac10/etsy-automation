@@ -1193,6 +1193,20 @@ class FakeEtsyProvider(EtsyGateway):
             url=f"https://i.etsystatic.com/fake/{image_id}.jpg",
         )
 
+    async def delete_listing_image(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        listing_image_id: str,
+    ) -> None:
+        self.call_count += 1
+        self.uploaded_images = [
+            img for img in self.uploaded_images
+            if img.get("listing_image_id") != str(listing_image_id)
+        ]
+
     async def upload_listing_file(
         self,
         *,

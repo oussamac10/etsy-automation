@@ -378,6 +378,26 @@ class EtsyProvider(EtsyGateway):
             url=payload.get("url_fullxfull"),
         )
 
+    async def delete_listing_image(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        listing_image_id: str,
+    ) -> None:
+        """Delete preview/mockup image from an Etsy listing draft."""
+        url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}/images/{listing_image_id}"
+        headers = self._default_headers(access_token)
+        try:
+            await self._execute_with_retry(
+                "DELETE", url, headers=headers, operation="delete_listing_image"
+            )
+        except ProviderError as pe:
+            if pe.kind == ProviderErrorKind.NOT_FOUND:
+                return
+            raise
+
     async def upload_listing_file(
         self,
         *,

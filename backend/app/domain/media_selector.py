@@ -33,6 +33,15 @@ def order_listing_mockup_assets(
         if primary_match is not None:
             ordered.append(primary_match)
 
+    # If no explicit primary match, prioritize the mockup marked as cover
+    if not ordered:
+        cover_match = next(
+            (m for m in mockups if m.provenance and m.provenance.get("is_cover") is True),
+            None,
+        )
+        if cover_match is not None:
+            ordered.append(cover_match)
+
     for m in mockups:
         if m not in ordered:
             ordered.append(m)

@@ -328,6 +328,15 @@ class EtsyGateway(Protocol):
         alt_text: str | None = None,
     ) -> EtsyImageResponse: ...
 
+    async def delete_listing_image(
+        self,
+        *,
+        access_token: str,
+        shop_id: str,
+        listing_id: str,
+        listing_image_id: str,
+    ) -> None: ...
+
     async def upload_listing_file(
         self,
         *,
