@@ -47,7 +47,15 @@ def deduplicate_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return cleaned
 
 
-def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None:
+def record_version_snapshot(
+    draft: ListingDraft,
+    source: str = "manual",
+    *,
+    concept_id: uuid.UUID | None = None,
+    concept_version: int | None = None,
+    artwork_asset_id: uuid.UUID | None = None,
+    context_hash: str | None = None,
+) -> None:
     """Record a version snapshot into draft.ip_findings['history'] and ensure all versions are preserved."""
     findings = dict(draft.ip_findings or {})
     raw_history = findings.get("history")
@@ -58,6 +66,11 @@ def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None
 
     risk_str = draft.ip_risk_level.value if hasattr(draft.ip_risk_level, "value") else str(draft.ip_risk_level)
 
+    cid = str(concept_id or getattr(draft, "concept_id", None) or "") or None
+    cver = concept_version or getattr(draft, "concept_version", None)
+    aid = str(artwork_asset_id or getattr(draft, "artwork_asset_id", None) or "") or None
+    chash = context_hash or getattr(draft, "listing_context_hash", None)
+
     existing_for_version = next((s for s in history if s.get("version") == draft.version), None)
     if existing_for_version:
         existing_for_version["title"] = draft.title
@@ -66,6 +79,14 @@ def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None
         existing_for_version["tags"] = list(draft.tags)
         existing_for_version["ip_risk_level"] = risk_str
         existing_for_version["source"] = source
+        if cid:
+            existing_for_version["concept_id"] = cid
+        if cver:
+            existing_for_version["concept_version"] = cver
+        if aid:
+            existing_for_version["artwork_asset_id"] = aid
+        if chash:
+            existing_for_version["context_hash"] = chash
     else:
         snapshot: dict[str, Any] = {
             "version": draft.version,
@@ -76,6 +97,10 @@ def record_version_snapshot(draft: ListingDraft, source: str = "manual") -> None
             "ip_risk_level": risk_str,
             "created_at": datetime.now(UTC).isoformat(),
             "source": source,
+            "concept_id": cid,
+            "concept_version": cver,
+            "artwork_asset_id": aid,
+            "context_hash": chash,
         }
         history.append(snapshot)
 
@@ -113,14 +138,45 @@ class ListingDraftService:
         if workflow is None:
             raise EntityNotFoundError("ProductWorkflow", workflow_id)
 
-        # Initialize default listing copy from workflow context
-        initial_title = f"{workflow.name[:90]} PNG Digital Download Sublimation Design"[:140]
+        from app.application.brand_resolver import resolve_connected_shop_name
+        from app.application.listing_context import resolve_listing_generation_context
+        from app.domain.pricing import calculate_price_recommendation
+        from app.domain.shop_section_resolver import suggest_shop_section_title
+        from app.domain.sku_generator import generate_sku
+        from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
 
-        words = [w.lower() for w in re.findall(r"[a-zA-Z0-9]+", workflow.name) if len(w) > 2]
-        niche_words = [w for w in words if w not in {"the", "and", "for", "with", "workflow", "campaign", "concept"}]
+        try:
+            ctx = await resolve_listing_generation_context(workflow_id, uow)
+            concept_title = ctx.concept.title
+            concept_slogan = ctx.concept.slogan
+            concept_uses = ctx.concept.intended_product_uses
+            concept_text = ctx.concept.description
+            concept_id = ctx.concept.id
+            concept_version = ctx.concept.version
+            artwork_asset_id = ctx.artwork.asset_id
+            context_hash = ctx.context_hash
+            kw_candidates = ctx.concept.keywords
+        except Exception:
+            concept_title = workflow.name
+            concept_slogan = None
+            concept_uses = list(workflow.intended_product_uses or [])
+            concept_text = ""
+            concept_id = None
+            concept_version = 1
+            artwork_asset_id = None
+            context_hash = None
+            kw_candidates = []
+
+        # Initialize default listing copy from authoritative concept title
+        initial_title = f"{concept_title[:90]} PNG Digital Download Sublimation Design"[:140]
+
+        words = [w.lower() for w in re.findall(r"[a-zA-Z0-9]+", concept_title) if len(w) > 2]
+        niche_words = [w for w in words if w not in {"the", "and", "for", "with", "workflow", "campaign", "concept", "png", "svg"}]
         main_niche = " ".join(niche_words[:2]) if niche_words else ""
 
         candidate_tags = []
+        if kw_candidates:
+            candidate_tags.extend(kw_candidates[:5])
         if main_niche:
             candidate_tags.extend([
                 f"{main_niche[:16]} png"[:20],
@@ -153,30 +209,6 @@ class ListingDraftService:
             if len(initial_tags) == 13:
                 break
 
-        from app.application.brand_resolver import resolve_connected_shop_name
-        from app.domain.enums import ConceptStatus
-        from app.domain.pricing import calculate_price_recommendation
-        from app.domain.shop_section_resolver import suggest_shop_section_title
-        from app.domain.sku_generator import generate_sku
-        from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
-
-        concepts = await uow.concepts.list_for_workflow(workflow_id)
-        approved_concept = next(
-            (c for c in concepts if c.status == ConceptStatus.APPROVED),
-            concepts[0] if concepts else None,
-        )
-        slogan = None
-        concept_uses: list[str] = []
-        concept_text = ""
-        if approved_concept:
-            concept_uses = list(approved_concept.intended_product_uses or [])
-            concept_text = f"{approved_concept.description} {approved_concept.differentiation}"
-            prompts = await uow.concepts.prompts(approved_concept.id)
-            if prompts:
-                slogan = prompts[0].exact_slogan
-                if prompts[0].intended_product_uses:
-                    concept_uses.extend(prompts[0].intended_product_uses)
-
         initial_desc = "High-resolution digital PNG download (4500x5400 px @ 300 DPI, transparent background)."
 
         # Property-aware taxonomy resolution
@@ -191,7 +223,7 @@ class ListingDraftService:
                     tags=initial_tags,
                     product_type="digital_png",
                     intended_product_uses=concept_uses,
-                    slogan=slogan,
+                    slogan=concept_slogan,
                     concept=concept_text,
                     nodes=nodes,
                     property_fetcher=lambda tid: etsy_gateway.get_taxonomy_properties(taxonomy_id=tid),
@@ -207,7 +239,7 @@ class ListingDraftService:
                 tags=initial_tags,
                 product_type="digital_png",
                 intended_product_uses=concept_uses,
-                slogan=slogan,
+                slogan=concept_slogan,
                 concept=concept_text,
             )
             taxonomy_source = "fallback"
@@ -234,6 +266,10 @@ class ListingDraftService:
 
         draft = ListingDraft(
             workflow_id=workflow_id,
+            concept_id=concept_id,
+            concept_version=concept_version,
+            artwork_asset_id=artwork_asset_id,
+            listing_context_hash=context_hash,
             title=initial_title,
             description=initial_desc,
             tags=initial_tags,
@@ -248,10 +284,20 @@ class ListingDraftService:
             taxonomy_id=tax_res.taxonomy_id,
             taxonomy_path=tax_res.taxonomy_path,
             ip_risk_level=RiskLevel.UNKNOWN,
-            ip_findings={"taxonomy_selection_source": taxonomy_source},
+            ip_findings={
+                "taxonomy_selection_source": taxonomy_source,
+                "context_hash": context_hash,
+            },
             version=1,
         )
-        record_version_snapshot(draft, source="initial")
+        record_version_snapshot(
+            draft,
+            source="initial",
+            concept_id=concept_id,
+            concept_version=concept_version,
+            artwork_asset_id=artwork_asset_id,
+            context_hash=context_hash,
+        )
         await uow.listing_drafts.add(draft)
         return draft
 
@@ -323,13 +369,14 @@ class ListingDraftService:
 
         # Automatically re-screen trademark risk if service is provided
         if trademark_service is not None:
-            concepts = await uow.concepts.list_for_workflow(workflow_id)
+            from app.application.listing_context import resolve_listing_generation_context
+
             slogan: str | None = None
-            if concepts:
-                concept = concepts[0]
-                prompts = await uow.concepts.prompts(concept.id)
-                if prompts:
-                    slogan = prompts[-1].exact_slogan
+            try:
+                ctx = await resolve_listing_generation_context(workflow_id, uow)
+                slogan = ctx.concept.slogan
+            except Exception:
+                pass
 
             keywords = accepted_tags[:5] if accepted_tags else []
             risk_level, findings = await trademark_service.screen_listing_trademark(
@@ -506,13 +553,14 @@ class ListingDraftService:
             raise EntityNotFoundError("ListingDraft", workflow_id)
 
         # Retrieve concept and design prompt for slogan
-        concepts = await uow.concepts.list_for_workflow(workflow_id)
+        from app.application.listing_context import resolve_listing_generation_context
+
         slogan: str | None = None
-        if concepts:
-            concept = concepts[0]
-            prompts = await uow.concepts.prompts(concept.id)
-            if prompts:
-                slogan = prompts[-1].exact_slogan
+        try:
+            ctx = await resolve_listing_generation_context(workflow_id, uow)
+            slogan = ctx.concept.slogan
+        except Exception:
+            pass
 
         keywords = draft.tags[:5] if draft.tags else []
 
@@ -705,7 +753,7 @@ class ListingDraftService:
         apply: bool = False,
     ) -> dict[str, Any]:
         """Re-evaluate campaign taxonomy fitness and optionally apply recommended category."""
-        from app.domain.enums import ConceptStatus
+        from app.application.listing_context import resolve_listing_generation_context
         from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
 
         workflow = await uow.workflows.get(workflow_id)
@@ -716,22 +764,16 @@ class ListingDraftService:
         if draft is None:
             raise EntityNotFoundError("ListingDraft", workflow_id)
 
-        concepts = await uow.concepts.list_for_workflow(workflow_id)
-        approved_concept = next(
-            (c for c in concepts if c.status == ConceptStatus.APPROVED),
-            concepts[0] if concepts else None,
-        )
         slogan = None
         concept_uses: list[str] = []
         concept_text = ""
-        if approved_concept:
-            concept_uses = list(approved_concept.intended_product_uses or [])
-            concept_text = f"{approved_concept.description} {approved_concept.differentiation}"
-            prompts = await uow.concepts.prompts(approved_concept.id)
-            if prompts:
-                slogan = prompts[0].exact_slogan
-                if prompts[0].intended_product_uses:
-                    concept_uses.extend(prompts[0].intended_product_uses)
+        try:
+            ctx = await resolve_listing_generation_context(workflow_id, uow)
+            slogan = ctx.concept.slogan
+            concept_uses = ctx.concept.intended_product_uses
+            concept_text = ctx.concept.description
+        except Exception:
+            pass
 
         nodes = await etsy_gateway.get_seller_taxonomy_nodes()
         resolver = EtsyTaxonomyResolver()

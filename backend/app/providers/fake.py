@@ -108,11 +108,17 @@ class FakeTextProvider:
 
         if "seo copywriter" in prompt_lower or "critical copy guidelines" in prompt_lower or "critical etsy guidelines" in prompt_lower:
             concept_title = "Cute Artwork"
-            match = re.search(r"Product Title/Concept:\s*([^\n]+)", request.prompt, re.IGNORECASE)
+            match = re.search(
+                r"(?:Product Title/Concept|Concept / Title|ACTIVE PRODUCT CONCEPT|ACTIVE CONCEPT|Title):\s*([^\n]+)",
+                request.prompt,
+                re.IGNORECASE,
+            )
             if match:
-                concept_title = match.group(1).strip()
+                extracted = match.group(1).strip().strip("- ")
+                if extracted:
+                    concept_title = extracted
 
-            slogan_match = re.search(r"Artwork Slogan:\s*([^\n]+)", request.prompt, re.IGNORECASE)
+            slogan_match = re.search(r"(?:Artwork Slogan|Slogan / Text in Art|Slogan):\s*([^\n]+)", request.prompt, re.IGNORECASE)
             slogan = slogan_match.group(1).strip() if slogan_match and slogan_match.group(1).strip() not in ("N/A", "None", "") else None
 
             # Clean words from concept title

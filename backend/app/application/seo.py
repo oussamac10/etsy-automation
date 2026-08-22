@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, Field, field_validator
+import structlog
 
+from app.domain.errors import DomainError
 from app.domain.seo_quality import (
     MAX_CART_SUMMARY_LENGTH,
     validate_description_quality,
@@ -22,8 +24,13 @@ from app.domain.tags import (
     validate_tags,
 )
 from app.infrastructure.models import DesignPrompt, ProductConcept
-from app.ports.errors import ProviderError
+from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import TextGenerationProvider, TextRequest
+
+if TYPE_CHECKING:
+    from app.application.listing_context import ListingGenerationContext
+
+logger = structlog.get_logger(__name__)
 
 SeoTargetField = Literal["all", "title", "description", "shopping_cart_summary", "tags"]
 
@@ -96,25 +103,99 @@ class ListingSeoDraft(BaseModel):
         return cleaned_seen[:MAX_ETSY_TAGS]
 
 
+def validate_semantic_consistency(
+    seo_draft: ListingSeoDraft,
+    concept_title: str,
+    concept_description: str = "",
+    forbidden_anchors: list[str] | None = None,
+) -> None:
+    """Validate that generated SEO copy matches the active concept and does not contain forbidden/stale anchors."""
+    combined_text = f"{seo_draft.title} {seo_draft.shopping_cart_summary} {seo_draft.description}".lower()
+    clean_concept_title = concept_title.strip().lower()
+
+    # Extract meaningful anchor tokens from active concept title
+    concept_tokens = [
+        w for w in re.findall(r"[a-zA-Z0-9]+", clean_concept_title)
+        if len(w) > 2 and w not in {"the", "and", "for", "with", "png", "svg", "eps", "clipart", "design", "graphic", "download", "sublimation"}
+    ]
+
+    # Verify at least one primary concept token exists in generated title or description
+    if concept_tokens and not any(token in combined_text for token in concept_tokens):
+        logger.warning(
+            "seo_semantic_anchor_missing",
+            concept_title=concept_title,
+            generated_title=seo_draft.title,
+            concept_tokens=concept_tokens,
+        )
+        raise DomainError(
+            f"Generated listing copy failed semantic consistency check: "
+            f"None of the active concept anchors ({', '.join(concept_tokens[:4])}) were found in the output."
+        )
+
+    # Verify forbidden anchors are absent
+    if forbidden_anchors:
+        concept_words_set = set(re.findall(r"[a-zA-Z0-9]+", clean_concept_title))
+        for fa in forbidden_anchors:
+            fa_clean = fa.strip().lower()
+            if fa_clean and fa_clean not in concept_words_set and fa_clean in combined_text:
+                logger.warning(
+                    "seo_forbidden_anchor_detected",
+                    forbidden_anchor=fa_clean,
+                    concept_title=concept_title,
+                    generated_title=seo_draft.title,
+                )
+                raise DomainError(
+                    f"Generated listing copy contains stale/forbidden anchor '{fa_clean}' from an unselected concept."
+                )
+
+
 def _build_seo_prompt(
-    concept: ProductConcept,
-    prompt: DesignPrompt | None,
-    keywords: list[str] | None,
+    concept: ProductConcept | Any,
+    prompt: DesignPrompt | None = None,
+    keywords: list[str] | None = None,
     artwork_summary: str | None = None,
     production_meta: dict[str, Any] | None = None,
     license_rules: str | None = None,
     target_field: SeoTargetField = "all",
 ) -> str:
-    slogan = prompt.exact_slogan if prompt else None
-    kw_str = ", ".join(keywords) if keywords else "png digital download, sublimation design, clipart"
+    # Check if a ListingGenerationContext was passed directly as concept
+    if hasattr(concept, "concept") and hasattr(concept, "artwork"):
+        ctx = concept
+        concept_title = ctx.concept.title
+        concept_desc = ctx.concept.description
+        target_buyer = ctx.concept.target_buyer or "Apparel crafters, sublimation creators, POD buyers"
+        niche = ctx.concept.niche
+        seasonality = ctx.concept.seasonality or "Evergreen"
+        slogan = ctx.concept.slogan
+        kw_list = ctx.concept.keywords
+        art_sum = ctx.artwork.visual_summary or artwork_summary
+        width = ctx.production.width
+        height = ctx.production.height
+        dpi = ctx.production.dpi
+        is_transparent = ctx.production.has_transparent_background
+        variants = ctx.production.variants
+        license_block = ctx.buyer_package.license_terms
+    else:
+        concept_title = getattr(concept, "title", "Digital Artwork")
+        concept_desc = getattr(concept, "description", "")
+        target_buyer = getattr(concept, "target_buyer", None) or "Apparel crafters, sublimation creators, POD buyers"
+        niche = getattr(concept, "niche", "Digital PNG Crafters & Sublimation")
+        seasonality = getattr(concept, "seasonality", None) or "Evergreen"
+        slogan = prompt.exact_slogan if prompt else None
+        kw_list = keywords or []
+        art_sum = artwork_summary or (prompt.positive_prompt if prompt else concept_desc)
+        meta = production_meta or {}
+        width = meta.get("width", 4500)
+        height = meta.get("height", 5400)
+        dpi = meta.get("dpi", 300)
+        is_transparent = meta.get("has_transparent_background", True)
+        variants = meta.get("variants") or []
+        license_block = license_rules or (
+            "Commercial use allowed on physical finished products (such as apparel, t-shirts, sweatshirts, "
+            "tote bags, mugs, stickers, and gifts). You may not resell, redistribute, or share the digital file."
+        )
 
-    # Resolve metadata details
-    meta = production_meta or {}
-    width = meta.get("width", 4500)
-    height = meta.get("height", 5400)
-    dpi = meta.get("dpi", 300)
-    is_transparent = meta.get("has_transparent_background", True)
-    variants = meta.get("variants") or []
+    kw_str = ", ".join(kw_list) if kw_list else "png digital download, sublimation design, clipart"
 
     # File deliverables list for description
     deliverables_lines = [
@@ -126,11 +207,6 @@ def _build_seo_prompt(
 
     deliverables_block = "\n".join(deliverables_lines)
 
-    license_block = license_rules or (
-        "Commercial use allowed on physical finished products (such as apparel, t-shirts, sweatshirts, "
-        "tote bags, mugs, stickers, and gifts). You may not resell, redistribute, or share the digital file."
-    )
-
     target_instruction = ""
     if target_field != "all":
         target_instruction = f"\nFOCUS INSTRUCTION: The user requested to regenerate specifically '{target_field}'. Ensure exceptional quality for '{target_field}' while providing consistent full output.\n"
@@ -139,14 +215,15 @@ def _build_seo_prompt(
 Generate natural, high-converting, buyer-friendly Etsy listing copy for this digital PNG artwork.
 Write directly and clearly for real human buyers. Do NOT write like a marketing chatbot and do NOT keyword-stuff.
 {target_instruction}
-PRODUCT CONTEXT:
-- Concept / Title: {concept.title}
-- Concept Details: {concept.description}
-- Artwork Summary: {artwork_summary or (prompt.positive_prompt if prompt else 'N/A')}
+ACTIVE PRODUCT CONTEXT (ONLY GENERATE FOR THIS PRODUCT):
+- Concept / Title: {concept_title}
+- Concept Details: {concept_desc}
+- Artwork Summary: {art_sum or 'N/A'}
 - Slogan / Text in Art: {slogan or 'None'}
-- Target Buyer / Niche: {concept.target_buyer or 'Apparel crafters, sublimation creators, POD buyers'}
-- Seasonality / Occasion: {concept.seasonality or 'Evergreen'}
-- Primary Keywords: {kw_str}
+- Target Buyer: {target_buyer}
+- Niche / Theme: {niche}
+- Seasonality / Occasion: {seasonality}
+- Primary High-Intent Keywords: {kw_str}
 
 ACTUAL PRODUCT SPECIFICATIONS (DO NOT INVENT DIFFERENT DIMENSIONS OR FILE COUNTS):
 - Dimensions: {width} × {height} pixels
@@ -155,16 +232,21 @@ ACTUAL PRODUCT SPECIFICATIONS (DO NOT INVENT DIFFERENT DIMENSIONS OR FILE COUNTS
 - Included Variants: {', '.join(variants) if variants else 'Master PNG only'}
 - Commercial License Terms: {license_block}
 
+CRITICAL DIRECTIVE:
+Generate listing content ONLY for the product described above ("{concept_title}").
+Do not reuse details from previous products, campaigns, conversations, or cached examples.
+If the current artwork/context does not contain skeletons, coffee, dark academia, or other unrelated themes, do not mention them.
+
 CRITICAL COPY GUIDELINES:
 
 1. ETSY TITLE (Max 140 chars):
    - Preferred formula: [Primary product/niche keyword], [secondary use/search phrase], [specific subject/role], [digital format/use]
    - Put the strongest buyer-intent keyword first.
-   - Use natural professional terms (e.g. "Radiology Tech", "Pediatric Nurse") instead of awkward abbreviations.
+   - Use natural professional terms instead of awkward abbreviations.
    - Do NOT repeat "PNG" more than once.
    - Do NOT repeat "digital download" or synonyms multiple times.
    - Avoid filler words and do not stuff synonyms just to fill the 140 character count.
-   - Keep at most 3 words starting with sequential capital letters (e.g. PNG, SVG, MRI, CT).
+   - Keep at most 3 words starting with sequential capital letters (e.g. PNG, SVG).
 
 2. ETSY DESCRIPTION (Structured & Scan-Friendly):
    Use the exact following section headers:
@@ -217,18 +299,38 @@ Output MUST be a valid JSON object with the following schema:
 
 
 async def generate_listing_seo(
-    concept: ProductConcept,
-    prompt: DesignPrompt | None,
-    keywords: list[str] | None,
-    text_provider: TextGenerationProvider,
+    concept: ProductConcept | Any,
+    prompt: DesignPrompt | None = None,
+    keywords: list[str] | None = None,
+    text_provider: TextGenerationProvider | None = None,
     artwork_summary: str | None = None,
     production_meta: dict[str, Any] | None = None,
     license_rules: str | None = None,
     target_field: SeoTargetField = "all",
+    forbidden_anchors: list[str] | None = None,
+    context: ListingGenerationContext | None = None,
 ) -> ListingSeoDraft:
     """Generate and validate Etsy listing copy using the configured text provider."""
+    # Allow passing context directly
+    if context is not None:
+        concept_obj = context
+        concept_title = context.concept.title
+        concept_desc = context.concept.description
+    elif hasattr(concept, "concept") and hasattr(concept, "artwork"):
+        concept_obj = concept
+        concept_title = concept.concept.title
+        concept_desc = concept.concept.description
+    else:
+        concept_obj = concept
+        concept_title = getattr(concept, "title", "Digital Artwork")
+        concept_desc = getattr(concept, "description", "")
+
+    if text_provider is None:
+        from app.providers.fake import FakeTextProvider
+        text_provider = FakeTextProvider()
+
     prompt_text = _build_seo_prompt(
-        concept=concept,
+        concept=concept_obj,
         prompt=prompt,
         keywords=keywords,
         artwork_summary=artwork_summary,
@@ -254,8 +356,6 @@ async def generate_listing_seo(
     try:
         data: dict[str, Any] = json.loads(raw_text)
     except json.JSONDecodeError as exc:
-        from app.ports.errors import ProviderErrorKind
-
         raise ProviderError(
             kind=ProviderErrorKind.PERMANENT,
             provider="text_generation",
@@ -264,7 +364,7 @@ async def generate_listing_seo(
         ) from exc
 
     # Clean title
-    raw_title = sanitize_etsy_title(str(data.get("title") or concept.title))
+    raw_title = sanitize_etsy_title(str(data.get("title") or concept_title))
     if len(raw_title) > MAX_TITLE_LENGTH:
         truncated = raw_title[:MAX_TITLE_LENGTH]
         if "," in truncated:
@@ -276,7 +376,7 @@ async def generate_listing_seo(
     # Clean shopping cart summary
     raw_summary = re.sub(r"\s+", " ", str(data.get("shopping_cart_summary") or "").strip())
     if not raw_summary:
-        raw_summary = f"{concept.title} PNG digital download. High-resolution transparent design for shirts, mugs, stickers and crafts."
+        raw_summary = f"{concept_title} PNG digital download. High-resolution transparent design for shirts, mugs, stickers and crafts."
     if len(raw_summary) > MAX_CART_SUMMARY_LENGTH:
         raw_summary = raw_summary[:MAX_CART_SUMMARY_LENGTH].rsplit(" ", 1)[0].strip()
     data["shopping_cart_summary"] = raw_summary
@@ -285,7 +385,7 @@ async def generate_listing_seo(
     if not data.get("description"):
         data["description"] = (
             f"DIGITAL DOWNLOAD – PNG FILE ONLY\n\n"
-            f"{concept.description or concept.title}\n\n"
+            f"{concept_desc or concept_title}\n\n"
             f"WHAT YOU WILL RECEIVE\n"
             f"• High-resolution transparent background PNG (4500 × 5400 px @ 300 DPI)\n\n"
             f"PERFECT FOR\n"
@@ -343,4 +443,22 @@ async def generate_listing_seo(
 
     data["tags"] = cleaned_tags[:MAX_ETSY_TAGS]
 
-    return ListingSeoDraft.model_validate(data)
+    draft = ListingSeoDraft.model_validate(data)
+
+    # Semantic consistency check
+    validate_semantic_consistency(
+        seo_draft=draft,
+        concept_title=concept_title,
+        concept_description=concept_desc,
+        forbidden_anchors=forbidden_anchors,
+    )
+
+    logger.info(
+        "listing_seo_generated",
+        concept_title=concept_title,
+        title=draft.title,
+        tags_count=len(draft.tags),
+        target_field=target_field,
+    )
+
+    return draft

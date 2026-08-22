@@ -229,7 +229,11 @@ class MarketOpportunityDiscoveryService:
                 except Exception:
                     pass
 
-        confidence = float(payload.get("confidence", 0.85) if isinstance(payload, dict) else 0.85)
+        raw_conf = payload.get("confidence", 0.85) if isinstance(payload, dict) else 0.85
+        try:
+            confidence = float(raw_conf)
+        except (ValueError, TypeError):
+            confidence = 0.9 if str(raw_conf).lower() == "high" else (0.7 if str(raw_conf).lower() == "medium" else 0.5)
         proven_observations = payload.get("proven_market_observations", []) if isinstance(payload, dict) else []
         raw_candidates = payload.get("candidates", []) if isinstance(payload, dict) else []
 

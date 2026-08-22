@@ -504,6 +504,8 @@ async def decide_gate(
     if concept is not None:
         if decision == ApprovalDecision.APPROVED:
             concept.status = ConceptStatus.APPROVED
+            if concept.title:
+                workflow.name = concept.title
         elif decision == ApprovalDecision.REJECTED:
             concept.status = ConceptStatus.REJECTED
 
@@ -550,7 +552,13 @@ async def decide_gate(
 async def get_workflow(
     uow: UnitOfWork, workflow_id: uuid.UUID, *, owner_id: uuid.UUID
 ) -> ProductWorkflow:
-    return await _owned_workflow(uow, workflow_id, owner_id)
+    workflow = await _owned_workflow(uow, workflow_id, owner_id)
+    concepts = await uow.concepts.list_for_workflow(workflow_id)
+    approved_concept = next((c for c in concepts if c.status == ConceptStatus.APPROVED), None)
+    if approved_concept and approved_concept.title and workflow.name != approved_concept.title:
+        workflow.name = approved_concept.title
+        await uow.commit()
+    return workflow
 
 
 async def get_original_idea(
@@ -688,7 +696,7 @@ async def spawn_campaign_from_concept(
     new_workflow = ProductWorkflow(
         owner_id=owner_id,
         idea_mode=IdeaMode.MARKET_LED,
-        name=f"{concept.title} - Campaign",
+        name=concept.title,
         target_marketplace=source_workflow.target_marketplace,
         target_country=source_workflow.target_country,
         output_language=source_workflow.output_language,
