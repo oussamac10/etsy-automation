@@ -421,6 +421,10 @@ async function handleDecideGate(
     const concept = concepts.value.find((c) => c.id === conceptId);
     if (!concept) return;
 
+    if (decision === "APPROVED" && concept.title && workflow.value) {
+      workflow.value.name = concept.title;
+    }
+
     const payload = {
       gate: "IDEA_APPROVAL",
       decision,

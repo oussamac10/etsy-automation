@@ -56,6 +56,10 @@ export interface ListingVersionSnapshot {
   ip_risk_level?: string;
   created_at?: string;
   source?: 'ai_generated' | 'manual' | 'initial';
+  concept_id?: string | null;
+  concept_version?: number | null;
+  artwork_asset_id?: string | null;
+  context_hash?: string | null;
 }
 
 export interface ListingDraft {
@@ -90,6 +94,12 @@ export interface ListingDraft {
   package_download_url?: string | null;
   history?: ListingVersionSnapshot[];
   tag_history?: string[];
+  concept_id?: string | null;
+  concept_version?: number | null;
+  artwork_asset_id?: string | null;
+  listing_context_hash?: string | null;
+  is_stale?: boolean;
+  stale_reason?: string | null;
   etsy_shop_id?: string | null;
   etsy_listing_id?: string | null;
   etsy_listing_url?: string | null;

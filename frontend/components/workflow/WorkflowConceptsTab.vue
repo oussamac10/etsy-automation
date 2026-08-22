@@ -800,8 +800,8 @@ function confirmHighRiskApproval() {
                 title="Launch a separate campaign using this idea without re-running research"
                 @click="handleSpawnCampaign(concept)"
               >
-                <Icon v-if="isSpawningMap[concept.id]" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
-                <Icon v-else name="lucide:sparkles" class="size-3.5 text-amber-500" aria-hidden="true" />
+                <Icon v-if="isSpawningMap[concept.id]" name="lucide:loader-circle" class="size-3.5 animate-spin" aria-hidden="true" />
+                <Icon v-else name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
                 <span>Launch Campaign</span>
               </Button>
 

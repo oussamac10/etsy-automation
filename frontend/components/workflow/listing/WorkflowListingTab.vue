@@ -141,6 +141,27 @@ watch(
   }
 );
 
+watch(
+  () => props.workflowId,
+  async (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      localTitle.value = '';
+      localDescription.value = '';
+      localShoppingCartSummary.value = '';
+      localTags.value = [];
+      localPriceMinorUnits.value = null;
+      localSku.value = '';
+      localShopSectionId.value = null;
+      localShopSectionName.value = null;
+      localPrimaryMockupAssetId.value = null;
+      localEtsyProperties.value = {};
+      if (isGate2Approved.value) {
+        await loadListingData();
+      }
+    }
+  }
+);
+
 async function loadListingData() {
   const draft = await loadListing(props.workflowId);
   if (draft) {
@@ -802,6 +823,34 @@ const subTabs = computed(() => [
         </div>
 
         <div class="space-y-6">
+          <!-- Stale Copy Warning Banner -->
+          <div
+            v-if="listingDraft?.is_stale"
+            data-testid="listing-stale-banner"
+            class="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 shadow-xs"
+          >
+            <Icon name="lucide:alert-triangle" class="size-5 shrink-0 text-amber-500 mt-0.5" aria-hidden="true" />
+            <div class="flex-1 space-y-1">
+              <h4 class="text-xs font-semibold text-foreground">Listing Copy Stale</h4>
+              <p class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
+                {{ listingDraft?.stale_reason || 'Listing copy is based on an older concept or artwork version.' }}
+              </p>
+              <div class="pt-1.5">
+                <Button
+                  size="sm"
+                  variant="default"
+                  class="text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
+                  :disabled="isGeneratingSeo"
+                  @click="handleGenerateSeo('all')"
+                >
+                  <Icon v-if="isGeneratingSeo && (!generatingTarget || generatingTarget === 'all')" name="lucide:loader-circle" class="size-3.5 animate-spin" />
+                  <Icon v-else name="lucide:sparkles" class="size-3.5" />
+                  <span>Regenerate Listing Copy</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <ListingEditorCard
             :title="localTitle"
             :description="localDescription"
