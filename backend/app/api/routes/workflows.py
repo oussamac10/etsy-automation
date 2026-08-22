@@ -2480,12 +2480,26 @@ async def generate_listing_seo_endpoint(
             "listing_context_hash": ctx.context_hash,
         }
         if target == "all":
+            from app.domain.shop_section_resolver import suggest_shop_section_title
+
+            user_sections_raw = await uow.listing_drafts.list_distinct_shop_sections_for_user(user.id)
+            existing_sections_list = [
+                {"shop_section_id": s_id, "title": s_name}
+                for s_id, s_name in user_sections_raw
+                if s_id and s_name
+            ]
+            sug_sec_name, sug_sec_id = suggest_shop_section_title(
+                seo_draft.title, seo_draft.tags, existing_sections=existing_sections_list
+            )
+
             update_kwargs.update({
                 "title": seo_draft.title,
                 "description": seo_draft.description,
                 "shopping_cart_summary": seo_draft.shopping_cart_summary,
                 "tags": seo_draft.tags,
                 "ai_disclosure": seo_draft.ai_disclosure,
+                "shop_section_id": sug_sec_id,
+                "shop_section_name": sug_sec_name,
             })
         elif target == "title":
             update_kwargs["title"] = seo_draft.title

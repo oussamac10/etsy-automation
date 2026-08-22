@@ -251,18 +251,26 @@ class ListingDraftService:
         currency = "USD"
         default_price = 499
         default_quantity = 999
-        default_renew = False
+        default_renew = True
         if owner_settings:
             currency = owner_settings.currency or "USD"
             default_price = owner_settings.default_digital_price_minor or 499
             default_quantity = owner_settings.default_digital_quantity or 999
-            default_renew = owner_settings.default_auto_renew
+            default_renew = owner_settings.default_auto_renew if owner_settings.default_auto_renew is not None else True
 
         # 2. Generate SKU
         initial_sku = generate_sku(shop_name, initial_title, workflow_id)
 
         # 3. Suggest shop section
-        suggested_sec_name, suggested_sec_id = suggest_shop_section_title(initial_title, initial_tags)
+        existing_user_sections = await uow.listing_drafts.list_distinct_shop_sections_for_user(workflow.owner_id)
+        existing_sections_list = [
+            {"shop_section_id": s_id, "title": s_name}
+            for s_id, s_name in existing_user_sections
+            if s_id and s_name
+        ]
+        suggested_sec_name, suggested_sec_id = suggest_shop_section_title(
+            initial_title, initial_tags, existing_sections=existing_sections_list
+        )
 
         draft = ListingDraft(
             workflow_id=workflow_id,
