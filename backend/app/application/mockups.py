@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import inspect
 import uuid
 from dataclasses import dataclass
 from typing import Any, cast
@@ -335,6 +336,20 @@ class MockupCompositionService:
                 wf.intended_product_uses = current_uses
                 if hasattr(self.uow, "session") and hasattr(self.uow.session, "add"):
                     self.uow.session.add(wf)
+
+        if resolved_is_cover and hasattr(self.uow, "listing_drafts") and hasattr(self.uow.listing_drafts, "get_by_workflow"):
+            try:
+                res = self.uow.listing_drafts.get_by_workflow(workflow_id)
+                draft = await res if inspect.isawaitable(res) else None
+                if draft and hasattr(self.uow.listing_drafts, "update"):
+                    up = self.uow.listing_drafts.update(
+                        draft.id,
+                        primary_mockup_asset_id=mockup_id,
+                    )
+                    if inspect.isawaitable(up):
+                        await up
+            except Exception:
+                pass
 
         try:
             await self.uow.session.commit()

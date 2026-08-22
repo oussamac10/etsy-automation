@@ -1517,7 +1517,7 @@ async def reorder_mockups_endpoint(
     def _order_key(a: Asset) -> tuple[int, int, datetime]:
         is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
         order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
-        return (order, 0 if is_cov else 1, a.created_at or datetime.min)
+        return (0 if is_cov else 1, order, a.created_at or datetime.min)
 
     sorted_mockups = sorted(mockups, key=_order_key)
     resps = []
@@ -1660,7 +1660,7 @@ async def recomposite_all_mockups_endpoint(
     def _order_key(a: Asset) -> tuple[int, int, datetime]:
         is_cov = bool(a.provenance.get("is_cover", False)) if a.provenance else False
         order = int(str(a.provenance.get("listing_order", 999) or 999)) if a.provenance else 999
-        return (order, 0 if is_cov else 1, a.created_at or datetime.min)
+        return (0 if is_cov else 1, order, a.created_at or datetime.min)
 
     sorted_mockups = sorted(mockups, key=_order_key)
     resps = []

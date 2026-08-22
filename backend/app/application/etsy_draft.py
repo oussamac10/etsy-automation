@@ -339,6 +339,13 @@ async def execute_etsy_draft_pipeline(
         mockups = filter_active_user_mockups(assets, master_asset.id)
         raw_prim = getattr(listing, "primary_mockup_asset_id", None)
         prim_mockup_id = raw_prim if isinstance(raw_prim, uuid.UUID) else None
+        if not prim_mockup_id:
+            cover_m = next((m for m in mockups if m.provenance and m.provenance.get("is_cover") is True), None)
+            if cover_m:
+                prim_mockup_id = cover_m.id
+                await uow.listing_drafts.update(listing.id, primary_mockup_asset_id=cover_m.id)
+                await uow.commit()
+
         preview_assets = order_listing_mockup_assets(
             mockups=mockups,
             master_asset=master_asset,

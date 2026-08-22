@@ -440,7 +440,78 @@ async def update_remote_etsy_draft(
                 except Exception as exc:
                     logger.warning("etsy_update_property_failed", property_id=pid, error=str(exc))
 
-    # 4. Re-verify the updated listing to produce fresh report
+    # 4. Sync Mockup Preview Images on Etsy (Ensure Cover Mockup is Rank 1 Thumbnail)
+    from app.domain.production_resolver import filter_active_user_mockups, get_production_master_asset
+    from app.domain.media_selector import order_listing_mockup_assets
+
+    master_asset = await get_production_master_asset(uow, workflow_id)
+    if master_asset:
+        assets = await uow.assets.list_for_workflow(workflow_id)
+        mockups = filter_active_user_mockups(assets, master_asset.id)
+        raw_prim = getattr(listing, "primary_mockup_asset_id", None)
+        prim_mockup_id = raw_prim if isinstance(raw_prim, uuid.UUID) else None
+        if not prim_mockup_id:
+            cover_m = next((m for m in mockups if m.provenance and m.provenance.get("is_cover") is True), None)
+            if cover_m:
+                prim_mockup_id = cover_m.id
+                await uow.listing_drafts.update(listing.id, primary_mockup_asset_id=cover_m.id)
+                await uow.commit()
+
+        expected_preview_assets = order_listing_mockup_assets(
+            mockups=mockups,
+            master_asset=master_asset,
+            primary_mockup_asset_id=prim_mockup_id,
+            max_images=10,
+        )
+
+        try:
+            remote_images = await etsy_gateway.get_listing_images(
+                access_token=access_token,
+                listing_id=listing_id,
+            )
+            old_image_ids = [str(img.listing_image_id) for img in remote_images]
+
+            # 1. Upload new preview assets in deterministic rank order (Rank 1 = Cover)
+            new_image_ids: list[str] = []
+            for rank, asset in enumerate(expected_preview_assets[:10], start=1):
+                try:
+                    img_bytes = await storage.get(asset.storage_key)
+                    filename = f"preview_{rank}.png" if asset.mime_type == "image/png" else f"preview_{rank}.jpg"
+                    img_resp = await etsy_gateway.upload_listing_image(
+                        access_token=access_token,
+                        shop_id=shop_id,
+                        listing_id=listing_id,
+                        image_bytes=img_bytes,
+                        filename=filename,
+                        rank=rank,
+                        alt_text=f"{listing.title} - Preview {rank}",
+                    )
+                    new_image_ids.append(img_resp.listing_image_id)
+                except Exception as exc:
+                    logger.warning("etsy_sync_image_upload_failed", rank=rank, error=str(exc))
+
+            # 2. Delete superseded old images from Etsy
+            for old_id in old_image_ids:
+                if old_id not in new_image_ids:
+                    try:
+                        await etsy_gateway.delete_listing_image(
+                            access_token=access_token,
+                            shop_id=shop_id,
+                            listing_id=listing_id,
+                            listing_image_id=old_id,
+                        )
+                    except Exception as exc:
+                        logger.warning("etsy_delete_old_image_failed", image_id=old_id, error=str(exc))
+
+            if new_image_ids:
+                listing.etsy_image_ids = new_image_ids
+                if hasattr(uow, "session") and hasattr(uow.session, "add"):
+                    uow.session.add(listing)
+                await uow.commit()
+        except Exception as exc:
+            logger.warning("etsy_image_sync_failed", error=str(exc))
+
+    # 5. Re-verify the updated listing to produce fresh report
     report = await verify_etsy_draft_listing(
         workflow_id=workflow_id,
         owner_id=owner_id,
