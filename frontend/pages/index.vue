@@ -106,6 +106,8 @@ interface Workflow {
   version: number;
   created_at: string;
   updated_at: string;
+  shop_section_id?: string | null;
+  shop_section_name?: string | null;
 }
 
 const config = useRuntimeConfig();
@@ -153,6 +155,26 @@ watch(ideaMode, (newMode) => {
 // Filter state
 const searchQuery = ref("");
 const selectedFilter = ref<"all" | "active" | "needs-review" | "completed">("all");
+const selectedSection = ref<string>("all");
+
+const availableSections = computed(() => {
+  const set = new Set<string>();
+  for (const wf of workflows.value) {
+    if (wf.shop_section_name?.trim()) {
+      set.add(wf.shop_section_name.trim());
+    }
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+});
+
+const sectionCounts = computed(() => {
+  const counts: Record<string, number> = {};
+  for (const wf of workflows.value) {
+    const sec = wf.shop_section_name?.trim() || "unassigned";
+    counts[sec] = (counts[sec] || 0) + 1;
+  }
+  return counts;
+});
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -328,13 +350,24 @@ const filteredWorkflows = computed(() => {
     list = list.filter((wf) => wf.state === "LISTING_APPROVED" || wf.state === "COMPLETED");
   }
 
+  if (selectedSection.value !== "all") {
+    if (selectedSection.value === "unassigned") {
+      list = list.filter((wf) => !wf.shop_section_name?.trim());
+    } else {
+      list = list.filter(
+        (wf) => wf.shop_section_name?.trim().toLowerCase() === selectedSection.value.toLowerCase()
+      );
+    }
+  }
+
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase();
     list = list.filter(
       (wf) =>
         wf.name.toLowerCase().includes(q) ||
         wf.idea_mode.toLowerCase().includes(q) ||
-        wf.target_country.toLowerCase().includes(q)
+        wf.target_country.toLowerCase().includes(q) ||
+        (wf.shop_section_name && wf.shop_section_name.toLowerCase().includes(q))
     );
   }
   return list;
@@ -349,7 +382,7 @@ const paginatedWorkflows = computed(() => {
   return filteredWorkflows.value.slice(start, start + pageSize);
 });
 
-watch([selectedFilter, searchQuery], () => {
+watch([selectedFilter, selectedSection, searchQuery], () => {
   currentPage.value = 1;
 });
 
@@ -780,11 +813,28 @@ onUnmounted(() => {
             </div>
 
             <!-- Search & Filters -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <!-- Section Filter Dropdown -->
+              <div v-if="availableSections.length > 0" class="flex items-center gap-1.5">
+                <select
+                  v-model="selectedSection"
+                  class="h-8 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                  aria-label="Filter by Shop Section"
+                >
+                  <option value="all">All Sections ({{ totalCount }})</option>
+                  <option v-for="sec in availableSections" :key="sec" :value="sec">
+                    {{ sec }} ({{ sectionCounts[sec] || 0 }})
+                  </option>
+                  <option v-if="sectionCounts['unassigned']" value="unassigned">
+                    No Section ({{ sectionCounts['unassigned'] }})
+                  </option>
+                </select>
+              </div>
+
               <div class="relative w-48 sm:w-60">
                 <Input
                   v-model="searchQuery"
-                  placeholder="Search campaigns..."
+                  placeholder="Search campaigns, sections..."
                   class="pl-8 text-xs h-8"
                 />
                 <Icon name="lucide:search" class="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground pointer-events-none" aria-hidden="true" />
@@ -853,6 +903,10 @@ onUnmounted(() => {
                       <Badge variant="secondary" class="text-[9px] px-1.5 py-0 uppercase">
                         {{ wf.idea_mode }}
                       </Badge>
+                      <span v-if="wf.shop_section_name" class="inline-flex items-center gap-1 font-medium text-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border/50">
+                        <Icon name="lucide:folder" class="size-3 text-primary shrink-0" aria-hidden="true" />
+                        <span>{{ wf.shop_section_name }}</span>
+                      </span>
                       <span>•</span>
                       <span>{{ wf.target_country }}/{{ wf.output_language }}</span>
                       <span>•</span>
@@ -939,6 +993,7 @@ onUnmounted(() => {
                 <thead class="border-b border-border bg-secondary/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th scope="col" class="px-6 py-3">Campaign</th>
+                    <th scope="col" class="px-6 py-3">Shop Section</th>
                     <th scope="col" class="px-6 py-3">Stage & Progress</th>
                     <th scope="col" class="px-6 py-3 text-right">Actions</th>
                   </tr>
@@ -967,6 +1022,14 @@ onUnmounted(() => {
                           {{ new Date(wf.created_at).toLocaleDateString() }}
                         </time>
                       </p>
+                    </td>
+
+                    <td class="px-6 py-4">
+                      <div v-if="wf.shop_section_name" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-muted/60 text-foreground border border-border/60">
+                        <Icon name="lucide:folder" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
+                        <span class="truncate max-w-[160px] font-medium">{{ wf.shop_section_name }}</span>
+                      </div>
+                      <span v-else class="text-xs text-muted-foreground/60 italic">—</span>
                     </td>
 
                     <td class="px-6 py-4">
