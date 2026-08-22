@@ -630,7 +630,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                   {{ getCheckBadgeText(check) }}
                 </Badge>
                 <button
-                  v-if="check.details"
+                  v-if="check.details?.properties?.length"
                   type="button"
                   @click="toggleExpand(check.key)"
                   class="text-[11px] text-primary hover:underline"
@@ -641,7 +641,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
             </div>
 
             <div
-              v-if="expandedKeys[check.key] && check.details?.properties"
+              v-if="expandedKeys[check.key] && check.details?.properties?.length"
               class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-2 border border-border/50 font-mono"
             >
               <div
