@@ -386,7 +386,7 @@ function setAngle(deg: number): void {
         class="flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none"
         :class="[
           isCover
-            ? 'bg-amber-500/10 border-amber-500/30 ring-1 ring-amber-500/30 shadow-2xs'
+            ? 'bg-emerald-500/10 border-emerald-500/30 ring-1 ring-emerald-500/30 shadow-2xs'
             : 'bg-white border-border hover:border-slate-300 hover:bg-slate-50/60'
         ]"
         @click="emit('update:isCover', !isCover)"
@@ -396,7 +396,7 @@ function setAngle(deg: number): void {
             class="size-8 rounded-lg flex items-center justify-center transition-colors shrink-0 shadow-2xs"
             :class="[
               isCover
-                ? 'bg-amber-500 text-white'
+                ? 'bg-emerald-600 text-white'
                 : 'bg-secondary text-muted-foreground'
             ]"
           >
@@ -407,7 +407,7 @@ function setAngle(deg: number): void {
               <span class="text-xs font-bold text-foreground">Set as Primary Listing Cover</span>
               <span
                 v-if="isCover"
-                class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 uppercase tracking-wide font-mono"
+                class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 uppercase tracking-wide font-mono"
               >
                 Cover
               </span>
@@ -424,7 +424,7 @@ function setAngle(deg: number): void {
           role="switch"
           :aria-checked="isCover"
           class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden"
-          :class="isCover ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'"
+          :class="isCover ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'"
         >
           <span
             class="pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out"
