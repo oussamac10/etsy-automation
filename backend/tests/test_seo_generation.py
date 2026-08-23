@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+
 import pytest
 
 from app.application.seo import (
@@ -204,5 +205,121 @@ class TestSeoGenerationService:
         assert "Light Shirt PNG" in prompt_text
         assert "Physical product commercial use only." in prompt_text
         assert "FOCUS INSTRUCTION" in prompt_text
-        assert "Do NOT repeat \"PNG\" more than once" in prompt_text
+        assert 'Do NOT repeat "PNG" more than once' in prompt_text
         assert "Max 200 chars" in prompt_text
+
+
+class TestPricingDomain:
+    def test_format_currency_amount(self) -> None:
+        from app.domain.pricing import format_currency_amount
+
+        assert format_currency_amount(499, "USD") == "$4.99"
+        assert format_currency_amount(550, "EUR") == "€5.50"
+        assert format_currency_amount(450, "GBP") == "£4.50"
+        assert format_currency_amount(499, "CAD") == "CA$4.99"
+
+    def test_valid_price_minor_units(self) -> None:
+        from app.domain.pricing import validate_price_minor_units
+
+        valid, err = validate_price_minor_units(499, "USD")
+        assert valid is True
+        assert err is None
+
+    def test_invalid_price_zero_or_none(self) -> None:
+        from app.domain.pricing import validate_price_minor_units
+
+        valid, err = validate_price_minor_units(0, "USD")
+        assert valid is False
+        assert "greater than zero" in (err or "")
+
+        valid, err = validate_price_minor_units(None, "USD")
+        assert valid is False
+        assert "is required" in (err or "")
+
+    def test_invalid_price_below_etsy_minimum(self) -> None:
+        from app.domain.pricing import validate_price_minor_units
+
+        valid, err = validate_price_minor_units(10, "USD")
+        assert valid is False
+        assert "lower than Etsy minimum" in (err or "")
+
+    def test_invalid_price_above_etsy_maximum(self) -> None:
+        from app.domain.pricing import validate_price_minor_units
+
+        valid, err = validate_price_minor_units(6000000, "USD")
+        assert valid is False
+        assert "exceeds safety limit" in (err or "")
+
+
+class TestPricingRecommendationEngine:
+    def test_recommendation_with_bundle_design(self) -> None:
+        from app.domain.pricing import calculate_price_recommendation
+
+        rec = calculate_price_recommendation(
+            title="Vintage Christmas Sublimation Bundle PNG Clipart",
+            tags=["retro sublimation bundle", "christmas png pack", "vintage clipart"],
+            currency="USD",
+        )
+        assert rec.recommended_minor_units >= 499
+        assert rec.currency == "USD"
+        assert "$4.99" in rec.formatted_price or "$6.99" in rec.formatted_price
+        assert len(rec.factors) > 0
+
+    def test_recommendation_eur_shop(self) -> None:
+        from app.domain.pricing import calculate_price_recommendation
+
+        rec = calculate_price_recommendation(
+            title="Cute Fall Baking PNG Design",
+            tags=["fall baking png", "cute aesthetic pumpkin"],
+            currency="EUR",
+        )
+        assert rec.currency == "EUR"
+        assert "€" in rec.formatted_price
+        assert rec.recommended_minor_units in (399, 449, 499, 549)
+
+
+class TestSkuGenerator:
+    def test_derive_shop_prefix(self) -> None:
+        from app.domain.sku_generator import derive_shop_prefix
+
+        assert derive_shop_prefix("NovaCraftPixel") == "NOVA"
+        assert derive_shop_prefix("Digital Art Studio") == "DAS"
+        assert derive_shop_prefix("Vintage") == "VINT"
+        assert derive_shop_prefix("") == "ET"
+        assert derive_shop_prefix(None) == "ET"
+
+    def test_extract_sku_keywords(self) -> None:
+        from app.domain.sku_generator import extract_sku_keywords
+
+        assert extract_sku_keywords("Retro Christmas Baking PNG Sublimation") in (
+            "RETRO-CHRIS",
+            "RETRO-BAKIN",
+        )
+        assert extract_sku_keywords("Pumpkin Spice Clipart") in ("PUMPK-SPICE", "PUMPK")
+
+    def test_generate_sku_stability(self) -> None:
+        from app.domain.sku_generator import generate_sku
+
+        workflow_id = uuid.UUID("11111111-2222-3333-4444-555555555555")
+        sku1 = generate_sku(
+            shop_name="NovaCraftPixel",
+            title_or_concept="Retro Christmas Baking PNG Sublimation Clipart",
+            workflow_id=workflow_id,
+        )
+        sku2 = generate_sku(
+            shop_name="NovaCraftPixel",
+            title_or_concept="Retro Christmas Baking PNG Sublimation Clipart",
+            workflow_id=workflow_id,
+        )
+        assert sku1 == sku2
+        assert sku1.startswith("NOVA-")
+        assert len(sku1) <= 32
+
+    def test_generate_sku_different_workflow_ids_differ(self) -> None:
+        from app.domain.sku_generator import generate_sku
+
+        wf1 = uuid.UUID("11111111-2222-3333-4444-555555555555")
+        wf2 = uuid.UUID("99999999-8888-7777-6666-555555555555")
+        sku1 = generate_sku("Shop A", "Art Title", wf1)
+        sku2 = generate_sku("Shop A", "Art Title", wf2)
+        assert sku1 != sku2

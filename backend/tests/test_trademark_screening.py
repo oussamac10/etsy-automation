@@ -1,13 +1,14 @@
 """Tests for USPTO trademark screening, database search, bulk ingestion, and TSDR verification."""
 
-from datetime import datetime, timezone
 import json
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
+
 import httpx
 import pytest
 
+from app.application.trademark import TrademarkScreeningService
 from app.domain.ip_risk import (
     evaluate_trademark_risk,
     extract_searchable_phrases,
@@ -15,12 +16,8 @@ from app.domain.ip_risk import (
 )
 from app.domain.workflow import RiskLevel
 from app.ports.errors import ProviderError, ProviderErrorKind
-from app.ports.providers import TrademarkMatch
-from app.providers.fake import FakeTrademarkSearchAdapter
 from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
 from app.providers.tsdr import UsptoTsdrAdapter
-from app.providers.uspto import UsptoTrademarkAdapter
-from app.application.trademark import TrademarkScreeningService
 
 
 class TestTrademarkDomain:
@@ -304,6 +301,7 @@ class TestTrademarkScreeningService:
 class TestBulkIngestionParsers:
     def test_xml_streaming_parser(self) -> None:
         import sys
+
         backend_dir = str(Path(__file__).resolve().parent.parent)
         if backend_dir not in sys.path:
             sys.path.insert(0, backend_dir)
@@ -343,6 +341,7 @@ class TestBulkIngestionParsers:
 
     def test_csv_streaming_parser(self) -> None:
         import sys
+
         backend_dir = str(Path(__file__).resolve().parent.parent)
         if backend_dir not in sys.path:
             sys.path.insert(0, backend_dir)
@@ -350,7 +349,7 @@ class TestBulkIngestionParsers:
 
         csv_sample = (
             "mark_text,serial_number,registration_number,status_text,is_live,classes,goods_services,owner_name\n"
-            "COFFEE HERO,90999888,6777888,REGISTERED,LIVE,\"025, 021\",Mugs and shirts,Coffee Corp\n"
+            'COFFEE HERO,90999888,6777888,REGISTERED,LIVE,"025, 021",Mugs and shirts,Coffee Corp\n'
         )
         with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as f:
             f.write(csv_sample)
@@ -368,6 +367,7 @@ class TestBulkIngestionParsers:
 
     def test_json_streaming_parser(self) -> None:
         import sys
+
         backend_dir = str(Path(__file__).resolve().parent.parent)
         if backend_dir not in sys.path:
             sys.path.insert(0, backend_dir)
@@ -453,3 +453,40 @@ class TestSqlTrademarkRepository:
         assert counts["failed"] == 0
         assert mock_session.add.call_count == 2
 
+
+class TestBasicPhraseScan:
+    def test_clean_text_flags_nothing(self) -> None:
+        from app.domain import ip_risk
+
+        assert ip_risk.scan("Sleepy fox on a mug", "Cosy autumn illustration") == []
+
+    def test_flags_a_brand_name_case_insensitively(self) -> None:
+        from app.domain import ip_risk
+
+        assert ip_risk.scan("DISNEY castle silhouette") == ["disney"]
+
+    def test_flags_a_multi_word_term(self) -> None:
+        from app.domain import ip_risk
+
+        assert ip_risk.scan("a tribute to Taylor Swift") == ["taylor swift"]
+
+    def test_matches_inside_a_longer_word(self) -> None:
+        from app.domain import ip_risk
+
+        assert ip_risk.scan("disneyland vacation png") == ["disney"]
+
+    def test_scans_all_parts_as_one_phrase(self) -> None:
+        from app.domain import ip_risk
+
+        assert ip_risk.scan("a tribute to taylor", "swift energy") == ["taylor swift"]
+
+    def test_ignores_missing_parts(self) -> None:
+        from app.domain import ip_risk
+
+        assert ip_risk.scan(None, "", "harmless phrase") == []
+
+    def test_returns_every_distinct_term_found(self) -> None:
+        from app.domain import ip_risk
+
+        found = ip_risk.scan("nike and barbie crossover")
+        assert set(found) == {"nike", "barbie"}

@@ -1,8 +1,17 @@
 from __future__ import annotations
 
-import pytest
-from pydantic import ValidationError
+from decimal import Decimal
 
+import pytest
+from pydantic import SecretStr, ValidationError
+
+from app.api.auth_schemas import (
+    LoginRequest,
+    StoreCredentialRequest,
+    UpdateSettingsRequest,
+)
+from app.domain.enums import IdeaMode
+from app.domain.owner_settings import BudgetRelationError, validate_budgets
 from app.settings import Settings
 
 
@@ -147,3 +156,58 @@ def test_a_valid_rotation_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     assert settings.encryption_key_previous_version == 1
     assert "retired-key" not in repr(settings)
+
+
+# --- Owner settings schemas & budget rules ---------------------------------
+
+
+def test_a_daily_budget_below_the_monthly_one_is_fine() -> None:
+    validate_budgets(Decimal("2.00"), Decimal("30.00"))
+    validate_budgets(Decimal("30.00"), Decimal("30.00"))
+
+
+def test_a_daily_budget_above_the_monthly_one_is_rejected() -> None:
+    with pytest.raises(BudgetRelationError, match="never bind"):
+        validate_budgets(Decimal("40.00"), Decimal("30.00"))
+
+
+def test_an_empty_update_changes_nothing() -> None:
+    assert UpdateSettingsRequest().model_dump(exclude_unset=True) == {}
+
+
+def test_only_the_sent_fields_are_present() -> None:
+    payload = UpdateSettingsRequest(default_language="fr")
+    assert payload.model_dump(exclude_unset=True) == {"default_language": "fr"}
+
+
+def test_an_unknown_field_is_a_validation_error_not_a_silent_no_op() -> None:
+    with pytest.raises(ValidationError):
+        UpdateSettingsRequest(target_curency="USD")  # type: ignore[call-arg]
+
+
+def test_currency_is_normalised_and_restricted() -> None:
+    assert UpdateSettingsRequest(currency="eur").currency == "EUR"
+    with pytest.raises(ValidationError, match="currency must be one of"):
+        UpdateSettingsRequest(currency="XYZ")
+
+
+def test_marketplace_is_restricted() -> None:
+    assert UpdateSettingsRequest(target_marketplace="Etsy").target_marketplace == "etsy"
+    with pytest.raises(ValidationError, match="target_marketplace must be one of"):
+        UpdateSettingsRequest(target_marketplace="Amazon")
+
+
+def test_idea_mode_is_restricted() -> None:
+    assert (
+        UpdateSettingsRequest(default_idea_mode=IdeaMode.MARKET_LED).default_idea_mode
+        == IdeaMode.MARKET_LED
+    )
+    with pytest.raises(ValidationError):
+        UpdateSettingsRequest(default_idea_mode="invalid-mode")  # type: ignore[arg-type]
+
+
+def test_invalid_credentials_are_rejected() -> None:
+    with pytest.raises(ValidationError):
+        LoginRequest(email="invalid-email", password=SecretStr("short"))
+    with pytest.raises(ValidationError):
+        StoreCredentialRequest(secret=SecretStr("short"))

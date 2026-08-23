@@ -12,8 +12,6 @@ from app.application.etsy_draft import (
     execute_etsy_draft_pipeline,
     validate_pre_dispatch,
 )
-from app.application.unit_of_work import UnitOfWork
-from app.domain.enums import AuditAction
 from app.domain.errors import DomainError
 from app.domain.workflow import RunStatus
 from app.infrastructure.models import (
@@ -51,7 +49,12 @@ def _create_test_png_bytes(
 
     compressed_idat = zlib.compress(raw_scanlines, level=6 if compressible else 0)
     idat_crc = zlib.crc32(b"IDAT" + compressed_idat)
-    idat = struct.pack(">I", len(compressed_idat)) + b"IDAT" + compressed_idat + struct.pack(">I", idat_crc)
+    idat = (
+        struct.pack(">I", len(compressed_idat))
+        + b"IDAT"
+        + compressed_idat
+        + struct.pack(">I", idat_crc)
+    )
 
     iend_crc = zlib.crc32(b"IEND")
     iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
@@ -169,10 +172,19 @@ class TestEtsyDraftExecution:
 
         # 13 Valid Etsy tags
         valid_tags = [
-            "celestial png", "moon sublimation", "vintage moon", "mystic graphic",
-            "witchy vibes", "astronomy clipart", "digital download", "shirt design",
-            "printable art", "tshirt transfer", "cricut craft", "boho astronomy",
-            "aesthetic moon"
+            "celestial png",
+            "moon sublimation",
+            "vintage moon",
+            "mystic graphic",
+            "witchy vibes",
+            "astronomy clipart",
+            "digital download",
+            "shirt design",
+            "printable art",
+            "tshirt transfer",
+            "cricut craft",
+            "boho astronomy",
+            "aesthetic moon",
         ]
 
         listing = MagicMock(spec=ListingDraft)
@@ -249,7 +261,9 @@ class TestEtsyDraftExecution:
         zip_asset.created_at = now + timedelta(seconds=3)
         zip_asset.provenance = {"kind": "customer_package"}
 
-        uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset, mockup_asset_1, mockup_asset_2, zip_asset])
+        uow.assets.list_for_workflow = AsyncMock(
+            return_value=[master_asset, mockup_asset_1, mockup_asset_2, zip_asset]
+        )
         uow.assets.get_by_checksum_sha256 = AsyncMock(return_value=None)
         uow.assets.add = AsyncMock()
         uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])
@@ -530,7 +544,9 @@ class TestEtsyDraftExecution:
         uow.listing_drafts.record_etsy_file_upload = AsyncMock(return_value=listing)
 
         # 20.5MB uncompressed scanlines that compress under 20MB with deflate
-        large_master_bytes = _create_test_png_bytes(4500, 5400, raw_bytes=20 * 1024 * 1024 + 500 * 1024, compressible=True)
+        large_master_bytes = _create_test_png_bytes(
+            4500, 5400, raw_bytes=20 * 1024 * 1024 + 500 * 1024, compressible=True
+        )
         mock_storage = MagicMock(spec=ObjectStorage)
 
         async def fake_storage_get(key: str) -> bytes:
@@ -624,7 +640,9 @@ class TestEtsyDraftExecution:
         uow.listing_drafts.record_etsy_file_upload = AsyncMock(return_value=listing)
 
         # 21MB uncompressible PNG
-        oversized_master_bytes = _create_test_png_bytes(4500, 5400, raw_bytes=21 * 1024 * 1024, compressible=False)
+        oversized_master_bytes = _create_test_png_bytes(
+            4500, 5400, raw_bytes=21 * 1024 * 1024, compressible=False
+        )
         mock_storage = MagicMock(spec=ObjectStorage)
         mock_storage.get = AsyncMock(return_value=oversized_master_bytes)
 
@@ -678,10 +696,22 @@ def test_pricing_safety_and_currency_resolution():
     assert rec_price is not None and rec_price > 0
 
     # 4. Currency precedence: listing -> shop -> owner -> USD
-    assert resolve_listing_currency(listing_currency="EUR", shop_currency="GBP", owner_currency="CAD") == "EUR"
-    assert resolve_listing_currency(listing_currency=None, shop_currency="GBP", owner_currency="CAD") == "GBP"
-    assert resolve_listing_currency(listing_currency=None, shop_currency=None, owner_currency="CAD") == "CAD"
-    assert resolve_listing_currency(listing_currency=None, shop_currency=None, owner_currency=None) == "USD"
+    assert (
+        resolve_listing_currency(listing_currency="EUR", shop_currency="GBP", owner_currency="CAD")
+        == "EUR"
+    )
+    assert (
+        resolve_listing_currency(listing_currency=None, shop_currency="GBP", owner_currency="CAD")
+        == "GBP"
+    )
+    assert (
+        resolve_listing_currency(listing_currency=None, shop_currency=None, owner_currency="CAD")
+        == "CAD"
+    )
+    assert (
+        resolve_listing_currency(listing_currency=None, shop_currency=None, owner_currency=None)
+        == "USD"
+    )
 
 
 def test_build_etsy_dispatch_response_step_model():
@@ -749,8 +779,8 @@ def test_build_etsy_dispatch_response_step_model():
 @pytest.mark.asyncio
 async def test_cover_mockup_priority_over_listing_order() -> None:
     """Verify that a mockup marked as is_cover=True is uploaded at Rank 1 (Thumbnail) even if listing_order is higher than other mockups."""
-    from app.domain.production_resolver import filter_active_user_mockups
     from app.domain.media_selector import order_listing_mockup_assets
+    from app.domain.production_resolver import filter_active_user_mockups
 
     master_id = uuid.uuid4()
     poster_mockup_id = uuid.uuid4()
@@ -835,5 +865,60 @@ async def test_cover_mockup_priority_over_listing_order() -> None:
     assert ordered[2].id == bag_mockup_id
 
 
+class TestEtsyPayloadBuilder:
+    def test_build_etsy_listing_payload_draft_guarantee(self) -> None:
+        from app.domain.etsy_payload_builder import build_etsy_listing_payload
 
+        payload = build_etsy_listing_payload(
+            title="Retro Christmas Baking PNG Sublimation Clipart",
+            description="High quality PNG sublimation graphic for holiday crafting.",
+            tags=[
+                "retro baking",
+                "christmas cookies",
+                "sublimation png",
+                "holiday clipart",
+                "baking design",
+                "vintage kitchen",
+                "gingerbread man",
+                "festive craft",
+                "cookie cutter",
+                "sweet treats",
+                "winter graphics",
+                "seasonal print",
+                "digital download",
+            ],
+            price_minor_units=499,
+            currency="USD",
+            taxonomy_id=6844,
+            quantity=999,
+            shop_section_id="12345",
+            should_auto_renew=True,
+        )
 
+        # Strict safety requirements: Draft only, never active
+        assert payload["state"] == "draft"
+        assert payload["title"] == "Retro Christmas Baking PNG Sublimation Clipart"
+        assert payload["price"] == 4.99
+        assert payload["taxonomy_id"] == "6844"
+        assert payload["type"] == "download"
+        assert payload["who_made"] == "i_did"
+        assert payload["is_supply"] == "false"
+        assert payload["quantity"] == 999
+        assert payload["shop_section_id"] == 12345
+        assert payload["should_auto_renew"] == "true"
+
+    def test_build_payload_missing_taxonomy_raises(self) -> None:
+        from app.domain.errors import DomainError
+        from app.domain.etsy_payload_builder import build_etsy_listing_payload
+
+        with pytest.raises(
+            DomainError, match="A valid Etsy seller taxonomy category ID is required"
+        ):
+            build_etsy_listing_payload(
+                title="Valid Title For Digital Art",
+                description="Valid Description",
+                tags=["tag one", "tag two", "tag three"],
+                price_minor_units=499,
+                currency="USD",
+                taxonomy_id=0,
+            )

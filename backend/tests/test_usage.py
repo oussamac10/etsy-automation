@@ -3,9 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.api.usage_schemas import (
@@ -16,9 +14,6 @@ from app.api.usage_schemas import (
     UsageLedgerResponse,
     UsageSummaryResponse,
 )
-from app.domain.enums import CostStatus, ProviderName
-from app.domain.money import Money
-from app.infrastructure.models import OwnerSettings, ProviderUsage, User
 from app.main import create_app
 from app.settings import Settings
 
