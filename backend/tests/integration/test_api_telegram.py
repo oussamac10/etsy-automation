@@ -59,6 +59,36 @@ class TestTelegramSettings:
         status_resp = await client.get("/api/v1/settings/telegram")
         assert status_resp.json()["pairing_code_expires_at"] is None
 
+    async def test_mute_telegram_notifications(self, client: httpx.AsyncClient) -> None:
+        # Generate code to create connection record
+        await client.post("/api/v1/settings/telegram/pairing-code")
+
+        # Initial mute state should be False
+        status_resp = await client.get("/api/v1/settings/telegram")
+        assert status_resp.status_code == 200
+        assert status_resp.json()["is_muted"] is False
+
+        # Mute notifications
+        patch_resp = await client.patch(
+            "/api/v1/settings/telegram",
+            json={"is_muted": True},
+        )
+        assert patch_resp.status_code == 200
+        assert patch_resp.json()["is_muted"] is True
+
+        # Verify persisted via GET
+        status_resp2 = await client.get("/api/v1/settings/telegram")
+        assert status_resp2.status_code == 200
+        assert status_resp2.json()["is_muted"] is True
+
+        # Unmute notifications
+        patch_resp2 = await client.patch(
+            "/api/v1/settings/telegram",
+            json={"is_muted": False},
+        )
+        assert patch_resp2.status_code == 200
+        assert patch_resp2.json()["is_muted"] is False
+
 
 class TestTelegramWebhookCommands:
     async def test_webhook_secret_verification(

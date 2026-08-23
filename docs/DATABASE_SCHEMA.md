@@ -157,6 +157,7 @@ erDiagram
 | `telegram_user_id` | `BIGINT` | YES | - | - | - |
 | `telegram_chat_id` | `BIGINT` | YES | - | - | - |
 | `telegram_username` | `VARCHAR(120)` | YES | - | - | - |
+| `is_muted` | `BOOLEAN` | NO | `False` | - | - |
 | `pairing_code_hash` | `VARCHAR(64)` | YES | - | - | - |
 | `pairing_code_expires_at` | `DATETIME` | YES | - | - | - |
 | `failed_pairing_attempts` | `INTEGER` | NO | `0` | - | - |
@@ -701,3 +702,4 @@ To regenerate this document after creating or modifying SQLAlchemy models:
 ```bash
 python backend/scripts/generate_schema_docs.py
 ```
+

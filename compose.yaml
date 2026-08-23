@@ -135,6 +135,8 @@ services:
     environment:
       <<: *python-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-etsy}:${POSTGRES_PASSWORD:-etsy_local_password}@postgres:5432/${POSTGRES_DB:-etsy_automation}
+    volumes:
+      - ./backend/migrations:/srv/backend/migrations
     command: [ "alembic", "upgrade", "head" ]
     depends_on:
       postgres:

@@ -16,6 +16,7 @@ from app.application.workflows import transition_workflow
 from app.domain.enums import AuditAction
 from app.domain.workflow import RunStatus
 from app.infrastructure.checks import check_database, check_image_worker, check_redis
+from app.infrastructure.models.telegram import TelegramConnection
 from app.ports.telegram import TelegramGateway
 from app.providers.telegram import escape_html
 from app.settings import Settings
@@ -58,6 +59,25 @@ async def disconnect_telegram(uow: UnitOfWork, owner_id: uuid.UUID) -> None:
             summary="Telegram connection revoked from web settings",
         )
         await uow.commit()
+
+
+async def set_telegram_mute(
+    uow: UnitOfWork, owner_id: uuid.UUID, is_muted: bool
+) -> TelegramConnection:
+    """Toggle notification mute status for the owner's Telegram connection."""
+    record = await uow.telegram_connections.get_by_user_id(owner_id)
+    if record is None:
+        raise ValueError("No Telegram connection found.")
+    record.is_muted = is_muted
+    await uow.audit.record(
+        action=AuditAction.SETTINGS_UPDATED,
+        entity_type="TelegramConnection",
+        entity_id=record.id,
+        actor=str(owner_id),
+        summary=f"Telegram notifications {'muted' if is_muted else 'unmuted'}",
+    )
+    await uow.commit()
+    return record
 
 
 async def handle_telegram_command(
@@ -758,7 +778,12 @@ async def send_telegram_notification(
 ) -> None:
     """Send a proactive notification to the owner's paired Telegram account."""
     connection = await uow.telegram_connections.get_by_user_id(owner_id)
-    if connection and connection.is_paired and connection.telegram_chat_id is not None:
+    if (
+        connection
+        and connection.is_paired
+        and connection.telegram_chat_id is not None
+        and not getattr(connection, "is_muted", False)
+    ):
         await telegram_gateway.send_message(
             chat_id=connection.telegram_chat_id,
             text=text,

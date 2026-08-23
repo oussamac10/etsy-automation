@@ -233,6 +233,11 @@ class TelegramConnectionResponse(BaseModel):
     paired: bool
     telegram_username: str | None = None
     pairing_code_expires_at: datetime | None = None
+    is_muted: bool = False
+
+
+class TelegramMuteRequest(BaseModel):
+    is_muted: bool
 
 
 class TelegramPairingCodeResponse(BaseModel):

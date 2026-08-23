@@ -18,6 +18,7 @@ from app.api.auth_schemas import (
     SettingsResponse,
     StoreCredentialRequest,
     TelegramConnectionResponse,
+    TelegramMuteRequest,
     TelegramPairingCodeResponse,
     UpdateSettingsRequest,
 )
@@ -188,11 +189,32 @@ async def get_telegram_status(user: CurrentUser, uow: UowDep) -> TelegramConnect
             paired=False,
             telegram_username=None,
             pairing_code_expires_at=conn.pairing_code_expires_at if conn else None,
+            is_muted=False,
         )
     return TelegramConnectionResponse(
         paired=True,
         telegram_username=conn.telegram_username,
         pairing_code_expires_at=None,
+        is_muted=conn.is_muted,
+    )
+
+
+@router.patch(
+    "/telegram",
+    response_model=TelegramConnectionResponse,
+    summary="Update notification mute status for Telegram bot",
+)
+async def update_telegram_mute(
+    body: TelegramMuteRequest, user: CurrentUser, uow: UowDep
+) -> TelegramConnectionResponse:
+    from app.application.telegram import set_telegram_mute
+
+    conn = await set_telegram_mute(uow, user.id, is_muted=body.is_muted)
+    return TelegramConnectionResponse(
+        paired=conn.is_paired,
+        telegram_username=conn.telegram_username,
+        pairing_code_expires_at=None,
+        is_muted=conn.is_muted,
     )
 
 

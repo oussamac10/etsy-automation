@@ -41,11 +41,13 @@ interface TelegramStatus {
   paired: boolean;
   telegram_username: string | null;
   pairing_code_expires_at: string | null;
+  is_muted?: boolean;
 }
 
 const telegramStatus = ref<TelegramStatus | null>(null);
 const telegramError = ref<string | null>(null);
 const isTelegramLoading = ref(false);
+const isMutingLoading = ref(false);
 const activePairingCode = ref<string | null>(null);
 const pairingCodeExpiresAt = ref<string | null>(null);
 const countdownText = ref("");
@@ -146,12 +148,41 @@ async function disconnectTelegram(): Promise<void> {
     });
     activePairingCode.value = null;
     pairingCodeExpiresAt.value = null;
-    telegramStatus.value = { paired: false, telegram_username: null, pairing_code_expires_at: null };
+    telegramStatus.value = { paired: false, telegram_username: null, pairing_code_expires_at: null, is_muted: false };
     stopCountdown();
   } catch {
     telegramError.value = "Failed to disconnect Telegram.";
   } finally {
     isTelegramLoading.value = false;
+  }
+}
+
+async function toggleTelegramMute(): Promise<void> {
+  if (!telegramStatus.value) return;
+  isMutingLoading.value = true;
+  telegramError.value = null;
+  try {
+    const csrf = getCookie("etsy_csrf");
+    const headers: Record<string, string> = {};
+    if (csrf) {
+      headers["x-csrf-token"] = csrf;
+    }
+
+    const newMuteState = !telegramStatus.value.is_muted;
+    const data = await $fetch<TelegramStatus>(
+      `${apiBase.replace(/\/$/, "")}/api/v1/settings/telegram`,
+      {
+        method: "PATCH",
+        headers,
+        body: { is_muted: newMuteState },
+        credentials: "include",
+      }
+    );
+    telegramStatus.value = data;
+  } catch {
+    telegramError.value = "Failed to update notification preferences.";
+  } finally {
+    isMutingLoading.value = false;
   }
 }
 
@@ -543,32 +574,57 @@ onBeforeUnmount(stopCountdown);
                 <!-- Case 1: Paired -->
                 <div
                   v-if="telegramStatus?.paired"
-                  class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4"
+                  class="space-y-4"
                   data-testid="telegram-paired-container"
                 >
-                  <div class="flex items-center gap-3">
-                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                      <Icon name="lucide:circle-check" class="size-5" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <div class="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
-                        Connected to Telegram
+                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                    <div class="flex items-center gap-3">
+                      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shrink-0">
+                        <Icon name="lucide:circle-check" class="size-5" aria-hidden="true" />
                       </div>
-                      <p v-if="telegramStatus.telegram_username" class="text-xs text-emerald-700 font-medium" data-testid="telegram-username">
-                        Username: @{{ telegramStatus.telegram_username }}
-                      </p>
+                      <div>
+                        <div class="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
+                          <span>Connected to Telegram</span>
+                          <span
+                            class="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 inline-flex items-center gap-1"
+                            :class="telegramStatus.is_muted ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' : 'bg-emerald-100 text-emerald-800 border-emerald-300'"
+                          >
+                            <Icon :name="telegramStatus.is_muted ? 'lucide:bell-off' : 'lucide:bell'" class="size-2.5" aria-hidden="true" />
+                            <span>{{ telegramStatus.is_muted ? 'Muted' : 'Active Alerts' }}</span>
+                          </span>
+                        </div>
+                        <p v-if="telegramStatus.telegram_username" class="text-xs text-emerald-700 font-medium mt-0.5" data-testid="telegram-username">
+                          Username: @{{ telegramStatus.telegram_username }}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 shrink-0">
+                      <!-- Mute / Unmute Toggle Button -->
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="toggle-mute-btn"
+                        :loading="isMutingLoading"
+                        class="h-8 gap-1.5 text-xs border-border bg-white text-secondary-foreground hover:bg-secondary transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                        @click="toggleTelegramMute"
+                      >
+                        <Icon :name="telegramStatus.is_muted ? 'lucide:bell' : 'lucide:bell-off'" class="size-3.5" aria-hidden="true" />
+                        <span>{{ telegramStatus.is_muted ? 'Unmute' : 'Mute' }}</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="disconnect-btn"
+                        class="h-8 gap-1.5 text-xs border-emerald-200 bg-white text-emerald-700 hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                        @click="disconnectTelegram"
+                      >
+                        <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
+                        <span>Disconnect</span>
+                      </Button>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    data-testid="disconnect-btn"
-                    class="gap-1.5 border-emerald-200 bg-white text-emerald-700 hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
-                    @click="disconnectTelegram"
-                  >
-                    <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
-                    <span>Disconnect Bot</span>
-                  </Button>
                 </div>
 
                 <!-- Case 2: Unpaired -->

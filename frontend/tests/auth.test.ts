@@ -106,4 +106,33 @@ describe("auth store", () => {
       expect.any(Object)
     );
   });
+
+  it("updates telegram mute settings correctly", async () => {
+    const mockStatus = {
+      paired: true,
+      telegram_username: "test_bot_user",
+      pairing_code_expires_at: null,
+      is_muted: true,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(mockStatus);
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const data = await $fetch<{ is_muted: boolean }>(
+      "http://localhost:8000/api/v1/settings/telegram",
+      {
+        method: "PATCH",
+        body: { is_muted: true },
+      }
+    );
+
+    expect(data).toEqual(mockStatus);
+    expect(data.is_muted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/settings/telegram",
+      expect.objectContaining({
+        method: "PATCH",
+        body: { is_muted: true },
+      })
+    );
+  });
 });

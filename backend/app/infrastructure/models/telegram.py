@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, ForeignKey, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.models.base import Base, TimestampMixin, UuidMixin, timestamp_column
@@ -30,6 +30,11 @@ class TelegramConnection(UuidMixin, TimestampMixin, Base):
     )
     telegram_chat_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     telegram_username: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    #: Whether notifications to this Telegram chat are currently muted.
+    is_muted: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
 
     #: SHA-256 hex hash of the pairing code.
     pairing_code_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
