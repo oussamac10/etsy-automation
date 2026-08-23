@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import re
 from decimal import Decimal
 from typing import Any, cast
@@ -384,15 +385,12 @@ class GeminiSynthesisAdapter:
             "gemini-3.5-flash-lite",
             "gemini-3.7-flash",
             "gemini-3.1-pro-preview",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
+            "gemini-flash-latest",
+            "gemini-flash-lite-latest",
+            "gemini-pro-latest",
         ]
         models_to_try: list[str] = []
-        if self._model and self._model not in (
-            "gemini-flash-latest",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-        ):
+        if self._model:
             models_to_try.append(self._model)
         for m in preferred_models:
             if m not in models_to_try:
@@ -416,9 +414,28 @@ class GeminiSynthesisAdapter:
                                 message="Invalid API Key or unauthorized request to Gemini.",
                             )
                         elif response.status_code == 429:
+                            err_msg = ""
+                            with contextlib.suppress(Exception):
+                                err_msg = response.json().get("error", {}).get("message", "")
+                            if "spending cap" in err_msg.lower() or "quota" in err_msg.lower():
+                                last_exc = ProviderError(
+                                    kind=ProviderErrorKind.BUDGET_EXCEEDED,
+                                    provider=self.name,
+                                    operation="generate",
+                                    retry_after_seconds=60.0,
+                                    message=f"Gemini API monthly spending cap or quota exceeded: {err_msg}",
+                                )
+                                break
                             if attempt < max_attempts_per_model:
                                 await asyncio.sleep(2.0 * attempt)
                                 continue
+                            last_exc = ProviderError(
+                                kind=ProviderErrorKind.RATE_LIMITED,
+                                provider=self.name,
+                                operation="generate",
+                                retry_after_seconds=5.0,
+                                message=f"Gemini rate limit exceeded (429): {err_msg or response.text}",
+                            )
                             break
                         elif response.status_code >= 500:
                             if attempt < max_attempts_per_model:

@@ -2497,6 +2497,7 @@ async def generate_listing_seo_endpoint(
     from app.application.package import CustomerPackageService
     from app.application.seo import SeoTargetField, generate_listing_seo
     from app.application.trademark import TrademarkScreeningService
+    from app.ports.errors import ProviderError, ProviderErrorKind
     from app.providers.fake import FakeTextProvider
     from app.providers.gemini import GeminiSynthesisAdapter
 
@@ -2725,6 +2726,22 @@ async def generate_listing_seo_endpoint(
         )
     except HTTPException:
         raise
+    except ProviderError as p_exc:
+        logger.warning(
+            "seo_generation_provider_error",
+            provider=p_exc.provider,
+            kind=str(p_exc.kind),
+            message=p_exc.message,
+        )
+        status_code = (
+            status.HTTP_429_TOO_MANY_REQUESTS
+            if p_exc.kind in (ProviderErrorKind.RATE_LIMITED, ProviderErrorKind.BUDGET_EXCEEDED)
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail=p_exc.message,
+        )
     except Exception as exc:
         logger.exception("seo_generation_endpoint_failed", error=str(exc))
         raise HTTPException(

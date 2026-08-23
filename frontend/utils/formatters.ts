@@ -69,6 +69,11 @@ export function sanitizeUserErrorMessage(rawError: unknown, fallback: string = "
   }
 
 
+  // Map spending cap / quota exhaustion errors
+  if (msg.toLowerCase().includes("spending cap") || msg.toLowerCase().includes("quota exceeded") || msg.toLowerCase().includes("resource_exhausted")) {
+    return "Your Gemini API monthly spending cap or quota is exhausted. Please check https://ai.studio/spend or update your API key in Settings.";
+  }
+
   // Map internal gate errors
   if (msg.includes("requires gate IDEA_APPROVAL") || msg.includes("gate-not-approved")) {
     return "Please approve the concept before proceeding.";
