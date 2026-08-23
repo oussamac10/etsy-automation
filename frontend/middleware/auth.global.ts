@@ -8,12 +8,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   const isAuthPage = to.path === "/login" || to.path === "/register";
+  const isProtectedPage = to.path.startsWith("/workflow/") || to.path.startsWith("/settings");
 
-  if (!auth.isAuthenticated && !isAuthPage) {
+  if (!auth.isAuthenticated && isProtectedPage) {
     return navigateTo("/login");
   }
 
   if (auth.isAuthenticated && isAuthPage) {
     return navigateTo("/");
   }
+
 });

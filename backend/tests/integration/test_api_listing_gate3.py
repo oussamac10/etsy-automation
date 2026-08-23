@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import httpx
 import pytest
@@ -36,6 +37,7 @@ async def _seed_workflow_production(
     session_factory: async_sessionmaker[AsyncSession],
     workflow_id: uuid.UUID,
     *,
+    api_app: Any = None,
     risk_level: RiskLevel = RiskLevel.LOW,
 ) -> None:
     """Seed workflow in PRODUCTION / LISTING_REVIEW with concept and master PNG."""
@@ -84,23 +86,8 @@ async def _seed_workflow_production(
         )
         await uow.assets.add(asset)
 
-        from app.providers.s3 import S3ObjectStorage
-        from app.settings import get_settings
-
-        st_settings = get_settings()
-        storage = S3ObjectStorage(
-            endpoint_url=st_settings.s3_endpoint_url,
-            bucket_name=st_settings.s3_bucket,
-            access_key_id=st_settings.s3_access_key_id,
-            secret_access_key=st_settings.s3_secret_access_key.get_secret_value(),
-            region_name=st_settings.s3_region,
-            force_path_style=st_settings.s3_force_path_style,
-            public_endpoint_url=st_settings.s3_public_endpoint_url,
-        )
-        try:
-            await storage.put(storage_key, master_png, content_type="image/png")
-        except Exception:
-            pass
+        if api_app is not None and hasattr(api_app.state, "storage"):
+            await api_app.state.storage.put(storage_key, master_png, content_type="image/png")
 
         # Initial listing draft
         valid_tags = [
@@ -145,13 +132,14 @@ class TestListingGate3Api:
         assert len(data["tags"]) == 13
         assert data["version"] >= 1
 
-    async def test_update_listing_draft_success(
+    async def test_update_listing_draft_fields(
         self,
         client: httpx.AsyncClient,
+        api_app: Any,
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         workflow_id = await _create_workflow(client)
-        await _seed_workflow_production(session_factory, workflow_id)
+        await _seed_workflow_production(session_factory, workflow_id, api_app=api_app)
 
         update_payload = {
             "title": "Updated Botanical Mushroom PNG Sublimation Design",
@@ -188,10 +176,11 @@ class TestListingGate3Api:
     async def test_update_listing_draft_rejects_invalid_tags_count(
         self,
         client: httpx.AsyncClient,
+        api_app: Any,
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         workflow_id = await _create_workflow(client)
-        await _seed_workflow_production(session_factory, workflow_id)
+        await _seed_workflow_production(session_factory, workflow_id, api_app=api_app)
 
         update_payload = {
             "title": "Valid Listing Title Here",
@@ -206,10 +195,11 @@ class TestListingGate3Api:
     async def test_generate_seo_endpoint(
         self,
         client: httpx.AsyncClient,
+        api_app: Any,
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         workflow_id = await _create_workflow(client)
-        await _seed_workflow_production(session_factory, workflow_id)
+        await _seed_workflow_production(session_factory, workflow_id, api_app=api_app)
 
         response = await client.post(
             f"/api/v1/workflows/{workflow_id}/listing/generate-seo?target=all"
@@ -222,10 +212,13 @@ class TestListingGate3Api:
     async def test_gate3_approval_cleared_risk_succeeds(
         self,
         client: httpx.AsyncClient,
+        api_app: Any,
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         workflow_id = await _create_workflow(client)
-        await _seed_workflow_production(session_factory, workflow_id, risk_level=RiskLevel.LOW)
+        await _seed_workflow_production(
+            session_factory, workflow_id, api_app=api_app, risk_level=RiskLevel.LOW
+        )
 
         response = await client.post(
             f"/api/v1/workflows/{workflow_id}/gates/listing",
@@ -240,10 +233,13 @@ class TestListingGate3Api:
     async def test_gate3_approval_warning_requires_acknowledgement(
         self,
         client: httpx.AsyncClient,
+        api_app: Any,
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         workflow_id = await _create_workflow(client)
-        await _seed_workflow_production(session_factory, workflow_id, risk_level=RiskLevel.MEDIUM)
+        await _seed_workflow_production(
+            session_factory, workflow_id, api_app=api_app, risk_level=RiskLevel.MEDIUM
+        )
 
         # 1. Unacknowledged fails
         fail_resp = await client.post(
@@ -267,10 +263,13 @@ class TestListingGate3Api:
     async def test_gate3_approval_high_risk_strictly_blocked(
         self,
         client: httpx.AsyncClient,
+        api_app: Any,
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         workflow_id = await _create_workflow(client)
-        await _seed_workflow_production(session_factory, workflow_id, risk_level=RiskLevel.HIGH)
+        await _seed_workflow_production(
+            session_factory, workflow_id, api_app=api_app, risk_level=RiskLevel.HIGH
+        )
 
         response = await client.post(
             f"/api/v1/workflows/{workflow_id}/gates/listing",
@@ -283,10 +282,13 @@ class TestListingGate3Api:
     async def test_gate3_rejection_returns_to_production(
         self,
         client: httpx.AsyncClient,
+        api_app: Any,
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         workflow_id = await _create_workflow(client)
-        await _seed_workflow_production(session_factory, workflow_id, risk_level=RiskLevel.LOW)
+        await _seed_workflow_production(
+            session_factory, workflow_id, api_app=api_app, risk_level=RiskLevel.LOW
+        )
 
         response = await client.post(
             f"/api/v1/workflows/{workflow_id}/gates/listing",
