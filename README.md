@@ -322,6 +322,7 @@ pnpm doc:schema:check         # Verifies schema docs are in sync in CI
 | **[architecture.md](docs/architecture.md)** | Hexagonal architecture, ports & adapters, transactional outbox, and security. |
 | **[workflow-state-machine.md](docs/workflow-state-machine.md)** | Authoritative state transition matrix, error handling, and gate policies. |
 | **[API_COSTS.md](docs/API_COSTS.md)** | AI provider pricing tables, token models, and budget safety constraints. |
+| **[CRON_JOBS.md](docs/CRON_JOBS.md)** | Scheduled maintenance tasks, USPTO sync, token watchdogs, and crontab recipes. |
 | **[PHASES.md](docs/PHASES.md)** | Implementation milestones, phase deliverables, and acceptance criteria. |
 
 ---
