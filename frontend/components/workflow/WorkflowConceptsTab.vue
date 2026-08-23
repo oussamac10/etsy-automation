@@ -450,13 +450,13 @@ function confirmHighRiskApproval() {
     <!-- State 2: Research Failed -->
     <Card
       v-else-if="workflow.state === 'RESEARCH_FAILED'"
-      class="p-8 text-center bg-red-50/60 border-red-200"
+      class="p-8 text-center bg-destructive/10 border-destructive/30"
     >
-      <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-destructive mb-3">
+      <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/20 text-destructive mb-3">
         <Icon name="lucide:circle-alert" class="size-6" aria-hidden="true" />
       </div>
       <h2 class="text-lg font-bold text-destructive mb-1">Opportunity Discovery Failed</h2>
-      <p class="text-xs text-red-700 max-w-md mx-auto mb-4">
+      <p class="text-xs text-foreground/80 max-w-md mx-auto mb-4">
         Reason: {{ latestRun?.failure_reason || 'An unexpected error occurred. Please try again.' }}
       </p>
       <Button variant="destructive" size="default" class="font-semibold cursor-pointer" @click="emit('startResearch')">
@@ -942,9 +942,9 @@ function confirmHighRiskApproval() {
         </DialogDescription>
       </DialogHeader>
 
-      <div v-if="highRiskConfirmConcept" class="p-3 bg-red-50 rounded-lg border border-red-200 text-xs text-red-900 space-y-1 my-2">
+      <div v-if="highRiskConfirmConcept" class="p-3 bg-destructive/10 rounded-lg border border-destructive/30 text-xs text-destructive space-y-1 my-2">
         <p class="font-bold">{{ highRiskConfirmConcept.title }}</p>
-        <p class="text-[11px] text-red-700">{{ highRiskConfirmConcept.risk_note }}</p>
+        <p class="text-[11px] text-foreground/80">{{ highRiskConfirmConcept.risk_note }}</p>
       </div>
 
       <DialogFooter class="gap-2 mt-4">

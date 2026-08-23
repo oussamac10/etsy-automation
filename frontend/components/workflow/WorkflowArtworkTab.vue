@@ -363,12 +363,12 @@ onUnmounted(() => {
         </div>
 
         <!-- Inner state 3: Artwork Generation Failed -->
-        <Card v-else-if="isJobFailed" class="p-8 text-center bg-red-50/60 border-red-200">
-          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-destructive mb-3">
+        <Card v-else-if="isJobFailed" class="p-8 text-center bg-destructive/10 border-destructive/30">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/20 text-destructive mb-3">
             <Icon name="lucide:circle-alert" class="size-6" aria-hidden="true" />
           </div>
           <h2 class="text-lg font-bold text-destructive mb-1">Artwork Generation Failed</h2>
-          <p class="text-xs text-red-700 max-w-md mx-auto mb-4">
+          <p class="text-xs text-foreground/80 max-w-md mx-auto mb-4">
             Reason: {{ latestFailureMessage }}
           </p>
           <div class="flex items-center justify-center gap-3">
@@ -394,7 +394,7 @@ onUnmounted(() => {
               v-if="workflow.state === 'ART_REVIEW'"
               variant="ghost"
               size="sm"
-              class="text-xs text-destructive hover:text-red-700 hover:bg-red-50 cursor-pointer"
+              class="text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
               @click="emit('rejectAll', artworkJobs[0]?.id, workflow.version)"
             >
               Reject All Options

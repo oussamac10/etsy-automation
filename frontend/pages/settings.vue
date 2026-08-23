@@ -509,7 +509,7 @@ onBeforeUnmount(stopCountdown);
                         <Button
                           variant="outline"
                           size="sm"
-                          class="h-8 gap-1.5 text-xs text-secondary-foreground border-border bg-card hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                          class="h-8 gap-1.5 text-xs text-secondary-foreground border-border bg-card hover:border-red-500/30 hover:bg-red-500/10 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                           @click="removeCredential(cred.provider)"
                         >
                           <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -621,7 +621,7 @@ onBeforeUnmount(stopCountdown);
                         variant="outline"
                         size="sm"
                         data-testid="disconnect-btn"
-                        class="h-8 gap-1.5 text-xs border-emerald-200 bg-card text-emerald-700 hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                        class="h-8 gap-1.5 text-xs border-emerald-500/30 bg-card text-emerald-600 dark:text-emerald-400 hover:border-red-500/30 hover:bg-red-500/10 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                         @click="disconnectTelegram"
                       >
                         <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />

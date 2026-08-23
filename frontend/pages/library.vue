@@ -1169,7 +1169,7 @@ onMounted(() => {
           <Button
             variant="outline"
             size="sm"
-            class="text-xs text-destructive hover:text-destructive hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-semibold shadow-2xs"
+            class="text-xs text-destructive hover:text-destructive hover:bg-red-500/10 border-red-500/30 gap-1.5 cursor-pointer font-semibold shadow-2xs"
             @click="promptDeleteCategory(selectedCategory)"
           >
             <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -1220,7 +1220,7 @@ onMounted(() => {
             v-if="selectedCategory !== 'all'"
             variant="outline"
             size="sm"
-            class="text-xs text-destructive hover:text-destructive hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-medium"
+            class="text-xs text-destructive hover:text-destructive hover:bg-red-500/10 border-red-500/30 gap-1.5 cursor-pointer font-medium"
             @click="promptDeleteCategory(selectedCategory)"
           >
             <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -1349,7 +1349,7 @@ onMounted(() => {
               <Button
                 variant="outline"
                 size="sm"
-                class="text-[11px] h-7 px-2 font-semibold text-destructive hover:text-destructive hover:bg-red-50 border-red-200 gap-1 cursor-pointer"
+                class="text-[11px] h-7 px-2 font-semibold text-destructive hover:text-destructive hover:bg-red-500/10 border-red-500/30 gap-1 cursor-pointer"
                 title="Delete template and remove photo from your library"
                 @click="templateToDelete = tpl"
               >
