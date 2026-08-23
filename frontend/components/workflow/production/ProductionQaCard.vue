@@ -196,20 +196,20 @@ const passedCount = computed(() => {
     <!-- Security, Hash & Engine Footer -->
     <div class="pt-2 border-t border-border/80 flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground px-0.5">
       <div class="flex items-center gap-1.5">
-        <Icon name="lucide:cpu" class="size-3 text-slate-500" aria-hidden="true" />
-        <span>Engine: <b class="text-slate-700">v2.4 Pro Upscaler & Compositor</b></span>
+        <Icon name="lucide:cpu" class="size-3 text-muted-foreground" aria-hidden="true" />
+        <span>Engine: <b class="text-foreground">v2.4 Pro Upscaler & Compositor</b></span>
       </div>
 
       <div v-if="qaReport?.checksum_sha256" class="flex items-center gap-1.5 font-mono text-[9px]">
-        <span class="text-slate-500">SHA-256:</span>
+        <span class="text-muted-foreground">SHA-256:</span>
         <button
           type="button"
-          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono transition-colors cursor-pointer border border-border/60"
+          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-secondary hover:bg-secondary/80 text-foreground font-mono transition-colors cursor-pointer border border-border"
           :title="isHashCopied ? 'Copied Full SHA-256!' : 'Click to copy full SHA-256 hash'"
           @click="copyHash(qaReport.checksum_sha256)"
         >
           <span>{{ qaReport.checksum_sha256.slice(0, 14) }}...</span>
-          <Icon :name="isHashCopied ? 'lucide:check' : 'lucide:copy'" class="size-2.5 text-slate-600" :class="{ 'text-emerald-600': isHashCopied }" aria-hidden="true" />
+          <Icon :name="isHashCopied ? 'lucide:check' : 'lucide:copy'" class="size-2.5 text-muted-foreground" :class="{ 'text-emerald-600 dark:text-emerald-400': isHashCopied }" aria-hidden="true" />
         </button>
       </div>
     </div>

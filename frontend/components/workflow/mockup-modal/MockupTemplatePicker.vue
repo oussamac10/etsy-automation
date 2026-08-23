@@ -95,7 +95,7 @@ const remainingCount = computed(() => Math.max(0, props.templates.length - 3));
         <button
           v-if="!showAll && remainingCount > 0"
           type="button"
-          class="h-[52px] px-3.5 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-slate-100 text-secondary-foreground hover:text-primary flex items-center gap-1.5 transition-all cursor-pointer text-xs font-bold"
+          class="h-[52px] px-3.5 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-secondary/80 text-secondary-foreground hover:text-primary flex items-center gap-1.5 transition-all cursor-pointer text-xs font-bold"
           @click="showAll = true"
         >
           <Icon name="lucide:plus" class="size-3.5 text-primary" aria-hidden="true" />
@@ -105,8 +105,8 @@ const remainingCount = computed(() => Math.max(0, props.templates.length - 3));
     </div>
 
     <!-- Empty Template Library State -->
-    <div v-else-if="!isFetchingTemplates" class="py-4 px-4 rounded-xl border border-dashed border-border bg-slate-50 text-center space-y-1.5">
-      <div class="size-7 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-muted-foreground">
+    <div v-else-if="!isFetchingTemplates" class="py-4 px-4 rounded-xl border border-dashed border-border bg-secondary/30 text-center space-y-1.5">
+      <div class="size-7 rounded-full bg-secondary flex items-center justify-center mx-auto text-muted-foreground">
         <Icon name="lucide:folder-open" class="size-3.5" aria-hidden="true" />
       </div>
       <div class="space-y-0.5">

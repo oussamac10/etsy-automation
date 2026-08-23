@@ -790,13 +790,13 @@ async function handleGenerateMockup(): Promise<void> {
         <!-- Loading State Skeleton -->
         <div v-else-if="isModalLoading" class="py-8 space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-            <div class="md:col-span-6 aspect-square bg-slate-100 rounded-2xl border border-border/80 flex items-center justify-center">
-              <Icon name="lucide:image" class="size-10 text-slate-300 animate-pulse" />
+            <div class="md:col-span-6 aspect-square bg-muted rounded-2xl border border-border/80 flex items-center justify-center">
+              <Icon name="lucide:image" class="size-10 text-muted-foreground animate-pulse" />
             </div>
             <div class="md:col-span-6 space-y-3">
-              <div class="h-6 bg-slate-100 rounded-lg w-2/3 animate-pulse" />
-              <div class="h-20 bg-slate-100 rounded-xl animate-pulse" />
-              <div class="h-32 bg-slate-100 rounded-xl animate-pulse" />
+              <div class="h-6 bg-muted rounded-lg w-2/3 animate-pulse" />
+              <div class="h-20 bg-muted rounded-xl animate-pulse" />
+              <div class="h-32 bg-muted rounded-xl animate-pulse" />
             </div>
           </div>
         </div>
