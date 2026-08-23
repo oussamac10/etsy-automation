@@ -2,6 +2,10 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import workflowPage from "../pages/workflow/[id].vue";
+import MockupPlacementControls from "../components/workflow/mockup-modal/MockupPlacementControls.vue";
+import MockupPlacementCanvas from "../components/workflow/mockup-modal/MockupPlacementCanvas.vue";
+import { BLEND_MODE_OPTIONS, getBlendModeInfo } from "../utils/mockupProducts";
+import type { MockupPlacement } from "../types/mockup";
 
 vi.mock("vue-router", () => ({
   useRoute: () => ({
@@ -620,3 +624,122 @@ describe("Workflow Detail - Phase 7 Production Pipeline", () => {
     expect(wrapper.text()).not.toContain("Tote Bag Mockup 1");
   });
 });
+
+describe("Mockup Placement & Rotation Suite", () => {
+  describe("Blend Mode Formatters & Options", () => {
+    it("returns correct blend mode information", () => {
+      const overInfo = getBlendModeInfo("over");
+      expect(overInfo.value).toBe("over");
+      expect(overInfo.shortLabel).toBe("Solid / Opaque");
+
+      const multiplyInfo = getBlendModeInfo("multiply");
+      expect(multiplyInfo.value).toBe("multiply");
+      expect(multiplyInfo.shortLabel).toBe("Multiply");
+
+      const overlayInfo = getBlendModeInfo("overlay");
+      expect(overlayInfo.value).toBe("overlay");
+      expect(overlayInfo.shortLabel).toBe("Overlay");
+    });
+
+    it("has all 6 supported blend modes configured with icons and badges", () => {
+      expect(BLEND_MODE_OPTIONS.length).toBe(6);
+      const values = BLEND_MODE_OPTIONS.map((b) => b.value);
+      expect(values).toContain("over");
+      expect(values).toContain("multiply");
+      expect(values).toContain("overlay");
+      expect(values).toContain("soft-light");
+      expect(values).toContain("screen");
+      expect(values).toContain("darken");
+    });
+  });
+
+  describe("MockupPlacementControls Component", () => {
+    it("renders rotation angle slider, quick angle buttons, and emits updates", async () => {
+      const wrapper = mount(MockupPlacementControls, {
+        props: {
+          leftPct: 25,
+          topPct: 25,
+          widthPct: 50,
+          heightPct: 50,
+          angleDeg: 15,
+          blendMode: "multiply",
+          templateName: "Test Mockup",
+          saveToLibrary: false,
+          isCover: true,
+          isCompositing: false,
+          isUploadingNew: false,
+        },
+        global: {
+          stubs: {
+            Icon: { template: "<i />" },
+          },
+        },
+      });
+
+      expect(wrapper.text()).toContain("Rotation Angle");
+      expect(wrapper.text()).toContain("15°");
+
+      const angleSlider = wrapper.find('input[type="range"][max="180"]');
+      expect(angleSlider.exists()).toBe(true);
+
+      await angleSlider.setValue(-30);
+      expect(wrapper.emitted("update:angleDeg")?.[0]).toEqual([-30]);
+
+      const buttons = wrapper.findAll("button");
+      const quick90Btn = buttons.find((b) => b.text().includes("+90°"));
+      expect(quick90Btn?.exists()).toBe(true);
+      await quick90Btn?.trigger("click");
+      expect(wrapper.emitted("update:angleDeg")).toBeTruthy();
+    });
+  });
+
+  describe("MockupPlacementCanvas Multi-Zone & Rotation", () => {
+    const samplePlacements: MockupPlacement[] = [
+      {
+        id: "zone-1",
+        left_pct: 15,
+        top_pct: 20,
+        width_pct: 35,
+        height_pct: 35,
+        angle_deg: 45,
+        blend_mode: "multiply",
+        artwork_source_id: null,
+      },
+      {
+        id: "zone-2",
+        left_pct: 55,
+        top_pct: 20,
+        width_pct: 35,
+        height_pct: 35,
+        angle_deg: 10,
+        blend_mode: "multiply",
+        artwork_source_id: "variant-2",
+      },
+    ];
+
+    it("renders print zones with rotation transform and active bounding box", () => {
+      const wrapper = mount(MockupPlacementCanvas, {
+        props: {
+          templateImageUrl: "http://localhost:8000/test-template.png",
+          masterImageUrl: "http://localhost:8000/test-master.png",
+          placements: samplePlacements,
+          activePlacementIndex: 0,
+          viewMode: "edit",
+        },
+        global: {
+          stubs: {
+            Icon: { template: "<i />" },
+          },
+        },
+      });
+
+      const activeBox = wrapper.find(".cursor-move");
+      expect(activeBox.exists()).toBe(true);
+      const style = activeBox.attributes("style") || "";
+      expect(style).toContain("rotate(45deg)");
+      expect(style).toContain("left: 15%");
+      expect(style).toContain("top: 20%");
+    });
+  });
+});
+

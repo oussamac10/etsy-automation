@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import EtsyConnectionCard from '../components/settings/EtsyConnectionCard.vue';
 import EtsyDraftCard from '../components/workflow/listing/EtsyDraftCard.vue';

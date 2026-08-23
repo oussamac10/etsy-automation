@@ -693,6 +693,109 @@ describe("TaxonomyAttributesCard Manual Selection", () => {
   });
 });
 
+describe("Listing Staleness Detection & Banner", () => {
+  const mockStaleDraft: ListingDraft = {
+    ...mockDraft,
+    id: "draft-stale-123",
+    title: "Sarcastic Bookworm Skeleton PNG",
+    is_stale: true,
+    stale_reason: "Listing copy was generated for a different concept. Current active concept is Highland Cow Teacher Back to School Calf.",
+    concept_id: "c-old-123",
+    concept_version: 1,
+    listing_context_hash: "oldhash123",
+  };
+
+  it("renders the stale listing warning banner when is_stale is true", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/listing")) {
+        return Promise.resolve(mockStaleDraft);
+      }
+      return Promise.resolve({});
+    });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const wrapper = mount(WorkflowListingTab, {
+      props: {
+        workflowId: "wf-123",
+        workflowState: "LISTING_REVIEW",
+      },
+      global: {
+        stubs: {
+          Icon: { template: '<span class="mock-icon" />' },
+          Badge: { template: '<span><slot /></span>' },
+          Button: { template: '<button><slot /></button>' },
+          NuxtLink: { template: '<a><slot /></a>' },
+          ListingEditorCard: true,
+          TagEditorCard: true,
+          IpRiskCard: true,
+          CustomerPackageCard: true,
+          WorkflowStageNav: true,
+        },
+      },
+    });
+
+    await flushPromises();
+
+    const banner = wrapper.find('[data-testid="listing-stale-banner"]');
+    expect(banner.exists()).toBe(true);
+    expect(banner.text()).toContain("Listing Copy Stale");
+    expect(banner.text()).toContain("Regenerate Listing Copy");
+  });
+
+  it("triggers generateSeo('all') when Regenerate Listing Copy button is clicked", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/listing/generate-seo")) {
+        return Promise.resolve({
+          ...mockStaleDraft,
+          title: "Highland Cow Teacher Back to School Calf PNG",
+          is_stale: false,
+          stale_reason: null,
+        });
+      }
+      if (url.includes("/listing")) {
+        return Promise.resolve(mockStaleDraft);
+      }
+      return Promise.resolve({});
+    });
+    vi.stubGlobal("$fetch", fetchMock);
+
+    const wrapper = mount(WorkflowListingTab, {
+      props: {
+        workflowId: "wf-123",
+        workflowState: "LISTING_REVIEW",
+      },
+      global: {
+        stubs: {
+          Icon: { template: '<span class="mock-icon" />' },
+          Badge: { template: '<span><slot /></span>' },
+          Button: {
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          NuxtLink: { template: '<a><slot /></a>' },
+          ListingEditorCard: true,
+          TagEditorCard: true,
+          IpRiskCard: true,
+          CustomerPackageCard: true,
+          WorkflowStageNav: true,
+        },
+      },
+    });
+
+    await flushPromises();
+
+    const regenBtn = wrapper.find('[data-testid="listing-stale-banner"] button');
+    expect(regenBtn.exists()).toBe(true);
+    await regenBtn.trigger("click");
+    await flushPromises();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/workflows/wf-123/listing/generate-seo?target=all",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});
+
+
 
 
 
