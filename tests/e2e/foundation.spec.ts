@@ -11,21 +11,21 @@ import { expect, test } from "@playwright/test";
 const apiBaseUrl = process.env.E2E_API_URL ?? "http://localhost:8000";
 
 test.describe("dashboard", () => {
-  test("renders Marketplace Studio dashboard header and brief builder", async ({ page }) => {
+  test("renders Etsy PNG Automation dashboard header and workflow controls", async ({ page }) => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", { name: /Marketplace Studio/i, level: 1 }),
+      page.getByRole("heading", { name: "Etsy PNG Automation", level: 1 }),
     ).toBeVisible();
 
-    await expect(page.getByText(/Automated design research/i)).toBeVisible();
-    await expect(page.getByText(/Quick Brief Builder/i)).toBeVisible();
+    await expect(page.getByText(/Digital Product Automation/i)).toBeVisible();
+    await expect(page.getByText(/Autonomous research-to-draft engine/i)).toBeVisible();
   });
 
-  test("shows active workflows section and controls", async ({ page }) => {
+  test("shows workflows section and search controls", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText(/Active Pipelines/i)).toBeVisible();
-    await expect(page.getByPlaceholder(/Filter by name or niche/i)).toBeVisible();
+    await expect(page.getByText(/Your Design Workflows/i)).toBeVisible();
+    await expect(page.getByPlaceholder(/Search campaigns, sections.../i)).toBeVisible();
   });
 
   test("is reachable by keyboard from the skip link", async ({ page }) => {
