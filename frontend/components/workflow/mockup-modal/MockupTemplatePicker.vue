@@ -55,10 +55,10 @@ const remainingCount = computed(() => Math.max(0, props.templates.length - 3));
           v-for="tpl in visibleTemplates"
           :key="tpl.id"
           type="button"
-          class="group relative flex items-center gap-2.5 p-1.5 pr-3 rounded-xl border-2 transition-all cursor-pointer text-left bg-white shadow-2xs hover:shadow-xs"
+          class="group relative flex items-center gap-2.5 p-1.5 pr-3 rounded-xl border-2 transition-all cursor-pointer text-left bg-card shadow-2xs hover:shadow-xs"
           :class="
             selectedTemplateId === tpl.id
-              ? 'border-primary ring-2 ring-primary/20 bg-blue-50/40'
+              ? 'border-primary ring-2 ring-primary/20 bg-primary/10'
               : 'border-border hover:border-primary/40'
           "
           @click="emit('select', tpl)"

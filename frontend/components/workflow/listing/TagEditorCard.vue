@@ -382,24 +382,24 @@ function handleKeyDown(e: KeyboardEvent) {
             <div class="inline-flex items-center gap-1 p-0.5 bg-secondary/50 rounded-lg border border-border/60 text-xs">
               <button
                 type="button"
-                class="px-2 py-1 rounded-md font-medium text-[11px] transition-all cursor-pointer"
-                :class="historyFilter === 'all' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+                class="px-2 py-1 rounded-md font-medium text-[11px] transition-all cursor-pointer select-none"
+                :class="historyFilter === 'all' ? 'bg-card text-foreground shadow-2xs font-bold border border-border/80' : 'text-muted-foreground hover:text-foreground'"
                 @click="historyFilter = 'all'"
               >
                 All History ({{ allCampaignHistory.length }})
               </button>
               <button
                 type="button"
-                class="px-2 py-1 rounded-md font-medium text-[11px] transition-all cursor-pointer"
-                :class="historyFilter === 'removed' ? 'bg-white text-foreground shadow-2xs font-bold text-amber-700' : 'text-muted-foreground hover:text-foreground'"
+                class="px-2 py-1 rounded-md font-medium text-[11px] transition-all cursor-pointer select-none"
+                :class="historyFilter === 'removed' ? 'bg-card text-amber-600 dark:text-amber-400 shadow-2xs font-bold border border-border/80' : 'text-muted-foreground hover:text-foreground'"
                 @click="historyFilter = 'removed'"
               >
                 Removed / Inactive ({{ removedCount }})
               </button>
               <button
                 type="button"
-                class="px-2 py-1 rounded-md font-medium text-[11px] transition-all cursor-pointer"
-                :class="historyFilter === 'active' ? 'bg-white text-foreground shadow-2xs font-bold text-emerald-700' : 'text-muted-foreground hover:text-foreground'"
+                class="px-2 py-1 rounded-md font-medium text-[11px] transition-all cursor-pointer select-none"
+                :class="historyFilter === 'active' ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-2xs font-bold border border-border/80' : 'text-muted-foreground hover:text-foreground'"
                 @click="historyFilter = 'active'"
               >
                 Active ({{ activeCount }})
@@ -455,7 +455,7 @@ function handleKeyDown(e: KeyboardEvent) {
               <!-- Delete From History Button -->
               <button
                 type="button"
-                class="text-slate-300 hover:text-destructive transition-colors ml-0.5 p-0.5 cursor-pointer opacity-0 group-hover:opacity-100"
+                class="text-muted-foreground hover:text-destructive transition-colors ml-0.5 p-0.5 cursor-pointer opacity-0 group-hover:opacity-100"
                 :title="`Delete '${tag}' from campaign history`"
                 @click="deleteFromHistory(tag)"
               >

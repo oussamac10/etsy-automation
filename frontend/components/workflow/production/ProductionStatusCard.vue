@@ -31,7 +31,7 @@ const emit = defineEmits<{
           </div>
         </div>
 
-        <div v-if="exactSlogan" class="rounded-lg bg-white border border-border p-3 text-xs flex items-center justify-between">
+        <div v-if="exactSlogan" class="rounded-lg bg-card border border-border p-3 text-xs flex items-center justify-between">
           <span class="text-muted-foreground font-medium">Approved Slogan:</span>
           <span class="font-bold text-foreground font-mono">"{{ exactSlogan }}"</span>
         </div>
