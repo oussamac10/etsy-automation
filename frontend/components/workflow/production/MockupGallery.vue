@@ -105,7 +105,7 @@ function handleSelectProductFromPicker(productKey: string): void {
     </div>
 
     <!-- When Active Mockups Exist: Show dynamic product tabs and active grid -->
-    <div v-else-if="availableTabs.length > 0" class="space-y-4">
+    <div v-else-if="availableTabs.length > 0" class="space-y-4 min-w-0">
       <MockupProductTabs
         :available-tabs="availableTabs"
         :selected-tab="selectedTab"
