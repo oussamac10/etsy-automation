@@ -244,12 +244,12 @@ function getOpportunityType(concept: Concept): string {
 function getOpportunityBadgeClass(concept: Concept): string {
   const type = getOpportunityType(concept);
   if (type === "BEST OPPORTUNITY") {
-    return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-emerald-500/10 text-emerald-700 border-emerald-500/30";
+    return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
   }
   if (type === "NICHE OPPORTUNITY") {
-    return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-indigo-500/10 text-indigo-700 border-indigo-500/30";
+    return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30";
   }
-  return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-amber-500/10 text-amber-700 border-amber-500/30";
+  return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30";
 }
 
 function getOpportunityScore(concept: Concept): number {
@@ -529,9 +529,9 @@ function confirmHighRiskApproval() {
           class="shadow-sm border transition-all duration-150 overflow-hidden"
           :class="[
             concept.status?.toUpperCase() === 'APPROVED'
-              ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/5'
               : concept.status?.toUpperCase() === 'REJECTED'
-                ? 'border-red-200 opacity-60 bg-red-50/20'
+                ? 'border-destructive/30 opacity-60 bg-destructive/5'
                 : 'border-border bg-card',
           ]"
         >
@@ -605,7 +605,7 @@ function confirmHighRiskApproval() {
           <CardContent class="p-4 space-y-4 text-xs">
             <!-- Strategic Why This Sells Block -->
             <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-foreground space-y-1">
-              <div class="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
+              <div class="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300">
                 <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
                 <span>Why This Could Sell:</span>
               </div>
@@ -902,7 +902,7 @@ function confirmHighRiskApproval() {
             <div
               v-for="ev in researchSummary.evidence"
               :key="ev.id"
-              class="p-2.5 rounded-lg bg-slate-50 border border-border text-[11px] space-y-1"
+              class="p-2.5 rounded-lg bg-secondary/40 border border-border text-[11px] space-y-1"
             >
               <div class="flex items-center justify-between gap-2">
                 <span class="font-bold text-foreground">{{ ev.source_title || ev.query_angle }}</span>
