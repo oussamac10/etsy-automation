@@ -337,7 +337,9 @@ class MockupTemplateStore:
                 try:
                     await self._storage.delete(json_key)
                 except Exception as err:
-                    logger.warning("failed_to_delete_template_manifest", key=json_key, error=str(err))
+                    logger.warning(
+                        "failed_to_delete_template_manifest", key=json_key, error=str(err)
+                    )
 
             return True
 
@@ -351,9 +353,7 @@ class MockupTemplateStore:
                 Prefix=prefix,
             )
             matching_keys = [
-                item["Key"]
-                for item in response.get("Contents", [])
-                if template_id in item["Key"]
+                item["Key"] for item in response.get("Contents", []) if template_id in item["Key"]
             ]
             for k in matching_keys:
                 await self._storage.delete(k)
