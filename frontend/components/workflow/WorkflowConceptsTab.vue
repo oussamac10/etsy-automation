@@ -504,15 +504,16 @@ function confirmHighRiskApproval() {
 
         <Button
           v-if="workflow.state !== 'RESEARCH_QUEUED' && workflow.state !== 'RESEARCHING' && workflow.state !== 'PUBLISHED'"
+          data-testid="regenerate-ideas-btn"
           variant="outline"
           size="sm"
           :disabled="isStartingNewResearch"
-          class="font-semibold text-xs gap-1.5 cursor-pointer bg-white"
+          class="h-8 px-2.5 text-xs font-semibold shrink-0 gap-1.5 cursor-pointer bg-white shadow-2xs"
           @click="handleFindNewOpportunities"
         >
           <Icon v-if="isStartingNewResearch" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
           <Icon v-else name="lucide:rotate-ccw" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>{{ workflow.state !== 'IDEA_REVIEW' ? 'Step Back & Generate 3 Ideas' : 'Find 3 New Opportunities' }}</span>
+          <span>{{ workflow.state !== 'IDEA_REVIEW' ? 'Regenerate Ideas' : 'Find New Ideas' }}</span>
         </Button>
       </div>
 

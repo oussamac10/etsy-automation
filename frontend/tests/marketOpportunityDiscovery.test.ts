@@ -282,7 +282,7 @@ describe("WorkflowConceptsTab - Market Opportunity Discovery", () => {
     expect(wrapper.emitted("decideGate")?.[0]).toEqual(["concept-1", "APPROVED"]);
   });
 
-  it("emits startResearch when 'Find 3 New Opportunities' is clicked", async () => {
+  it("emits startResearch when 'Find New Ideas' is clicked", async () => {
     const wrapper = mount(WorkflowConceptsTab, {
       props: {
         workflow: mockWorkflow,
@@ -313,11 +313,10 @@ describe("WorkflowConceptsTab - Market Opportunity Discovery", () => {
       },
     });
 
-    const buttons = wrapper.findAll("button");
-    const findNewBtn = buttons.find((b) => b.text().includes("Find 3 New Opportunities"));
-    expect(findNewBtn).toBeDefined();
+    const findNewBtn = wrapper.find('[data-testid="regenerate-ideas-btn"]');
+    expect(findNewBtn.exists()).toBe(true);
 
-    await findNewBtn?.trigger("click");
+    await findNewBtn.trigger("click");
     expect(wrapper.emitted("startResearch")).toBeTruthy();
   });
 });
