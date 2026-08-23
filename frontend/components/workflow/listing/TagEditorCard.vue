@@ -267,7 +267,7 @@ function handleKeyDown(e: KeyboardEvent) {
           <div
             v-for="(tag, idx) in localTags"
             :key="tag + idx"
-            class="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-border text-foreground shadow-2xs hover:border-slate-300 transition-all touch-manipulation animate-in fade-in duration-150"
+            class="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-card border border-border text-foreground shadow-2xs hover:border-primary/40 transition-all touch-manipulation animate-in fade-in duration-150"
           >
             <span class="font-mono tabular-nums text-[10px] text-muted-foreground">{{ idx + 1 }}.</span>
             <span>{{ tag }}</span>

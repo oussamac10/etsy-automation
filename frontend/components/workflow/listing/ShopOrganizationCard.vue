@@ -287,7 +287,7 @@ const isDirty = computed(() => {
           <button
             type="button"
             class="flex items-start gap-2.5 p-3 rounded-lg border text-left transition-colors cursor-pointer"
-            :class="!localAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-slate-300'"
+            :class="!localAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-primary/40'"
             @click="onAutoRenewToggle(false)"
           >
             <Icon name="lucide:pause-circle" class="size-4 shrink-0 mt-0.5 text-primary" aria-hidden="true" />
@@ -303,7 +303,7 @@ const isDirty = computed(() => {
           <button
             type="button"
             class="flex items-start gap-2.5 p-3 rounded-lg border text-left transition-colors cursor-pointer"
-            :class="localAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-slate-300'"
+            :class="localAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-primary/40'"
             @click="onAutoRenewToggle(true)"
           >
             <Icon name="lucide:repeat" class="size-4 shrink-0 mt-0.5 text-primary" aria-hidden="true" />

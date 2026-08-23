@@ -384,19 +384,19 @@ function formatSnapshotDate(dateStr?: string) {
           v-for="item in versionList"
           :key="item.version"
           class="p-3.5 rounded-lg border transition-colors flex flex-col gap-2.5"
-          :class="item.version === version ? 'bg-primary/5 border-primary/40' : 'bg-card border-border hover:border-slate-300'"
+          :class="item.version === version ? 'bg-primary/5 border-primary/40' : 'bg-card border-border hover:border-primary/40'"
         >
           <div class="flex items-center justify-between gap-2 flex-wrap">
             <div class="flex items-center gap-2">
               <Badge :variant="item.version === version ? 'default' : 'outline'" class="font-mono text-xs">
                 v{{ item.version }}
               </Badge>
-              <Badge v-if="item.source === 'ai_generated'" variant="secondary" class="gap-1 text-[10px] bg-purple-50 text-purple-700 border-purple-200">
-                <Icon name="lucide:sparkles" class="size-2.5 text-purple-600" aria-hidden="true" />
+              <Badge v-if="item.source === 'ai_generated'" variant="secondary" class="gap-1 text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30">
+                <Icon name="lucide:sparkles" class="size-2.5 text-purple-600 dark:text-purple-400" aria-hidden="true" />
                 <span>AI Generated</span>
               </Badge>
-              <Badge v-else-if="item.source === 'manual'" variant="secondary" class="gap-1 text-[10px] bg-blue-50 text-blue-700 border-blue-200">
-                <Icon name="lucide:pencil" class="size-2.5 text-blue-600" aria-hidden="true" />
+              <Badge v-else-if="item.source === 'manual'" variant="secondary" class="gap-1 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30">
+                <Icon name="lucide:pencil" class="size-2.5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                 <span>Manual Edit</span>
               </Badge>
               <Badge v-else variant="outline" class="text-[10px] text-muted-foreground">
