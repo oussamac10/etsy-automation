@@ -95,19 +95,19 @@ const passedCount = computed(() => {
     <!-- Header Section -->
     <div class="space-y-2.5">
       <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <div class="size-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/80 shadow-2xs shrink-0">
-            <Icon name="lucide:shield-check" class="size-4.5" aria-hidden="true" />
+        <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0">
+          <div class="size-8 sm:size-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/80 shadow-2xs shrink-0 mt-0.5 sm:mt-0">
+            <Icon name="lucide:shield-check" class="size-4 sm:size-4.5 shrink-0" aria-hidden="true" />
           </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h5 class="text-sm font-bold text-foreground leading-tight">Pre-Flight QA & Print Verification</h5>
-              <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 shadow-2xs">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h5 class="text-xs sm:text-sm font-bold text-foreground leading-tight">Pre-Flight QA & Print Verification</h5>
+              <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 sm:px-2 py-0.5 rounded-full border border-emerald-200/60 shadow-2xs shrink-0">
                 <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 {{ passedCount }}/{{ qaItems.length || 6 }} Passed
               </span>
             </div>
-            <p class="text-[11px] text-muted-foreground font-medium">Automated technical quality inspection for Print-On-Demand production</p>
+            <p class="text-[10px] sm:text-[11px] text-muted-foreground font-medium leading-tight mt-0.5">Automated technical quality inspection for Print-On-Demand production</p>
           </div>
         </div>
 

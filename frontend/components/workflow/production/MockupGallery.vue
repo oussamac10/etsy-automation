@@ -115,7 +115,7 @@ function handleSelectProductFromPicker(productKey: string): void {
       />
 
       <!-- Tab Sub-Header -->
-      <div class="flex items-center justify-between pt-1">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-1">
         <div class="flex items-center gap-2">
           <span class="text-xs font-bold text-foreground">
             {{ getProductLabel(selectedTab) }}
@@ -128,7 +128,7 @@ function handleSelectProductFromPicker(productKey: string): void {
         <Button
           variant="outline"
           size="sm"
-          class="text-xs font-semibold gap-1.5 h-8 cursor-pointer"
+          class="text-xs font-semibold gap-1.5 h-7 sm:h-8 px-2.5 sm:px-3 cursor-pointer self-start sm:self-auto shrink-0 shadow-2xs"
           :disabled="isActionLoading"
           @click="handleOpenAddMockup(selectedTab)"
         >
