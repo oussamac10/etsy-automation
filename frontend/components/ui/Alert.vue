@@ -10,10 +10,10 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: "bg-card text-foreground border-border",
-        destructive: "border-red-200 bg-red-50 text-red-950",
-        warning: "border-amber-200 bg-amber-50 text-amber-950",
-        info: "border-blue-200 bg-blue-50 text-blue-950",
-        success: "border-emerald-300 bg-emerald-50 text-emerald-950",
+        destructive: "border-red-500/30 bg-red-500/10 text-foreground",
+        warning: "border-amber-500/30 bg-amber-500/10 text-foreground",
+        info: "border-blue-500/30 bg-blue-500/10 text-foreground",
+        success: "border-emerald-500/30 bg-emerald-500/10 text-foreground",
       },
     },
     defaultVariants: {
@@ -87,13 +87,13 @@ const iconColorClass = computed(() => {
 const dismissButtonHoverClass = computed(() => {
   switch (props.variant) {
     case "destructive":
-      return "text-red-700 hover:text-red-900 hover:bg-red-200/50";
+      return "text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-500/20";
     case "warning":
-      return "text-amber-700 hover:text-amber-900 hover:bg-amber-200/50";
+      return "text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/20";
     case "info":
-      return "text-blue-700 hover:text-blue-900 hover:bg-blue-200/50";
+      return "text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:bg-blue-500/20";
     case "success":
-      return "text-emerald-700 hover:text-emerald-900 hover:bg-emerald-200/50";
+      return "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-500/20";
     default:
       return "text-muted-foreground hover:text-foreground hover:bg-muted";
   }

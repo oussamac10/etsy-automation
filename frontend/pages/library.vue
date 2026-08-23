@@ -2255,12 +2255,12 @@ onMounted(() => {
                 class="flex items-center justify-between p-2 rounded-lg bg-secondary/50 border border-border text-xs font-semibold text-foreground shadow-2xs"
               >
                 <div class="flex items-center gap-2">
-                  <div class="size-6 rounded-md bg-white flex items-center justify-center text-primary shadow-2xs border border-border">
+                  <div class="size-6 rounded-md bg-card flex items-center justify-center text-primary shadow-2xs border border-border">
                     <Icon :name="getProductIconName(uploadProductType)" class="size-3.5" aria-hidden="true" />
                   </div>
                   <span>{{ getProductLabel(uploadProductType) }}</span>
                 </div>
-                <Badge variant="outline" class="text-[10px] bg-white text-secondary-foreground border-border">
+                <Badge variant="outline" class="text-[10px] bg-card text-secondary-foreground border-border">
                   Current Tab
                 </Badge>
               </div>
