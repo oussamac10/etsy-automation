@@ -214,7 +214,7 @@ function formatSnapshotDate(dateStr?: string) {
           </div>
 
           <span
-            class="text-[11px] font-mono font-medium shrink-0"
+            class="text-[11px] font-mono tabular-nums font-medium shrink-0"
             :class="{
               'text-destructive font-bold': isTitleOverLimit,
               'text-amber-600': isTitleApproachingLimit,
@@ -241,26 +241,35 @@ function formatSnapshotDate(dateStr?: string) {
         </p>
 
         <!-- Etsy All-Caps / Acronyms Limit Warning with Auto-Fix -->
-        <div
-          v-if="isTitleCapsOverLimit"
-          class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2.5 text-xs"
+        <transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 -translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 -translate-y-1"
         >
-          <div class="flex items-center gap-2 min-w-0">
-            <Icon name="lucide:circle-alert" class="size-4 shrink-0 text-amber-500" aria-hidden="true" />
-            <span class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-tight">
-              Etsy allows at most 3 words starting with sequential capital letters (found {{ titleCapsWords }}).
-            </span>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            class="h-6 px-2 text-[11px] font-medium shrink-0 text-primary hover:bg-primary/10 cursor-pointer"
-            @click="handleAutoFixTitle"
+          <div
+            v-if="isTitleCapsOverLimit"
+            class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2.5 text-xs"
           >
-            Auto-Fix
-          </Button>
-        </div>
+            <div class="flex items-center gap-2 min-w-0">
+              <Icon name="lucide:circle-alert" class="size-4 shrink-0 text-amber-500" aria-hidden="true" />
+              <span class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-tight">
+                Etsy allows at most 3 words starting with sequential capital letters (found <strong class="tabular-nums">{{ titleCapsWords }}</strong>).
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="h-6 px-2 text-[11px] font-medium shrink-0 text-primary hover:bg-primary/10 cursor-pointer"
+              @click="handleAutoFixTitle"
+            >
+              Auto-Fix
+            </Button>
+          </div>
+        </transition>
       </div>
 
       <!-- 2. Shopping Cart Summary (Dedicated Field) -->
@@ -287,7 +296,7 @@ function formatSnapshotDate(dateStr?: string) {
           </div>
 
           <span
-            class="text-[11px] font-mono font-medium shrink-0"
+            class="text-[11px] font-mono tabular-nums font-medium shrink-0"
             :class="{
               'text-destructive font-bold': isSummaryOverLimit,
               'text-amber-600': isSummaryApproachingLimit,
