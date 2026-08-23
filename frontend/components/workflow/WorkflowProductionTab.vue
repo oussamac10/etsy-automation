@@ -309,13 +309,15 @@ async function handleMoveMockup(asset: MockupAsset, direction: "up" | "down"): P
   <div class="space-y-6">
     <!-- Phase 7: PNG Production Pipeline Card -->
     <Card class="shadow-2xs border-border">
-      <CardHeader class="pb-3 border-b border-border bg-secondary/30">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <Icon name="lucide:file-image" class="size-5 text-primary" aria-hidden="true" />
-            <div>
+      <CardHeader class="pb-3.5 border-b border-border bg-secondary/30">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div class="flex items-start sm:items-center gap-3 min-w-0">
+            <div class="flex size-9 sm:size-10 items-center justify-center rounded-xl bg-secondary text-primary border border-border shrink-0">
+              <Icon name="lucide:file-image" class="size-5 shrink-0 text-primary" aria-hidden="true" />
+            </div>
+            <div class="min-w-0 flex-1">
               <CardTitle class="text-base font-bold">Print-Ready PNG Production & Realistic Mockups</CardTitle>
-              <CardDescription class="text-xs text-muted-foreground">
+              <CardDescription class="text-xs text-muted-foreground leading-relaxed">
                 High-resolution 4500×5400 px @ 300 DPI master PNG with transparency, safe trim, slogan typography, QA & multi-mockup gallery
               </CardDescription>
             </div>
@@ -323,25 +325,25 @@ async function handleMoveMockup(asset: MockupAsset, direction: "up" | "down"): P
           <Badge
             v-if="latestProductionJob?.status === 'SUCCEEDED'"
             variant="success"
-            class="gap-1 px-3 py-1 font-semibold inline-flex items-center"
+            class="gap-1 px-3 py-1 font-semibold inline-flex items-center shrink-0 self-start sm:self-auto"
           >
-            <Icon name="lucide:circle-check" class="size-3.5" aria-hidden="true" />
+            <Icon name="lucide:circle-check" class="size-3.5 shrink-0" aria-hidden="true" />
             <span>Production Complete</span>
           </Badge>
           <Badge
             v-else-if="workflow.state === 'PRODUCTION' || latestProductionJob?.status === 'RUNNING' || latestProductionJob?.status === 'QUEUED'"
             variant="warning"
-            class="gap-1 px-3 py-1 font-semibold inline-flex items-center"
+            class="gap-1 px-3 py-1 font-semibold inline-flex items-center shrink-0 self-start sm:self-auto"
           >
-            <Icon name="lucide:loader-2" class="size-3.5 animate-spin" aria-hidden="true" />
+            <Icon name="lucide:loader-2" class="size-3.5 animate-spin shrink-0" aria-hidden="true" />
             <span>Processing PNG...</span>
           </Badge>
           <Badge
             v-else-if="latestProductionJob?.status === 'FAILED'"
             variant="destructive"
-            class="gap-1 px-3 py-1 font-semibold inline-flex items-center"
+            class="gap-1 px-3 py-1 font-semibold inline-flex items-center shrink-0 self-start sm:self-auto"
           >
-            <Icon name="lucide:circle-alert" class="size-3.5" aria-hidden="true" />
+            <Icon name="lucide:circle-alert" class="size-3.5 shrink-0" aria-hidden="true" />
             <span>Production Failed</span>
           </Badge>
         </div>

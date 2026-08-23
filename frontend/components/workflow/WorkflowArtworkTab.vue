@@ -257,18 +257,24 @@ onUnmounted(() => {
     <!-- Phase 6 Card -->
     <Card class="shadow-2xs">
       <CardHeader class="pb-4 border-b border-border bg-secondary/30">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <Icon name="lucide:image" class="size-5 text-primary" aria-hidden="true" />
-            <div>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div class="flex items-start sm:items-center gap-3 min-w-0">
+            <div class="flex size-9 sm:size-10 items-center justify-center rounded-xl bg-secondary text-primary border border-border shrink-0">
+              <Icon name="lucide:image" class="size-5 shrink-0 text-primary" aria-hidden="true" />
+            </div>
+            <div class="min-w-0 flex-1">
               <CardTitle class="text-lg font-bold">Artwork Generation & Approval</CardTitle>
-              <CardDescription class="text-xs text-muted-foreground">
+              <CardDescription class="text-xs text-muted-foreground leading-relaxed">
                 Select AI generator and approve the preferred candidate design before producing print files.
               </CardDescription>
             </div>
           </div>
-          <Badge v-if="workflow.state === 'ARTWORK_APPROVED' || latestProductionJob !== null" variant="success" class="gap-1 px-3 py-1 font-semibold inline-flex items-center">
-            <Icon name="lucide:check" class="size-3" aria-hidden="true" />
+          <Badge
+            v-if="workflow.state === 'ARTWORK_APPROVED' || latestProductionJob !== null"
+            variant="success"
+            class="gap-1 px-3 py-1 font-semibold inline-flex items-center shrink-0 self-start sm:self-auto"
+          >
+            <Icon name="lucide:check" class="size-3 shrink-0" aria-hidden="true" />
             <span>Artwork Approved</span>
           </Badge>
         </div>
