@@ -133,7 +133,7 @@ const displayProductUses = computed<string[]>(() => {
           variant="outline"
           size="sm"
           :disabled="pendingWorkflowId === workflow.id"
-          class="gap-1.5 text-xs text-secondary-foreground border-border bg-white hover:bg-secondary hover:text-foreground cursor-pointer"
+          class="gap-1.5 text-xs text-secondary-foreground border-border bg-card hover:bg-secondary hover:text-foreground cursor-pointer"
           @click="emit('control', 'rerun', { fromScratch: true })"
         >
           <span>Restart from Brief (New Research)</span>
@@ -252,7 +252,7 @@ const displayProductUses = computed<string[]>(() => {
         <CardContent class="p-5 space-y-4 text-xs text-secondary-foreground">
           <div>
             <span class="font-semibold text-secondary-foreground block mb-1">Verbatim Wording:</span>
-            <blockquote class="italic bg-white p-3 rounded-lg border border-border text-foreground">
+            <blockquote class="italic bg-secondary/40 p-3 rounded-lg border border-border text-foreground">
               "{{ originalIdea.original_text }}"
             </blockquote>
           </div>
@@ -260,7 +260,7 @@ const displayProductUses = computed<string[]>(() => {
           <div class="grid grid-cols-2 gap-3 text-xs">
             <div v-if="originalIdea.slogan">
               <span class="font-semibold text-secondary-foreground block text-[10px]">Exact Slogan:</span>
-              <span class="font-mono bg-white px-1.5 py-0.5 rounded border border-border text-foreground inline-block mt-0.5">{{ originalIdea.slogan }}</span>
+              <span class="font-mono bg-card px-1.5 py-0.5 rounded border border-border text-foreground inline-block mt-0.5">{{ originalIdea.slogan }}</span>
             </div>
             <div v-if="originalIdea.desired_style">
               <span class="font-semibold text-secondary-foreground block text-[10px]">Desired Style:</span>
@@ -282,7 +282,7 @@ const displayProductUses = computed<string[]>(() => {
                 <span
                   v-for="use in displayProductUses"
                   :key="use"
-                  class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-white border border-border text-foreground inline-flex items-center gap-1 shadow-2xs"
+                  class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-card border border-border text-foreground inline-flex items-center gap-1 shadow-2xs"
                 >
                   <Icon :name="getProductIcon(use)" class="size-3 text-muted-foreground" aria-hidden="true" />
                   <span>{{ getProductLabel(use) }}</span>

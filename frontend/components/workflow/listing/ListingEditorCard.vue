@@ -358,11 +358,11 @@ function formatSnapshotDate(dateStr?: string) {
       </div>
 
       <!-- AI Disclosure Banner -->
-      <div v-if="aiDisclosure" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex items-start gap-2 text-xs">
-        <Icon name="lucide:bot" class="size-4 text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />
+      <div v-if="aiDisclosure" class="bg-secondary/40 border border-border rounded-lg p-2.5 flex items-start gap-2 text-xs">
+        <Icon name="lucide:bot" class="size-4 text-muted-foreground shrink-0 mt-0.5" aria-hidden="true" />
         <div class="space-y-0.5">
-          <p class="font-semibold text-slate-800 text-[11px]">Etsy AI Content Disclosure</p>
-          <p class="text-slate-600 text-[11px] leading-normal">{{ aiDisclosure }}</p>
+          <p class="font-semibold text-foreground text-[11px]">Etsy AI Content Disclosure</p>
+          <p class="text-muted-foreground text-[11px] leading-normal">{{ aiDisclosure }}</p>
         </div>
       </div>
     </CardContent>
@@ -384,19 +384,19 @@ function formatSnapshotDate(dateStr?: string) {
           v-for="item in versionList"
           :key="item.version"
           class="p-3.5 rounded-lg border transition-colors flex flex-col gap-2.5"
-          :class="item.version === version ? 'bg-primary/5 border-primary/40' : 'bg-card border-border hover:border-slate-300'"
+          :class="item.version === version ? 'bg-primary/5 border-primary/40' : 'bg-card border-border hover:border-primary/40'"
         >
           <div class="flex items-center justify-between gap-2 flex-wrap">
             <div class="flex items-center gap-2">
               <Badge :variant="item.version === version ? 'default' : 'outline'" class="font-mono text-xs">
                 v{{ item.version }}
               </Badge>
-              <Badge v-if="item.source === 'ai_generated'" variant="secondary" class="gap-1 text-[10px] bg-purple-50 text-purple-700 border-purple-200">
-                <Icon name="lucide:sparkles" class="size-2.5 text-purple-600" aria-hidden="true" />
+              <Badge v-if="item.source === 'ai_generated'" variant="secondary" class="gap-1 text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30">
+                <Icon name="lucide:sparkles" class="size-2.5 text-purple-600 dark:text-purple-400" aria-hidden="true" />
                 <span>AI Generated</span>
               </Badge>
-              <Badge v-else-if="item.source === 'manual'" variant="secondary" class="gap-1 text-[10px] bg-blue-50 text-blue-700 border-blue-200">
-                <Icon name="lucide:pencil" class="size-2.5 text-blue-600" aria-hidden="true" />
+              <Badge v-else-if="item.source === 'manual'" variant="secondary" class="gap-1 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30">
+                <Icon name="lucide:pencil" class="size-2.5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                 <span>Manual Edit</span>
               </Badge>
               <Badge v-else variant="outline" class="text-[10px] text-muted-foreground">
@@ -440,7 +440,7 @@ function formatSnapshotDate(dateStr?: string) {
             </div>
           </div>
 
-          <div class="space-y-1 bg-slate-50/80 p-2.5 rounded border border-slate-100 text-xs">
+          <div class="space-y-1 bg-muted/40 p-2.5 rounded border border-border/60 text-xs">
             <p class="font-medium text-foreground line-clamp-2">
               <span class="text-muted-foreground font-normal">Title: </span>{{ item.title }}
             </p>
@@ -454,7 +454,7 @@ function formatSnapshotDate(dateStr?: string) {
               <span
                 v-for="tg in item.tags.slice(0, 7)"
                 :key="tg"
-                class="inline-block px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] text-slate-700 font-mono"
+                class="inline-block px-1.5 py-0.5 rounded bg-card border border-border text-[10px] text-foreground font-mono"
               >
                 #{{ tg }}
               </span>

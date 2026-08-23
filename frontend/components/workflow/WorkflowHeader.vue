@@ -127,7 +127,7 @@ function handleDelete() {
           v-if="canDelete(workflow.state) && !confirmingDelete"
           variant="outline"
           size="sm"
-          class="gap-1.5 text-secondary-foreground hover:text-destructive hover:border-destructive/30 hover:bg-red-50 cursor-pointer inline-flex items-center"
+          class="gap-1.5 text-secondary-foreground hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10 cursor-pointer inline-flex items-center"
           @click="confirmingDelete = true"
         >
           <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -136,7 +136,7 @@ function handleDelete() {
 
         <span
           v-else-if="confirmingDelete"
-          class="inline-flex items-center gap-2 rounded-lg border border-destructive/30 bg-red-50 px-3 py-1.5 text-xs text-destructive"
+          class="inline-flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive"
         >
           <span>Delete this campaign?</span>
           <Button

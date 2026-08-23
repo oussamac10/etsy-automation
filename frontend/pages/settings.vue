@@ -16,6 +16,9 @@ import EtsyListingDefaultsCard from "~/components/settings/EtsyListingDefaultsCa
 import Skeleton from "~/components/ui/Skeleton.vue";
 import { fetchApiHealth, type ApiHealth } from "~/composables/useApiHealth";
 import ServiceStatus from "~/components/ServiceStatus.vue";
+import { useTheme } from "~/composables/useTheme";
+
+const { theme, setTheme } = useTheme();
 
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase;
@@ -290,12 +293,12 @@ async function removeCredential(provider: string): Promise<void> {
   }
 }
 
-type SettingsTab = "etsy" | "api_keys" | "telegram" | "diagnostics";
+type SettingsTab = "appearance" | "etsy" | "api_keys" | "telegram" | "diagnostics";
 
-let initialTab: SettingsTab = "etsy";
+let initialTab: SettingsTab = "appearance";
 try {
   const r = useRoute();
-  if (r?.query?.tab && ["etsy", "api_keys", "telegram", "diagnostics"].includes(r.query.tab as string)) {
+  if (r?.query?.tab && ["appearance", "etsy", "api_keys", "telegram", "diagnostics"].includes(r.query.tab as string)) {
     initialTab = r.query.tab as SettingsTab;
   }
 } catch {
@@ -313,7 +316,7 @@ function setActiveTab(tab: SettingsTab) {
       router.replace({
         query: {
           ...(route?.query || {}),
-          tab: tab === "etsy" ? undefined : tab,
+          tab: tab === "appearance" ? undefined : tab,
         },
       }).catch(() => {});
     }
@@ -323,6 +326,7 @@ function setActiveTab(tab: SettingsTab) {
 }
 
 const SETTINGS_TABS = [
+  { key: "appearance" as const, label: "Appearance & Theme", icon: "lucide:palette" },
   { key: "etsy" as const, label: "Etsy Shop & Defaults", icon: "lucide:store" },
   { key: "api_keys" as const, label: "AI Providers & API Keys", icon: "lucide:key" },
   { key: "telegram" as const, label: "Telegram Notifications", icon: "lucide:bell" },
@@ -505,7 +509,7 @@ onBeforeUnmount(stopCountdown);
                         <Button
                           variant="outline"
                           size="sm"
-                          class="h-8 gap-1.5 text-xs text-secondary-foreground border-border bg-white hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                          class="h-8 gap-1.5 text-xs text-secondary-foreground border-border bg-card hover:border-red-500/30 hover:bg-red-500/10 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                           @click="removeCredential(cred.provider)"
                         >
                           <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -577,23 +581,23 @@ onBeforeUnmount(stopCountdown);
                   class="space-y-4"
                   data-testid="telegram-paired-container"
                 >
-                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
                     <div class="flex items-center gap-3">
-                      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shrink-0">
+                      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
                         <Icon name="lucide:circle-check" class="size-5" aria-hidden="true" />
                       </div>
                       <div>
-                        <div class="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
+                        <div class="flex items-center gap-2 text-foreground font-semibold text-sm">
                           <span>Connected to Telegram</span>
                           <span
                             class="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 inline-flex items-center gap-1"
-                            :class="telegramStatus.is_muted ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' : 'bg-emerald-100 text-emerald-800 border-emerald-300'"
+                            :class="telegramStatus.is_muted ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'"
                           >
                             <Icon :name="telegramStatus.is_muted ? 'lucide:bell-off' : 'lucide:bell'" class="size-2.5" aria-hidden="true" />
                             <span>{{ telegramStatus.is_muted ? 'Muted' : 'Active Alerts' }}</span>
                           </span>
                         </div>
-                        <p v-if="telegramStatus.telegram_username" class="text-xs text-emerald-700 font-medium mt-0.5" data-testid="telegram-username">
+                        <p v-if="telegramStatus.telegram_username" class="text-xs text-foreground/80 font-medium mt-0.5" data-testid="telegram-username">
                           Username: @{{ telegramStatus.telegram_username }}
                         </p>
                       </div>
@@ -606,7 +610,7 @@ onBeforeUnmount(stopCountdown);
                         size="sm"
                         data-testid="toggle-mute-btn"
                         :loading="isMutingLoading"
-                        class="h-8 gap-1.5 text-xs border-border bg-white text-secondary-foreground hover:bg-secondary transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                        class="h-8 gap-1.5 text-xs border-border bg-card text-secondary-foreground hover:bg-secondary transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                         @click="toggleTelegramMute"
                       >
                         <Icon :name="telegramStatus.is_muted ? 'lucide:bell' : 'lucide:bell-off'" class="size-3.5" aria-hidden="true" />
@@ -617,7 +621,7 @@ onBeforeUnmount(stopCountdown);
                         variant="outline"
                         size="sm"
                         data-testid="disconnect-btn"
-                        class="h-8 gap-1.5 text-xs border-emerald-200 bg-white text-emerald-700 hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                        class="h-8 gap-1.5 text-xs border-emerald-500/30 bg-card text-emerald-600 dark:text-emerald-400 hover:border-red-500/30 hover:bg-red-500/10 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                         @click="disconnectTelegram"
                       >
                         <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -635,8 +639,8 @@ onBeforeUnmount(stopCountdown);
                       <span>Setup Instructions:</span>
                     </div>
                     <ol class="list-decimal pl-5 space-y-1 text-secondary-foreground leading-relaxed">
-                      <li>Open Telegram and search for the bot (e.g. <code class="bg-white px-1.5 py-0.5 rounded border border-border text-primary font-mono font-semibold">@MarketplaceStudioBot</code>).</li>
-                      <li>Click <b>Start</b> or send <code class="bg-white px-1.5 py-0.5 rounded border border-border font-mono">/start</code>.</li>
+                      <li>Open Telegram and search for the bot (e.g. <code class="bg-card px-1.5 py-0.5 rounded border border-border text-primary font-mono font-semibold">@MarketplaceStudioBot</code>).</li>
+                      <li>Click <b>Start</b> or send <code class="bg-card px-1.5 py-0.5 rounded border border-border font-mono">/start</code>.</li>
                       <li>Generate a pairing code below and send it to the bot within 10 minutes.</li>
                     </ol>
                   </div>
@@ -644,11 +648,11 @@ onBeforeUnmount(stopCountdown);
                   <!-- Active Code display -->
                   <div
                     v-if="activePairingCode"
-                    class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-xl"
+                    class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 bg-primary/10 rounded-xl"
                   >
                     <span class="text-xs text-primary uppercase tracking-widest font-bold mb-1">Active Pairing Code</span>
                     <div
-                      class="text-4xl font-mono font-extrabold tracking-widest text-foreground select-all my-2 px-4 py-1.5 bg-white rounded-lg border border-border shadow-2xs"
+                      class="text-4xl font-mono font-extrabold tracking-widest text-foreground select-all my-2 px-4 py-1.5 bg-card rounded-lg border border-border shadow-2xs"
                       data-testid="pairing-code"
                     >
                       {{ activePairingCode.slice(0, 3) }} {{ activePairingCode.slice(3) }}
@@ -694,7 +698,7 @@ onBeforeUnmount(stopCountdown);
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-8 gap-1.5 text-xs shadow-2xs font-medium cursor-pointer self-start sm:self-auto shrink-0 inline-flex items-center bg-white"
+                  class="h-8 gap-1.5 text-xs shadow-2xs font-medium cursor-pointer self-start sm:self-auto shrink-0 inline-flex items-center bg-card"
                   :disabled="isHealthLoading"
                   @click="refreshHealth"
                 >
@@ -737,6 +741,95 @@ onBeforeUnmount(stopCountdown);
                   :detail="health?.components?.image_worker?.detail"
                 />
               </ul>
+            </CardContent>
+          </Card>
+        </div>
+
+        <!-- Tab 5: Appearance & Theme -->
+        <div v-show="activeTab === 'appearance'" class="space-y-8" data-testid="tab-panel-appearance">
+          <Card class="shadow-2xs">
+            <CardHeader class="pb-4">
+              <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary border border-border">
+                  <Icon name="lucide:palette" class="size-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <CardTitle class="text-lg">Appearance & Theme</CardTitle>
+                  <CardDescription>
+                    Customize your studio interface mode and visual theme preferences
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent class="pt-2 space-y-6">
+              <div class="space-y-3">
+                <label class="text-sm font-bold text-foreground">Theme Preference</label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <!-- Light Mode -->
+                  <button
+                    type="button"
+                    class="flex flex-col items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer text-left"
+                    :class="
+                      theme === 'light'
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs'
+                        : 'border-border bg-card hover:bg-secondary/60 text-secondary-foreground'
+                    "
+                    data-testid="theme-select-light"
+                    @click="setTheme('light')"
+                  >
+                    <div class="flex size-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      <Icon name="lucide:sun" class="size-5" aria-hidden="true" />
+                    </div>
+                    <div class="text-center">
+                      <p class="text-sm font-bold text-foreground">Light Mode</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">Clean crisp daylight palette</p>
+                    </div>
+                  </button>
+
+                  <!-- Dark Mode -->
+                  <button
+                    type="button"
+                    class="flex flex-col items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer text-left"
+                    :class="
+                      theme === 'dark'
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs'
+                        : 'border-border bg-card hover:bg-secondary/60 text-secondary-foreground'
+                    "
+                    data-testid="theme-select-dark"
+                    @click="setTheme('dark')"
+                  >
+                    <div class="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+                      <Icon name="lucide:moon" class="size-5" aria-hidden="true" />
+                    </div>
+                    <div class="text-center">
+                      <p class="text-sm font-bold text-foreground">Dark Mode</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">Sleek midnight zinc contrast</p>
+                    </div>
+                  </button>
+
+                  <!-- System Sync -->
+                  <button
+                    type="button"
+                    class="flex flex-col items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer text-left"
+                    :class="
+                      theme === 'system'
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs'
+                        : 'border-border bg-card hover:bg-secondary/60 text-secondary-foreground'
+                    "
+                    data-testid="theme-select-system"
+                    @click="setTheme('system')"
+                  >
+                    <div class="flex size-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground border border-border">
+                      <Icon name="lucide:laptop" class="size-5" aria-hidden="true" />
+                    </div>
+                    <div class="text-center">
+                      <p class="text-sm font-bold text-foreground">System Sync</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">Match OS display settings</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

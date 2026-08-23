@@ -520,7 +520,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Campaign Creation Card -->
-      <Card v-if="showCreateForm" class="shadow-lg border-border bg-gradient-to-b from-white to-slate-50/50">
+      <Card v-if="showCreateForm" class="shadow-lg border-border bg-card">
         <CardHeader class="pb-4">
           <div class="flex items-center gap-2.5">
             <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-primary border border-border">
@@ -549,8 +549,8 @@ onUnmounted(() => {
                   :class="[
                     'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
                     ideaMode === 'market-led'
-                      ? 'border-primary bg-blue-50/40 shadow-2xs'
-                      : 'border-border bg-white hover:border-primary/40 hover:bg-slate-50',
+                      ? 'border-primary bg-primary/10 shadow-2xs'
+                      : 'border-border bg-card hover:border-primary/40 hover:bg-secondary/60',
                   ]"
                   @click="ideaMode = 'market-led'"
                 >
@@ -574,8 +574,8 @@ onUnmounted(() => {
                   :class="[
                     'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
                     ideaMode === 'user-idea'
-                      ? 'border-primary bg-blue-50/40 shadow-2xs'
-                      : 'border-border bg-white hover:border-primary/40 hover:bg-slate-50',
+                      ? 'border-primary bg-primary/10 shadow-2xs'
+                      : 'border-border bg-card hover:border-primary/40 hover:bg-secondary/60',
                   ]"
                   @click="ideaMode = 'user-idea'"
                 >
@@ -599,8 +599,8 @@ onUnmounted(() => {
                   :class="[
                     'relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150',
                     ideaMode === 'hybrid'
-                      ? 'border-primary bg-blue-50/40 shadow-2xs'
-                      : 'border-border bg-white hover:border-primary/40 hover:bg-slate-50',
+                      ? 'border-primary bg-primary/10 shadow-2xs'
+                      : 'border-border bg-card hover:border-primary/40 hover:bg-secondary/60',
                   ]"
                   @click="ideaMode = 'hybrid'"
                 >
@@ -643,7 +643,7 @@ onUnmounted(() => {
                 <select
                   id="target-country"
                   v-model="targetCountry"
-                  class="flex h-9 w-full rounded-md border border-border bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  class="flex h-9 w-full rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <option value="US">United States (US)</option>
                   <option value="CA">Canada (CA)</option>
@@ -899,7 +899,7 @@ onUnmounted(() => {
               <div
                 v-for="wf in paginatedWorkflows"
                 :key="wf.id"
-                class="p-4 bg-white border border-border rounded-xl shadow-2xs space-y-3 transition-all hover:border-slate-300"
+                class="p-4 bg-card text-card-foreground border border-border rounded-xl shadow-2xs space-y-3 transition-all hover:border-border/80"
               >
                 <div class="flex items-start justify-between gap-2">
                   <div class="min-w-0 flex-1">
@@ -998,9 +998,9 @@ onUnmounted(() => {
             </div>
 
             <!-- Workflows Table (Desktop View) -->
-            <div class="hidden md:block overflow-x-auto rounded-xl border border-border">
+            <div class="hidden md:block overflow-x-auto rounded-xl border border-border bg-card">
               <table class="min-w-full text-left text-sm">
-                <thead class="border-b border-border bg-secondary/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <thead class="border-b border-border bg-secondary/60 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th scope="col" class="px-6 py-3">Campaign</th>
                     <th scope="col" class="px-6 py-3">Shop Section</th>
@@ -1008,11 +1008,11 @@ onUnmounted(() => {
                     <th scope="col" class="px-6 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-border bg-white align-middle text-secondary-foreground">
+                <tbody class="divide-y divide-border bg-card align-middle text-secondary-foreground">
                   <tr
                     v-for="wf in paginatedWorkflows"
                     :key="wf.id"
-                    class="transition-colors hover:bg-secondary/30 group"
+                    class="transition-colors hover:bg-secondary/40 group"
                   >
                     <td class="px-6 py-4">
                       <NuxtLink

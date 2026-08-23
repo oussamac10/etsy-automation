@@ -289,7 +289,7 @@ onUnmounted(() => {
             <p class="text-xs text-secondary-foreground mt-0.5">{{ approvedConcept.description }}</p>
           </div>
 
-          <div class="rounded-lg border border-border bg-white p-3 space-y-1 text-xs font-mono">
+          <div class="rounded-lg border border-border bg-card p-3 space-y-1 text-xs font-mono">
             <p>
               <span class="font-bold text-muted-foreground">Base Prompt:</span>
               {{ approvedConcept.prompts[0]?.positive_prompt }}
@@ -318,7 +318,7 @@ onUnmounted(() => {
               <select
                 id="image-provider"
                 v-model="artProvider"
-                class="flex h-9 w-full rounded-md border border-border bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+                class="flex h-9 w-full rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <option value="recraft">Recraft V4.1 (Vector & Illustration)</option>
                 <option value="gemini">Google Gemini (Photo & Creative)</option>
@@ -363,12 +363,12 @@ onUnmounted(() => {
         </div>
 
         <!-- Inner state 3: Artwork Generation Failed -->
-        <Card v-else-if="isJobFailed" class="p-8 text-center bg-red-50/60 border-red-200">
-          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-destructive mb-3">
+        <Card v-else-if="isJobFailed" class="p-8 text-center bg-destructive/10 border-destructive/30">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/20 text-destructive mb-3">
             <Icon name="lucide:circle-alert" class="size-6" aria-hidden="true" />
           </div>
           <h2 class="text-lg font-bold text-destructive mb-1">Artwork Generation Failed</h2>
-          <p class="text-xs text-red-700 max-w-md mx-auto mb-4">
+          <p class="text-xs text-foreground/80 max-w-md mx-auto mb-4">
             Reason: {{ latestFailureMessage }}
           </p>
           <div class="flex items-center justify-center gap-3">
@@ -394,7 +394,7 @@ onUnmounted(() => {
               v-if="workflow.state === 'ART_REVIEW'"
               variant="ghost"
               size="sm"
-              class="text-xs text-destructive hover:text-red-700 hover:bg-red-50 cursor-pointer"
+              class="text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
               @click="emit('rejectAll', artworkJobs[0]?.id, workflow.version)"
             >
               Reject All Options
@@ -414,7 +414,7 @@ onUnmounted(() => {
               class="overflow-hidden border transition-all cursor-pointer shadow-2xs hover:shadow-xs group/card"
               :class="[
                 asset.id === chosenCandidateId
-                  ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/10'
+                  ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-500/5'
                   : asset.id === selectedCandidateId
                     ? 'border-primary ring-2 ring-primary/30 bg-secondary/30'
                     : 'border-border hover:border-primary/40 bg-card'
@@ -467,7 +467,7 @@ onUnmounted(() => {
                 <button
                   type="button"
                   title="Inspect design in full resolution"
-                  class="absolute bottom-1.5 right-1.5 h-7 w-7 rounded-lg bg-white/95 hover:bg-white text-secondary-foreground hover:text-primary shadow-xs flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer opacity-0 group-hover/card:opacity-100 z-10"
+                  class="absolute bottom-1.5 right-1.5 h-7 w-7 rounded-lg bg-card/95 hover:bg-card text-secondary-foreground hover:text-primary shadow-xs flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer opacity-0 group-hover/card:opacity-100 z-10"
                   @click.stop="openPreview(asset)"
                 >
                   <Icon name="lucide:maximize-2" class="size-3.5" aria-hidden="true" />
@@ -512,7 +512,7 @@ onUnmounted(() => {
                 <div v-else-if="workflow.state === 'ARTWORK_APPROVED' || workflow.state === 'PRODUCTION' || latestProductionJob !== null">
                   <div
                     v-if="asset.id === chosenCandidateId"
-                    class="flex items-center justify-center gap-1 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded border border-emerald-200"
+                    class="flex items-center justify-center gap-1 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 rounded border border-emerald-500/30"
                   >
                     <Icon name="lucide:circle-check" class="size-3" aria-hidden="true" />
                     <span>Active in Master</span>
@@ -547,7 +547,7 @@ onUnmounted(() => {
           >
             <div class="flex items-center gap-3">
               <div
-                class="h-10 w-10 rounded-lg overflow-hidden border border-border bg-white shrink-0 p-1 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+                class="h-10 w-10 rounded-lg overflow-hidden border border-border bg-card shrink-0 p-1 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
                 title="Inspect in full size"
                 @click="getSelectedAsset() && openPreview(getSelectedAsset()!)"
               >
@@ -605,7 +605,7 @@ onUnmounted(() => {
       @click.self="previewingAsset = null"
     >
       <div
-        class="bg-white rounded-2xl shadow-2xl border border-border max-w-4xl w-full max-h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        class="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border max-w-4xl w-full max-h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
         @click.stop
       >
         <!-- Modal Header -->
@@ -655,7 +655,7 @@ onUnmounted(() => {
               type="button"
               title="Checkerboard Alpha Transparency"
               class="px-2 py-1 rounded-md font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
-              :class="previewBg === 'checkerboard' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+              :class="previewBg === 'checkerboard' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
               @click="previewBg = 'checkerboard'"
             >
               <Icon name="lucide:grid-2x2" class="size-3 text-primary" />
@@ -665,7 +665,7 @@ onUnmounted(() => {
               type="button"
               title="White Surface"
               class="px-2 py-1 rounded-md font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
-              :class="previewBg === 'white' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+              :class="previewBg === 'white' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
               @click="previewBg = 'white'"
             >
               <div class="size-2.5 rounded-full bg-white border border-slate-300 shadow-2xs" />
@@ -675,7 +675,7 @@ onUnmounted(() => {
               type="button"
               title="Dark Garment Surface"
               class="px-2 py-1 rounded-md font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
-              :class="previewBg === 'dark' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+              :class="previewBg === 'dark' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
               @click="previewBg = 'dark'"
             >
               <div class="size-2.5 rounded-full bg-slate-900 shadow-2xs" />
@@ -705,7 +705,7 @@ onUnmounted(() => {
           <button
             v-if="currentAssets.length > 1"
             type="button"
-            class="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-white/90 hover:bg-white text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
+            class="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/90 hover:bg-card text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
             :disabled="getPreviewAssetIndex() <= 0"
             title="Previous Candidate (Left Arrow)"
             @click.stop="navigatePreview(-1)"
@@ -725,7 +725,7 @@ onUnmounted(() => {
           <button
             v-if="currentAssets.length > 1"
             type="button"
-            class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-white/90 hover:bg-white text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
+            class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/90 hover:bg-card text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
             :disabled="getPreviewAssetIndex() >= currentAssets.length - 1"
             title="Next Candidate (Right Arrow)"
             @click.stop="navigatePreview(1)"
@@ -743,7 +743,7 @@ onUnmounted(() => {
               target="_blank"
               rel="noopener noreferrer"
               :download="`candidate_design_${getPreviewAssetIndex() + 1}.png`"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-border text-secondary-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer shadow-2xs"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-card border border-border text-secondary-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer shadow-2xs"
             >
               <Icon name="lucide:download" class="size-3.5 text-primary" aria-hidden="true" />
               <span>Download PNG</span>

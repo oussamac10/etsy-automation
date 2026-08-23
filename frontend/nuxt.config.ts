@@ -60,6 +60,13 @@ export default defineNuxtConfig({
         { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
         { rel: "alternate icon", type: "image/x-icon", href: "/favicon.ico" },
       ],
+      script: [
+        {
+          innerHTML: `(function(){try{var t=localStorage.getItem('marketplace_studio_theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`,
+          type: "text/javascript",
+          tagPosition: "head",
+        },
+      ],
     },
   },
 });

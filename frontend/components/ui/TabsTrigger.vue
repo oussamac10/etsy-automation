@@ -23,7 +23,7 @@ const isActive = computed(() => tabsState?.currentTab.value === props.value);
 const classes = computed(() =>
   cn(
     "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer",
-    isActive.value ? "bg-white text-foreground shadow-2xs font-bold border border-border/80" : "text-secondary-foreground hover:text-foreground hover:bg-white/60",
+    isActive.value ? "bg-card text-foreground shadow-2xs font-bold border border-border/80" : "text-secondary-foreground hover:text-foreground hover:bg-card/60",
     props.class
   )
 );

@@ -1081,7 +1081,7 @@ onMounted(() => {
             <Input
               v-model="searchQuery"
               placeholder="Search templates..."
-              class="pl-9 h-9 text-xs bg-white shadow-2xs border-border w-full"
+              class="pl-9 h-9 text-xs bg-card shadow-2xs border-border w-full"
             />
           </div>
 
@@ -1092,22 +1092,24 @@ onMounted(() => {
         </div>
 
         <!-- Product Category Tabs -->
-        <div class="flex flex-wrap items-center gap-1.5 pt-1">
+        <div class="flex flex-wrap items-center gap-1.5 pt-1" role="tablist">
           <button
             type="button"
-            class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
+            role="tab"
+            :aria-selected="selectedCategory === 'all'"
+            class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer inline-flex items-center gap-1.5 select-none"
             :class="
               selectedCategory === 'all'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-slate-200'
+                ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+                : 'text-muted-foreground hover:text-foreground bg-secondary hover:bg-secondary/80 border border-transparent'
             "
             @click="selectedCategory = 'all'"
           >
-            <Icon name="lucide:layout-grid" class="size-3.5 shrink-0" aria-hidden="true" />
+            <Icon name="lucide:layout-grid" class="size-3.5 shrink-0" :class="selectedCategory === 'all' ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
             <span>All Templates</span>
             <span
               class="text-[10px] px-1.5 py-0.2 rounded-full font-bold"
-              :class="selectedCategory === 'all' ? 'bg-slate-700 text-white' : 'bg-white text-secondary-foreground border border-border'"
+              :class="selectedCategory === 'all' ? 'bg-muted text-foreground border border-border/60' : 'bg-card text-muted-foreground border border-border'"
             >
               {{ templateCounts['all'] || 0 }}
             </span>
@@ -1117,24 +1119,26 @@ onMounted(() => {
             v-for="cat in allCategoryOptions"
             :key="cat.value"
             type="button"
-            class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
+            role="tab"
+            :aria-selected="selectedCategory === cat.value"
+            class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer inline-flex items-center gap-1.5 select-none"
             :class="
               selectedCategory === cat.value
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-slate-200'
+                ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+                : 'text-muted-foreground hover:text-foreground bg-secondary hover:bg-secondary/80 border border-transparent'
             "
             @click="selectedCategory = cat.value"
           >
-            <Icon :name="cat.icon" class="size-3.5 shrink-0" aria-hidden="true" />
+            <Icon :name="cat.icon" class="size-3.5 shrink-0" :class="selectedCategory === cat.value ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
             <span>{{ cat.label }}</span>
             <span
               class="text-[10px] px-1.5 py-0.2 rounded-full font-bold"
               :class="
                 selectedCategory === cat.value
-                  ? 'bg-slate-700 text-white'
+                  ? 'bg-muted text-foreground border border-border/60'
                   : (templateCounts[cat.value] || 0) > 0
-                    ? 'bg-blue-50 text-primary font-extrabold border border-blue-200'
-                    : 'bg-white text-muted-foreground border border-border'
+                    ? 'bg-card text-foreground border border-border'
+                    : 'bg-card text-muted-foreground border border-border'
               "
             >
               {{ templateCounts[cat.value] || 0 }}
@@ -1146,7 +1150,7 @@ onMounted(() => {
       <!-- Selected Category Banner / Actions -->
       <div
         v-if="selectedCategory !== 'all'"
-        class="flex items-center justify-between bg-white rounded-xl p-3.5 border border-border shadow-2xs"
+        class="flex items-center justify-between bg-card rounded-xl p-3.5 border border-border shadow-2xs text-card-foreground"
       >
         <div class="flex items-center gap-2.5">
           <div class="size-8 rounded-lg bg-secondary text-primary flex items-center justify-center border border-border shadow-2xs">
@@ -1169,7 +1173,7 @@ onMounted(() => {
           <Button
             variant="outline"
             size="sm"
-            class="text-xs text-destructive hover:text-destructive hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-semibold shadow-2xs"
+            class="text-xs text-destructive hover:text-destructive hover:bg-red-500/10 border-red-500/30 gap-1.5 cursor-pointer font-semibold shadow-2xs"
             @click="promptDeleteCategory(selectedCategory)"
           >
             <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -1193,7 +1197,7 @@ onMounted(() => {
       <!-- Empty State -->
       <div
         v-else-if="filteredTemplates.length === 0"
-        class="rounded-2xl border-2 border-dashed border-border bg-white p-12 text-center space-y-4"
+        class="rounded-2xl border-2 border-dashed border-border bg-card p-12 text-center space-y-4"
       >
         <div class="h-12 w-12 rounded-2xl bg-secondary border border-border text-primary flex items-center justify-center mx-auto">
           <Icon name="lucide:image-plus" class="size-6" aria-hidden="true" />
@@ -1220,7 +1224,7 @@ onMounted(() => {
             v-if="selectedCategory !== 'all'"
             variant="outline"
             size="sm"
-            class="text-xs text-destructive hover:text-destructive hover:bg-red-50 hover:border-red-200 gap-1.5 cursor-pointer font-medium"
+            class="text-xs text-destructive hover:text-destructive hover:bg-red-500/10 border-red-500/30 gap-1.5 cursor-pointer font-medium"
             @click="promptDeleteCategory(selectedCategory)"
           >
             <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -1234,7 +1238,7 @@ onMounted(() => {
         <Card
           v-for="tpl in paginatedTemplates"
           :key="tpl.id"
-          class="overflow-hidden bg-white border border-border shadow-2xs hover:shadow-md transition-all flex flex-col group"
+          class="overflow-hidden bg-card text-card-foreground border border-border shadow-2xs hover:shadow-md transition-all flex flex-col group"
         >
           <!-- Thumbnail Area with Hover Placement Overlay (Strict 1:1 Aspect Frame) -->
           <div class="aspect-square bg-slate-950/90 overflow-hidden relative flex items-center justify-center p-2.5 border-b border-border select-none">
@@ -1291,7 +1295,7 @@ onMounted(() => {
             <!-- Product Type Badge -->
             <Badge
               variant="outline"
-              class="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-xs text-[10px] font-bold shadow-2xs gap-1 inline-flex items-center border-border text-foreground z-10"
+              class="absolute top-2.5 left-2.5 bg-card/90 backdrop-blur-xs text-[10px] font-bold shadow-2xs gap-1 inline-flex items-center border-border text-foreground z-10"
             >
               <Icon :name="getProductIconName(tpl.product_type)" class="size-3 text-primary" aria-hidden="true" />
               <span>{{ getProductLabel(tpl.product_type) }}</span>
@@ -1349,7 +1353,7 @@ onMounted(() => {
               <Button
                 variant="outline"
                 size="sm"
-                class="text-[11px] h-7 px-2 font-semibold text-destructive hover:text-destructive hover:bg-red-50 border-red-200 gap-1 cursor-pointer"
+                class="text-[11px] h-7 px-2 font-semibold text-destructive hover:text-destructive hover:bg-red-500/10 border-red-500/30 gap-1 cursor-pointer"
                 title="Delete template and remove photo from your library"
                 @click="templateToDelete = tpl"
               >
@@ -1377,9 +1381,9 @@ onMounted(() => {
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="templateToDelete = null"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
+      <div class="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
         <div class="flex items-center gap-3 text-destructive">
-          <div class="h-10 w-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+          <div class="h-10 w-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0">
             <Icon name="lucide:trash-2" class="size-5" aria-hidden="true" />
           </div>
           <div>
@@ -1468,7 +1472,7 @@ onMounted(() => {
                 </span>
 
                 <!-- Zone Pills -->
-                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                   <button
                     v-for="(zone, idx) in editPlacements"
                     :key="zone.id || `edit-zone-${idx}`"
@@ -1492,7 +1496,7 @@ onMounted(() => {
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
                   title="Add new print zone"
                   @click="addEditZone"
                 >
@@ -1503,7 +1507,7 @@ onMounted(() => {
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-muted-foreground hover:text-foreground"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-muted-foreground hover:text-foreground"
                   title="Duplicate current zone"
                   @click="duplicateEditZone(activeEditZoneIndex)"
                 >
@@ -1515,7 +1519,7 @@ onMounted(() => {
                   v-if="editPlacements.length > 1"
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-destructive hover:bg-red-50 hover:border-red-200"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-destructive hover:bg-red-500/10 hover:border-red-500/30"
                   title="Remove current zone"
                   @click="removeEditZone(activeEditZoneIndex)"
                 >
@@ -1617,7 +1621,7 @@ onMounted(() => {
             <!-- Quick Placement & Rotation Segmented Toolbar Below Canvas -->
             <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/40 border border-border flex-wrap">
               <!-- Presets -->
-              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+              <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                 <button
                   type="button"
                   class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
@@ -1657,7 +1661,7 @@ onMounted(() => {
               </div>
 
               <!-- Rotation Quick Buttons -->
-              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+              <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                 <button
                   type="button"
                   class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
@@ -1703,7 +1707,7 @@ onMounted(() => {
               <Label class="text-xs font-bold text-foreground">Product Category</Label>
               <select
                 v-model="editProductType"
-                class="flex h-8.5 w-full rounded-lg border border-border bg-white px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
+                class="flex h-8.5 w-full rounded-lg border border-border bg-card px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
               >
                 <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -1817,7 +1821,7 @@ onMounted(() => {
                   :class="[
                     editPlacement.blend_mode === opt.value
                       ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
-                      : 'bg-white border-border/80 hover:border-slate-300 hover:bg-slate-50/50'
+                      : 'bg-card border-border/80 hover:border-border hover:bg-secondary/60'
                   ]"
                   @click="editPlacement.blend_mode = opt.value"
                 >
@@ -1943,7 +1947,7 @@ onMounted(() => {
               @change="handleFileSelect"
             >
 
-            <div class="size-16 rounded-2xl bg-white shadow-md border border-border flex items-center justify-center text-primary group-hover:scale-110 group-hover:text-primary transition-all">
+            <div class="size-16 rounded-2xl bg-card shadow-md border border-border flex items-center justify-center text-primary group-hover:scale-110 group-hover:text-primary transition-all">
               <Icon name="lucide:cloud-upload" class="size-8" aria-hidden="true" />
             </div>
 
@@ -2005,7 +2009,7 @@ onMounted(() => {
                 </span>
 
                 <!-- Zone Pills -->
-                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                   <button
                     v-for="(zone, idx) in uploadPlacements"
                     :key="zone.id || `upload-zone-${idx}`"
@@ -2029,7 +2033,7 @@ onMounted(() => {
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
                   title="Add new print zone"
                   @click="addUploadZone"
                 >
@@ -2040,7 +2044,7 @@ onMounted(() => {
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-muted-foreground hover:text-foreground"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-muted-foreground hover:text-foreground"
                   title="Duplicate current zone"
                   @click="duplicateUploadZone(activeUploadZoneIndex)"
                 >
@@ -2052,7 +2056,7 @@ onMounted(() => {
                   v-if="uploadPlacements.length > 1"
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-destructive hover:bg-red-50 hover:border-red-200"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-destructive hover:bg-red-500/10 hover:border-red-500/30"
                   title="Remove current zone"
                   @click="removeUploadZone(activeUploadZoneIndex)"
                 >
@@ -2154,7 +2158,7 @@ onMounted(() => {
             <!-- Quick Placement & Rotation Segmented Toolbar Below Canvas -->
             <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/40 border border-border flex-wrap">
               <!-- Presets -->
-              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+              <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                 <button
                   type="button"
                   class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
@@ -2194,7 +2198,7 @@ onMounted(() => {
               </div>
 
               <!-- Rotation Quick Buttons -->
-              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+              <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                 <button
                   type="button"
                   class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
@@ -2255,12 +2259,12 @@ onMounted(() => {
                 class="flex items-center justify-between p-2 rounded-lg bg-secondary/50 border border-border text-xs font-semibold text-foreground shadow-2xs"
               >
                 <div class="flex items-center gap-2">
-                  <div class="size-6 rounded-md bg-white flex items-center justify-center text-primary shadow-2xs border border-border">
+                  <div class="size-6 rounded-md bg-card flex items-center justify-center text-primary shadow-2xs border border-border">
                     <Icon :name="getProductIconName(uploadProductType)" class="size-3.5" aria-hidden="true" />
                   </div>
                   <span>{{ getProductLabel(uploadProductType) }}</span>
                 </div>
-                <Badge variant="outline" class="text-[10px] bg-white text-secondary-foreground border-border">
+                <Badge variant="outline" class="text-[10px] bg-card text-secondary-foreground border-border">
                   Current Tab
                 </Badge>
               </div>
@@ -2269,7 +2273,7 @@ onMounted(() => {
               <select
                 v-else
                 v-model="uploadProductType"
-                class="flex h-8.5 w-full rounded-lg border border-border bg-white px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
+                class="flex h-8.5 w-full rounded-lg border border-border bg-card px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
               >
                 <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -2389,7 +2393,7 @@ onMounted(() => {
                   :class="[
                     uploadPlacement.blend_mode === opt.value
                       ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
-                      : 'bg-white border-border/80 hover:border-slate-300 hover:bg-slate-50/50'
+                      : 'bg-card border-border/80 hover:border-border hover:bg-secondary/60'
                   ]"
                   @click="uploadPlacement.blend_mode = opt.value"
                 >
@@ -2443,7 +2447,7 @@ onMounted(() => {
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="showAddCustomTypeModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 space-y-4">
+      <div class="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 space-y-4">
         <div class="flex items-center justify-between border-b border-border pb-3">
           <div class="flex items-center gap-2">
             <Icon name="lucide:plus-circle" class="size-4 text-primary" aria-hidden="true" />
@@ -2484,9 +2488,9 @@ onMounted(() => {
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="showDeleteCategoryModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
+      <div class="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-red-50 text-destructive flex items-center justify-center shrink-0 border border-red-200">
+          <div class="h-10 w-10 rounded-xl bg-red-500/10 text-destructive flex items-center justify-center shrink-0 border border-red-500/30">
             <Icon name="lucide:trash-2" class="size-5" aria-hidden="true" />
           </div>
           <div>

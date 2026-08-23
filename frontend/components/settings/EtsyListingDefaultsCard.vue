@@ -277,7 +277,7 @@ onMounted(() => {
             <button
               type="button"
               class="flex flex-col text-left p-3 rounded-lg border text-xs transition-colors cursor-pointer"
-              :class="!defaultAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-slate-300'"
+              :class="!defaultAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-primary/40'"
               @click="defaultAutoRenew = false"
             >
               <span class="font-semibold text-xs flex items-center gap-1.5 text-foreground">
@@ -290,7 +290,7 @@ onMounted(() => {
             <button
               type="button"
               class="flex flex-col text-left p-3 rounded-lg border text-xs transition-colors cursor-pointer"
-              :class="defaultAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-slate-300'"
+              :class="defaultAutoRenew ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground hover:border-primary/40'"
               @click="defaultAutoRenew = true"
             >
               <span class="font-semibold text-xs flex items-center gap-1.5 text-foreground">

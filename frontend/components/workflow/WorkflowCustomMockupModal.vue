@@ -673,7 +673,7 @@ async function handleGenerateMockup(): Promise<void> {
     @click.self="emit('close')"
   >
     <div
-      class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-border flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150"
+      class="bg-card text-card-foreground rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-border flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150"
     >
       <!-- Modal Header -->
       <div class="px-6 py-4 border-b border-border flex items-center justify-between bg-secondary/30">
@@ -701,7 +701,7 @@ async function handleGenerateMockup(): Promise<void> {
       </div>
 
       <!-- Mode Selector Tabs (Library vs Upload New) -->
-      <div class="px-6 pt-3 pb-2 border-b border-border flex items-center justify-between bg-white">
+      <div class="px-6 pt-3 pb-2 border-b border-border flex items-center justify-between bg-card">
         <div class="flex items-center gap-2">
           <button
             type="button"
@@ -709,7 +709,7 @@ async function handleGenerateMockup(): Promise<void> {
             :class="[
               activeSubTab === 'library'
                 ? 'bg-primary text-white shadow-2xs'
-                : 'bg-secondary text-secondary-foreground hover:bg-slate-200'
+                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
             ]"
             @click="activeSubTab = 'library'"
           >
@@ -718,7 +718,7 @@ async function handleGenerateMockup(): Promise<void> {
             <span
               v-if="templates.length > 0"
               class="text-[10px] px-1.5 py-0.2 rounded-full"
-              :class="activeSubTab === 'library' ? 'bg-primary-hover text-white' : 'bg-slate-300 text-slate-700'"
+              :class="activeSubTab === 'library' ? 'bg-primary-hover text-white' : 'bg-secondary text-secondary-foreground'"
             >
               {{ templates.length }}
             </span>
@@ -730,7 +730,7 @@ async function handleGenerateMockup(): Promise<void> {
             :class="[
               activeSubTab === 'upload'
                 ? 'bg-primary text-white shadow-2xs'
-                : 'bg-secondary text-secondary-foreground hover:bg-slate-200'
+                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
             ]"
             @click="activeSubTab = 'upload'"
           >
@@ -746,7 +746,7 @@ async function handleGenerateMockup(): Promise<void> {
             class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer"
             :class="[
               canvasViewMode === 'edit'
-                ? 'bg-white text-foreground shadow-2xs font-bold'
+                ? 'bg-card text-foreground shadow-2xs font-bold'
                 : 'text-muted-foreground hover:text-foreground'
             ]"
             @click="canvasViewMode = 'edit'"
@@ -758,7 +758,7 @@ async function handleGenerateMockup(): Promise<void> {
             class="px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer"
             :class="[
               canvasViewMode === 'preview'
-                ? 'bg-white text-foreground shadow-2xs font-bold'
+                ? 'bg-card text-foreground shadow-2xs font-bold'
                 : 'text-muted-foreground hover:text-foreground'
             ]"
             @click="canvasViewMode = 'preview'"
@@ -790,13 +790,13 @@ async function handleGenerateMockup(): Promise<void> {
         <!-- Loading State Skeleton -->
         <div v-else-if="isModalLoading" class="py-8 space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-            <div class="md:col-span-6 aspect-square bg-slate-100 rounded-2xl border border-border/80 flex items-center justify-center">
-              <Icon name="lucide:image" class="size-10 text-slate-300 animate-pulse" />
+            <div class="md:col-span-6 aspect-square bg-muted rounded-2xl border border-border/80 flex items-center justify-center">
+              <Icon name="lucide:image" class="size-10 text-muted-foreground animate-pulse" />
             </div>
             <div class="md:col-span-6 space-y-3">
-              <div class="h-6 bg-slate-100 rounded-lg w-2/3 animate-pulse" />
-              <div class="h-20 bg-slate-100 rounded-xl animate-pulse" />
-              <div class="h-32 bg-slate-100 rounded-xl animate-pulse" />
+              <div class="h-6 bg-muted rounded-lg w-2/3 animate-pulse" />
+              <div class="h-20 bg-muted rounded-xl animate-pulse" />
+              <div class="h-32 bg-muted rounded-xl animate-pulse" />
             </div>
           </div>
         </div>
@@ -848,7 +848,7 @@ async function handleGenerateMockup(): Promise<void> {
                   </span>
 
                   <!-- Zone Pills -->
-                  <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                  <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                     <button
                       v-for="(zone, idx) in placements"
                       :key="zone.id || `left-zone-${idx}`"
@@ -872,7 +872,7 @@ async function handleGenerateMockup(): Promise<void> {
                   <Button
                     variant="outline"
                     size="sm"
-                    class="h-7 text-xs px-2 gap-1 bg-white font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
+                    class="h-7 text-xs px-2 gap-1 bg-card font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
                     title="Add another print zone"
                     @click="addPrintZone"
                   >
@@ -883,7 +883,7 @@ async function handleGenerateMockup(): Promise<void> {
                   <Button
                     variant="outline"
                     size="sm"
-                    class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-muted-foreground hover:text-foreground"
+                    class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-muted-foreground hover:text-foreground"
                     title="Duplicate active zone"
                     @click="duplicatePrintZone(activePlacementIndex)"
                   >
@@ -895,7 +895,7 @@ async function handleGenerateMockup(): Promise<void> {
                     v-if="placements.length > 1"
                     variant="outline"
                     size="sm"
-                    class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-destructive hover:bg-red-50 hover:border-red-200"
+                    class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-destructive hover:bg-destructive/10 hover:border-destructive/30 border-border"
                     title="Delete active zone"
                     @click="removePrintZone(activePlacementIndex)"
                   >
@@ -914,7 +914,7 @@ async function handleGenerateMockup(): Promise<void> {
                 </span>
                 <select
                   v-model="selectedArtworkSourceId"
-                  class="h-7 text-xs px-2 py-0.5 rounded-lg border border-border bg-white font-medium text-foreground cursor-pointer focus:outline-hidden"
+                  class="h-7 text-xs px-2 py-0.5 rounded-lg border border-border bg-card font-medium text-foreground cursor-pointer focus:outline-hidden"
                 >
                   <option value="master">Original Master PNG</option>
                   <option
@@ -952,7 +952,7 @@ async function handleGenerateMockup(): Promise<void> {
               <!-- Quick Placement & Rotation Segmented Toolbar Below Canvas -->
               <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/40 border border-border flex-wrap">
                 <!-- Alignment Presets -->
-                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                   <button
                     type="button"
                     class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
@@ -1005,7 +1005,7 @@ async function handleGenerateMockup(): Promise<void> {
                 </div>
 
                 <!-- Rotation Quick Actions -->
-                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                   <button
                     type="button"
                     class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-0.5"

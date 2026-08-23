@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useAuthStore } from "~/stores/auth";
 import Button from "~/components/ui/Button.vue";
 import AppLogo from "~/components/AppLogo.vue";
+import ThemeToggle from "~/components/ThemeToggle.vue";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -21,7 +22,7 @@ async function handleLogout() {
 
 <template>
   <header
-    class="sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur-md transition-all shadow-2xs"
+    class="sticky top-0 z-40 w-full border-b border-border bg-card/95 backdrop-blur-md transition-all shadow-2xs"
     role="banner"
   >
     <div class="mx-auto flex max-w-6xl items-center justify-between px-3.5 sm:px-6 py-2.5 sm:py-3 gap-2">
@@ -40,7 +41,7 @@ async function handleLogout() {
           <NuxtLink
             to="/"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+            active-class="bg-primary/10 text-primary font-bold border border-primary/20"
           >
             <Icon name="lucide:layout-dashboard" class="size-3.5" aria-hidden="true" />
             <span>Dashboard</span>
@@ -48,7 +49,7 @@ async function handleLogout() {
           <NuxtLink
             to="/library"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+            active-class="bg-primary/10 text-primary font-bold border border-primary/20"
             data-testid="nav-library-link"
           >
             <Icon name="lucide:images" class="size-3.5" aria-hidden="true" />
@@ -57,7 +58,7 @@ async function handleLogout() {
           <NuxtLink
             to="/usage"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+            active-class="bg-primary/10 text-primary font-bold border border-primary/20"
             data-testid="nav-usage-link"
           >
             <Icon name="lucide:coins" class="size-3.5" aria-hidden="true" />
@@ -66,7 +67,7 @@ async function handleLogout() {
           <NuxtLink
             to="/settings"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+            active-class="bg-primary/10 text-primary font-bold border border-primary/20"
             data-testid="nav-settings-link"
           >
             <Icon name="lucide:settings" class="size-3.5" aria-hidden="true" />
@@ -76,7 +77,10 @@ async function handleLogout() {
       </div>
 
       <!-- Right Header Actions (Desktop & Mobile) -->
-      <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
+      <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <!-- Theme Toggle -->
+        <ThemeToggle />
+
         <div v-if="auth.user" class="hidden md:flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1 text-xs text-secondary-foreground shadow-2xs">
           <Icon name="lucide:user" class="size-3.5 text-muted-foreground" aria-hidden="true" />
           <span class="font-medium truncate max-w-[140px]" data-testid="user-email">
@@ -121,12 +125,12 @@ async function handleLogout() {
     >
       <div
         v-if="isMobileMenuOpen"
-        class="md:hidden border-t border-border bg-white px-4 py-3 space-y-2 shadow-md"
+        class="md:hidden border-t border-border bg-card px-4 py-3 space-y-2 shadow-md"
       >
         <NuxtLink
           to="/"
           class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+          active-class="bg-primary/10 text-primary font-bold border border-primary/20"
           @click="isMobileMenuOpen = false"
         >
           <Icon name="lucide:layout-dashboard" class="size-4 text-primary" aria-hidden="true" />
@@ -136,7 +140,7 @@ async function handleLogout() {
         <NuxtLink
           to="/library"
           class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+          active-class="bg-primary/10 text-primary font-bold border border-primary/20"
           data-testid="nav-library-mobile-link"
           @click="isMobileMenuOpen = false"
         >
@@ -147,7 +151,7 @@ async function handleLogout() {
         <NuxtLink
           to="/usage"
           class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+          active-class="bg-primary/10 text-primary font-bold border border-primary/20"
           data-testid="nav-usage-mobile-link"
           @click="isMobileMenuOpen = false"
         >
@@ -158,7 +162,7 @@ async function handleLogout() {
         <NuxtLink
           to="/settings"
           class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          active-class="bg-blue-50 text-primary font-bold border border-blue-200"
+          active-class="bg-primary/10 text-primary font-bold border border-primary/20"
           data-testid="nav-settings-mobile-link"
           @click="isMobileMenuOpen = false"
         >
@@ -175,7 +179,7 @@ async function handleLogout() {
           <Button
             variant="outline"
             size="sm"
-            class="h-7 text-xs px-2.5 text-destructive hover:bg-red-50 border-red-200 cursor-pointer"
+            class="h-7 text-xs px-2.5 text-destructive hover:bg-red-500/10 border-red-500/30 cursor-pointer"
             @click="handleLogout"
           >
             <Icon name="lucide:log-out" class="size-3 mr-1" aria-hidden="true" />

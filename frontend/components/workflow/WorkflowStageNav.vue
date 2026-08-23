@@ -69,20 +69,22 @@ const isListingActive = computed(() => {
 </script>
 
 <template>
-  <nav class="border-b border-border bg-white/95 dark:bg-card/95 backdrop-blur-md sticky top-12 sm:top-14 z-20 rounded-xl shadow-2xs p-1 w-full overflow-x-auto scrollbar-none overscroll-x-contain touch-pan-x" aria-label="Workflow Stages">
+  <nav class="border border-border bg-muted/70 backdrop-blur-md sticky top-12 sm:top-14 z-20 rounded-xl shadow-2xs p-1.5 w-full overflow-x-auto scrollbar-none overscroll-x-contain touch-pan-x" role="tablist" aria-label="Workflow Stages">
     <div class="flex items-center gap-1 min-w-max lg:min-w-0 lg:w-full lg:justify-between">
       <!-- Tab 1: Overview -->
       <button
         type="button"
-        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
+        role="tab"
+        :aria-selected="activeTab === 'overview'"
+        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'overview'
-            ? 'bg-slate-900 text-white shadow-xs'
-            : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+            ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
         "
         @click="emit('update:activeTab', 'overview')"
       >
-        <Icon name="lucide:file-text" class="size-3.5 shrink-0" aria-hidden="true" />
+        <Icon name="lucide:file-text" class="size-3.5 shrink-0" :class="activeTab === 'overview' ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden md:inline">Overview &amp; Brief</span>
         <span class="truncate md:hidden">Overview</span>
       </button>
@@ -90,23 +92,25 @@ const isListingActive = computed(() => {
       <!-- Tab 2: Concepts & Research -->
       <button
         type="button"
-        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
+        role="tab"
+        :aria-selected="activeTab === 'concepts'"
+        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'concepts'
-            ? 'bg-slate-900 text-white shadow-xs'
-            : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+            ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
         "
         @click="emit('update:activeTab', 'concepts')"
       >
         <Icon v-if="isResearchActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin text-primary" aria-hidden="true" />
-        <Icon v-else-if="isGate1Done" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:sparkles" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-else-if="isGate1Done" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        <Icon v-else name="lucide:sparkles" class="size-3.5 shrink-0" :class="activeTab === 'concepts' ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">1. Concepts &amp; Research</span>
         <span class="truncate 2xl:hidden">1. Concepts</span>
         <span
           v-if="conceptsCount > 0"
           class="text-[9px] px-1.5 py-0 rounded-full font-mono font-bold shrink-0"
-          :class="activeTab === 'concepts' ? 'bg-slate-700 text-white' : 'bg-secondary text-secondary-foreground border border-border/50'"
+          :class="activeTab === 'concepts' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-secondary text-secondary-foreground border border-border/50'"
         >
           {{ conceptsCount }}
         </span>
@@ -115,23 +119,25 @@ const isListingActive = computed(() => {
       <!-- Tab 3: Artwork Studio -->
       <button
         type="button"
-        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
+        role="tab"
+        :aria-selected="activeTab === 'artwork'"
+        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'artwork'
-            ? 'bg-slate-900 text-white shadow-xs'
-            : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+            ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
         "
         @click="emit('update:activeTab', 'artwork')"
       >
         <Icon v-if="isArtActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin text-primary" aria-hidden="true" />
-        <Icon v-else-if="isGate2Done" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:image" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-else-if="isGate2Done" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        <Icon v-else name="lucide:image" class="size-3.5 shrink-0" :class="activeTab === 'artwork' ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">2. Artwork Studio</span>
         <span class="truncate 2xl:hidden">2. Artwork</span>
         <span
           v-if="candidatesCount > 0"
           class="text-[9px] px-1.5 py-0 rounded-full font-mono font-bold shrink-0"
-          :class="activeTab === 'artwork' ? 'bg-slate-700 text-white' : 'bg-secondary text-secondary-foreground border border-border/50'"
+          :class="activeTab === 'artwork' ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-secondary text-secondary-foreground border border-border/50'"
         >
           {{ candidatesCount }}
         </span>
@@ -140,17 +146,19 @@ const isListingActive = computed(() => {
       <!-- Tab 4: Production & Mockups -->
       <button
         type="button"
-        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
+        role="tab"
+        :aria-selected="activeTab === 'production'"
+        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'production'
-            ? 'bg-slate-900 text-white shadow-xs'
-            : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+            ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
         "
         @click="emit('update:activeTab', 'production')"
       >
         <Icon v-if="isProductionActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin text-primary" aria-hidden="true" />
-        <Icon v-else-if="isProductionDone" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:file-image" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-else-if="isProductionDone" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        <Icon v-else name="lucide:file-image" class="size-3.5 shrink-0" :class="activeTab === 'production' ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">3. Production &amp; Mockups</span>
         <span class="truncate 2xl:hidden">3. Production</span>
         <Badge
@@ -165,17 +173,19 @@ const isListingActive = computed(() => {
       <!-- Tab 5: Listing & IP Review -->
       <button
         type="button"
-        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
+        role="tab"
+        :aria-selected="activeTab === 'listing'"
+        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'listing'
-            ? 'bg-slate-900 text-white shadow-xs'
-            : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+            ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
         "
         @click="emit('update:activeTab', 'listing')"
       >
         <Icon v-if="isListingActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin text-primary" aria-hidden="true" />
-        <Icon v-else-if="isGate3Done" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:tags" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-else-if="isGate3Done" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        <Icon v-else name="lucide:tags" class="size-3.5 shrink-0" :class="activeTab === 'listing' ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">4. Listing &amp; IP Review</span>
         <span class="truncate 2xl:hidden">4. Listing &amp; IP Review</span>
         <Badge
@@ -191,16 +201,18 @@ const isListingActive = computed(() => {
       <button
         v-if="isGate3Done"
         type="button"
-        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
+        role="tab"
+        :aria-selected="activeTab === 'etsy'"
+        class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'etsy'
-            ? 'bg-slate-900 text-white shadow-xs'
-            : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
+            ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
         "
         @click="emit('update:activeTab', 'etsy')"
       >
-        <Icon v-if="workflowState === 'ETSY_DRAFT_CREATED'" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:store" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-if="workflowState === 'ETSY_DRAFT_CREATED'" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+        <Icon v-else name="lucide:store" class="size-3.5 shrink-0" :class="activeTab === 'etsy' ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">5. Etsy Draft</span>
         <span class="truncate 2xl:hidden">5. Etsy Draft</span>
         <Badge

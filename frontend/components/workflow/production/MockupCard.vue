@@ -58,7 +58,7 @@ const emit = defineEmits<{
         <button
           type="button"
           title="Zoom preview"
-          class="h-7 w-7 rounded-lg bg-white/90 hover:bg-white text-secondary-foreground shadow-xs flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
+          class="h-7 w-7 rounded-lg bg-card/90 hover:bg-card text-secondary-foreground shadow-xs border border-border flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
           @click="emit('preview', asset)"
         >
           <Icon name="lucide:maximize-2" class="size-3.5" aria-hidden="true" />
@@ -66,7 +66,7 @@ const emit = defineEmits<{
         <button
           type="button"
           title="Adjust placement & template"
-          class="h-7 w-7 rounded-lg bg-white/90 hover:bg-white text-secondary-foreground shadow-xs flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
+          class="h-7 w-7 rounded-lg bg-card/90 hover:bg-card text-secondary-foreground shadow-xs border border-border flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
           @click="emit('adjustPlacement', asset)"
         >
           <Icon name="lucide:sliders-horizontal" class="size-3.5" aria-hidden="true" />
@@ -74,7 +74,7 @@ const emit = defineEmits<{
         <button
           type="button"
           title="Delete this mockup"
-          class="h-7 w-7 rounded-lg bg-white/90 hover:bg-red-50 text-destructive shadow-xs flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
+          class="h-7 w-7 rounded-lg bg-card/90 hover:bg-destructive/10 text-destructive shadow-xs border border-border flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
           :disabled="isActionLoading"
           @click="emit('delete', asset)"
         >

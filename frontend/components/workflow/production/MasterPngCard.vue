@@ -28,17 +28,17 @@ async function copyUrl(url: string | null) {
 </script>
 
 <template>
-  <div class="border border-border/80 rounded-2xl p-4 bg-white shadow-xs space-y-3.5 hover:shadow-md transition-all duration-200">
+  <div class="border border-border rounded-2xl p-4 bg-card text-card-foreground shadow-xs space-y-3.5 hover:shadow-md transition-all duration-200">
     <!-- Header -->
     <div class="flex items-center justify-between gap-2">
       <div class="flex items-start sm:items-center gap-2.5 min-w-0">
-        <div class="size-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/80 shadow-2xs shrink-0 mt-0.5 sm:mt-0">
+        <div class="size-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/30 shadow-2xs shrink-0 mt-0.5 sm:mt-0">
           <Icon name="lucide:file-check" class="size-4 shrink-0" aria-hidden="true" />
         </div>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5 flex-wrap">
             <h5 class="text-xs font-bold text-foreground leading-tight">Master Print File</h5>
-            <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200/60 shrink-0">
+            <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/30 shrink-0">
               <span class="size-1 rounded-full bg-emerald-500 animate-pulse" />
               Master PNG
             </span>
@@ -48,7 +48,7 @@ async function copyUrl(url: string | null) {
       </div>
 
       <div class="flex items-center gap-1.5 shrink-0">
-        <Badge variant="outline" class="text-[10px] px-2 py-0.5 font-bold bg-slate-50 text-foreground border-border shadow-2xs font-mono">
+        <Badge variant="outline" class="text-[10px] px-2 py-0.5 font-bold bg-secondary text-foreground border-border shadow-2xs font-mono">
           4500 × 5400 px
         </Badge>
       </div>
@@ -111,7 +111,7 @@ async function copyUrl(url: string | null) {
     <!-- Footer Toolbar & Specs -->
     <div class="flex items-center justify-between pt-2 border-t border-border/80 text-xs">
       <div class="flex items-center gap-2 text-muted-foreground">
-        <span class="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/50">
+        <span class="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30">
           <span class="size-1.5 rounded-full bg-emerald-500 inline-block" />
           Ready for print
         </span>
@@ -124,7 +124,7 @@ async function copyUrl(url: string | null) {
         target="_blank"
         rel="noopener noreferrer"
         download="master_transparent_300dpi.png"
-        class="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-black text-white px-3.5 py-1.5 text-xs font-semibold shadow-xs hover:shadow-sm active:scale-95 transition-all duration-150 cursor-pointer"
+        class="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground px-3.5 py-1.5 text-xs font-semibold shadow-xs hover:shadow-sm active:scale-95 transition-all duration-150 cursor-pointer"
       >
         <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
         <span>Download Master PNG</span>

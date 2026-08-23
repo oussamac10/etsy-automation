@@ -244,12 +244,12 @@ function getOpportunityType(concept: Concept): string {
 function getOpportunityBadgeClass(concept: Concept): string {
   const type = getOpportunityType(concept);
   if (type === "BEST OPPORTUNITY") {
-    return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-emerald-500/10 text-emerald-700 border-emerald-500/30";
+    return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
   }
   if (type === "NICHE OPPORTUNITY") {
-    return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-indigo-500/10 text-indigo-700 border-indigo-500/30";
+    return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30";
   }
-  return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-amber-500/10 text-amber-700 border-amber-500/30";
+  return "text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 inline-flex items-center gap-1 border bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30";
 }
 
 function getOpportunityScore(concept: Concept): number {
@@ -450,13 +450,13 @@ function confirmHighRiskApproval() {
     <!-- State 2: Research Failed -->
     <Card
       v-else-if="workflow.state === 'RESEARCH_FAILED'"
-      class="p-8 text-center bg-red-50/60 border-red-200"
+      class="p-8 text-center bg-destructive/10 border-destructive/30"
     >
-      <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-destructive mb-3">
+      <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/20 text-destructive mb-3">
         <Icon name="lucide:circle-alert" class="size-6" aria-hidden="true" />
       </div>
       <h2 class="text-lg font-bold text-destructive mb-1">Opportunity Discovery Failed</h2>
-      <p class="text-xs text-red-700 max-w-md mx-auto mb-4">
+      <p class="text-xs text-foreground/80 max-w-md mx-auto mb-4">
         Reason: {{ latestRun?.failure_reason || 'An unexpected error occurred. Please try again.' }}
       </p>
       <Button variant="destructive" size="default" class="font-semibold cursor-pointer" @click="emit('startResearch')">
@@ -508,7 +508,7 @@ function confirmHighRiskApproval() {
           variant="outline"
           size="sm"
           :disabled="isStartingNewResearch"
-          class="h-8 px-2.5 text-xs font-semibold shrink-0 gap-1.5 cursor-pointer bg-white shadow-2xs"
+          class="h-8 px-2.5 text-xs font-semibold shrink-0 gap-1.5 cursor-pointer bg-card shadow-2xs"
           @click="handleFindNewOpportunities"
         >
           <Icon v-if="isStartingNewResearch" name="lucide:loader-circle" class="size-3.5 animate-spin text-primary" aria-hidden="true" />
@@ -529,14 +529,14 @@ function confirmHighRiskApproval() {
           class="shadow-sm border transition-all duration-150 overflow-hidden"
           :class="[
             concept.status?.toUpperCase() === 'APPROVED'
-              ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-500/5'
               : concept.status?.toUpperCase() === 'REJECTED'
-                ? 'border-red-200 opacity-60 bg-red-50/20'
-                : 'border-border bg-white',
+                ? 'border-destructive/30 opacity-60 bg-destructive/5'
+                : 'border-border bg-card',
           ]"
         >
           <!-- Card Top Bar: Strategy Badge, Title, Score -->
-          <CardHeader class="pb-3 border-b border-border bg-slate-50/60">
+          <CardHeader class="pb-3 border-b border-border bg-secondary/40">
             <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div class="space-y-1.5">
                 <div class="flex items-center gap-2 flex-wrap">
@@ -605,7 +605,7 @@ function confirmHighRiskApproval() {
           <CardContent class="p-4 space-y-4 text-xs">
             <!-- Strategic Why This Sells Block -->
             <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-foreground space-y-1">
-              <div class="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
+              <div class="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300">
                 <Icon name="lucide:sparkles" class="size-3.5" aria-hidden="true" />
                 <span>Why This Could Sell:</span>
               </div>
@@ -769,7 +769,7 @@ function confirmHighRiskApproval() {
                 type="button"
                 variant="outline"
                 size="sm"
-                class="text-xs font-semibold gap-1.5 cursor-pointer bg-white"
+                class="text-xs font-semibold gap-1.5 cursor-pointer bg-card"
                 @click="openSeeResearch(concept)"
               >
                 <Icon name="lucide:search" class="size-3.5 text-primary" aria-hidden="true" />
@@ -882,7 +882,7 @@ function confirmHighRiskApproval() {
             <div
               v-for="kw in researchSummary.keyword_clusters.slice(0, 6)"
               :key="kw.id"
-              class="p-2.5 rounded-lg bg-white border border-border space-y-1"
+              class="p-2.5 rounded-lg bg-card border border-border space-y-1"
             >
               <div class="flex items-center justify-between">
                 <span class="font-bold text-foreground">"{{ kw.primary_phrase }}"</span>
@@ -902,7 +902,7 @@ function confirmHighRiskApproval() {
             <div
               v-for="ev in researchSummary.evidence"
               :key="ev.id"
-              class="p-2.5 rounded-lg bg-slate-50 border border-border text-[11px] space-y-1"
+              class="p-2.5 rounded-lg bg-secondary/40 border border-border text-[11px] space-y-1"
             >
               <div class="flex items-center justify-between gap-2">
                 <span class="font-bold text-foreground">{{ ev.source_title || ev.query_angle }}</span>
@@ -942,9 +942,9 @@ function confirmHighRiskApproval() {
         </DialogDescription>
       </DialogHeader>
 
-      <div v-if="highRiskConfirmConcept" class="p-3 bg-red-50 rounded-lg border border-red-200 text-xs text-red-900 space-y-1 my-2">
+      <div v-if="highRiskConfirmConcept" class="p-3 bg-destructive/10 rounded-lg border border-destructive/30 text-xs text-destructive space-y-1 my-2">
         <p class="font-bold">{{ highRiskConfirmConcept.title }}</p>
-        <p class="text-[11px] text-red-700">{{ highRiskConfirmConcept.risk_note }}</p>
+        <p class="text-[11px] text-foreground/80">{{ highRiskConfirmConcept.risk_note }}</p>
       </div>
 
       <DialogFooter class="gap-2 mt-4">

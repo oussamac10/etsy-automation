@@ -801,8 +801,8 @@ const subTabs = computed(() => [
 
     <!-- Loading Skeleton -->
     <div v-if="isLoading && !listingDraft" class="space-y-4">
-      <div class="h-48 bg-slate-100 animate-pulse rounded-xl" />
-      <div class="h-36 bg-slate-100 animate-pulse rounded-xl" />
+      <div class="h-48 bg-muted animate-pulse rounded-xl" />
+      <div class="h-36 bg-muted animate-pulse rounded-xl" />
     </div>
 
     <!-- Sub-Tab Content Views -->

@@ -246,8 +246,8 @@ async function clearAllAiIdeas() {
 </script>
 
 <template>
-  <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-    <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[84vh]">
+  <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
+    <div class="bg-card text-card-foreground rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[84vh]">
       <!-- 1. Modal Header -->
       <div class="px-5 py-3.5 border-b border-border flex items-center justify-between bg-secondary/30 shrink-0">
         <div class="flex items-center gap-2">
@@ -269,7 +269,7 @@ async function clearAllAiIdeas() {
       </div>
 
       <!-- 2. Search & Filter Bar -->
-      <div class="px-5 pt-3 pb-2.5 border-b border-border bg-slate-50/50 space-y-2.5 shrink-0">
+      <div class="px-5 pt-3 pb-2.5 border-b border-border bg-secondary/40 space-y-2.5 shrink-0">
         <!-- Search Input -->
         <div class="relative">
           <Icon name="lucide:search" class="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -277,7 +277,7 @@ async function clearAllAiIdeas() {
             v-model="searchQuery"
             type="text"
             placeholder="Search product categories (e.g. Mug, Shirt, Blanket, Candle)..."
-            class="w-full h-8 pl-8 pr-7 rounded-lg border border-border bg-white text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+            class="w-full h-8 pl-8 pr-7 rounded-lg border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground/70 focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary transition-all"
           />
           <button
             v-if="searchQuery"
@@ -318,7 +318,7 @@ async function clearAllAiIdeas() {
             <span
               v-if="aiGeneratedItems.length > 0"
               class="text-[10px] px-1.5 py-0.2 rounded-full"
-              :class="activeTab === 'ai' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'"
+              :class="activeTab === 'ai' ? 'bg-white/20 text-white' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'"
             >
               {{ aiGeneratedItems.length }}
             </span>
@@ -377,7 +377,7 @@ async function clearAllAiIdeas() {
               </span>
               <span
                 class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                :class="getMockupCount(item.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-secondary text-muted-foreground border border-border'"
+                :class="getMockupCount(item.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-secondary text-muted-foreground border border-border'"
               >
                 {{ getMockupCount(item.key) }} {{ getMockupCount(item.key) === 1 ? 'mockup' : 'mockups' }}
               </span>
@@ -415,7 +415,7 @@ async function clearAllAiIdeas() {
                 </span>
                 <span
                   class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                  :class="getMockupCount(item.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-white text-muted-foreground border border-border'"
+                  :class="getMockupCount(item.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-card text-muted-foreground border border-border'"
                 >
                   {{ getMockupCount(item.key) }} {{ getMockupCount(item.key) === 1 ? 'mockup' : 'mockups' }}
                 </span>
@@ -464,7 +464,7 @@ async function clearAllAiIdeas() {
             </div>
 
             <!-- Error Banner -->
-            <div v-if="generateError" class="p-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+            <div v-if="generateError" class="p-2 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive">
               {{ generateError }}
             </div>
 
@@ -477,7 +477,7 @@ async function clearAllAiIdeas() {
               >
                 <button
                   type="button"
-                  class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-white border border-border text-muted-foreground hover:text-red-600 hover:border-red-400 hover:bg-red-50 flex items-center justify-center shadow-xs transition-colors z-10 cursor-pointer"
+                  class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-card border border-border text-muted-foreground hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10 flex items-center justify-center shadow-xs transition-colors z-10 cursor-pointer"
                   title="Remove this recommendation"
                   @click.stop="removeAiIdea(item.key)"
                 >
@@ -497,7 +497,7 @@ async function clearAllAiIdeas() {
                   </span>
                   <span
                     class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                    :class="getMockupCount(item.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-white text-muted-foreground border border-border'"
+                    :class="getMockupCount(item.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-card text-muted-foreground border border-border'"
                   >
                     {{ getMockupCount(item.key) }} {{ getMockupCount(item.key) === 1 ? 'mockup' : 'mockups' }}
                   </span>
@@ -505,7 +505,7 @@ async function clearAllAiIdeas() {
               </div>
             </div>
 
-            <div v-else-if="!isGeneratingIdeas" class="p-3 rounded-xl border border-dashed border-border bg-slate-50/50 text-center">
+            <div v-else-if="!isGeneratingIdeas" class="p-3 rounded-xl border border-dashed border-border bg-secondary/30 text-center">
               <p class="text-xs text-muted-foreground">
                 Click <b>Generate Mockup Ideas</b> to let AI suggest top-selling products tailored for this design.
               </p>
@@ -557,7 +557,7 @@ async function clearAllAiIdeas() {
             >
               <button
                 type="button"
-                class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-white border border-border text-muted-foreground hover:text-red-600 hover:border-red-400 hover:bg-red-50 flex items-center justify-center shadow-xs transition-colors z-10 cursor-pointer"
+                class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-card border border-border text-muted-foreground hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10 flex items-center justify-center shadow-xs transition-colors z-10 cursor-pointer"
                 title="Remove this idea"
                 @click.stop="removeAiIdea(item.key)"
               >
@@ -577,7 +577,7 @@ async function clearAllAiIdeas() {
                 </span>
                 <span
                   class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                  :class="getMockupCount(item.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-white text-muted-foreground border border-border'"
+                  :class="getMockupCount(item.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-card text-muted-foreground border border-border'"
                 >
                   {{ getMockupCount(item.key) }} {{ getMockupCount(item.key) === 1 ? 'mockup' : 'mockups' }}
                 </span>
@@ -609,7 +609,7 @@ async function clearAllAiIdeas() {
               class="p-2.5 rounded-xl border border-[#FFDCC7] bg-secondary/50 hover:bg-secondary hover:border-primary/50 flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer group text-center min-h-[6.25rem]"
               @click="emit('select', item.key)"
             >
-              <div class="h-8 w-8 rounded-lg bg-white border border-[#FFDCC7] flex items-center justify-center text-primary transition-colors shrink-0">
+              <div class="h-8 w-8 rounded-lg bg-card border border-border flex items-center justify-center text-primary transition-colors shrink-0">
                 <Icon :name="item.icon" class="size-4" aria-hidden="true" />
               </div>
               <span class="text-xs font-bold text-foreground line-clamp-2 leading-tight break-words px-0.5 text-center" :title="item.label">
@@ -617,7 +617,7 @@ async function clearAllAiIdeas() {
               </span>
               <span
                 class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                :class="getMockupCount(item.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-muted text-muted-foreground border border-border'"
+                :class="getMockupCount(item.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-muted text-muted-foreground border border-border'"
               >
                 {{ getMockupCount(item.key) }} {{ getMockupCount(item.key) === 1 ? 'mockup' : 'mockups' }}
               </span>
@@ -646,7 +646,7 @@ async function clearAllAiIdeas() {
               </span>
               <span
                 class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                :class="getMockupCount(p.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-secondary text-muted-foreground border border-border'"
+                :class="getMockupCount(p.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-secondary text-muted-foreground border border-border'"
               >
                 {{ getMockupCount(p.key) }} {{ getMockupCount(p.key) === 1 ? 'mockup' : 'mockups' }}
               </span>
@@ -656,7 +656,7 @@ async function clearAllAiIdeas() {
       </div>
 
       <!-- 4. Modal Footer -->
-      <div class="px-5 py-3 border-t border-border bg-slate-50/50 flex items-center justify-between text-xs text-muted-foreground shrink-0">
+      <div class="px-5 py-3 border-t border-border bg-secondary/40 flex items-center justify-between text-xs text-muted-foreground shrink-0">
         <span class="text-[11px]">Need a blank template or custom product?</span>
         <NuxtLink
           to="/library"

@@ -29,16 +29,16 @@ onMounted(async () => {
 <template>
   <div class="space-y-6" data-testid="workflow-etsy-tab">
     <!-- Header Banner -->
-    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-xl p-5 sm:p-6 shadow-md border border-slate-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div class="bg-card text-card-foreground rounded-xl p-5 sm:p-6 shadow-2xs border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div class="space-y-1">
         <div class="flex items-center gap-2">
           <Icon name="lucide:store" class="size-5 text-primary" aria-hidden="true" />
-          <h2 class="text-base sm:text-lg font-bold tracking-tight">Step 5: Etsy Draft</h2>
+          <h2 class="text-base sm:text-lg font-bold tracking-tight text-foreground">Step 5: Etsy Draft</h2>
           <Badge variant="success" class="text-[10px] font-mono font-medium">
             Listing Approved
           </Badge>
         </div>
-        <p class="text-xs text-slate-300 max-w-2xl leading-normal">
+        <p class="text-xs text-muted-foreground max-w-2xl leading-normal">
           Your digital artwork, tags, pricing, and metadata are approved. Click below to create your official draft listing on Etsy.
         </p>
       </div>

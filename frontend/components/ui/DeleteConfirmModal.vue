@@ -37,10 +37,10 @@ const emit = defineEmits<{
     class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none"
     @click.self="emit('close')"
   >
-    <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+    <div class="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
       <!-- Header -->
       <div class="flex items-center gap-3 text-destructive">
-        <div class="h-10 w-10 rounded-xl bg-[#FFEBEE] border border-[#FFCDD2] flex items-center justify-center shrink-0">
+        <div class="h-10 w-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0">
           <Icon name="lucide:trash-2" class="size-5 text-destructive" aria-hidden="true" />
         </div>
         <div>
@@ -55,7 +55,7 @@ const emit = defineEmits<{
           v-if="imageUrl"
           :src="imageUrl"
           alt="Thumbnail"
-          class="h-12 w-12 object-cover rounded-lg border border-border shrink-0 bg-white"
+          class="h-12 w-12 object-cover rounded-lg border border-border shrink-0 bg-card"
         >
         <div class="truncate">
           <p class="text-xs font-bold text-foreground truncate">{{ itemName || 'Item' }}</p>
@@ -70,7 +70,7 @@ const emit = defineEmits<{
       </Alert>
 
       <!-- Actions -->
-      <div class="flex justify-end gap-2 pt-2 border-t border-zinc-100">
+      <div class="flex justify-end gap-2 pt-2 border-t border-border">
         <Button
           variant="outline"
           size="sm"
