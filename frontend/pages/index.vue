@@ -788,7 +788,7 @@ onUnmounted(() => {
 
             <div class="flex items-center justify-between border-t border-border pt-4">
               <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock class="h-4 w-4 text-primary" />
+                <Icon name="lucide:clock" class="size-4 text-primary shrink-0" aria-hidden="true" />
                 <span>Runs in background · Pauses for concept review</span>
               </div>
 
