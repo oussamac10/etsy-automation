@@ -74,6 +74,9 @@ describe("ThemeToggle component", () => {
     const wrapper = mount(ThemeToggle, {
       global: {
         stubs: {
+          ClientOnly: {
+            template: '<div><slot /></div>',
+          },
           Icon: {
             template: '<span class="icon-stub" :data-icon="$attrs.name"></span>',
           },
