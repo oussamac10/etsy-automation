@@ -15,7 +15,7 @@ export function useTheme() {
     return Boolean(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
   }
 
-  function applyTheme(themeVal: ThemePreference) {
+  function applyTheme(themeVal: ThemePreference, withTransition = true) {
     if (typeof document === "undefined") return;
 
     let darkActive = false;
@@ -27,12 +27,35 @@ export function useTheme() {
       darkActive = getSystemPreference();
     }
 
-    isDark.value = darkActive;
-    if (darkActive) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+    const updateDOM = () => {
+      isDark.value = darkActive;
+      if (darkActive) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    };
+
+    if (!withTransition || !isInitialized.value) {
+      updateDOM();
+      return;
     }
+
+    // Modern View Transitions API with CSS cross-fade animation
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void> } };
+    if (typeof doc.startViewTransition === "function") {
+      doc.startViewTransition(() => {
+        updateDOM();
+      });
+      return;
+    }
+
+    // Fallback: temporary transition class for smooth CSS color interpolation
+    document.documentElement.classList.add("theme-transitioning");
+    updateDOM();
+    window.setTimeout(() => {
+      document.documentElement.classList.remove("theme-transitioning");
+    }, 350);
   }
 
   function setTheme(newTheme: ThemePreference) {
@@ -44,7 +67,7 @@ export function useTheme() {
         // Ignore local storage quota/security restrictions
       }
     }
-    applyTheme(newTheme);
+    applyTheme(newTheme, true);
   }
 
   function toggleTheme() {
@@ -69,7 +92,7 @@ export function useTheme() {
     }
 
     preference.value = savedTheme;
-    applyTheme(savedTheme);
+    applyTheme(savedTheme, false);
 
     if (!isInitialized.value) {
       isInitialized.value = true;

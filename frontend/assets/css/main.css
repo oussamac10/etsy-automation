@@ -221,3 +221,44 @@
   }
 }
 
+/* Silky smooth theme switching transitions */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              fill 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-delay: 0s !important;
+}
+
+::view-transition-old(root) {
+  animation: 260ms cubic-bezier(0.4, 0, 0.2, 1) both theme-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 260ms cubic-bezier(0.4, 0, 0.2, 1) both theme-fade-in;
+}
+
+@keyframes theme-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes theme-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+
