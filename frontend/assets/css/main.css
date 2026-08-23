@@ -157,6 +157,23 @@
   .dark ::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.7);
   }
+
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .dark table {
+    color: var(--foreground);
+  }
+
+  .dark thead {
+    background-color: rgba(30, 41, 59, 0.6);
+  }
+
+  .dark tbody {
+    background-color: var(--card);
+  }
 }
 
 @layer utilities {

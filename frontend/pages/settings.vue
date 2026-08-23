@@ -509,7 +509,7 @@ onBeforeUnmount(stopCountdown);
                         <Button
                           variant="outline"
                           size="sm"
-                          class="h-8 gap-1.5 text-xs text-secondary-foreground border-border bg-white hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                          class="h-8 gap-1.5 text-xs text-secondary-foreground border-border bg-card hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                           @click="removeCredential(cred.provider)"
                         >
                           <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -610,7 +610,7 @@ onBeforeUnmount(stopCountdown);
                         size="sm"
                         data-testid="toggle-mute-btn"
                         :loading="isMutingLoading"
-                        class="h-8 gap-1.5 text-xs border-border bg-white text-secondary-foreground hover:bg-secondary transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                        class="h-8 gap-1.5 text-xs border-border bg-card text-secondary-foreground hover:bg-secondary transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                         @click="toggleTelegramMute"
                       >
                         <Icon :name="telegramStatus.is_muted ? 'lucide:bell' : 'lucide:bell-off'" class="size-3.5" aria-hidden="true" />
@@ -621,7 +621,7 @@ onBeforeUnmount(stopCountdown);
                         variant="outline"
                         size="sm"
                         data-testid="disconnect-btn"
-                        class="h-8 gap-1.5 text-xs border-emerald-200 bg-white text-emerald-700 hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                        class="h-8 gap-1.5 text-xs border-emerald-200 bg-card text-emerald-700 hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
                         @click="disconnectTelegram"
                       >
                         <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
@@ -639,8 +639,8 @@ onBeforeUnmount(stopCountdown);
                       <span>Setup Instructions:</span>
                     </div>
                     <ol class="list-decimal pl-5 space-y-1 text-secondary-foreground leading-relaxed">
-                      <li>Open Telegram and search for the bot (e.g. <code class="bg-white px-1.5 py-0.5 rounded border border-border text-primary font-mono font-semibold">@MarketplaceStudioBot</code>).</li>
-                      <li>Click <b>Start</b> or send <code class="bg-white px-1.5 py-0.5 rounded border border-border font-mono">/start</code>.</li>
+                      <li>Open Telegram and search for the bot (e.g. <code class="bg-card px-1.5 py-0.5 rounded border border-border text-primary font-mono font-semibold">@MarketplaceStudioBot</code>).</li>
+                      <li>Click <b>Start</b> or send <code class="bg-card px-1.5 py-0.5 rounded border border-border font-mono">/start</code>.</li>
                       <li>Generate a pairing code below and send it to the bot within 10 minutes.</li>
                     </ol>
                   </div>
@@ -648,11 +648,11 @@ onBeforeUnmount(stopCountdown);
                   <!-- Active Code display -->
                   <div
                     v-if="activePairingCode"
-                    class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-xl"
+                    class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 bg-primary/10 rounded-xl"
                   >
                     <span class="text-xs text-primary uppercase tracking-widest font-bold mb-1">Active Pairing Code</span>
                     <div
-                      class="text-4xl font-mono font-extrabold tracking-widest text-foreground select-all my-2 px-4 py-1.5 bg-white rounded-lg border border-border shadow-2xs"
+                      class="text-4xl font-mono font-extrabold tracking-widest text-foreground select-all my-2 px-4 py-1.5 bg-card rounded-lg border border-border shadow-2xs"
                       data-testid="pairing-code"
                     >
                       {{ activePairingCode.slice(0, 3) }} {{ activePairingCode.slice(3) }}
@@ -698,7 +698,7 @@ onBeforeUnmount(stopCountdown);
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-8 gap-1.5 text-xs shadow-2xs font-medium cursor-pointer self-start sm:self-auto shrink-0 inline-flex items-center bg-white"
+                  class="h-8 gap-1.5 text-xs shadow-2xs font-medium cursor-pointer self-start sm:self-auto shrink-0 inline-flex items-center bg-card"
                   :disabled="isHealthLoading"
                   @click="refreshHealth"
                 >

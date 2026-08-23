@@ -1081,7 +1081,7 @@ onMounted(() => {
             <Input
               v-model="searchQuery"
               placeholder="Search templates..."
-              class="pl-9 h-9 text-xs bg-white shadow-2xs border-border w-full"
+              class="pl-9 h-9 text-xs bg-card shadow-2xs border-border w-full"
             />
           </div>
 
@@ -1098,8 +1098,8 @@ onMounted(() => {
             class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
             :class="
               selectedCategory === 'all'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-slate-200'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-secondary/80'
             "
             @click="selectedCategory = 'all'"
           >
@@ -1107,7 +1107,7 @@ onMounted(() => {
             <span>All Templates</span>
             <span
               class="text-[10px] px-1.5 py-0.2 rounded-full font-bold"
-              :class="selectedCategory === 'all' ? 'bg-slate-700 text-white' : 'bg-white text-secondary-foreground border border-border'"
+              :class="selectedCategory === 'all' ? 'bg-primary-hover text-white' : 'bg-card text-secondary-foreground border border-border'"
             >
               {{ templateCounts['all'] || 0 }}
             </span>
@@ -1120,8 +1120,8 @@ onMounted(() => {
             class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
             :class="
               selectedCategory === cat.value
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-slate-200'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-secondary/80'
             "
             @click="selectedCategory = cat.value"
           >
@@ -1131,10 +1131,10 @@ onMounted(() => {
               class="text-[10px] px-1.5 py-0.2 rounded-full font-bold"
               :class="
                 selectedCategory === cat.value
-                  ? 'bg-slate-700 text-white'
+                  ? 'bg-primary-hover text-white'
                   : (templateCounts[cat.value] || 0) > 0
-                    ? 'bg-blue-50 text-primary font-extrabold border border-blue-200'
-                    : 'bg-white text-muted-foreground border border-border'
+                    ? 'bg-primary/10 text-primary font-extrabold border border-primary/20'
+                    : 'bg-card text-muted-foreground border border-border'
               "
             >
               {{ templateCounts[cat.value] || 0 }}
@@ -1146,7 +1146,7 @@ onMounted(() => {
       <!-- Selected Category Banner / Actions -->
       <div
         v-if="selectedCategory !== 'all'"
-        class="flex items-center justify-between bg-white rounded-xl p-3.5 border border-border shadow-2xs"
+        class="flex items-center justify-between bg-card rounded-xl p-3.5 border border-border shadow-2xs text-card-foreground"
       >
         <div class="flex items-center gap-2.5">
           <div class="size-8 rounded-lg bg-secondary text-primary flex items-center justify-center border border-border shadow-2xs">
@@ -1193,7 +1193,7 @@ onMounted(() => {
       <!-- Empty State -->
       <div
         v-else-if="filteredTemplates.length === 0"
-        class="rounded-2xl border-2 border-dashed border-border bg-white p-12 text-center space-y-4"
+        class="rounded-2xl border-2 border-dashed border-border bg-card p-12 text-center space-y-4"
       >
         <div class="h-12 w-12 rounded-2xl bg-secondary border border-border text-primary flex items-center justify-center mx-auto">
           <Icon name="lucide:image-plus" class="size-6" aria-hidden="true" />
@@ -1234,7 +1234,7 @@ onMounted(() => {
         <Card
           v-for="tpl in paginatedTemplates"
           :key="tpl.id"
-          class="overflow-hidden bg-white border border-border shadow-2xs hover:shadow-md transition-all flex flex-col group"
+          class="overflow-hidden bg-card text-card-foreground border border-border shadow-2xs hover:shadow-md transition-all flex flex-col group"
         >
           <!-- Thumbnail Area with Hover Placement Overlay (Strict 1:1 Aspect Frame) -->
           <div class="aspect-square bg-slate-950/90 overflow-hidden relative flex items-center justify-center p-2.5 border-b border-border select-none">
@@ -1377,9 +1377,9 @@ onMounted(() => {
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="templateToDelete = null"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
+      <div class="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
         <div class="flex items-center gap-3 text-destructive">
-          <div class="h-10 w-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+          <div class="h-10 w-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0">
             <Icon name="lucide:trash-2" class="size-5" aria-hidden="true" />
           </div>
           <div>
@@ -2443,7 +2443,7 @@ onMounted(() => {
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="showAddCustomTypeModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 space-y-4">
+      <div class="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 space-y-4">
         <div class="flex items-center justify-between border-b border-border pb-3">
           <div class="flex items-center gap-2">
             <Icon name="lucide:plus-circle" class="size-4 text-primary" aria-hidden="true" />
@@ -2484,9 +2484,9 @@ onMounted(() => {
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
       @click.self="showDeleteCategoryModal = false"
     >
-      <div class="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
+      <div class="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 space-y-4">
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-red-50 text-destructive flex items-center justify-center shrink-0 border border-red-200">
+          <div class="h-10 w-10 rounded-xl bg-red-500/10 text-destructive flex items-center justify-center shrink-0 border border-red-500/30">
             <Icon name="lucide:trash-2" class="size-5" aria-hidden="true" />
           </div>
           <div>

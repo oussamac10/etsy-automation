@@ -587,13 +587,13 @@ onMounted(async () => {
                 <Input
                   v-model="searchQuery"
                   placeholder="Search workflow or model..."
-                  class="h-8 pl-8 text-xs bg-white"
+                  class="h-8 pl-8 text-xs bg-card"
                 />
               </div>
 
               <select
                 v-model="selectedProviderFilter"
-                class="h-8 rounded-md border border-input bg-white px-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+                class="h-8 rounded-md border border-input bg-card px-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
                 @change="loadLedger"
               >
                 <option value="all">All Providers</option>
@@ -610,7 +610,7 @@ onMounted(async () => {
           <!-- Table -->
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
-              <thead class="bg-secondary/40 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <thead class="bg-secondary/60 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 <tr>
                   <th scope="col" class="py-3 px-4">Date & Time</th>
                   <th scope="col" class="py-3 px-4">Workflow</th>
@@ -621,7 +621,7 @@ onMounted(async () => {
                   <th scope="col" class="py-3 px-4 text-center">Status</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-border/60">
+              <tbody class="divide-y divide-border/60 bg-card">
                 <tr v-if="isLedgerLoading">
                   <td colspan="7" class="py-8 text-center text-xs text-muted-foreground">
                     <div class="flex items-center justify-center gap-2">
@@ -645,7 +645,7 @@ onMounted(async () => {
                   v-for="item in paginatedLedger"
                   v-else
                   :key="item.id"
-                  class="hover:bg-secondary/30 transition-colors"
+                  class="hover:bg-secondary/40 transition-colors"
                 >
                   <td class="py-3 px-4 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
                     {{ formatDate(item.created_at) }}
