@@ -116,7 +116,7 @@ class MockupTemplateStore:
                     data = await self._storage.get(json_key)
                     meta = json.loads(data.decode("utf-8"))
 
-                    t_id = meta.get("id")
+                    t_id = meta.get("id") or json_key.rsplit("/", 1)[-1].replace(".json", "")
                     t_owner = meta.get("owner_id", owner_str)
                     t_name = meta.get("name", "Custom Mockup")
                     t_prod = meta.get("product_type", "tshirt")
@@ -317,25 +317,50 @@ class MockupTemplateStore:
         """Permanently delete a mockup template image and manifest from S3/MinIO."""
         owner_str = str(owner_id)
         existing = await self.get_template(owner_id, template_id)
-        if not existing:
-            return False
 
-        # 1. Delete image file
+        if existing:
+            # 1. Delete image file
+            try:
+                await self._storage.delete(existing.storage_key)
+            except Exception as err:
+                logger.warning(
+                    "failed_to_delete_template_image", key=existing.storage_key, error=str(err)
+                )
+
+            # 2. Delete JSON manifest across all candidate key locations
+            candidate_json_keys = {
+                existing.storage_key.rsplit(".", 1)[0] + ".json",
+                f"mockup-templates/{owner_str}/{existing.product_type}/{template_id}.json",
+                f"mockup-templates/{owner_str}/{normalize_product_type(existing.product_type)}/{template_id}.json",
+            }
+            for json_key in candidate_json_keys:
+                try:
+                    await self._storage.delete(json_key)
+                except Exception as err:
+                    logger.warning("failed_to_delete_template_manifest", key=json_key, error=str(err))
+
+            return True
+
+        # Fallback: scan S3 for any key matching template_id under owner prefix
+        prefix = f"mockup-templates/{owner_str}/"
         try:
-            await self._storage.delete(existing.storage_key)
-        except Exception as err:
-            logger.warning(
-                "failed_to_delete_template_image", key=existing.storage_key, error=str(err)
+            client = self._storage._get_client()
+            response = await asyncio.to_thread(
+                client.list_objects_v2,
+                Bucket=self._storage._bucket_name,
+                Prefix=prefix,
             )
-
-        # 2. Delete JSON manifest
-        json_key = f"mockup-templates/{owner_str}/{existing.product_type}/{template_id}.json"
-        try:
-            await self._storage.delete(json_key)
+            matching_keys = [
+                item["Key"]
+                for item in response.get("Contents", [])
+                if template_id in item["Key"]
+            ]
+            for k in matching_keys:
+                await self._storage.delete(k)
+            return len(matching_keys) > 0
         except Exception as err:
-            logger.warning("failed_to_delete_template_manifest", key=json_key, error=str(err))
-
-        return True
+            logger.warning("fallback_template_deletion_failed", error=str(err))
+            return False
 
     async def delete_category_templates(
         self,
