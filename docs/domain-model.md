@@ -91,7 +91,6 @@ Phase extensions added additional dedicated tables:
 
 ---
 
-
 ## The entities
 
 ### `User`

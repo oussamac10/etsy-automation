@@ -15,6 +15,72 @@ An end-to-end, production-minded automation pipeline built for Etsy print-on-dem
 
 ---
 
+## 📸 Application Showcase
+
+### 1. Studio Dashboard & Active Workflows
+
+Manage all product workflows across their 16-stage lifecycle, track gate approvals, view compute expenditure, and launch new campaigns.
+
+![Studio Dashboard](docs/assets/screenshots/01_dashboard.png)
+
+---
+
+### 2. Gate 1: Market Intelligence & Concept Scoring
+
+Evaluate market demand, competitive saturation, seasonal timing, buyer personas, and preliminary IP safety before generating artwork.
+
+![Gate 1 Idea Research](docs/assets/screenshots/02_gate1_idea_research.png)
+
+---
+
+### 3. Gate 2: Multi-Model Artwork Studio & Variation Gallery
+
+Generate and compare vector and raster designs with Recraft V4.1 and Gemini Flash, inspect prompts, and approve candidates for print production.
+
+![Gate 2 Artwork Studio](docs/assets/screenshots/03_gate2_artwork_gallery.png)
+
+---
+
+### 4. Phase 7: Print-Ready 4500×5400 Master PNG & Pre-Flight QA
+
+Automated background removal, bounding-box trimming, 300 DPI upscaling, and a 10-point technical QA verification suite.
+
+![Phase 7 Production & QA](docs/assets/screenshots/04_phase7_production_mockups.png)
+
+---
+
+### 5. Gate 3: Listing Copy, 13 Tags & USPTO Trademark Clearance
+
+AI-generated Etsy titles, structured descriptions with mandatory AI disclosure, 13 validated tags, live USPTO trademark screening, and customer ZIP packaging.
+
+![Phase 8 Listing & Gate 3](docs/assets/screenshots/05_phase8_listing_gate3.png)
+
+---
+
+### 6. User Mockup Template Store
+
+Upload and curate custom blank templates for T-shirts, mugs, tote bags, and sweatshirts with interactive 2D canvas positioning and blend modes.
+
+![Mockup Template Library](docs/assets/screenshots/06_mockup_templates.png)
+
+---
+
+### 7. Financial & Token Governance Ledger
+
+Real-time tracking of AI provider token usage, image generation counts, compute duration, and estimated API expenditure per workflow.
+
+![Usage & Costs Ledger](docs/assets/screenshots/07_usage_and_costs.png)
+
+---
+
+### 8. Official Etsy Open API v3 Connection & Vault
+
+Secure OAuth 2.0 PKCE shop authorization with AES-128-CBC + HMAC encrypted tokens, automatic token refresh, and safe draft creation.
+
+![Settings & Etsy OAuth](docs/assets/screenshots/08_settings_etsy_oauth.png)
+
+---
+
 ## Key Features
 
 ### 1. Market Research & Idea Discovery (Phases 1-5)
@@ -120,7 +186,6 @@ An end-to-end, production-minded automation pipeline built for Etsy print-on-dem
 ---
 
 ## Quick Start (Docker Compose)
-
 
 ### Prerequisites
 
