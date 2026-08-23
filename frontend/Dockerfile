@@ -9,7 +9,11 @@ ENV PNPM_HOME=/pnpm \
 
 WORKDIR /srv
 
-RUN corepack enable
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && corepack enable
+
 
 COPY pnpm-workspace.yaml package.json tsconfig.base.json /srv/
 COPY frontend/package.json /srv/frontend/

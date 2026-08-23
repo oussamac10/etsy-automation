@@ -383,7 +383,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             # Record estimate in ledger before research scan
             estimated_price = Money(1, "USD")
             async with UnitOfWork(session_factory) as uow:
-                await uow.costs.record_estimate(
+                discovery_ledger_entry = await uow.costs.record_estimate(
                     workflow_id=workflow_id,
                     provider=ProviderName.GEMINI if is_live else ProviderName.FAKE,
                     service="synthesis",
@@ -392,7 +392,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                     input_units=800,
                     output_units=1500,
                     unit_kind="tokens",
-                    idempotency_key=f"cost-discovery-{run_id}",
+                    idempotency_key=f"cost-research-synthesis-{run_id}",
                 )
                 await uow.commit()
 
@@ -626,7 +626,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                         score=db_score,
                         score_breakdown=breakdown,
                         score_explanation=concept.why_it_could_sell,
-                        status=ConceptStatus.PROPOSED,
+                        status=ConceptStatus.SHORTLISTED if index == 0 else ConceptStatus.PROPOSED,
                     )
                     await uow.concepts.add(db_concept)
 
@@ -650,6 +650,23 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                         ],
                         generation_metadata={"aspect": "1:1", "quality_tier": "draft"},
                     )
+
+                # Reconcile cost ledger entry
+                actual_cost = (
+                    Money.from_decimal(
+                        (Decimal(800) * Decimal("0.075") + Decimal(1500) * Decimal("0.30"))
+                        / Decimal("1000000"),
+                        "USD",
+                    )
+                    if is_live
+                    else Money.zero("USD")
+                )
+                await uow.costs.reconcile(
+                    usage_id=discovery_ledger_entry.id,
+                    actual=actual_cost,
+                    input_units=800,
+                    output_units=1500,
+                )
 
                 # Transition Workflow to IDEA_REVIEW
                 db_workflow.state = RunStatus.IDEA_REVIEW
