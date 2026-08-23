@@ -14,11 +14,27 @@ import AlertTitle from "~/components/ui/AlertTitle.vue";
 import EtsyConnectionCard from "~/components/settings/EtsyConnectionCard.vue";
 import EtsyListingDefaultsCard from "~/components/settings/EtsyListingDefaultsCard.vue";
 import Skeleton from "~/components/ui/Skeleton.vue";
+import { fetchApiHealth, type ApiHealth } from "~/composables/useApiHealth";
+import ServiceStatus from "~/components/ServiceStatus.vue";
 
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase;
 
 const isPageLoading = ref(true);
+
+const health = ref<ApiHealth | null>(null);
+const isHealthLoading = ref(false);
+
+async function refreshHealth(): Promise<void> {
+  isHealthLoading.value = true;
+  try {
+    health.value = await fetchApiHealth(apiBase);
+  } catch {
+    // Non-blocking fallback
+  } finally {
+    isHealthLoading.value = false;
+  }
+}
 
 // Telegram integration states
 interface TelegramStatus {
@@ -248,6 +264,7 @@ onMounted(async () => {
   await Promise.allSettled([
     fetchTelegramStatus(),
     fetchCredentials(),
+    refreshHealth(),
   ]);
   isPageLoading.value = false;
 });
@@ -267,7 +284,7 @@ onBeforeUnmount(stopCountdown);
         </div>
         <h1 class="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
         <p class="text-sm text-muted-foreground max-w-2xl">
-          Manage AI provider keys, Etsy shop connection, and Telegram notifications.
+          Manage AI provider keys, Etsy shop connection, Telegram notifications, and live operational diagnostics.
         </p>
       </header>
 
@@ -568,6 +585,60 @@ onBeforeUnmount(stopCountdown);
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <!-- System Diagnostics & Operational Health -->
+        <Card class="border border-border shadow-2xs">
+          <CardHeader class="pb-3">
+            <div class="flex items-center justify-between">
+              <div class="space-y-1">
+                <CardTitle class="text-base font-bold flex items-center gap-2">
+                  <Icon name="lucide:activity" class="size-4 text-primary" aria-hidden="true" />
+                  <span>System Diagnostics &amp; Operational Health</span>
+                </CardTitle>
+                <CardDescription class="text-xs">
+                  Real-time status and latency metrics for core backend infrastructure and background workers.
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                class="h-8 gap-1.5 text-xs shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                :disabled="isHealthLoading"
+                @click="refreshHealth"
+              >
+                <Icon name="lucide:refresh-cw" class="size-3.5" :class="{ 'animate-spin': isHealthLoading }" aria-hidden="true" />
+                <span>Refresh Status</span>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ul data-testid="status-list" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <ServiceStatus
+                name="api"
+                :status="health?.status ?? 'ok'"
+                :detail="health?.service"
+              />
+              <ServiceStatus
+                name="database"
+                :status="health?.components?.database?.status ?? 'ok'"
+                :latency-ms="health?.components?.database?.latency_ms"
+                :detail="health?.components?.database?.detail"
+              />
+              <ServiceStatus
+                name="redis"
+                :status="health?.components?.redis?.status ?? 'ok'"
+                :latency-ms="health?.components?.redis?.latency_ms"
+                :detail="health?.components?.redis?.detail"
+              />
+              <ServiceStatus
+                name="image_worker"
+                :status="health?.components?.image_worker?.status ?? 'ok'"
+                :latency-ms="health?.components?.image_worker?.latency_ms"
+                :detail="health?.components?.image_worker?.detail"
+              />
+            </ul>
           </CardContent>
         </Card>
       </div>

@@ -25,38 +25,9 @@ import AlertDescription from "~/components/ui/AlertDescription.vue";
 import CustomizableSelect, { type SelectOption } from "~/components/ui/CustomizableSelect.vue";
 import Pagination from "~/components/ui/Pagination.vue";
 import Progress from "~/components/ui/Progress.vue";
-import { fetchApiHealth, type ApiHealth } from "~/composables/useApiHealth";
-import ServiceStatus from "~/components/ServiceStatus.vue";
 import { useLibraryProducts } from "~/composables/useLibraryProducts";
 
 const { libraryProductOptions, fetchLibraryProducts } = useLibraryProducts();
-
-const health = ref<ApiHealth | null>(null);
-
-const PIPELINE_STATES = [
-  "DRAFT",
-  "RESEARCH_QUEUED",
-  "RESEARCHING",
-  "IDEA_REVIEW",
-  "ARTWORK_QUEUED",
-  "GENERATING_ARTWORK",
-  "UPSCALING_MASTER",
-  "ARTWORK_REVIEW",
-  "METADATA_GENERATION",
-  "LISTING_REVIEW",
-  "READY_FOR_ETSY_DRAFT",
-  "CREATING_ETSY_DRAFT",
-  "UPLOADING_ASSETS",
-  "ETSY_DRAFT_CREATED",
-  "PUBLISHED",
-  "CANCELLED",
-];
-
-const HUMAN_GATES = [
-  "Idea approval",
-  "Artwork approval",
-  "Trademark",
-];
 
 
 const BUYER_OPTIONS: SelectOption[] = [
@@ -442,12 +413,10 @@ watch(hasActiveWorkflows, (active) => {
 
 onMounted(async () => {
   try {
-    const [h] = await Promise.all([
-      fetchApiHealth(apiBase),
+    await Promise.all([
       loadWorkflows(),
       fetchLibraryProducts(),
     ]);
-    health.value = h;
   } catch {
     // Non-blocking fallback if offline
     await Promise.all([loadWorkflows(), fetchLibraryProducts()]);
@@ -1154,91 +1123,6 @@ onUnmounted(() => {
               :page-size="pageSize"
               class="mt-3"
             />
-          </div>
-        </CardContent>
-      </Card>
-
-      <!-- System Architecture & Foundation Status -->
-      <Card class="mt-8 border border-border shadow-2xs">
-        <CardHeader class="pb-3">
-          <div class="flex items-center justify-between">
-            <div class="space-y-1">
-              <CardTitle class="text-base font-bold flex items-center gap-2">
-                <Icon name="lucide:shield-check" class="size-4 text-primary" aria-hidden="true" />
-                <span>System Pipeline &amp; Operational Status</span>
-              </CardTitle>
-              <CardDescription class="text-xs">
-                Live dependency health checks, 16-stage pipeline transitions, and human approval gates.
-              </CardDescription>
-            </div>
-            <Badge variant="outline" class="font-mono text-xs">Foundation &amp; Compliance</Badge>
-          </div>
-        </CardHeader>
-        <CardContent class="space-y-6">
-          <!-- Live System Dependency Status -->
-          <div class="space-y-2">
-            <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Live Services</span>
-            <ul data-testid="status-list" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <ServiceStatus
-                name="api"
-                :status="health?.status ?? 'ok'"
-                :detail="health?.service"
-              />
-              <ServiceStatus
-                name="database"
-                :status="health?.components?.database?.status ?? 'ok'"
-                :latency-ms="health?.components?.database?.latency_ms"
-                :detail="health?.components?.database?.detail"
-              />
-              <ServiceStatus
-                name="redis"
-                :status="health?.components?.redis?.status ?? 'ok'"
-                :latency-ms="health?.components?.redis?.latency_ms"
-                :detail="health?.components?.redis?.detail"
-              />
-              <ServiceStatus
-                name="image_worker"
-                :status="health?.components?.image_worker?.status ?? 'ok'"
-                :latency-ms="health?.components?.image_worker?.latency_ms"
-                :detail="health?.components?.image_worker?.detail"
-              />
-            </ul>
-          </div>
-
-          <!-- 16 Pipeline Workflow States -->
-          <div class="space-y-2">
-            <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Workflow Pipeline Stages (16 States)</span>
-            <ul data-testid="workflow-states" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <li
-                v-for="st in PIPELINE_STATES"
-                :key="st"
-                class="px-2.5 py-1.5 rounded-md border border-border bg-secondary/50 text-[11px] font-mono text-foreground flex items-center justify-between"
-              >
-                <span>{{ st }}</span>
-              </li>
-            </ul>
-          </div>
-
-          <!-- 3 Human Gates -->
-          <div class="space-y-2">
-            <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Human-in-the-Loop Approval Gates</span>
-            <ul data-testid="gate-list" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <li
-                v-for="gate in HUMAN_GATES"
-                :key="gate"
-                class="p-3 rounded-lg border border-primary/20 bg-primary/5 text-xs font-medium text-foreground flex items-center gap-2"
-              >
-                <Icon name="lucide:user-check" class="size-4 text-primary shrink-0" aria-hidden="true" />
-                <span>{{ gate }}</span>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Compliance Disclaimer -->
-          <div class="pt-4 border-t border-border text-xs text-muted-foreground leading-relaxed">
-            <p>
-              <strong>Legal &amp; Policy Notice:</strong> This platform never publishes or activates a listing on Etsy without explicit merchant intervention, and makes no claim that an idea is profitable or free of commercial risk. All concepts, artwork, and metadata undergo mandatory human sign-off before dispatch.
-            </p>
           </div>
         </CardContent>
       </Card>

@@ -35,6 +35,20 @@ function stubFetch(telegramMock: (url: string, options?: unknown) => Promise<unk
         token_health: "disconnected",
       });
     }
+    if (url.includes("/health")) {
+      return Promise.resolve({
+        status: "ok",
+        service: "etsy-automation-api",
+        version: "0.1.0",
+        app_env: "local",
+        checked_at: new Date().toISOString(),
+        components: {
+          database: { status: "ok", latency_ms: 2 },
+          redis: { status: "ok", latency_ms: 1 },
+          image_worker: { status: "ok", latency_ms: 5 },
+        },
+      });
+    }
     if (url.endsWith("/settings") || url.endsWith("/settings/")) {
       return Promise.resolve({
         default_digital_price_minor: 499,

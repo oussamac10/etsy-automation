@@ -101,7 +101,7 @@ async function capture() {
 }
 
 capture().catch((err) => {
-  // eslint-disable-next-line no-console
+   
   console.error("Screenshot capture failed:", err);
   process.exit(1);
 });
