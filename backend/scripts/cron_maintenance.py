@@ -168,12 +168,12 @@ async def send_daily_telegram_digest(verbose: bool = True) -> dict[str, Any]:
                 f"Ready to launch today's listings!"
             )
 
-            # Query connected telegram chats
+            # Query connected telegram chats (excluding muted connections)
             conn_res = await session.execute(
                 text(
                     "SELECT telegram_chat_id "
                     "FROM telegram_connections "
-                    "WHERE telegram_chat_id IS NOT NULL AND revoked_at IS NULL;"
+                    "WHERE telegram_chat_id IS NOT NULL AND revoked_at IS NULL AND is_muted = false;"
                 )
             )
             chat_ids = [r[0] for r in conn_res.fetchall()]
