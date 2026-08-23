@@ -83,13 +83,14 @@ project better, this is the mapping.
 | Audit events | `AuditEvent` | — |
 | Workflow errors and retries | `WorkflowFailure` | Plus `WorkflowTransition` for the state timeline |
 
-Phase 1's `CLAUDE.md` also lists `ShopConnection`, `Mockup`, `IpReview` and
-`Package`. Those belong to phases that own them: `ShopConnection` needs
-encrypted tokens (Phase 3), `Mockup` and `Package` need the production pipeline
-(Phase 7/8), and the IP review is fields on `ListingDraft` until Phase 8 gives it
-a life of its own.
+Phase extensions added additional dedicated tables:
+
+- **`TelegramConnection`** (`0004_phase_4_telegram.py`): Owner pairing codes and chat mappings for bot remote control.
+- **`TrademarkRecord`** (`0010_trademark_records.py`): USPTO registered wordmarks, nice classes, and `pg_trgm` GIN index for local IP screening.
+- **`ShopConnection`** (`0011_phase_9_etsy_connection.py`): Encrypted Etsy OAuth 2.0 PKCE access and refresh tokens.
 
 ---
+
 
 ## The entities
 

@@ -42,14 +42,30 @@ An end-to-end, production-minded automation pipeline built for Etsy print-on-dem
 - **Interactive 2D Canvas Compositor**: Live client-side and server-side visual placement editor with real-time scaling, rotation, opacity, and blend modes (`multiply`, `screen`, `overlay`).
 - **Dynamic Listing Cover Badges**: Set primary cover images and reorder mockups per product type with zero page reloads.
 
-### 4. 2-Way Telegram Remote Control & Bot (Phase 4)
+### 4. Preliminary IP Screening & Listing SEO Engine (Phase 8)
+
+- **AI Listing Generator**: Generates high-intent Etsy Titles (< 140 chars), structured descriptions with mandatory AI disclosure, and exactly 13 search tags (≤ 20 chars per tag, no punctuation, 0 duplicates).
+- **PostgreSQL USPTO Trademark Index**: High-performance `pg_trgm` GIN trigram index with streaming XML/CSV bulk dataset ingestion CLI (`scripts/ingest_uspto_trademarks.py`).
+- **TSDR Candidate Verification**: Real-time live TSDR status and goods/services enrichment with encrypted `USPTO_API_KEY`.
+- **Customer Download Package**: Deterministic customer ZIP generator containing 300 DPI master PNG, print-ready PDF, preview mockups, commercial licence (`LICENSE.txt`), buyer sizing instructions, and `manifest.sha256`.
+- **Gate 3 Human Sign-Off**: Mandatory owner review of metadata, tag chips, and trademark risk acknowledgement before draft preparation.
+
+### 5. Official Etsy Open API v3 Integration (Phase 9)
+
+- **OAuth 2.0 PKCE Connection**: Secure 1-click seller shop connection with SHA-256 code challenge and Redis temporary state verification (`GET /api/v1/auth/etsy/connect`).
+- **Encrypted Token Vault**: Fernet AES-128-CBC + HMAC encrypted tokens in PostgreSQL with proactive 5-minute pre-expiration auto-refresh.
+- **Draft Listing Dispatcher**: Safe draft creation (`state: "draft"` strictly enforced), primary cover and preview mockup image uploads, and customer ZIP digital file delivery.
+- **Absolute Non-Negotiable Safeguard**: Never automatically publishes or activates listings; zero active API calls; no auto-activation workers.
+
+### 6. 2-Way Telegram Remote Control & Bot (Phase 4)
 
 - Full remote control via Telegram bot: Receive instant notifications when gates require decisions.
 - Approve or reject concepts and artwork directly from chat with interactive inline buttons.
+- Direct links to newly created drafts in Etsy Shop Manager with zero publish buttons.
 
-### 5. Robust Infrastructure & Cost Ledger
+### 7. Robust Infrastructure & Cost Ledger
 
-- **Deterministic State Machine**: 8-stage transition engine with optimistic locking and automated error triage.
+- **Deterministic State Machine**: 16-stage transition engine with optimistic locking and automated error triage.
 - **Transactional Outbox Pattern**: Guarantees zero lost events between API and background workers.
 - **Cost Accounting**: Tracks granular token usage, compute duration, and estimated API expenditure per workflow.
 - **Automated Schema Sync**: Database models continuously synchronized with documentation in CI.
@@ -83,27 +99,28 @@ An end-to-end, production-minded automation pipeline built for Etsy print-on-dem
 ## State Machine & The Three Human Gates
 
 ```text
-[RESEARCHING] ──► [IDEA_REVIEW] (Gate 1: Human Approval)
-                        │
-                        ▼
-                [ART_GENERATION] ──► [ART_REVIEW] (Gate 2: Human Approval)
-                                            │
-                                            ▼
-                                    [PRODUCTION] (Master PNG & Mockup Compositing)
-                                            │
-                                            ▼
-                                    [IP_REVIEW] (Preliminary Trademark Check)
-                                            │
-                                            ▼
-                                    [LISTING_REVIEW] (Gate 3: Final Approval)
-                                            │
-                                            ▼
-                                    [ETSY_DRAFT_CREATED]
+[DRAFT]
+   │
+   ▼
+[RESEARCH_QUEUED] ──► [RESEARCHING] ──► [IDEA_REVIEW] (Gate 1: Idea Approval)
+                                               │
+                                               ▼
+[ARTWORK_QUEUED] ──► [GENERATING_ARTWORK] ──► [UPSCALING_MASTER] ──► [ARTWORK_REVIEW] (Gate 2: Artwork Approval)
+                                                                            │
+                                                                            ▼
+                                                [METADATA_GENERATION] ──► [LISTING_REVIEW] (Gate 3: Listing & IP Approval)
+                                                                                │
+                                                                                ▼
+                                                                    [READY_FOR_ETSY_DRAFT]
+                                                                                │
+                                                                                ▼
+                                                [CREATING_ETSY_DRAFT] ──► [UPLOADING_ASSETS] ──► [ETSY_DRAFT_CREATED]
 ```
 
 ---
 
 ## Quick Start (Docker Compose)
+
 
 ### Prerequisites
 

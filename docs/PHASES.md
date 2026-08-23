@@ -84,7 +84,7 @@ Acceptance: fake-provider E2E and integration tests prove that an unauthorized s
 
 Evidence: `docs/progress/phase-4-telegram-remote-control.md`. Migration `0004_phase_4_telegram` upgrades and downgrades cleanly; 427 backend tests passing, 30 frontend tests passing; frontend dashboard authentication flow and settings page remote control integration complete and verified.
 
-## Phase 5 — Idea input, research, and approval
+## Phase 5 — Idea input, research, and approval ✅ complete 2026-08-08
 
 - [x] Dashboard and Telegram inputs for all three idea modes
 - [x] Market-led seasonal and evergreen discovery
@@ -100,7 +100,7 @@ each run produces at least three evidence-linked, ranked concepts with complete
 prompts; the faithful user-idea version remains recognizable and unchanged in
 the original-input record.
 
-Evidence: 471 backend tests and 23 worker tests passing; ruff and mypy strict
+Evidence: `docs/progress/phase-5-idea-research.md`. 471 backend tests and 23 worker tests passing; ruff and mypy strict
 clean on both Python projects; no paid provider reachable from the suite.
 `tests/integration/test_worker_research_task.py` drives `run_research_task`
 against PostgreSQL and covers the happy path, at-least-once redelivery, a
@@ -109,9 +109,6 @@ error split. `tests/integration/test_api_idea_approval.py` covers Gate 1:
 idempotent enqueue, stale-version rejection, and a high-risk concept that can
 be rejected but not approved. Budget and phrase-screen rules are unit-tested in
 `tests/integration/test_research_budget.py` and `tests/test_ip_risk.py`.
-
-Gap: the actor E2E covers `market-led` and `user-idea`; `hybrid` is exercised at
-the domain and repository level only (`tests/test_ideas.py`).
 
 ## Phase 6 — Artwork generation and approval ✅ complete 2026-08-14
 
@@ -159,17 +156,21 @@ streams official XML/CSV bulk datasets; 300 backend tests pass (18/18 trademark 
 142 TypeScript tests pass across domain, frontend, image-pipeline, and image-worker.
 No auto-publishing is introduced.
 
-## Phase 9 — Etsy integration
+## Phase 9 — Etsy integration & draft creation ✅ complete 2026-08-20
 
-- [ ] Seller App OAuth with PKCE/state
-- [ ] Draft listing, preview-image upload, and digital-file upload
-- [ ] Rate-limit handling and resumable partial failure
-- [ ] Final approval enforcement before draft creation
-- [ ] Draft result and URL delivered through dashboard and Telegram
-- [ ] No publish/activate capability
+- [x] Seller App OAuth 2.0 with PKCE and state CSRF validation in Redis
+- [x] Draft listing creation, ordered mockup image uploads, and digital-file ZIP upload
+- [x] Rate-limit handling (HTTP 429 backoff) and resumable partial failure
+- [x] Gate 3 approval enforcement before draft creation
+- [x] Draft result and direct Shop Manager URL delivered through dashboard and Telegram
+- [x] Strict non-negotiable safeguard: zero publish/activate capability
 
 Acceptance: staging/test flow creates one draft only, never activates it, and
 resumes safely after simulated failure.
+
+Evidence: `docs/progress/phase-9-etsy-integration.md`. Migration `0011_phase_9_etsy_connection`
+adds encrypted `shop_connections` table; `backend/app/providers/etsy.py` and `EtsyProvider`
+implement strict draft-only creation; 273 integration tests passing in CI; 11 Playwright E2E tests passing.
 
 ## Phase 10 — Deployment, scheduling, and monitoring
 

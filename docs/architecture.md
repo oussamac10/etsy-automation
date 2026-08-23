@@ -183,14 +183,18 @@ Recorded as ADRs in [`adr/`](adr/):
   authentication with Argon2id
 - [ADR-0003](adr/0003-two-workers.md) — Two worker processes rather than one
 
-## What is not built yet
+## Current State & Next Milestones
 
-Phase 2 added the data foundation and Phase 3 the authentication and settings on
-top of it. Still absent: Telegram (Phase 4), research execution and real provider
-adapters (Phase 5), artwork generation (Phase 6), the production pipeline
-(Phase 7), SEO and packaging (Phase 8), Etsy integration including
-`ShopConnection` (Phase 9) and deployment (Phase 10). The web app has no login
-or settings screens yet; they arrive with the dashboard in Phase 5.
+Phases 1 through 9 are complete and active across the repository:
 
-The tables for artwork, production and listings exist and are empty by design —
-the phases that own them fill them in.
+- **Foundation & Domain**: Single-owner auth, 16-stage state machine, append-only audit trail and cost ledger.
+- **Telegram Gateway (Phase 4)**: 2-way bot remote control, status inspection, workflow approval gates.
+- **Idea Research & Gate 1 (Phase 5)**: Tavily web search, structured opportunity extraction, immutable original inputs vs optimized concepts.
+- **Artwork Generation & Gate 2 (Phase 6)**: Recraft V4.1 and Gemini Flash adapters, comparison gallery, master artwork selection.
+- **Master PNG & Custom Mockups (Phase 7)**: Fastify Sharp pipeline, 4500×5400 @ 300 DPI master canvas, automated QA inspection, user-uploaded mockup template store and 2D canvas compositor.
+- **SEO, Trademark & Package (Phase 8)**: AI listing generator, PostgreSQL USPTO trademark index with trigram search, TSDR verification, customer ZIP download package builder, and Gate 3 listing approval.
+- **Etsy Integration & Drafts (Phase 9)**: Official Etsy Open API v3 OAuth 2.0 PKCE connection, encrypted token vault, draft listing dispatcher with mockup and ZIP upload, and non-negotiable never-publish safeguard.
+
+**Next Milestone:**
+
+- **Phase 10**: Deployment, scheduled background research, continuous health monitoring, automated backups, and monthly ledger spend alerts.
