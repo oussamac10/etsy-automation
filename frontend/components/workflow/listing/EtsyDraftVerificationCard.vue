@@ -323,7 +323,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                   class="size-4 shrink-0 mt-0.5"
                   :class="[
                     check.status === 'synced'
-                      ? 'text-emerald-700'
+                      ? 'text-emerald-600 dark:text-emerald-400'
                       : check.status === 'manual_review'
                         ? 'text-primary'
                         : check.status === 'different' || check.status === 'missing'
@@ -430,7 +430,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0 mt-0.5"
-                  :class="check.status === 'synced' ? 'text-emerald-700' : 'text-amber-600'"
+                  :class="check.status === 'synced' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'"
                   aria-hidden="true"
                 />
                 <div class="min-w-0">
@@ -495,7 +495,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0 mt-0.5"
-                  :class="check.status === 'synced' ? 'text-emerald-700' : 'text-amber-600'"
+                  :class="check.status === 'synced' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'"
                   aria-hidden="true"
                 />
                 <div class="min-w-0">
@@ -603,7 +603,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0 mt-0.5"
-                  :class="check.status === 'synced' ? 'text-emerald-700' : 'text-amber-600'"
+                  :class="check.status === 'synced' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'"
                   aria-hidden="true"
                 />
                 <div class="min-w-0">
