@@ -25,7 +25,7 @@ const emit = defineEmits<{
         :class="
           selectedTab === pKey
             ? 'bg-primary text-white shadow-2xs'
-            : 'bg-secondary hover:bg-slate-200 text-secondary-foreground'
+            : 'bg-secondary hover:bg-secondary/80 text-secondary-foreground'
         "
         @click="emit('selectTab', pKey)"
       >
@@ -33,7 +33,7 @@ const emit = defineEmits<{
         <span>{{ getProductLabel(pKey) }}</span>
         <span
           class="text-[10px] px-1.5 py-0.2 rounded-full shrink-0"
-          :class="selectedTab === pKey ? 'bg-blue-700 text-white' : 'bg-white text-secondary-foreground border border-border'"
+          :class="selectedTab === pKey ? 'bg-primary-hover text-white' : 'bg-card text-secondary-foreground border border-border'"
         >
           {{ (mockupsByProduct[pKey] || []).length }}
         </span>

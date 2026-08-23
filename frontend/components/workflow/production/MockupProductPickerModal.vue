@@ -377,7 +377,7 @@ async function clearAllAiIdeas() {
               </span>
               <span
                 class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                :class="getMockupCount(item.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-secondary text-muted-foreground border border-border'"
+                :class="getMockupCount(item.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-secondary text-muted-foreground border border-border'"
               >
                 {{ getMockupCount(item.key) }} {{ getMockupCount(item.key) === 1 ? 'mockup' : 'mockups' }}
               </span>
@@ -577,7 +577,7 @@ async function clearAllAiIdeas() {
                 </span>
                 <span
                   class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                  :class="getMockupCount(item.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-white text-muted-foreground border border-border'"
+                  :class="getMockupCount(item.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-card text-muted-foreground border border-border'"
                 >
                   {{ getMockupCount(item.key) }} {{ getMockupCount(item.key) === 1 ? 'mockup' : 'mockups' }}
                 </span>
@@ -609,7 +609,7 @@ async function clearAllAiIdeas() {
               class="p-2.5 rounded-xl border border-[#FFDCC7] bg-secondary/50 hover:bg-secondary hover:border-primary/50 flex flex-col items-center justify-between gap-1.5 transition-all cursor-pointer group text-center min-h-[6.25rem]"
               @click="emit('select', item.key)"
             >
-              <div class="h-8 w-8 rounded-lg bg-white border border-[#FFDCC7] flex items-center justify-center text-primary transition-colors shrink-0">
+              <div class="h-8 w-8 rounded-lg bg-card border border-border flex items-center justify-center text-primary transition-colors shrink-0">
                 <Icon :name="item.icon" class="size-4" aria-hidden="true" />
               </div>
               <span class="text-xs font-bold text-foreground line-clamp-2 leading-tight break-words px-0.5 text-center" :title="item.label">
@@ -617,7 +617,7 @@ async function clearAllAiIdeas() {
               </span>
               <span
                 class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                :class="getMockupCount(item.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-muted text-muted-foreground border border-border'"
+                :class="getMockupCount(item.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-muted text-muted-foreground border border-border'"
               >
                 {{ getMockupCount(item.key) }} {{ getMockupCount(item.key) === 1 ? 'mockup' : 'mockups' }}
               </span>
@@ -646,7 +646,7 @@ async function clearAllAiIdeas() {
               </span>
               <span
                 class="text-[10px] px-1.5 py-0.2 rounded-full font-medium"
-                :class="getMockupCount(p.key) > 0 ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300' : 'bg-secondary text-muted-foreground border border-border'"
+                :class="getMockupCount(p.key) > 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30' : 'bg-secondary text-muted-foreground border border-border'"
               >
                 {{ getMockupCount(p.key) }} {{ getMockupCount(p.key) === 1 ? 'mockup' : 'mockups' }}
               </span>
@@ -656,7 +656,7 @@ async function clearAllAiIdeas() {
       </div>
 
       <!-- 4. Modal Footer -->
-      <div class="px-5 py-3 border-t border-border bg-slate-50/50 flex items-center justify-between text-xs text-muted-foreground shrink-0">
+      <div class="px-5 py-3 border-t border-border bg-secondary/40 flex items-center justify-between text-xs text-muted-foreground shrink-0">
         <span class="text-[11px]">Need a blank template or custom product?</span>
         <NuxtLink
           to="/library"
