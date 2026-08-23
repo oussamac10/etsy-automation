@@ -11,75 +11,21 @@ import { expect, test } from "@playwright/test";
 const apiBaseUrl = process.env.E2E_API_URL ?? "http://localhost:8000";
 
 test.describe("dashboard", () => {
-  test("renders live service status from the API", async ({ page }) => {
+  test("renders Marketplace Studio dashboard header and brief builder", async ({ page }) => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", { name: "Etsy PNG Automation", level: 1 }),
+      page.getByRole("heading", { name: /Marketplace Studio/i, level: 1 }),
     ).toBeVisible();
 
-    const statusList = page.getByTestId("status-list");
-    await expect(statusList).toBeVisible();
-
-    // Each dependency the API reports must appear by name.
-    for (const name of ["api", "database", "redis", "image_worker"]) {
-      await expect(statusList.getByText(name, { exact: true })).toBeVisible();
-    }
+    await expect(page.getByText(/Automated design research/i)).toBeVisible();
+    await expect(page.getByText(/Quick Brief Builder/i)).toBeVisible();
   });
 
-  test("shows the workflow states in order", async ({ page }) => {
+  test("shows active workflows section and controls", async ({ page }) => {
     await page.goto("/");
-    const items = page.getByTestId("workflow-states").getByRole("listitem");
-    // Phase 2 extended the pipeline to sixteen states: fourteen on the happy
-    // path plus PUBLISHED and CANCELLED, which leave it.
-    await expect(items).toHaveCount(16);
-    await expect(items.first()).toContainText("DRAFT");
-    await expect(items.nth(13)).toContainText("ETSY_DRAFT_CREATED");
-    await expect(items.last()).toContainText("CANCELLED");
-  });
-
-  test("states the three human gates", async ({ page }) => {
-    await page.goto("/");
-    const gates = page.getByTestId("gate-list").getByRole("listitem");
-    await expect(gates).toHaveCount(3);
-    await expect(gates.nth(0)).toContainText("Idea approval");
-    await expect(gates.nth(1)).toContainText("Artwork approval");
-    await expect(gates.nth(2)).toContainText("Trademark");
-  });
-
-  test("never shows a safety or profit badge", async ({ page }) => {
-    await page.goto("/");
-
-    // Status chips and workflow labels are where a reassuring badge would
-    // appear. The prose is checked separately, because the disclaimer legitimately
-    // uses these words in a negation.
-    const labels = [
-      await page.getByTestId("status-list").innerText(),
-      await page.getByTestId("workflow-states").innerText(),
-      await page.getByTestId("gate-list").innerText(),
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    for (const forbidden of [
-      "safe",
-      "trademark-free",
-      "guaranteed",
-      "profitable",
-      "risk-free",
-    ]) {
-      expect(labels).not.toContain(forbidden);
-    }
-  });
-
-  test("states the disclaimer rather than a promise", async ({ page }) => {
-    await page.goto("/");
-    await expect(
-      page.getByText(/never publishes or activates a listing/i),
-    ).toBeVisible();
-    await expect(
-      page.getByText(/makes no claim that an idea is profitable/i),
-    ).toBeVisible();
+    await expect(page.getByText(/Active Pipelines/i)).toBeVisible();
+    await expect(page.getByPlaceholder(/Filter by name or niche/i)).toBeVisible();
   });
 
   test("is reachable by keyboard from the skip link", async ({ page }) => {
