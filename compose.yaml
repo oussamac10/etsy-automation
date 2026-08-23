@@ -148,6 +148,7 @@ services:
     environment: *python-env
     volumes:
       - ./backend/app:/srv/backend/app
+      - ./backend/scripts:/srv/backend/scripts
       - ./workers/general-worker/worker:/srv/workers/general-worker/worker
     ports:
       - "${API_PORT:-8000}:8000"
@@ -174,6 +175,7 @@ services:
     environment: *python-env
     volumes:
       - ./backend/app:/srv/backend/app
+      - ./backend/scripts:/srv/backend/scripts
       - ./workers/general-worker/worker:/srv/workers/general-worker/worker
     command: [ "dramatiq", "worker.main", "--processes", "1", "--threads", "4" ]
     depends_on:
