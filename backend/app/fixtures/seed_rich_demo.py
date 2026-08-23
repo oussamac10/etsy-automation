@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import select
+
+from app.application.unit_of_work import UnitOfWork
 from app.domain.enums import (
     ConceptOrigin,
     ConceptStatus,
@@ -14,11 +16,10 @@ from app.domain.enums import (
 )
 from app.domain.ideas import normalize_idea_text
 from app.domain.workflow import JobStatus, RiskLevel, RunStatus
-from app.application.unit_of_work import UnitOfWork
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.models import (
-    Asset,
     ArtworkJob,
+    Asset,
     ListingDraft,
     OriginalIdea,
     ProductConcept,
