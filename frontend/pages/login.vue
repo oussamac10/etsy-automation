@@ -19,11 +19,15 @@ const router = useRouter();
 
 const email = ref("");
 const password = ref("");
+const showPassword = ref(false);
 const error = ref<string | null>(null);
 const loading = ref(false);
 
 async function handleLogin() {
-  if (!email.value || !password.value) {
+  const cleanEmail = email.value.trim().toLowerCase();
+  const rawPassword = password.value;
+
+  if (!cleanEmail || !rawPassword) {
     error.value = "Please enter both email and password.";
     return;
   }
@@ -32,7 +36,7 @@ async function handleLogin() {
   error.value = null;
 
   try {
-    await auth.login(email.value, password.value);
+    await auth.login(cleanEmail, rawPassword);
     router.push("/");
   } catch {
     error.value = "Invalid email or password.";
@@ -71,6 +75,9 @@ async function handleLogin() {
                   type="email"
                   required
                   autocomplete="email"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck="false"
                   placeholder="owner@example.com"
                   data-testid="login-email-input"
                   class="pl-9"
@@ -87,14 +94,26 @@ async function handleLogin() {
                 <Input
                   id="password"
                   v-model="password"
-                  type="password"
+                  :type="showPassword ? 'text' : 'password'"
                   required
                   autocomplete="current-password"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck="false"
                   placeholder="••••••••"
                   data-testid="login-password-input"
-                  class="pl-9"
+                  class="pl-9 pr-10"
                 />
                 <Icon name="lucide:lock" class="absolute left-3 top-2.5 size-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
+                <button
+                  type="button"
+                  tabindex="-1"
+                  class="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none"
+                  :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                  @click="showPassword = !showPassword"
+                >
+                  <Icon :name="showPassword ? 'lucide:eye-off' : 'lucide:eye'" class="size-4" aria-hidden="true" />
+                </button>
               </div>
             </div>
 
