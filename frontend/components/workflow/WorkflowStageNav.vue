@@ -77,7 +77,7 @@ const isListingActive = computed(() => {
         class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'overview'
-            ? 'bg-slate-900 text-white shadow-xs'
+            ? 'bg-primary text-primary-foreground shadow-xs'
             : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
         "
         @click="emit('update:activeTab', 'overview')"
@@ -93,20 +93,20 @@ const isListingActive = computed(() => {
         class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'concepts'
-            ? 'bg-slate-900 text-white shadow-xs'
+            ? 'bg-primary text-primary-foreground shadow-xs'
             : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
         "
         @click="emit('update:activeTab', 'concepts')"
       >
-        <Icon v-if="isResearchActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin text-primary" aria-hidden="true" />
-        <Icon v-else-if="isGate1Done" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:sparkles" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-if="isResearchActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin" :class="activeTab === 'concepts' ? 'text-white' : 'text-primary'" aria-hidden="true" />
+        <Icon v-else-if="isGate1Done" name="lucide:circle-check" class="size-3.5 shrink-0" :class="activeTab === 'concepts' ? 'text-emerald-300' : 'text-emerald-600 dark:text-emerald-400'" aria-hidden="true" />
+        <Icon v-else name="lucide:sparkles" class="size-3.5 shrink-0" :class="activeTab === 'concepts' ? 'text-white/80' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">1. Concepts &amp; Research</span>
         <span class="truncate 2xl:hidden">1. Concepts</span>
         <span
           v-if="conceptsCount > 0"
           class="text-[9px] px-1.5 py-0 rounded-full font-mono font-bold shrink-0"
-          :class="activeTab === 'concepts' ? 'bg-slate-700 text-white' : 'bg-secondary text-secondary-foreground border border-border/50'"
+          :class="activeTab === 'concepts' ? 'bg-primary-hover text-white' : 'bg-secondary text-secondary-foreground border border-border/50'"
         >
           {{ conceptsCount }}
         </span>
@@ -118,20 +118,20 @@ const isListingActive = computed(() => {
         class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'artwork'
-            ? 'bg-slate-900 text-white shadow-xs'
+            ? 'bg-primary text-primary-foreground shadow-xs'
             : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
         "
         @click="emit('update:activeTab', 'artwork')"
       >
-        <Icon v-if="isArtActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin text-primary" aria-hidden="true" />
-        <Icon v-else-if="isGate2Done" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:image" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-if="isArtActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin" :class="activeTab === 'artwork' ? 'text-white' : 'text-primary'" aria-hidden="true" />
+        <Icon v-else-if="isGate2Done" name="lucide:circle-check" class="size-3.5 shrink-0" :class="activeTab === 'artwork' ? 'text-emerald-300' : 'text-emerald-600 dark:text-emerald-400'" aria-hidden="true" />
+        <Icon v-else name="lucide:image" class="size-3.5 shrink-0" :class="activeTab === 'artwork' ? 'text-white/80' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">2. Artwork Studio</span>
         <span class="truncate 2xl:hidden">2. Artwork</span>
         <span
           v-if="candidatesCount > 0"
           class="text-[9px] px-1.5 py-0 rounded-full font-mono font-bold shrink-0"
-          :class="activeTab === 'artwork' ? 'bg-slate-700 text-white' : 'bg-secondary text-secondary-foreground border border-border/50'"
+          :class="activeTab === 'artwork' ? 'bg-primary-hover text-white' : 'bg-secondary text-secondary-foreground border border-border/50'"
         >
           {{ candidatesCount }}
         </span>
@@ -143,14 +143,14 @@ const isListingActive = computed(() => {
         class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'production'
-            ? 'bg-slate-900 text-white shadow-xs'
+            ? 'bg-primary text-primary-foreground shadow-xs'
             : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
         "
         @click="emit('update:activeTab', 'production')"
       >
-        <Icon v-if="isProductionActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin text-primary" aria-hidden="true" />
-        <Icon v-else-if="isProductionDone" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:file-image" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-if="isProductionActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin" :class="activeTab === 'production' ? 'text-white' : 'text-primary'" aria-hidden="true" />
+        <Icon v-else-if="isProductionDone" name="lucide:circle-check" class="size-3.5 shrink-0" :class="activeTab === 'production' ? 'text-emerald-300' : 'text-emerald-600 dark:text-emerald-400'" aria-hidden="true" />
+        <Icon v-else name="lucide:file-image" class="size-3.5 shrink-0" :class="activeTab === 'production' ? 'text-white/80' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">3. Production &amp; Mockups</span>
         <span class="truncate 2xl:hidden">3. Production</span>
         <Badge
@@ -168,14 +168,14 @@ const isListingActive = computed(() => {
         class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'listing'
-            ? 'bg-slate-900 text-white shadow-xs'
+            ? 'bg-primary text-primary-foreground shadow-xs'
             : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
         "
         @click="emit('update:activeTab', 'listing')"
       >
-        <Icon v-if="isListingActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin text-primary" aria-hidden="true" />
-        <Icon v-else-if="isGate3Done" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:tags" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-if="isListingActive" name="lucide:loader-circle" class="size-3.5 shrink-0 animate-spin" :class="activeTab === 'listing' ? 'text-white' : 'text-primary'" aria-hidden="true" />
+        <Icon v-else-if="isGate3Done" name="lucide:circle-check" class="size-3.5 shrink-0" :class="activeTab === 'listing' ? 'text-emerald-300' : 'text-emerald-600 dark:text-emerald-400'" aria-hidden="true" />
+        <Icon v-else name="lucide:tags" class="size-3.5 shrink-0" :class="activeTab === 'listing' ? 'text-white/80' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">4. Listing &amp; IP Review</span>
         <span class="truncate 2xl:hidden">4. Listing &amp; IP Review</span>
         <Badge
@@ -194,13 +194,13 @@ const isListingActive = computed(() => {
         class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-1 lg:min-w-0"
         :class="
           activeTab === 'etsy'
-            ? 'bg-slate-900 text-white shadow-xs'
+            ? 'bg-primary text-primary-foreground shadow-xs'
             : 'text-secondary-foreground hover:text-foreground hover:bg-secondary'
         "
         @click="emit('update:activeTab', 'etsy')"
       >
-        <Icon v-if="workflowState === 'ETSY_DRAFT_CREATED'" name="lucide:circle-check" class="size-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
-        <Icon v-else name="lucide:store" class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Icon v-if="workflowState === 'ETSY_DRAFT_CREATED'" name="lucide:circle-check" class="size-3.5 shrink-0" :class="activeTab === 'etsy' ? 'text-emerald-300' : 'text-emerald-600 dark:text-emerald-400'" aria-hidden="true" />
+        <Icon v-else name="lucide:store" class="size-3.5 shrink-0" :class="activeTab === 'etsy' ? 'text-white/80' : 'text-muted-foreground'" aria-hidden="true" />
         <span class="truncate hidden 2xl:inline">5. Etsy Draft</span>
         <span class="truncate 2xl:hidden">5. Etsy Draft</span>
         <Badge

@@ -124,7 +124,7 @@ async function copyUrl(url: string | null) {
         target="_blank"
         rel="noopener noreferrer"
         download="master_transparent_300dpi.png"
-        class="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:bg-black text-white px-3.5 py-1.5 text-xs font-semibold shadow-xs hover:shadow-sm active:scale-95 transition-all duration-150 cursor-pointer"
+        class="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground px-3.5 py-1.5 text-xs font-semibold shadow-xs hover:shadow-sm active:scale-95 transition-all duration-150 cursor-pointer"
       >
         <Icon name="lucide:download" class="size-3.5" aria-hidden="true" />
         <span>Download Master PNG</span>
