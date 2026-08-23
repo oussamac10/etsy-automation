@@ -259,6 +259,45 @@ async function removeCredential(provider: string): Promise<void> {
   }
 }
 
+type SettingsTab = "etsy" | "api_keys" | "telegram" | "diagnostics";
+
+let initialTab: SettingsTab = "etsy";
+try {
+  const r = useRoute();
+  if (r?.query?.tab && ["etsy", "api_keys", "telegram", "diagnostics"].includes(r.query.tab as string)) {
+    initialTab = r.query.tab as SettingsTab;
+  }
+} catch {
+  // SSR or test fallback
+}
+
+const activeTab = ref<SettingsTab>(initialTab);
+
+function setActiveTab(tab: SettingsTab) {
+  activeTab.value = tab;
+  try {
+    const router = useRouter();
+    const route = useRoute();
+    if (router?.replace) {
+      router.replace({
+        query: {
+          ...(route?.query || {}),
+          tab: tab === "etsy" ? undefined : tab,
+        },
+      }).catch(() => {});
+    }
+  } catch {
+    // ignore outside router context
+  }
+}
+
+const SETTINGS_TABS = [
+  { key: "etsy" as const, label: "Etsy Shop & Defaults", icon: "lucide:store" },
+  { key: "api_keys" as const, label: "AI Providers & API Keys", icon: "lucide:key" },
+  { key: "telegram" as const, label: "Telegram Notifications", icon: "lucide:bell" },
+  { key: "diagnostics" as const, label: "System Diagnostics", icon: "lucide:activity" },
+];
+
 onMounted(async () => {
   isPageLoading.value = true;
   await Promise.allSettled([
@@ -288,6 +327,32 @@ onBeforeUnmount(stopCountdown);
         </p>
       </header>
 
+      <!-- Settings Tab Navigation Bar -->
+      <div
+        class="flex items-center gap-1.5 p-1.5 rounded-xl bg-muted/60 border border-border overflow-x-auto scrollbar-none"
+        role="tablist"
+        aria-label="Settings Sections"
+      >
+        <button
+          v-for="tab in SETTINGS_TABS"
+          :key="tab.key"
+          :data-testid="`settings-tab-${tab.key}`"
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === tab.key"
+          class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer select-none"
+          :class="
+            activeTab === tab.key
+              ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+              : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+          "
+          @click="setActiveTab(tab.key)"
+        >
+          <Icon :name="tab.icon" class="size-3.5 shrink-0" :class="activeTab === tab.key ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
+          <span>{{ tab.label }}</span>
+        </button>
+      </div>
+
       <!-- Page Loader Skeletons -->
       <div v-if="isPageLoading" class="space-y-6" data-testid="settings-page-loading">
         <!-- Top Status Banner Skeleton -->
@@ -299,7 +364,7 @@ onBeforeUnmount(stopCountdown);
           <Skeleton class="h-6 w-24 rounded-full" />
         </div>
 
-        <!-- Etsy Connection Card Skeleton -->
+        <!-- Card Skeletons -->
         <Card class="p-5 sm:p-6 space-y-4 shadow-2xs">
           <div class="flex items-center gap-3">
             <Skeleton class="size-10 rounded-xl" />
@@ -310,345 +375,315 @@ onBeforeUnmount(stopCountdown);
           </div>
           <Skeleton class="h-20 w-full rounded-lg" />
         </Card>
-
-        <!-- Etsy Digital Listing Defaults Skeleton -->
-        <Card class="p-5 sm:p-6 space-y-4 shadow-2xs">
-          <div class="flex items-center gap-3">
-            <Skeleton class="size-10 rounded-xl" />
-            <div class="space-y-2 flex-1">
-              <Skeleton class="h-4 w-48" />
-              <Skeleton class="h-3 w-72" />
-            </div>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Skeleton class="h-16 rounded-lg" />
-            <Skeleton class="h-16 rounded-lg" />
-          </div>
-        </Card>
-
-        <!-- Telegram Skeleton -->
-        <Card class="p-5 sm:p-6 space-y-4 shadow-2xs">
-          <div class="flex items-center gap-3">
-            <Skeleton class="size-10 rounded-xl" />
-            <div class="space-y-2 flex-1">
-              <Skeleton class="h-4 w-44" />
-              <Skeleton class="h-3 w-60" />
-            </div>
-          </div>
-          <Skeleton class="h-16 w-full rounded-lg" />
-        </Card>
-
-        <!-- Keys Skeleton -->
-        <Card class="p-5 sm:p-6 space-y-4 shadow-2xs">
-          <div class="flex items-center gap-3">
-            <Skeleton class="size-10 rounded-xl" />
-            <div class="space-y-2 flex-1">
-              <Skeleton class="h-4 w-36" />
-              <Skeleton class="h-3 w-56" />
-            </div>
-          </div>
-          <Skeleton class="h-20 w-full rounded-lg" />
-        </Card>
       </div>
 
-      <!-- Loaded Content -->
+      <!-- Loaded Content by Tab -->
       <div v-else class="space-y-8">
-        <!-- Etsy Shop Integration Section -->
-        <EtsyConnectionCard />
+        <!-- Tab 1: Etsy Shop & Defaults -->
+        <div v-show="activeTab === 'etsy'" class="space-y-8" data-testid="tab-panel-etsy">
+          <!-- Etsy Shop Integration Section -->
+          <EtsyConnectionCard />
 
-        <!-- Etsy Digital Listing Defaults Section -->
-        <EtsyListingDefaultsCard />
+          <!-- Etsy Digital Listing Defaults Section -->
+          <EtsyListingDefaultsCard />
+        </div>
 
-        <!-- Telegram Section -->
-        <Card class="shadow-2xs">
-          <CardHeader class="pb-4">
-            <div class="flex items-center justify-between">
+        <!-- Tab 2: AI Providers & API Keys -->
+        <div v-show="activeTab === 'api_keys'" class="space-y-8" data-testid="tab-panel-api-keys">
+          <Card class="shadow-2xs">
+            <CardHeader class="pb-4">
               <div class="flex items-center gap-3">
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary border border-border">
-                  <Icon name="lucide:bot" class="size-5" aria-hidden="true" />
+                  <Icon name="lucide:key-round" class="size-5" aria-hidden="true" />
                 </div>
                 <div>
-                  <CardTitle class="text-lg">Telegram Bot Remote Control</CardTitle>
+                  <CardTitle class="text-lg">AI Providers & API Keys</CardTitle>
                   <CardDescription>
-                    Receive real-time progress notifications and control active runs via Telegram
+                    Configure your API keys for Tavily, Gemini, Recraft, and OpenAI
                   </CardDescription>
                 </div>
               </div>
-              <Badge v-if="telegramStatus?.paired" variant="success" class="gap-1 px-3 py-1 inline-flex items-center">
-                <Icon name="lucide:circle-check" class="size-3" aria-hidden="true" />
-                <span>Paired</span>
-              </Badge>
-              <Badge v-else variant="secondary" class="gap-1 px-3 py-1 inline-flex items-center">
-                <Icon name="lucide:clock-3" class="size-3" aria-hidden="true" />
-                <span>Unpaired</span>
-              </Badge>
-            </div>
-          </CardHeader>
+            </CardHeader>
 
-          <CardContent class="pt-2">
-            <!-- Loading Skeletons -->
-            <div v-if="isTelegramLoading" class="space-y-3 py-2" data-testid="telegram-loading">
-              <div class="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
-                <Skeleton class="h-4 w-32" />
-                <Skeleton class="h-3 w-3/4" />
-                <Skeleton class="h-3 w-1/2" />
+            <CardContent class="pt-2">
+              <!-- Loading Skeletons -->
+              <div v-if="isCredentialsLoading" class="divide-y divide-border/60 py-2 space-y-4" data-testid="credentials-loading">
+                <div v-for="i in 3" :key="i" class="first:pt-0 pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div class="space-y-2 flex-1">
+                    <div class="flex items-center gap-2">
+                      <Skeleton class="h-4 w-20" />
+                      <Skeleton class="h-4 w-24 rounded-full" />
+                    </div>
+                    <Skeleton class="h-3 w-40" />
+                  </div>
+                  <Skeleton class="h-9 w-full sm:w-64 rounded-md" />
+                </div>
               </div>
-              <div class="flex items-center justify-between pt-1">
-                <Skeleton class="h-9 w-36 rounded-lg" />
+
+              <Alert
+                v-else-if="credentialsError"
+                variant="destructive"
+                class="mb-4"
+                :description="credentialsError"
+              />
+
+              <div v-else class="divide-y divide-border">
+                <div
+                  v-for="cred in displayCredentials"
+                  :key="cred.provider"
+                  class="py-4 first:pt-0 last:pb-0"
+                >
+                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <!-- Provider info -->
+                    <div class="space-y-1">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold capitalize text-foreground">{{ cred.provider }}</span>
+                        <Badge v-if="cred.configured" variant="success" class="text-[11px] px-2 py-0">
+                          Configured ({{ cred.masked_value }})
+                        </Badge>
+                        <Badge v-else variant="warning" class="text-[11px] px-2 py-0">
+                          Not Configured
+                        </Badge>
+                      </div>
+                      <p v-if="cred.updated_at" class="text-xs text-muted-foreground">
+                        Last updated: {{ new Date(cred.updated_at).toLocaleString() }}
+                      </p>
+                    </div>
+
+                    <!-- Provider actions -->
+                    <div class="flex items-center gap-2 max-w-md w-full sm:w-auto">
+                      <div v-if="!cred.configured" class="flex items-center gap-2 w-full">
+                        <Input
+                          v-model="newSecrets[cred.provider]"
+                          type="password"
+                          placeholder="Enter API key"
+                          class="h-9 w-full sm:w-64"
+                        />
+                        <Button
+                          variant="default"
+                          size="sm"
+                          :disabled="!newSecrets[cred.provider]"
+                          class="h-9 gap-1 font-semibold shadow-2xs cursor-pointer inline-flex items-center"
+                          @click="saveCredential(cred.provider)"
+                        >
+                          <Icon name="lucide:save" class="size-3.5" aria-hidden="true" />
+                          <span>Save</span>
+                        </Button>
+                      </div>
+                      <div v-else class="flex items-center justify-end gap-2 w-full">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          class="h-8 gap-1.5 text-xs text-secondary-foreground border-border bg-white hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                          @click="removeCredential(cred.provider)"
+                        >
+                          <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
+                          <span>Delete Key</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
+        </div>
 
-            <Alert v-else-if="telegramError" variant="destructive" class="mb-4" data-testid="telegram-error">
-              <AlertTitle>Connection Error</AlertTitle>
-              <AlertDescription class="flex items-center justify-between">
-                <span>{{ telegramError }}</span>
-                <Button variant="outline" size="sm" class="h-7 text-xs cursor-pointer" @click="fetchTelegramStatus">
-                  Retry
-                </Button>
-              </AlertDescription>
-            </Alert>
-
-            <div v-else>
-              <!-- Case 1: Paired -->
-              <div
-                v-if="telegramStatus?.paired"
-                class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4"
-                data-testid="telegram-paired-container"
-              >
+        <!-- Tab 3: Telegram Notifications -->
+        <div v-show="activeTab === 'telegram'" class="space-y-8" data-testid="tab-panel-telegram">
+          <Card class="shadow-2xs">
+            <CardHeader class="pb-4">
+              <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                  <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                    <Icon name="lucide:circle-check" class="size-5" aria-hidden="true" />
+                  <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary border border-border">
+                    <Icon name="lucide:bot" class="size-5" aria-hidden="true" />
                   </div>
                   <div>
-                    <div class="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
-                      Connected to Telegram
-                    </div>
-                    <p v-if="telegramStatus.telegram_username" class="text-xs text-emerald-700 font-medium" data-testid="telegram-username">
-                      Username: @{{ telegramStatus.telegram_username }}
-                    </p>
+                    <CardTitle class="text-lg">Telegram Bot Remote Control</CardTitle>
+                    <CardDescription>
+                      Receive real-time progress notifications and control active runs via Telegram
+                    </CardDescription>
                   </div>
+                </div>
+                <Badge v-if="telegramStatus?.paired" variant="success" class="gap-1 px-3 py-1 inline-flex items-center">
+                  <Icon name="lucide:circle-check" class="size-3" aria-hidden="true" />
+                  <span>Paired</span>
+                </Badge>
+                <Badge v-else variant="secondary" class="gap-1 px-3 py-1 inline-flex items-center">
+                  <Icon name="lucide:clock-3" class="size-3" aria-hidden="true" />
+                  <span>Unpaired</span>
+                </Badge>
+              </div>
+            </CardHeader>
+
+            <CardContent class="pt-2">
+              <!-- Loading Skeletons -->
+              <div v-if="isTelegramLoading" class="space-y-3 py-2" data-testid="telegram-loading">
+                <div class="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+                  <Skeleton class="h-4 w-32" />
+                  <Skeleton class="h-3 w-3/4" />
+                  <Skeleton class="h-3 w-1/2" />
+                </div>
+                <div class="flex items-center justify-between pt-1">
+                  <Skeleton class="h-9 w-36 rounded-lg" />
+                </div>
+              </div>
+
+              <Alert v-else-if="telegramError" variant="destructive" class="mb-4" data-testid="telegram-error">
+                <AlertTitle>Connection Error</AlertTitle>
+                <AlertDescription class="flex items-center justify-between">
+                  <span>{{ telegramError }}</span>
+                  <Button variant="outline" size="sm" class="h-7 text-xs cursor-pointer" @click="fetchTelegramStatus">
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+
+              <div v-else>
+                <!-- Case 1: Paired -->
+                <div
+                  v-if="telegramStatus?.paired"
+                  class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4"
+                  data-testid="telegram-paired-container"
+                >
+                  <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                      <Icon name="lucide:circle-check" class="size-5" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
+                        Connected to Telegram
+                      </div>
+                      <p v-if="telegramStatus.telegram_username" class="text-xs text-emerald-700 font-medium" data-testid="telegram-username">
+                        Username: @{{ telegramStatus.telegram_username }}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-testid="disconnect-btn"
+                    class="gap-1.5 border-emerald-200 bg-white text-emerald-700 hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                    @click="disconnectTelegram"
+                  >
+                    <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
+                    <span>Disconnect Bot</span>
+                  </Button>
+                </div>
+
+                <!-- Case 2: Unpaired -->
+                <div v-else class="space-y-4" data-testid="telegram-unpaired-container">
+                  <div class="rounded-xl bg-secondary/40 border border-border p-4 text-xs text-secondary-foreground space-y-2">
+                    <div class="flex items-center gap-1.5 font-semibold text-foreground text-sm">
+                      <Icon name="lucide:help-circle" class="size-4 text-primary" aria-hidden="true" />
+                      <span>Setup Instructions:</span>
+                    </div>
+                    <ol class="list-decimal pl-5 space-y-1 text-secondary-foreground leading-relaxed">
+                      <li>Open Telegram and search for the bot (e.g. <code class="bg-white px-1.5 py-0.5 rounded border border-border text-primary font-mono font-semibold">@MarketplaceStudioBot</code>).</li>
+                      <li>Click <b>Start</b> or send <code class="bg-white px-1.5 py-0.5 rounded border border-border font-mono">/start</code>.</li>
+                      <li>Generate a pairing code below and send it to the bot within 10 minutes.</li>
+                    </ol>
+                  </div>
+
+                  <!-- Active Code display -->
+                  <div
+                    v-if="activePairingCode"
+                    class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-xl"
+                  >
+                    <span class="text-xs text-primary uppercase tracking-widest font-bold mb-1">Active Pairing Code</span>
+                    <div
+                      class="text-4xl font-mono font-extrabold tracking-widest text-foreground select-all my-2 px-4 py-1.5 bg-white rounded-lg border border-border shadow-2xs"
+                      data-testid="pairing-code"
+                    >
+                      {{ activePairingCode.slice(0, 3) }} {{ activePairingCode.slice(3) }}
+                    </div>
+                    <div class="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mt-1" data-testid="pairing-code-countdown">
+                      <Icon name="lucide:clock-3" class="size-3.5 text-amber-600" aria-hidden="true" />
+                      <span class="text-amber-600 font-mono">{{ countdownText }}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Button
+                      variant="default"
+                      size="default"
+                      data-testid="generate-pairing-code-btn"
+                      class="gap-2 shadow-2xs font-semibold cursor-pointer inline-flex items-center"
+                      @click="generateCode"
+                    >
+                      <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
+                      <span>{{ activePairingCode ? 'Regenerate Code' : 'Generate Pairing Code' }}</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <!-- Tab 4: System Diagnostics -->
+        <div v-show="activeTab === 'diagnostics'" class="space-y-8" data-testid="tab-panel-diagnostics">
+          <Card class="border border-border shadow-2xs overflow-hidden">
+            <CardHeader class="pb-3.5">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="space-y-1">
+                  <CardTitle class="text-base font-bold flex items-center gap-2">
+                    <Icon name="lucide:activity" class="size-4 text-primary" aria-hidden="true" />
+                    <span>System Diagnostics &amp; Operational Health</span>
+                  </CardTitle>
+                  <CardDescription class="text-xs text-muted-foreground leading-relaxed">
+                    Real-time status and latency metrics for core backend infrastructure and asynchronous workers.
+                  </CardDescription>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  data-testid="disconnect-btn"
-                  class="gap-1.5 border-emerald-200 bg-white text-emerald-700 hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
-                  @click="disconnectTelegram"
+                  class="h-8 gap-1.5 text-xs shadow-2xs font-medium cursor-pointer self-start sm:self-auto shrink-0 inline-flex items-center bg-white"
+                  :disabled="isHealthLoading"
+                  @click="refreshHealth"
                 >
-                  <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
-                  <span>Disconnect Bot</span>
+                  <Icon name="lucide:refresh-cw" class="size-3.5 text-primary" :class="{ 'animate-spin': isHealthLoading }" aria-hidden="true" />
+                  <span>Refresh Status</span>
                 </Button>
               </div>
-
-              <!-- Case 2: Unpaired -->
-              <div v-else class="space-y-4" data-testid="telegram-unpaired-container">
-                <div class="rounded-xl bg-secondary/40 border border-border p-4 text-xs text-secondary-foreground space-y-2">
-                  <div class="flex items-center gap-1.5 font-semibold text-foreground text-sm">
-                    <Icon name="lucide:help-circle" class="size-4 text-primary" aria-hidden="true" />
-                    <span>Setup Instructions:</span>
-                  </div>
-                  <ol class="list-decimal pl-5 space-y-1 text-secondary-foreground leading-relaxed">
-                    <li>Open Telegram and search for the bot (e.g. <code class="bg-white px-1.5 py-0.5 rounded border border-border text-primary font-mono font-semibold">@MarketplaceStudioBot</code>).</li>
-                    <li>Click <b>Start</b> or send <code class="bg-white px-1.5 py-0.5 rounded border border-border font-mono">/start</code>.</li>
-                    <li>Generate a pairing code below and send it to the bot within 10 minutes.</li>
-                  </ol>
-                </div>
-
-                <!-- Active Code display -->
-                <div
-                  v-if="activePairingCode"
-                  class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-xl"
-                >
-                  <span class="text-xs text-primary uppercase tracking-widest font-bold mb-1">Active Pairing Code</span>
-                  <div
-                    class="text-4xl font-mono font-extrabold tracking-widest text-foreground select-all my-2 px-4 py-1.5 bg-white rounded-lg border border-border shadow-2xs"
-                    data-testid="pairing-code"
-                  >
-                    {{ activePairingCode.slice(0, 3) }} {{ activePairingCode.slice(3) }}
-                  </div>
-                  <div class="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mt-1" data-testid="pairing-code-countdown">
-                    <Icon name="lucide:clock-3" class="size-3.5 text-amber-600" aria-hidden="true" />
-                    <span class="text-amber-600 font-mono">{{ countdownText }}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <Button
-                    variant="default"
-                    size="default"
-                    data-testid="generate-pairing-code-btn"
-                    class="gap-2 shadow-2xs font-semibold cursor-pointer inline-flex items-center"
-                    @click="generateCode"
-                  >
-                    <Icon name="lucide:sparkles" class="size-4" aria-hidden="true" />
-                    <span>{{ activePairingCode ? 'Regenerate Code' : 'Generate Pairing Code' }}</span>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <!-- Credentials Management Section -->
-        <Card class="shadow-2xs">
-          <CardHeader class="pb-4">
-            <div class="flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary border border-border">
-                <Icon name="lucide:key-round" class="size-5" aria-hidden="true" />
-              </div>
-              <div>
-                <CardTitle class="text-lg">AI Providers & API Keys</CardTitle>
-                <CardDescription>
-                  Configure your API keys for Tavily, Gemini, and Recraft
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent class="pt-2">
-            <!-- Loading Skeletons -->
-            <div v-if="isCredentialsLoading" class="divide-y divide-border/60 py-2 space-y-4" data-testid="credentials-loading">
-              <div v-for="i in 3" :key="i" class="first:pt-0 pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div class="space-y-2 flex-1">
-                  <div class="flex items-center gap-2">
-                    <Skeleton class="h-4 w-20" />
-                    <Skeleton class="h-4 w-24 rounded-full" />
-                  </div>
-                  <Skeleton class="h-3 w-40" />
-                </div>
-                <Skeleton class="h-9 w-full sm:w-64 rounded-md" />
-              </div>
-            </div>
-
-            <Alert
-              v-else-if="credentialsError"
-              variant="destructive"
-              class="mb-4"
-              :description="credentialsError"
-            />
-
-            <div v-else class="divide-y divide-border">
-              <div
-                v-for="cred in displayCredentials"
-                :key="cred.provider"
-                class="py-4 first:pt-0 last:pb-0"
-              >
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <!-- Provider info -->
-                  <div class="space-y-1">
-                    <div class="flex items-center gap-2">
-                      <span class="text-sm font-bold capitalize text-foreground">{{ cred.provider }}</span>
-                      <Badge v-if="cred.configured" variant="success" class="text-[11px] px-2 py-0">
-                        Configured ({{ cred.masked_value }})
-                      </Badge>
-                      <Badge v-else variant="warning" class="text-[11px] px-2 py-0">
-                        Not Configured
-                      </Badge>
-                    </div>
-                    <p v-if="cred.updated_at" class="text-xs text-muted-foreground">
-                      Last updated: {{ new Date(cred.updated_at).toLocaleString() }}
-                    </p>
-                  </div>
-
-                  <!-- Provider actions -->
-                  <div class="flex items-center gap-2 max-w-md w-full sm:w-auto">
-                    <div v-if="!cred.configured" class="flex items-center gap-2 w-full">
-                      <Input
-                        v-model="newSecrets[cred.provider]"
-                        type="password"
-                        placeholder="Enter API key"
-                        class="h-9 w-full sm:w-64"
-                      />
-                      <Button
-                        variant="default"
-                        size="sm"
-                        :disabled="!newSecrets[cred.provider]"
-                        class="h-9 gap-1 font-semibold shadow-2xs cursor-pointer inline-flex items-center"
-                        @click="saveCredential(cred.provider)"
-                      >
-                        <Icon name="lucide:save" class="size-3.5" aria-hidden="true" />
-                        <span>Save</span>
-                      </Button>
-                    </div>
-                    <div v-else class="flex items-center justify-end gap-2 w-full">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        class="h-8 gap-1.5 text-xs text-secondary-foreground border-border bg-white hover:border-red-200 hover:bg-red-50 hover:text-destructive transition-colors shadow-2xs font-medium cursor-pointer inline-flex items-center"
-                        @click="removeCredential(cred.provider)"
-                      >
-                        <Icon name="lucide:trash-2" class="size-3.5" aria-hidden="true" />
-                        <span>Delete Key</span>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <!-- System Diagnostics & Operational Health -->
-        <Card class="border border-border shadow-2xs overflow-hidden">
-          <CardHeader class="pb-3.5">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div class="space-y-1">
-                <CardTitle class="text-base font-bold flex items-center gap-2">
-                  <Icon name="lucide:activity" class="size-4 text-primary" aria-hidden="true" />
-                  <span>System Diagnostics &amp; Operational Health</span>
-                </CardTitle>
-                <CardDescription class="text-xs text-muted-foreground leading-relaxed">
-                  Real-time status and latency metrics for core backend infrastructure and asynchronous workers.
-                </CardDescription>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                class="h-8 gap-1.5 text-xs shadow-2xs font-medium cursor-pointer self-start sm:self-auto shrink-0 inline-flex items-center bg-white"
-                :disabled="isHealthLoading"
-                @click="refreshHealth"
-              >
-                <Icon name="lucide:refresh-cw" class="size-3.5 text-primary" :class="{ 'animate-spin': isHealthLoading }" aria-hidden="true" />
-                <span>Refresh Status</span>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul data-testid="status-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-              <ServiceStatus
-                name="api"
-                label="API Gateway"
-                icon="lucide:server"
-                :status="health?.status ?? 'ok'"
-                :detail="health?.service"
-              />
-              <ServiceStatus
-                name="database"
-                label="PostgreSQL DB"
-                icon="lucide:database"
-                :status="health?.components?.database?.status ?? 'ok'"
-                :latency-ms="health?.components?.database?.latency_ms"
-                :detail="health?.components?.database?.detail"
-              />
-              <ServiceStatus
-                name="redis"
-                label="Redis Cache"
-                icon="lucide:layers"
-                :status="health?.components?.redis?.status ?? 'ok'"
-                :latency-ms="health?.components?.redis?.latency_ms"
-                :detail="health?.components?.redis?.detail"
-              />
-              <ServiceStatus
-                name="image_worker"
-                label="Image Worker"
-                icon="lucide:cpu"
-                :status="health?.components?.image_worker?.status ?? 'ok'"
-                :latency-ms="health?.components?.image_worker?.latency_ms"
-                :detail="health?.components?.image_worker?.detail"
-              />
-            </ul>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent>
+              <ul data-testid="status-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <ServiceStatus
+                  name="api"
+                  label="API Gateway"
+                  icon="lucide:server"
+                  :status="health?.status ?? 'ok'"
+                  :detail="health?.service"
+                />
+                <ServiceStatus
+                  name="database"
+                  label="PostgreSQL DB"
+                  icon="lucide:database"
+                  :status="health?.components?.database?.status ?? 'ok'"
+                  :latency-ms="health?.components?.database?.latency_ms"
+                  :detail="health?.components?.database?.detail"
+                />
+                <ServiceStatus
+                  name="redis"
+                  label="Redis Cache"
+                  icon="lucide:layers"
+                  :status="health?.components?.redis?.status ?? 'ok'"
+                  :latency-ms="health?.components?.redis?.latency_ms"
+                  :detail="health?.components?.redis?.detail"
+                />
+                <ServiceStatus
+                  name="image_worker"
+                  label="Image Worker"
+                  icon="lucide:cpu"
+                  :status="health?.components?.image_worker?.status ?? 'ok'"
+                  :latency-ms="health?.components?.image_worker?.latency_ms"
+                  :detail="health?.components?.image_worker?.detail"
+                />
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </main>
   </div>
