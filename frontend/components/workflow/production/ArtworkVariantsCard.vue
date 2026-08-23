@@ -190,17 +190,17 @@ function getBgClass(bg: BgMode): string {
 </script>
 
 <template>
-  <div class="border border-border/80 rounded-2xl p-4 bg-white shadow-xs space-y-4">
+  <div class="border border-border rounded-2xl p-4 bg-card text-card-foreground shadow-xs space-y-4">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/80">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
       <div class="flex items-center gap-2.5">
-        <div class="size-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center border border-violet-200/80 shadow-2xs shrink-0">
+        <div class="size-8 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center border border-violet-500/30 shadow-2xs shrink-0">
           <Icon name="lucide:palette" class="size-4" aria-hidden="true" />
         </div>
         <div>
           <div class="flex items-center gap-1.5">
             <h5 class="text-xs font-bold text-foreground leading-tight">Garment Color Variants</h5>
-            <span v-if="approvedVariants.length > 0" class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md border border-emerald-200/60">
+            <span v-if="approvedVariants.length > 0" class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-md border border-emerald-500/30">
               <span class="size-1 rounded-full bg-emerald-500" />
               {{ approvedVariants.length }} Approved in ZIP
             </span>
@@ -214,11 +214,11 @@ function getBgClass(bg: BgMode): string {
       <!-- Actions & Background Switcher Toolbar -->
       <div class="flex items-center gap-2 shrink-0 flex-wrap">
         <!-- Background Switcher -->
-        <div class="flex items-center gap-1 bg-secondary/50 p-0.5 rounded-lg border border-border/80 text-[11px]">
+        <div class="flex items-center gap-1 bg-secondary/50 p-0.5 rounded-lg border border-border text-[11px]">
           <button
             type="button"
             class="px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition-all cursor-pointer"
-            :class="previewBg === 'black' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+            :class="previewBg === 'black' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
             title="Black Garment Background"
             @click="previewBg = 'black'"
           >
@@ -228,7 +228,7 @@ function getBgClass(bg: BgMode): string {
           <button
             type="button"
             class="px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition-all cursor-pointer"
-            :class="previewBg === 'charcoal' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+            :class="previewBg === 'charcoal' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
             title="Dark Heather / Charcoal Background"
             @click="previewBg = 'charcoal'"
           >
@@ -238,7 +238,7 @@ function getBgClass(bg: BgMode): string {
           <button
             type="button"
             class="px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition-all cursor-pointer"
-            :class="previewBg === 'white' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+            :class="previewBg === 'white' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
             title="White Garment Background"
             @click="previewBg = 'white'"
           >
@@ -248,7 +248,7 @@ function getBgClass(bg: BgMode): string {
           <button
             type="button"
             class="px-2 py-1 rounded-md font-semibold flex items-center gap-1 transition-all cursor-pointer"
-            :class="previewBg === 'transparent' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+            :class="previewBg === 'transparent' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
             title="Transparent Checkerboard"
             @click="previewBg = 'transparent'"
           >
@@ -297,7 +297,7 @@ function getBgClass(bg: BgMode): string {
         class="border border-border/80 rounded-xl overflow-hidden bg-slate-50/50 hover:shadow-xs transition-all flex flex-col justify-between"
       >
         <!-- Card Top Bar -->
-        <div class="p-3 pb-2 flex items-center justify-between gap-2 border-b border-border/60 bg-white">
+        <div class="p-3 pb-2 flex items-center justify-between gap-2 border-b border-border/60 bg-card">
           <div class="flex items-center gap-1.5 truncate">
             <span class="text-xs font-bold text-foreground truncate" :title="item.title">{{ item.title }}</span>
             <Badge v-if="item.custom_color" variant="outline" class="text-[9px] px-1.5 py-0 font-mono">
@@ -377,7 +377,7 @@ function getBgClass(bg: BgMode): string {
         </div>
 
         <!-- 6-Point Quality & Validation Checklist -->
-        <div class="px-3 py-2 bg-slate-50 border-t border-border/60 text-[10px] space-y-1">
+        <div class="px-3 py-2 bg-secondary/30 border-t border-border/60 text-[10px] space-y-1">
           <div class="flex items-center justify-between text-muted-foreground font-semibold">
             <span>Validation Checklist</span>
             <span class="text-emerald-700 font-bold flex items-center gap-0.5">
@@ -414,7 +414,7 @@ function getBgClass(bg: BgMode): string {
         </div>
 
         <!-- Buyer Package Inclusion Control -->
-        <div class="px-3 py-2 bg-white border-t border-border/60">
+        <div class="px-3 py-2 bg-card border-t border-border/60">
           <!-- Outdated master warning -->
           <div
             v-if="item.source_outdated"
@@ -473,7 +473,7 @@ function getBgClass(bg: BgMode): string {
         </div>
 
         <!-- Card Footer Actions -->
-        <div class="p-2.5 border-t border-border/60 bg-white flex items-center justify-between gap-2">
+        <div class="p-2.5 border-t border-border/60 bg-card flex items-center justify-between gap-2">
           <div class="flex items-center gap-1.5">
             <Button
               v-if="item.variant_status !== 'approved' && item.variant_status !== 'failed'"
@@ -570,13 +570,13 @@ function getBgClass(bg: BgMode): string {
       @click="showCreateModal = false"
     >
       <div
-        class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-border flex flex-col max-h-[90vh]"
+        class="bg-card text-card-foreground rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-border flex flex-col max-h-[90vh]"
         @click.stop
       >
         <!-- Modal Header -->
         <div class="px-5 py-3.5 border-b border-border flex items-center justify-between bg-secondary/30">
           <div class="flex items-center gap-2">
-            <div class="size-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center border border-violet-200/80 shadow-2xs">
+            <div class="size-8 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center border border-violet-500/30 shadow-2xs">
               <Icon name="lucide:wand-2" class="size-4" aria-hidden="true" />
             </div>
             <div>
@@ -604,7 +604,7 @@ function getBgClass(bg: BgMode): string {
                 :key="opt.type"
                 type="button"
                 class="p-2.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer"
-                :class="selectedType === opt.type ? 'border-primary bg-primary/5 ring-1 ring-primary/30 shadow-2xs' : 'border-border bg-white hover:bg-slate-50'"
+                :class="selectedType === opt.type ? 'border-primary bg-primary/5 ring-1 ring-primary/30 shadow-2xs' : 'border-border bg-card hover:bg-secondary/60'"
                 @click="handleSelectPreset(opt)"
               >
                 <div
@@ -640,10 +640,10 @@ function getBgClass(bg: BgMode): string {
                 :key="swatch.hex"
                 type="button"
                 class="px-2.5 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-                :class="targetColor === swatch.hex ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs' : 'border-border bg-white text-foreground hover:bg-slate-50'"
+                :class="targetColor === swatch.hex ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs' : 'border-border bg-card text-foreground hover:bg-secondary/60'"
                 @click="targetColor = swatch.hex"
               >
-                <span class="size-3 rounded-full border border-slate-300 inline-block shrink-0" :style="{ backgroundColor: swatch.hex }" />
+                <span class="size-3 rounded-full border border-border inline-block shrink-0" :style="{ backgroundColor: swatch.hex }" />
                 <span>{{ swatch.label }}</span>
               </button>
             </div>
@@ -653,12 +653,12 @@ function getBgClass(bg: BgMode): string {
               <input
                 v-model="targetColor"
                 type="color"
-                class="size-9 rounded-lg border border-border cursor-pointer p-0.5 bg-white"
+                class="size-9 rounded-lg border border-border cursor-pointer p-0.5 bg-card"
               >
               <input
                 v-model="targetColor"
                 type="text"
-                class="h-9 px-3 rounded-lg border border-border text-xs font-mono font-bold uppercase w-28 bg-white"
+                class="h-9 px-3 rounded-lg border border-border text-xs font-mono font-bold uppercase w-28 bg-card text-foreground"
                 placeholder="#F5E6C8"
               >
               <span class="text-[11px] text-muted-foreground">

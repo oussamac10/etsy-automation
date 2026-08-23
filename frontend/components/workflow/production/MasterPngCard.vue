@@ -28,17 +28,17 @@ async function copyUrl(url: string | null) {
 </script>
 
 <template>
-  <div class="border border-border/80 rounded-2xl p-4 bg-white shadow-xs space-y-3.5 hover:shadow-md transition-all duration-200">
+  <div class="border border-border rounded-2xl p-4 bg-card text-card-foreground shadow-xs space-y-3.5 hover:shadow-md transition-all duration-200">
     <!-- Header -->
     <div class="flex items-center justify-between gap-2">
       <div class="flex items-start sm:items-center gap-2.5 min-w-0">
-        <div class="size-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/80 shadow-2xs shrink-0 mt-0.5 sm:mt-0">
+        <div class="size-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/30 shadow-2xs shrink-0 mt-0.5 sm:mt-0">
           <Icon name="lucide:file-check" class="size-4 shrink-0" aria-hidden="true" />
         </div>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5 flex-wrap">
             <h5 class="text-xs font-bold text-foreground leading-tight">Master Print File</h5>
-            <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200/60 shrink-0">
+            <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/30 shrink-0">
               <span class="size-1 rounded-full bg-emerald-500 animate-pulse" />
               Master PNG
             </span>

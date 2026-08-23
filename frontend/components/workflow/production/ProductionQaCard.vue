@@ -91,18 +91,18 @@ const passedCount = computed(() => {
 </script>
 
 <template>
-  <div class="border border-border/80 rounded-2xl p-4 sm:p-5 bg-white shadow-xs hover:shadow-md transition-all duration-200 h-full flex flex-col justify-between space-y-4">
+  <div class="border border-border rounded-2xl p-4 sm:p-5 bg-card text-card-foreground shadow-xs hover:shadow-md transition-all duration-200 h-full flex flex-col justify-between space-y-4">
     <!-- Header Section -->
     <div class="space-y-2.5">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0">
-          <div class="size-8 sm:size-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/80 shadow-2xs shrink-0 mt-0.5 sm:mt-0">
+          <div class="size-8 sm:size-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/30 shadow-2xs shrink-0 mt-0.5 sm:mt-0">
             <Icon name="lucide:shield-check" class="size-4 sm:size-4.5 shrink-0" aria-hidden="true" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               <h5 class="text-xs sm:text-sm font-bold text-foreground leading-tight">Pre-Flight QA & Print Verification</h5>
-              <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 sm:px-2 py-0.5 rounded-full border border-emerald-200/60 shadow-2xs shrink-0">
+              <span class="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 sm:px-2 py-0.5 rounded-full border border-emerald-500/30 shadow-2xs shrink-0">
                 <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 {{ passedCount }}/{{ qaItems.length || 6 }} Passed
               </span>
@@ -122,20 +122,20 @@ const passedCount = computed(() => {
 
       <!-- Compliance Mini-Badges Row -->
       <div class="flex flex-wrap items-center gap-1.5 pt-1">
-        <span class="inline-flex items-center gap-1 text-[10px] font-semibold bg-slate-100/80 text-slate-700 border border-slate-200/80 px-2 py-0.5 rounded-md">
-          <Icon name="lucide:check" class="size-2.5 text-emerald-600" aria-hidden="true" />
+        <span class="inline-flex items-center gap-1 text-[10px] font-semibold bg-secondary text-secondary-foreground border border-border px-2 py-0.5 rounded-md">
+          <Icon name="lucide:check" class="size-2.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
           DTG & POD Compliant
         </span>
-        <span class="inline-flex items-center gap-1 text-[10px] font-semibold bg-slate-100/80 text-slate-700 border border-slate-200/80 px-2 py-0.5 rounded-md">
-          <Icon name="lucide:check" class="size-2.5 text-emerald-600" aria-hidden="true" />
+        <span class="inline-flex items-center gap-1 text-[10px] font-semibold bg-secondary text-secondary-foreground border border-border px-2 py-0.5 rounded-md">
+          <Icon name="lucide:check" class="size-2.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
           Etsy 20MB Limit Safe
         </span>
-        <span class="inline-flex items-center gap-1 text-[10px] font-semibold bg-slate-100/80 text-slate-700 border border-slate-200/80 px-2 py-0.5 rounded-md">
-          <Icon name="lucide:check" class="size-2.5 text-emerald-600" aria-hidden="true" />
+        <span class="inline-flex items-center gap-1 text-[10px] font-semibold bg-secondary text-secondary-foreground border border-border px-2 py-0.5 rounded-md">
+          <Icon name="lucide:check" class="size-2.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
           Lossless Alpha Channel
         </span>
-        <span class="inline-flex items-center gap-1 text-[10px] font-semibold bg-slate-100/80 text-slate-700 border border-slate-200/80 px-2 py-0.5 rounded-md">
-          <Icon name="lucide:check" class="size-2.5 text-emerald-600" aria-hidden="true" />
+        <span class="inline-flex items-center gap-1 text-[10px] font-semibold bg-secondary text-secondary-foreground border border-border px-2 py-0.5 rounded-md">
+          <Icon name="lucide:check" class="size-2.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
           300 DPI High-Def
         </span>
       </div>
@@ -146,11 +146,11 @@ const passedCount = computed(() => {
       <div
         v-for="item in qaItems"
         :key="item.label"
-        class="p-3 rounded-xl bg-slate-50/90 hover:bg-slate-100/90 border border-border/80 flex flex-col justify-between transition-all duration-150 group shadow-2xs hover:shadow-xs"
+        class="p-3 rounded-xl bg-secondary/40 hover:bg-secondary/70 border border-border flex flex-col justify-between transition-all duration-150 group shadow-2xs hover:shadow-xs"
       >
         <div class="flex items-center justify-between text-muted-foreground mb-1">
-          <span class="text-[10px] font-bold text-slate-600 group-hover:text-foreground transition-colors uppercase tracking-wider">{{ item.label }}</span>
-          <div class="size-5 rounded-md bg-white border border-border/60 flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-2xs">
+          <span class="text-[10px] font-bold text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-wider">{{ item.label }}</span>
+          <div class="size-5 rounded-md bg-card border border-border flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-2xs">
             <Icon :name="item.icon" class="size-3" aria-hidden="true" />
           </div>
         </div>
@@ -188,7 +188,7 @@ const passedCount = computed(() => {
         <Icon name="lucide:type" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
         <span>Slogan Typography Applied</span>
       </span>
-      <span class="font-mono text-[11px] font-bold text-primary px-2.5 py-0.5 rounded-md bg-white border border-primary/20 shadow-2xs max-w-[260px] truncate" :title="qaReport?.exact_slogan_recorded || exactSlogan || undefined">
+      <span class="font-mono text-[11px] font-bold text-primary px-2.5 py-0.5 rounded-md bg-card border border-primary/20 shadow-2xs max-w-[260px] truncate" :title="qaReport?.exact_slogan_recorded || exactSlogan || undefined">
         "{{ qaReport?.exact_slogan_recorded || exactSlogan }}"
       </span>
     </div>

@@ -1291,7 +1291,7 @@ onMounted(() => {
             <!-- Product Type Badge -->
             <Badge
               variant="outline"
-              class="absolute top-2.5 left-2.5 bg-white/90 backdrop-blur-xs text-[10px] font-bold shadow-2xs gap-1 inline-flex items-center border-border text-foreground z-10"
+              class="absolute top-2.5 left-2.5 bg-card/90 backdrop-blur-xs text-[10px] font-bold shadow-2xs gap-1 inline-flex items-center border-border text-foreground z-10"
             >
               <Icon :name="getProductIconName(tpl.product_type)" class="size-3 text-primary" aria-hidden="true" />
               <span>{{ getProductLabel(tpl.product_type) }}</span>
@@ -1468,7 +1468,7 @@ onMounted(() => {
                 </span>
 
                 <!-- Zone Pills -->
-                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                   <button
                     v-for="(zone, idx) in editPlacements"
                     :key="zone.id || `edit-zone-${idx}`"
@@ -1492,7 +1492,7 @@ onMounted(() => {
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
                   title="Add new print zone"
                   @click="addEditZone"
                 >
@@ -1503,7 +1503,7 @@ onMounted(() => {
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-muted-foreground hover:text-foreground"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-muted-foreground hover:text-foreground"
                   title="Duplicate current zone"
                   @click="duplicateEditZone(activeEditZoneIndex)"
                 >
@@ -1515,7 +1515,7 @@ onMounted(() => {
                   v-if="editPlacements.length > 1"
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-destructive hover:bg-red-50 hover:border-red-200"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-destructive hover:bg-red-500/10 hover:border-red-500/30"
                   title="Remove current zone"
                   @click="removeEditZone(activeEditZoneIndex)"
                 >
@@ -1617,7 +1617,7 @@ onMounted(() => {
             <!-- Quick Placement & Rotation Segmented Toolbar Below Canvas -->
             <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/40 border border-border flex-wrap">
               <!-- Presets -->
-              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+              <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                 <button
                   type="button"
                   class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
@@ -1657,7 +1657,7 @@ onMounted(() => {
               </div>
 
               <!-- Rotation Quick Buttons -->
-              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+              <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                 <button
                   type="button"
                   class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
@@ -1703,7 +1703,7 @@ onMounted(() => {
               <Label class="text-xs font-bold text-foreground">Product Category</Label>
               <select
                 v-model="editProductType"
-                class="flex h-8.5 w-full rounded-lg border border-border bg-white px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
+                class="flex h-8.5 w-full rounded-lg border border-border bg-card px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
               >
                 <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -1817,7 +1817,7 @@ onMounted(() => {
                   :class="[
                     editPlacement.blend_mode === opt.value
                       ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
-                      : 'bg-white border-border/80 hover:border-slate-300 hover:bg-slate-50/50'
+                      : 'bg-card border-border/80 hover:border-border hover:bg-secondary/60'
                   ]"
                   @click="editPlacement.blend_mode = opt.value"
                 >
@@ -1943,7 +1943,7 @@ onMounted(() => {
               @change="handleFileSelect"
             >
 
-            <div class="size-16 rounded-2xl bg-white shadow-md border border-border flex items-center justify-center text-primary group-hover:scale-110 group-hover:text-primary transition-all">
+            <div class="size-16 rounded-2xl bg-card shadow-md border border-border flex items-center justify-center text-primary group-hover:scale-110 group-hover:text-primary transition-all">
               <Icon name="lucide:cloud-upload" class="size-8" aria-hidden="true" />
             </div>
 
@@ -2005,7 +2005,7 @@ onMounted(() => {
                 </span>
 
                 <!-- Zone Pills -->
-                <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+                <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                   <button
                     v-for="(zone, idx) in uploadPlacements"
                     :key="zone.id || `upload-zone-${idx}`"
@@ -2029,7 +2029,7 @@ onMounted(() => {
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-semibold cursor-pointer text-primary border-primary/30 hover:bg-primary/5"
                   title="Add new print zone"
                   @click="addUploadZone"
                 >
@@ -2040,7 +2040,7 @@ onMounted(() => {
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-muted-foreground hover:text-foreground"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-muted-foreground hover:text-foreground"
                   title="Duplicate current zone"
                   @click="duplicateUploadZone(activeUploadZoneIndex)"
                 >
@@ -2052,7 +2052,7 @@ onMounted(() => {
                   v-if="uploadPlacements.length > 1"
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs px-2 gap-1 bg-white font-medium cursor-pointer text-destructive hover:bg-red-50 hover:border-red-200"
+                  class="h-7 text-xs px-2 gap-1 bg-card font-medium cursor-pointer text-destructive hover:bg-red-500/10 hover:border-red-500/30"
                   title="Remove current zone"
                   @click="removeUploadZone(activeUploadZoneIndex)"
                 >
@@ -2154,7 +2154,7 @@ onMounted(() => {
             <!-- Quick Placement & Rotation Segmented Toolbar Below Canvas -->
             <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/40 border border-border flex-wrap">
               <!-- Presets -->
-              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+              <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                 <button
                   type="button"
                   class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
@@ -2194,7 +2194,7 @@ onMounted(() => {
               </div>
 
               <!-- Rotation Quick Buttons -->
-              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border shadow-2xs">
+              <div class="flex items-center gap-1 bg-card p-0.5 rounded-lg border border-border shadow-2xs">
                 <button
                   type="button"
                   class="px-2 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-primary hover:bg-secondary rounded-md transition-all cursor-pointer inline-flex items-center gap-1"
@@ -2269,7 +2269,7 @@ onMounted(() => {
               <select
                 v-else
                 v-model="uploadProductType"
-                class="flex h-8.5 w-full rounded-lg border border-border bg-white px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
+                class="flex h-8.5 w-full rounded-lg border border-border bg-card px-3 py-1.5 text-xs shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary text-foreground font-medium"
               >
                 <option v-for="opt in allCategoryOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -2389,7 +2389,7 @@ onMounted(() => {
                   :class="[
                     uploadPlacement.blend_mode === opt.value
                       ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
-                      : 'bg-white border-border/80 hover:border-slate-300 hover:bg-slate-50/50'
+                      : 'bg-card border-border/80 hover:border-border hover:bg-secondary/60'
                   ]"
                   @click="uploadPlacement.blend_mode = opt.value"
                 >

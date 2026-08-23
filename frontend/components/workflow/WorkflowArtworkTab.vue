@@ -289,7 +289,7 @@ onUnmounted(() => {
             <p class="text-xs text-secondary-foreground mt-0.5">{{ approvedConcept.description }}</p>
           </div>
 
-          <div class="rounded-lg border border-border bg-white p-3 space-y-1 text-xs font-mono">
+          <div class="rounded-lg border border-border bg-card p-3 space-y-1 text-xs font-mono">
             <p>
               <span class="font-bold text-muted-foreground">Base Prompt:</span>
               {{ approvedConcept.prompts[0]?.positive_prompt }}
@@ -318,7 +318,7 @@ onUnmounted(() => {
               <select
                 id="image-provider"
                 v-model="artProvider"
-                class="flex h-9 w-full rounded-md border border-border bg-white px-3 py-1 text-sm shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+                class="flex h-9 w-full rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <option value="recraft">Recraft V4.1 (Vector & Illustration)</option>
                 <option value="gemini">Google Gemini (Photo & Creative)</option>
@@ -467,7 +467,7 @@ onUnmounted(() => {
                 <button
                   type="button"
                   title="Inspect design in full resolution"
-                  class="absolute bottom-1.5 right-1.5 h-7 w-7 rounded-lg bg-white/95 hover:bg-white text-secondary-foreground hover:text-primary shadow-xs flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer opacity-0 group-hover/card:opacity-100 z-10"
+                  class="absolute bottom-1.5 right-1.5 h-7 w-7 rounded-lg bg-card/95 hover:bg-card text-secondary-foreground hover:text-primary shadow-xs flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer opacity-0 group-hover/card:opacity-100 z-10"
                   @click.stop="openPreview(asset)"
                 >
                   <Icon name="lucide:maximize-2" class="size-3.5" aria-hidden="true" />
@@ -547,7 +547,7 @@ onUnmounted(() => {
           >
             <div class="flex items-center gap-3">
               <div
-                class="h-10 w-10 rounded-lg overflow-hidden border border-border bg-white shrink-0 p-1 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+                class="h-10 w-10 rounded-lg overflow-hidden border border-border bg-card shrink-0 p-1 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
                 title="Inspect in full size"
                 @click="getSelectedAsset() && openPreview(getSelectedAsset()!)"
               >
@@ -605,7 +605,7 @@ onUnmounted(() => {
       @click.self="previewingAsset = null"
     >
       <div
-        class="bg-white rounded-2xl shadow-2xl border border-border max-w-4xl w-full max-h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        class="bg-card text-card-foreground rounded-2xl shadow-2xl border border-border max-w-4xl w-full max-h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
         @click.stop
       >
         <!-- Modal Header -->
@@ -655,7 +655,7 @@ onUnmounted(() => {
               type="button"
               title="Checkerboard Alpha Transparency"
               class="px-2 py-1 rounded-md font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
-              :class="previewBg === 'checkerboard' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+              :class="previewBg === 'checkerboard' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
               @click="previewBg = 'checkerboard'"
             >
               <Icon name="lucide:grid-2x2" class="size-3 text-primary" />
@@ -665,7 +665,7 @@ onUnmounted(() => {
               type="button"
               title="White Surface"
               class="px-2 py-1 rounded-md font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
-              :class="previewBg === 'white' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+              :class="previewBg === 'white' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
               @click="previewBg = 'white'"
             >
               <div class="size-2.5 rounded-full bg-white border border-slate-300 shadow-2xs" />
@@ -675,7 +675,7 @@ onUnmounted(() => {
               type="button"
               title="Dark Garment Surface"
               class="px-2 py-1 rounded-md font-semibold transition-all cursor-pointer inline-flex items-center gap-1"
-              :class="previewBg === 'dark' ? 'bg-white text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
+              :class="previewBg === 'dark' ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'"
               @click="previewBg = 'dark'"
             >
               <div class="size-2.5 rounded-full bg-slate-900 shadow-2xs" />
@@ -705,7 +705,7 @@ onUnmounted(() => {
           <button
             v-if="currentAssets.length > 1"
             type="button"
-            class="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-white/90 hover:bg-white text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
+            class="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/90 hover:bg-card text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
             :disabled="getPreviewAssetIndex() <= 0"
             title="Previous Candidate (Left Arrow)"
             @click.stop="navigatePreview(-1)"
@@ -725,7 +725,7 @@ onUnmounted(() => {
           <button
             v-if="currentAssets.length > 1"
             type="button"
-            class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-white/90 hover:bg-white text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
+            class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/90 hover:bg-card text-secondary-foreground hover:text-primary shadow-md flex items-center justify-center backdrop-blur-xs transition-all cursor-pointer z-10 disabled:opacity-30 disabled:pointer-events-none"
             :disabled="getPreviewAssetIndex() >= currentAssets.length - 1"
             title="Next Candidate (Right Arrow)"
             @click.stop="navigatePreview(1)"
@@ -743,7 +743,7 @@ onUnmounted(() => {
               target="_blank"
               rel="noopener noreferrer"
               :download="`candidate_design_${getPreviewAssetIndex() + 1}.png`"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-border text-secondary-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer shadow-2xs"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-card border border-border text-secondary-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer shadow-2xs"
             >
               <Icon name="lucide:download" class="size-3.5 text-primary" aria-hidden="true" />
               <span>Download PNG</span>
