@@ -269,7 +269,7 @@ async function clearAllAiIdeas() {
       </div>
 
       <!-- 2. Search & Filter Bar -->
-      <div class="px-5 pt-3 pb-2.5 border-b border-border bg-slate-50/50 space-y-2.5 shrink-0">
+      <div class="px-5 pt-3 pb-2.5 border-b border-border bg-secondary/40 space-y-2.5 shrink-0">
         <!-- Search Input -->
         <div class="relative">
           <Icon name="lucide:search" class="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -505,7 +505,7 @@ async function clearAllAiIdeas() {
               </div>
             </div>
 
-            <div v-else-if="!isGeneratingIdeas" class="p-3 rounded-xl border border-dashed border-border bg-slate-50/50 text-center">
+            <div v-else-if="!isGeneratingIdeas" class="p-3 rounded-xl border border-dashed border-border bg-secondary/30 text-center">
               <p class="text-xs text-muted-foreground">
                 Click <b>Generate Mockup Ideas</b> to let AI suggest top-selling products tailored for this design.
               </p>

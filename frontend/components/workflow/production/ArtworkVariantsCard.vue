@@ -294,7 +294,7 @@ function getBgClass(bg: BgMode): string {
       <div
         v-for="item in variants"
         :key="item.id"
-        class="border border-border/80 rounded-xl overflow-hidden bg-slate-50/50 hover:shadow-xs transition-all flex flex-col justify-between"
+        class="border border-border/80 rounded-xl overflow-hidden bg-secondary/30 hover:shadow-xs transition-all flex flex-col justify-between"
       >
         <!-- Card Top Bar -->
         <div class="p-3 pb-2 flex items-center justify-between gap-2 border-b border-border/60 bg-card">
@@ -678,7 +678,7 @@ function getBgClass(bg: BgMode): string {
               <span>Advanced Contrast & Tuning</span>
             </button>
 
-            <div v-if="showAdvancedOptions" class="p-3 rounded-xl bg-slate-50 border border-border space-y-3 animate-in fade-in duration-150">
+            <div v-if="showAdvancedOptions" class="p-3 rounded-xl bg-secondary/40 border border-border space-y-3 animate-in fade-in duration-150">
               <div class="space-y-1">
                 <div class="flex items-center justify-between text-xs">
                   <label class="font-bold text-foreground">Darkness Sensitivity Threshold</label>

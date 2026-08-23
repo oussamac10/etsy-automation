@@ -48,7 +48,7 @@ async function copyUrl(url: string | null) {
       </div>
 
       <div class="flex items-center gap-1.5 shrink-0">
-        <Badge variant="outline" class="text-[10px] px-2 py-0.5 font-bold bg-slate-50 text-foreground border-border shadow-2xs font-mono">
+        <Badge variant="outline" class="text-[10px] px-2 py-0.5 font-bold bg-secondary text-foreground border-border shadow-2xs font-mono">
           4500 × 5400 px
         </Badge>
       </div>
