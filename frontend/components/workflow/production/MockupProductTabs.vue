@@ -21,19 +21,21 @@ const emit = defineEmits<{
         v-for="pKey in availableTabs"
         :key="pKey"
         type="button"
-        class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 select-none"
+        role="tab"
+        :aria-selected="selectedTab === pKey"
+        class="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 select-none"
         :class="
           selectedTab === pKey
-            ? 'bg-primary text-white shadow-2xs'
-            : 'bg-secondary hover:bg-secondary/80 text-secondary-foreground'
+            ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+            : 'bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground border border-transparent'
         "
         @click="emit('selectTab', pKey)"
       >
-        <Icon :name="getProductIconName(pKey)" class="size-3.5 shrink-0" aria-hidden="true" />
+        <Icon :name="getProductIconName(pKey)" class="size-3.5 shrink-0" :class="selectedTab === pKey ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
         <span>{{ getProductLabel(pKey) }}</span>
         <span
-          class="text-[10px] px-1.5 py-0.2 rounded-full shrink-0"
-          :class="selectedTab === pKey ? 'bg-primary-hover text-white' : 'bg-card text-secondary-foreground border border-border'"
+          class="text-[10px] px-1.5 py-0.2 rounded-full shrink-0 font-bold"
+          :class="selectedTab === pKey ? 'bg-muted text-foreground border border-border/60' : 'bg-card text-muted-foreground border border-border'"
         >
           {{ (mockupsByProduct[pKey] || []).length }}
         </span>

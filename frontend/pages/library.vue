@@ -1092,22 +1092,24 @@ onMounted(() => {
         </div>
 
         <!-- Product Category Tabs -->
-        <div class="flex flex-wrap items-center gap-1.5 pt-1">
+        <div class="flex flex-wrap items-center gap-1.5 pt-1" role="tablist">
           <button
             type="button"
-            class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
+            role="tab"
+            :aria-selected="selectedCategory === 'all'"
+            class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer inline-flex items-center gap-1.5 select-none"
             :class="
               selectedCategory === 'all'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-secondary/80'
+                ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+                : 'text-muted-foreground hover:text-foreground bg-secondary hover:bg-secondary/80 border border-transparent'
             "
             @click="selectedCategory = 'all'"
           >
-            <Icon name="lucide:layout-grid" class="size-3.5 shrink-0" aria-hidden="true" />
+            <Icon name="lucide:layout-grid" class="size-3.5 shrink-0" :class="selectedCategory === 'all' ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
             <span>All Templates</span>
             <span
               class="text-[10px] px-1.5 py-0.2 rounded-full font-bold"
-              :class="selectedCategory === 'all' ? 'bg-primary-hover text-white' : 'bg-card text-secondary-foreground border border-border'"
+              :class="selectedCategory === 'all' ? 'bg-muted text-foreground border border-border/60' : 'bg-card text-muted-foreground border border-border'"
             >
               {{ templateCounts['all'] || 0 }}
             </span>
@@ -1117,23 +1119,25 @@ onMounted(() => {
             v-for="cat in allCategoryOptions"
             :key="cat.value"
             type="button"
-            class="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
+            role="tab"
+            :aria-selected="selectedCategory === cat.value"
+            class="text-xs px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer inline-flex items-center gap-1.5 select-none"
             :class="
               selectedCategory === cat.value
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-secondary-foreground hover:text-foreground bg-secondary hover:bg-secondary/80'
+                ? 'bg-background text-foreground shadow-xs border border-border/80 font-semibold'
+                : 'text-muted-foreground hover:text-foreground bg-secondary hover:bg-secondary/80 border border-transparent'
             "
             @click="selectedCategory = cat.value"
           >
-            <Icon :name="cat.icon" class="size-3.5 shrink-0" aria-hidden="true" />
+            <Icon :name="cat.icon" class="size-3.5 shrink-0" :class="selectedCategory === cat.value ? 'text-primary' : 'text-muted-foreground'" aria-hidden="true" />
             <span>{{ cat.label }}</span>
             <span
               class="text-[10px] px-1.5 py-0.2 rounded-full font-bold"
               :class="
                 selectedCategory === cat.value
-                  ? 'bg-primary-hover text-white'
+                  ? 'bg-muted text-foreground border border-border/60'
                   : (templateCounts[cat.value] || 0) > 0
-                    ? 'bg-primary/10 text-primary font-extrabold border border-primary/20'
+                    ? 'bg-card text-foreground border border-border'
                     : 'bg-card text-muted-foreground border border-border'
               "
             >
