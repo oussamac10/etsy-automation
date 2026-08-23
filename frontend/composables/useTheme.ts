@@ -1,4 +1,4 @@
-import { ref, computed } from "vue";
+import { ref, computed, nextTick } from "vue";
 
 export type ThemePreference = "light" | "dark" | "system";
 
@@ -9,13 +9,39 @@ const preference = ref<ThemePreference>("system");
 const isDark = ref(false);
 const isInitialized = ref(false);
 
+/**
+ * Temporarily disables all individual CSS transitions across all DOM elements
+ * during theme switching so every component updates simultaneously with zero delay/stagger.
+ */
+function disableTransitions(): () => void {
+  if (typeof document === "undefined") return () => {};
+  const css = document.createElement("style");
+  css.appendChild(
+    document.createTextNode(
+      "*,*::before,*::after{-webkit-transition:none!important;-moz-transition:none!important;-o-transition:none!important;-ms-transition:none!important;transition:none!important}"
+    )
+  );
+  document.head.appendChild(css);
+
+  return () => {
+    // Force DOM reflow to flush calculated styles
+    (() => window.getComputedStyle(document.body))();
+    // Re-enable transitions on the next animation frame
+    requestAnimationFrame(() => {
+      if (css.parentNode) {
+        document.head.removeChild(css);
+      }
+    });
+  };
+}
+
 export function useTheme() {
   function getSystemPreference(): boolean {
     if (typeof window === "undefined") return false;
     return Boolean(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
   }
 
-  function applyTheme(themeVal: ThemePreference, withTransition = true) {
+  async function applyTheme(themeVal: ThemePreference, withTransition = true) {
     if (typeof document === "undefined") return;
 
     let darkActive = false;
@@ -41,21 +67,30 @@ export function useTheme() {
       return;
     }
 
-    // Modern View Transitions API with CSS cross-fade animation
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void> } };
+    // Modern View Transitions API with smooth full-viewport cross-fade
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => Promise<void> | void) => { ready: Promise<void>; finished: Promise<void> };
+    };
+
     if (typeof doc.startViewTransition === "function") {
-      doc.startViewTransition(() => {
-        updateDOM();
-      });
+      const enableTransitions = disableTransitions();
+      try {
+        const transition = doc.startViewTransition(async () => {
+          updateDOM();
+          await nextTick();
+        });
+        await transition.ready;
+      } finally {
+        enableTransitions();
+      }
       return;
     }
 
-    // Fallback: temporary transition class for smooth CSS color interpolation
-    document.documentElement.classList.add("theme-transitioning");
+    // Fallback: disable individual element transitions so all components change at the exact same millisecond
+    const enableTransitions = disableTransitions();
     updateDOM();
-    window.setTimeout(() => {
-      document.documentElement.classList.remove("theme-transitioning");
-    }, 350);
+    await nextTick();
+    enableTransitions();
   }
 
   function setTheme(newTheme: ThemePreference) {
