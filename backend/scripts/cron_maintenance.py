@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import sys
+import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -29,7 +29,7 @@ sys.path.insert(0, str(backend_root))
 
 from sqlalchemy import func, select, text
 
-from app.domain.workflow import FailureStatus, RunStatus
+from app.domain.workflow import RunStatus
 from app.infrastructure.database import create_engine, create_session_factory
 from app.infrastructure.models.artwork import Asset
 from app.infrastructure.models.listing import ListingDraft
@@ -51,16 +51,14 @@ async def sync_trademark_dataset(verbose: bool = True) -> dict[str, Any]:
             now = datetime.now(UTC)
             # Update all existing trademark records' source_updated_at and imported_at
             result = await session.execute(
-                text(
-                    "UPDATE trademark_records "
-                    "SET source_updated_at = :now, imported_at = :now;"
-                ),
+                text("UPDATE trademark_records SET source_updated_at = :now, imported_at = :now;"),
                 {"now": now},
             )
             count = result.rowcount
 
             # Also update listing drafts' ip_findings timestamp so active drafts display today
             import json
+
             drafts_res = await session.execute(
                 select(ListingDraft.id, ListingDraft.ip_findings).where(
                     ListingDraft.ip_findings.is_not(None)
@@ -72,11 +70,7 @@ async def sync_trademark_dataset(verbose: bool = True) -> dict[str, Any]:
                     findings_copy = dict(findings)
                     findings_copy["dataset_updated_at"] = now.isoformat()
                     await session.execute(
-                        text(
-                            "UPDATE listing_drafts "
-                            "SET ip_findings = :findings "
-                            "WHERE id = :id"
-                        ),
+                        text("UPDATE listing_drafts SET ip_findings = :findings WHERE id = :id"),
                         {"findings": json.dumps(findings_copy), "id": draft_id},
                     )
                     updated_drafts += 1
@@ -120,11 +114,15 @@ async def refresh_etsy_tokens(verbose: bool = True) -> dict[str, Any]:
                     if time_left.total_seconds() < 1800:
                         # In production live mode, perform OAuth refresh token flow
                         if verbose:
-                            print(f"ℹ️ [Etsy Token] Connection {conn.id} for shop '{conn.etsy_shop_name}' is nearing expiry. Flagged for refresh.")
+                            print(
+                                f"ℹ️ [Etsy Token] Connection {conn.id} for shop '{conn.etsy_shop_name}' is nearing expiry. Flagged for refresh."
+                            )
                         refreshed += 1
 
             if verbose:
-                print(f"✅ [Etsy Token Check] Checked {len(conns)} Etsy connection(s), {refreshed} refreshed/inspected.")
+                print(
+                    f"✅ [Etsy Token Check] Checked {len(conns)} Etsy connection(s), {refreshed} refreshed/inspected."
+                )
 
             return {"status": "success", "total_connections": len(conns), "refreshed": refreshed}
     finally:
@@ -133,7 +131,7 @@ async def refresh_etsy_tokens(verbose: bool = True) -> dict[str, Any]:
 
 async def cleanup_temp_files(verbose: bool = True) -> dict[str, Any]:
     """Purge stale scratch files and unreferenced test assets older than 14 days."""
-    scratch_dir = Path("/tmp/scratch")
+    scratch_dir = Path(tempfile.gettempdir()) / "scratch"
     deleted_files = 0
     if scratch_dir.exists() and scratch_dir.is_dir():
         cutoff = datetime.now().timestamp() - (14 * 86400)
@@ -228,27 +226,84 @@ async def scout_seasonal_trends(verbose: bool = True) -> dict[str, Any]:
 
             # Retail calendar mapped to forward-looking themes (4-6 weeks in advance)
             seasonal_calendar = {
-                1: ("Valentine's Day & Early Spring", ["botanical hearts", "couples retro mugs", "love typography sticker"]),
-                2: ("St. Patrick's & Mother's Day Prep", ["lucky clover vintage", "irish blessing art", "floral mom gift"]),
-                3: ("Mother's Day & Spring Weddings", ["wildflower bridal shower", "mama retro groovy", "spring meadow poster"]),
-                4: ("Father's Day & Summer Kickoff", ["vintage dad hobbies", "lake house outdoors", "bbq master retro"]),
-                5: ("Summer Travel & 4th of July", ["patriotic vintage flag", "coastal summer aesthetic", "road trip camping"]),
-                6: ("Back to School & Fall Preview", ["teacher appreciation boho", "retro school typography", "autumn cozy bookworm"]),
-                7: ("Halloween & Fall Harvest Prep", ["spooky cute ghost", "vintage botanical pumpkin", "autumn aesthetic coffee"]),
-                8: ("Autumn Peaks & Halloween Spook", ["gothic cottagecore halloween", "pumpkin spice retro mug", "spooky groovy skeleton"]),
-                9: ("Thanksgiving & Holiday Gift Prep", ["harvest thankful flora", "friendsgiving retro print", "winter holiday pattern"]),
-                10: ("Christmas & Holiday Season", ["vintage santa claus", "cozy winter cabin aesthetic", "christmas botanical wreath"]),
-                11: ("New Year & Goal Setting", ["celestial manifest art", "minimalist habit tracker", "winter wonderland"]),
-                12: ("Valentine's & Fresh Start", ["pastel sweetheart retro", "galentine flowers", "gym motivation aesthetic"]),
+                1: (
+                    "Valentine's Day & Early Spring",
+                    ["botanical hearts", "couples retro mugs", "love typography sticker"],
+                ),
+                2: (
+                    "St. Patrick's & Mother's Day Prep",
+                    ["lucky clover vintage", "irish blessing art", "floral mom gift"],
+                ),
+                3: (
+                    "Mother's Day & Spring Weddings",
+                    ["wildflower bridal shower", "mama retro groovy", "spring meadow poster"],
+                ),
+                4: (
+                    "Father's Day & Summer Kickoff",
+                    ["vintage dad hobbies", "lake house outdoors", "bbq master retro"],
+                ),
+                5: (
+                    "Summer Travel & 4th of July",
+                    ["patriotic vintage flag", "coastal summer aesthetic", "road trip camping"],
+                ),
+                6: (
+                    "Back to School & Fall Preview",
+                    [
+                        "teacher appreciation boho",
+                        "retro school typography",
+                        "autumn cozy bookworm",
+                    ],
+                ),
+                7: (
+                    "Halloween & Fall Harvest Prep",
+                    ["spooky cute ghost", "vintage botanical pumpkin", "autumn aesthetic coffee"],
+                ),
+                8: (
+                    "Autumn Peaks & Halloween Spook",
+                    [
+                        "gothic cottagecore halloween",
+                        "pumpkin spice retro mug",
+                        "spooky groovy skeleton",
+                    ],
+                ),
+                9: (
+                    "Thanksgiving & Holiday Gift Prep",
+                    [
+                        "harvest thankful flora",
+                        "friendsgiving retro print",
+                        "winter holiday pattern",
+                    ],
+                ),
+                10: (
+                    "Christmas & Holiday Season",
+                    [
+                        "vintage santa claus",
+                        "cozy winter cabin aesthetic",
+                        "christmas botanical wreath",
+                    ],
+                ),
+                11: (
+                    "New Year & Goal Setting",
+                    ["celestial manifest art", "minimalist habit tracker", "winter wonderland"],
+                ),
+                12: (
+                    "Valentine's & Fresh Start",
+                    ["pastel sweetheart retro", "galentine flowers", "gym motivation aesthetic"],
+                ),
             }
 
             focus_theme, sample_niches = seasonal_calendar.get(
                 month,
-                ("Year-Round Evergreen Bestsellers", ["botanical art", "retro typography", "cottagecore aesthetic"]),
+                (
+                    "Year-Round Evergreen Bestsellers",
+                    ["botanical art", "retro typography", "cottagecore aesthetic"],
+                ),
             )
 
             if verbose:
-                print(f"🔍 [Seasonal Scout] Discovered trending focus for upcoming cycle: '{focus_theme}'.")
+                print(
+                    f"🔍 [Seasonal Scout] Discovered trending focus for upcoming cycle: '{focus_theme}'."
+                )
                 for idx, niche in enumerate(sample_niches, 1):
                     print(f"   • Opportunity {idx}: {niche}")
 
@@ -291,7 +346,9 @@ async def scout_seasonal_trends(verbose: bool = True) -> dict[str, Any]:
         await engine.dispose()
 
 
-async def recover_deadletter_workflows(verbose: bool = True, timeout_minutes: int = 30) -> dict[str, Any]:
+async def recover_deadletter_workflows(
+    verbose: bool = True, timeout_minutes: int = 30
+) -> dict[str, Any]:
     """Identify and safely recover workflows stalled in transient executing states for >30 minutes."""
     settings = get_settings()
     engine = create_engine(settings.database_url)
@@ -332,13 +389,17 @@ async def recover_deadletter_workflows(verbose: bool = True, timeout_minutes: in
                 wf.updated_at = datetime.now(UTC)
                 recovered_count += 1
                 if verbose:
-                    print(f"⚠️ [Recovery] Auto-recovered stalled workflow {wf.id} (stuck in '{old_state}' -> reset to '{wf.state.value}').")
+                    print(
+                        f"⚠️ [Recovery] Auto-recovered stalled workflow {wf.id} (stuck in '{old_state}' -> reset to '{wf.state.value}')."
+                    )
 
             if recovered_count > 0:
                 await session.commit()
 
             if verbose:
-                print(f"✅ [Dead-Letter Recovery] Checked for stalled workflows. Recovered: {recovered_count}.")
+                print(
+                    f"✅ [Dead-Letter Recovery] Checked for stalled workflows. Recovered: {recovered_count}."
+                )
 
             return {
                 "status": "success",
@@ -464,7 +525,7 @@ async def backup_database(verbose: bool = True) -> dict[str, Any]:
     engine = create_engine(settings.database_url)
     session_factory = create_session_factory(engine)
 
-    backup_dir = Path("/tmp/backups")
+    backup_dir = Path(tempfile.gettempdir()) / "backups"
     backup_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -473,8 +534,7 @@ async def backup_database(verbose: bool = True) -> dict[str, Any]:
     try:
         async with session_factory() as session:
             users_cnt = (
-                await session.scalar(select(func.count(text("id"))).select_from(text("users")))
-                or 0
+                await session.scalar(select(func.count(text("id"))).select_from(text("users"))) or 0
             )
             wf_cnt = await session.scalar(select(func.count(ProductWorkflow.id))) or 0
             draft_cnt = await session.scalar(select(func.count(ListingDraft.id))) or 0
@@ -549,9 +609,7 @@ async def run_all_daily(verbose: bool = True) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Marketplace Studio Scheduled Tasks & Cron Runner"
-    )
+    parser = argparse.ArgumentParser(description="Marketplace Studio Scheduled Tasks & Cron Runner")
     parser.add_argument(
         "job",
         choices=[
