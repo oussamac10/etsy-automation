@@ -13,6 +13,7 @@ import Alert from '~/components/ui/Alert.vue';
 import AlertTitle from '~/components/ui/AlertTitle.vue';
 import AlertDescription from '~/components/ui/AlertDescription.vue';
 import { formatCurrencyAmount } from '~/utils/tags';
+import { sanitizeUrl } from '~/utils/sanitize';
 
 const props = defineProps<{
   workflowId: string;
@@ -117,7 +118,7 @@ onMounted(async () => {
           </div>
           <a
             v-if="listingDraft.package_download_url"
-            :href="listingDraft.package_download_url"
+            :href="sanitizeUrl(listingDraft.package_download_url)"
             target="_blank"
             rel="noopener"
             class="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"

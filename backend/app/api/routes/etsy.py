@@ -518,6 +518,9 @@ async def verify_etsy_draft_endpoint(
         etsy_gateway=etsy_gateway,
         storage=storage,
     )
+    return EtsyDraftVerificationResponse.model_validate(report.to_dict())
+
+
 @router.post(
     "/workflows/{workflow_id}/etsy/update-draft",
     response_model=EtsyDraftVerificationResponse,
