@@ -16,6 +16,9 @@ import EtsyListingDefaultsCard from "~/components/settings/EtsyListingDefaultsCa
 import Skeleton from "~/components/ui/Skeleton.vue";
 import { fetchApiHealth, type ApiHealth } from "~/composables/useApiHealth";
 import ServiceStatus from "~/components/ServiceStatus.vue";
+import { useTheme } from "~/composables/useTheme";
+
+const { theme, setTheme } = useTheme();
 
 const config = useRuntimeConfig();
 const apiBase = config.public.apiBase;
@@ -290,12 +293,12 @@ async function removeCredential(provider: string): Promise<void> {
   }
 }
 
-type SettingsTab = "etsy" | "api_keys" | "telegram" | "diagnostics";
+type SettingsTab = "appearance" | "etsy" | "api_keys" | "telegram" | "diagnostics";
 
-let initialTab: SettingsTab = "etsy";
+let initialTab: SettingsTab = "appearance";
 try {
   const r = useRoute();
-  if (r?.query?.tab && ["etsy", "api_keys", "telegram", "diagnostics"].includes(r.query.tab as string)) {
+  if (r?.query?.tab && ["appearance", "etsy", "api_keys", "telegram", "diagnostics"].includes(r.query.tab as string)) {
     initialTab = r.query.tab as SettingsTab;
   }
 } catch {
@@ -313,7 +316,7 @@ function setActiveTab(tab: SettingsTab) {
       router.replace({
         query: {
           ...(route?.query || {}),
-          tab: tab === "etsy" ? undefined : tab,
+          tab: tab === "appearance" ? undefined : tab,
         },
       }).catch(() => {});
     }
@@ -323,6 +326,7 @@ function setActiveTab(tab: SettingsTab) {
 }
 
 const SETTINGS_TABS = [
+  { key: "appearance" as const, label: "Appearance & Theme", icon: "lucide:palette" },
   { key: "etsy" as const, label: "Etsy Shop & Defaults", icon: "lucide:store" },
   { key: "api_keys" as const, label: "AI Providers & API Keys", icon: "lucide:key" },
   { key: "telegram" as const, label: "Telegram Notifications", icon: "lucide:bell" },
@@ -737,6 +741,95 @@ onBeforeUnmount(stopCountdown);
                   :detail="health?.components?.image_worker?.detail"
                 />
               </ul>
+            </CardContent>
+          </Card>
+        </div>
+
+        <!-- Tab 5: Appearance & Theme -->
+        <div v-show="activeTab === 'appearance'" class="space-y-8" data-testid="tab-panel-appearance">
+          <Card class="shadow-2xs">
+            <CardHeader class="pb-4">
+              <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-primary border border-border">
+                  <Icon name="lucide:palette" class="size-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <CardTitle class="text-lg">Appearance & Theme</CardTitle>
+                  <CardDescription>
+                    Customize your studio interface mode and visual theme preferences
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent class="pt-2 space-y-6">
+              <div class="space-y-3">
+                <label class="text-sm font-bold text-foreground">Theme Preference</label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <!-- Light Mode -->
+                  <button
+                    type="button"
+                    class="flex flex-col items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer text-left"
+                    :class="
+                      theme === 'light'
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs'
+                        : 'border-border bg-card hover:bg-secondary/60 text-secondary-foreground'
+                    "
+                    data-testid="theme-select-light"
+                    @click="setTheme('light')"
+                  >
+                    <div class="flex size-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      <Icon name="lucide:sun" class="size-5" aria-hidden="true" />
+                    </div>
+                    <div class="text-center">
+                      <p class="text-sm font-bold text-foreground">Light Mode</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">Clean crisp daylight palette</p>
+                    </div>
+                  </button>
+
+                  <!-- Dark Mode -->
+                  <button
+                    type="button"
+                    class="flex flex-col items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer text-left"
+                    :class="
+                      theme === 'dark'
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs'
+                        : 'border-border bg-card hover:bg-secondary/60 text-secondary-foreground'
+                    "
+                    data-testid="theme-select-dark"
+                    @click="setTheme('dark')"
+                  >
+                    <div class="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+                      <Icon name="lucide:moon" class="size-5" aria-hidden="true" />
+                    </div>
+                    <div class="text-center">
+                      <p class="text-sm font-bold text-foreground">Dark Mode</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">Sleek midnight zinc contrast</p>
+                    </div>
+                  </button>
+
+                  <!-- System Sync -->
+                  <button
+                    type="button"
+                    class="flex flex-col items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer text-left"
+                    :class="
+                      theme === 'system'
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs'
+                        : 'border-border bg-card hover:bg-secondary/60 text-secondary-foreground'
+                    "
+                    data-testid="theme-select-system"
+                    @click="setTheme('system')"
+                  >
+                    <div class="flex size-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground border border-border">
+                      <Icon name="lucide:laptop" class="size-5" aria-hidden="true" />
+                    </div>
+                    <div class="text-center">
+                      <p class="text-sm font-bold text-foreground">System Sync</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">Match OS display settings</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

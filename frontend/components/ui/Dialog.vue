@@ -80,7 +80,7 @@ const maxWidthClasses = {
       >
         <div
           :class="[
-            'relative w-full rounded-2xl bg-white p-6 shadow-2xl border border-border max-h-[90vh] overflow-y-auto',
+            'relative w-full rounded-2xl bg-card text-card-foreground p-6 shadow-2xl border border-border max-h-[90vh] overflow-y-auto',
             maxWidthClasses[maxWidth],
           ]"
           role="dialog"

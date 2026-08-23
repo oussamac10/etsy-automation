@@ -213,7 +213,7 @@ onBeforeUnmount(() => {
     <div
       v-if="isMulti"
       :id="id"
-      class="min-h-9 w-full rounded-lg border border-border bg-white px-2 py-1.5 shadow-2xs transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 flex flex-wrap items-center gap-1.5 cursor-pointer"
+      class="min-h-9 w-full rounded-lg border border-border bg-card px-2 py-1.5 shadow-2xs transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 flex flex-wrap items-center gap-1.5 cursor-pointer"
       @click="isOpen = true"
     >
       <span
@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
     <div
       v-else
       :id="id"
-      class="h-9 w-full rounded-lg border border-border bg-white px-2.5 py-1 text-xs shadow-2xs transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 flex items-center justify-between gap-2 cursor-pointer"
+      class="h-9 w-full rounded-lg border border-border bg-card px-2.5 py-1 text-xs shadow-2xs transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 flex items-center justify-between gap-2 cursor-pointer"
       @click="isOpen = true"
     >
       <div v-if="!isOpen && modelValue" class="flex items-center gap-1.5 truncate text-foreground font-medium">
@@ -304,7 +304,7 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="isOpen"
-        class="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-white p-1.5 shadow-lg space-y-0.5 text-foreground"
+        class="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-card p-1.5 shadow-lg space-y-0.5 text-foreground"
       >
         <div class="flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           <span>Suggestions</span>

@@ -121,7 +121,7 @@ const displayedPages = computed<(number | string)[]>(() => {
             :class="[
               p === currentPage
                 ? 'bg-primary text-primary-foreground shadow-xs font-extrabold'
-                : 'text-secondary-foreground hover:bg-secondary hover:text-foreground border border-border/60 bg-white',
+                : 'text-secondary-foreground hover:bg-secondary hover:text-foreground border border-border/60 bg-card',
               disabled ? 'opacity-40 cursor-not-allowed' : ''
             ]"
             :aria-label="`Go to page ${p}`"
