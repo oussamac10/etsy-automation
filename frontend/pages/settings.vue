@@ -589,51 +589,59 @@ onBeforeUnmount(stopCountdown);
         </Card>
 
         <!-- System Diagnostics & Operational Health -->
-        <Card class="border border-border shadow-2xs">
-          <CardHeader class="pb-3">
-            <div class="flex items-center justify-between">
+        <Card class="border border-border shadow-2xs overflow-hidden">
+          <CardHeader class="pb-3.5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div class="space-y-1">
                 <CardTitle class="text-base font-bold flex items-center gap-2">
                   <Icon name="lucide:activity" class="size-4 text-primary" aria-hidden="true" />
                   <span>System Diagnostics &amp; Operational Health</span>
                 </CardTitle>
-                <CardDescription class="text-xs">
-                  Real-time status and latency metrics for core backend infrastructure and background workers.
+                <CardDescription class="text-xs text-muted-foreground leading-relaxed">
+                  Real-time status and latency metrics for core backend infrastructure and asynchronous workers.
                 </CardDescription>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                class="h-8 gap-1.5 text-xs shadow-2xs font-medium cursor-pointer inline-flex items-center"
+                class="h-8 gap-1.5 text-xs shadow-2xs font-medium cursor-pointer self-start sm:self-auto shrink-0 inline-flex items-center bg-white"
                 :disabled="isHealthLoading"
                 @click="refreshHealth"
               >
-                <Icon name="lucide:refresh-cw" class="size-3.5" :class="{ 'animate-spin': isHealthLoading }" aria-hidden="true" />
+                <Icon name="lucide:refresh-cw" class="size-3.5 text-primary" :class="{ 'animate-spin': isHealthLoading }" aria-hidden="true" />
                 <span>Refresh Status</span>
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            <ul data-testid="status-list" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <ul data-testid="status-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               <ServiceStatus
                 name="api"
+                label="API Gateway"
+                icon="lucide:server"
                 :status="health?.status ?? 'ok'"
                 :detail="health?.service"
               />
               <ServiceStatus
                 name="database"
+                label="PostgreSQL DB"
+                icon="lucide:database"
                 :status="health?.components?.database?.status ?? 'ok'"
                 :latency-ms="health?.components?.database?.latency_ms"
                 :detail="health?.components?.database?.detail"
               />
               <ServiceStatus
                 name="redis"
+                label="Redis Cache"
+                icon="lucide:layers"
                 :status="health?.components?.redis?.status ?? 'ok'"
                 :latency-ms="health?.components?.redis?.latency_ms"
                 :detail="health?.components?.redis?.detail"
               />
               <ServiceStatus
                 name="image_worker"
+                label="Image Worker"
+                icon="lucide:cpu"
                 :status="health?.components?.image_worker?.status ?? 'ok'"
                 :latency-ms="health?.components?.image_worker?.latency_ms"
                 :detail="health?.components?.image_worker?.detail"
