@@ -11,15 +11,24 @@ import Label from '~/components/ui/Label.vue';
 import Badge from '~/components/ui/Badge.vue';
 import Input from '~/components/ui/Input.vue';
 
+export interface EtsyPropertyValue {
+  property_id: number;
+  value_ids?: number[];
+  values?: string[];
+  scale_id?: number;
+  scale_name?: string;
+  value?: string;
+}
+
 const props = defineProps<{
   workflowId: string;
   taxonomyId?: number | null;
-  etsyProperties?: Record<string, any> | null;
+  etsyProperties?: Record<string, EtsyPropertyValue> | null;
   isSaving?: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:etsyProperties', val: Record<string, any>): void;
+  (e: 'update:etsyProperties', val: Record<string, EtsyPropertyValue>): void;
   (e: 'save'): void;
   (e: 'reviewCategory'): void;
 }>();
@@ -39,14 +48,7 @@ const isLoading = ref(false);
 const showInfoTooltip = ref(false);
 const searchQueryMap = ref<Record<number, string>>({});
 
-const localPropertiesMap = ref<Record<string, {
-  property_id: number;
-  value_ids?: number[];
-  values?: string[];
-  scale_id?: number;
-  scale_name?: string;
-  value?: string;
-}>>(
+const localPropertiesMap = ref<Record<string, EtsyPropertyValue>>(
   props.etsyProperties ? JSON.parse(JSON.stringify(props.etsyProperties)) : {}
 );
 
@@ -60,7 +62,7 @@ watch(
 
 watch(
   () => [props.workflowId, props.taxonomyId],
-  async ([newWf, newTax], [oldWf, oldTax]) => {
+  async ([_newWf, newTax], [_oldWf, oldTax]) => {
     if (newTax !== oldTax && oldTax !== undefined) {
       // Taxonomy switched: clear local state and trigger server reconcile
       localPropertiesMap.value = {};
@@ -68,6 +70,7 @@ watch(
     }
     await loadTaxonomyProperties();
     await loadFitness();
+
     if (newTax !== oldTax && oldTax !== undefined) {
       await reconcileStaleAttributes();
     }
@@ -120,7 +123,7 @@ async function reconcileStaleAttributes() {
   if (!props.workflowId) return;
   try {
     const apiBase = getApiBase();
-    const updated = await $fetch<any>(
+    const updated = await $fetch<{ etsy_properties?: Record<string, EtsyPropertyValue> }>(
       `${apiBase}/api/v1/workflows/${props.workflowId}/listing/taxonomy-properties/reconcile`,
       {
         method: 'POST',
@@ -133,6 +136,7 @@ async function reconcileStaleAttributes() {
       emit('update:etsyProperties', updated.etsy_properties);
     }
   } catch {
+
     // Ignore reconcile error
   }
 }
@@ -305,7 +309,7 @@ function clearOptionalAttributes() {
     properties.value.filter((p) => p.is_required).map((p) => String(p.property_id))
   );
 
-  const nextMap: Record<string, any> = {};
+  const nextMap: Record<string, EtsyPropertyValue> = {};
   for (const [k, v] of Object.entries(localPropertiesMap.value)) {
     if (requiredPropIds.has(k)) {
       nextMap[k] = v;

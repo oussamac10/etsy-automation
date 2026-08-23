@@ -337,8 +337,9 @@ describe("EtsyListingDefaultsCard", () => {
     await wrapper.vm.$nextTick();
 
     // Verify Save button appears
-    const saveBtn = wrapper.find("button[type='button']");
+    expect(wrapper.find("button[type='button']").exists()).toBe(true);
     expect(wrapper.text()).toContain("Save Defaults");
   });
+
 });
 

@@ -105,24 +105,24 @@ const currentZone = computed<MockupPlacement>(() => {
 
 const activeBlendInfo = computed(() => getBlendModeInfo(currentZone.value.blend_mode || props.blendMode));
 
-function handleSelectZone(idx: number): void {
+function _handleSelectZone(idx: number): void {
   emit("update:activePlacementIndex", idx);
 }
 
-function handleAddZone(): void {
+function _handleAddZone(): void {
   emit("addZone");
 }
 
-function handleDuplicateZone(): void {
+function _handleDuplicateZone(): void {
   emit("duplicateZone", currentZoneIdx.value);
 }
 
-function handleRemoveZone(): void {
+function _handleRemoveZone(): void {
   if (currentZones.value.length <= 1) return;
   emit("removeZone", currentZoneIdx.value);
 }
 
-function handleArtworkSourceChange(sourceId: string | null): void {
+function _handleArtworkSourceChange(sourceId: string | null): void {
   emit("updateZoneArtworkSource", {
     index: currentZoneIdx.value,
     sourceId: sourceId === "master" ? null : sourceId,

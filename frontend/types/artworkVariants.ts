@@ -76,6 +76,7 @@ export interface BuyerPackagePreviewResponse {
   estimated_total_bytes: number;
   needs_rebuild: boolean;
   etsy_files_out_of_sync: boolean;
-  package_asset?: any | null;
+  package_asset?: Record<string, unknown> | null;
   package_download_url?: string | null;
 }
+

@@ -12,6 +12,7 @@ import CustomerPackageCard from './CustomerPackageCard.vue';
 import PricingInventoryCard from './PricingInventoryCard.vue';
 import ShopOrganizationCard from './ShopOrganizationCard.vue';
 import TaxonomyAttributesCard from './TaxonomyAttributesCard.vue';
+import type { EtsyPropertyValue } from './TaxonomyAttributesCard.vue';
 import Button from '~/components/ui/Button.vue';
 import Badge from '~/components/ui/Badge.vue';
 import Card from '~/components/ui/Card.vue';
@@ -88,7 +89,7 @@ const {
   deleteVersion,
   deleteTagFromHistory,
   decideGate3,
-  fetchTaxonomyProperties,
+  fetchTaxonomyProperties: _fetchTaxonomyProperties,
   updateTaxonomy,
 } = useListing();
 
@@ -103,15 +104,16 @@ const localSku = ref<string>('');
 const localShopSectionId = ref<string | null>(null);
 const localShopSectionName = ref<string | null>(null);
 const localShouldAutoRenew = ref<boolean>(false);
-const localEtsyProperties = ref<Record<string, any>>({});
+const localEtsyProperties = ref<Record<string, EtsyPropertyValue>>({});
 const localPrimaryMockupAssetId = ref<string | null>(null);
 const localTaxonomyId = ref<number>(6844);
 const localTaxonomyPath = ref<string>('Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files');
 const warningAcknowledged = ref(false);
 const successMessage = ref<string | null>(null);
-const showAllReadinessChecks = ref(false);
+const _showAllReadinessChecks = ref(false);
 const categorySelectorRef = ref<{ openModal: () => void; loadFitness: () => Promise<void> } | null>(null);
 const generatingTarget = ref<string | null>(null);
+
 
 const isGate2Approved = computed(() => {
   return [
@@ -247,10 +249,11 @@ async function handleUpdateEtsyDraft() {
   }
 }
 
-async function handleAttributesUpdate(newProps: Record<string, any>) {
+async function handleAttributesUpdate(newProps: Record<string, EtsyPropertyValue>) {
   localEtsyProperties.value = newProps;
   await handleSave();
 }
+
 
 async function handleGenerateSeo(target: string = 'all') {
   successMessage.value = null;
@@ -408,12 +411,12 @@ async function handleUpdateCategory(payload: { id: number; path: string }) {
   }
 }
 
-async function handleCategoryReResolved(res: any) {
+async function handleCategoryReResolved(res: { applied?: boolean; recommended_taxonomy_id?: number; recommended_taxonomy_path?: string }) {
   await loadListingData();
   await loadCategoryFitness();
-  if (res?.applied) {
+  if (res?.applied && res.recommended_taxonomy_id) {
     localTaxonomyId.value = res.recommended_taxonomy_id;
-    localTaxonomyPath.value = res.recommended_taxonomy_path;
+    localTaxonomyPath.value = res.recommended_taxonomy_path || '';
   }
 }
 
@@ -428,7 +431,7 @@ async function handleApprove() {
   }
 }
 
-async function handleReject() {
+async function _handleReject() {
   successMessage.value = null;
   const draft = await decideGate3(props.workflowId, {
     decision: 'REJECTED',
@@ -438,6 +441,7 @@ async function handleReject() {
     emit('rejected');
   }
 }
+
 
 const riskLevel = computed<RiskLevel>(() => {
   return listingDraft.value?.ip_risk_level || 'unknown';

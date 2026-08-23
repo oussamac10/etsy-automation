@@ -78,7 +78,7 @@ export interface ListingDraft {
   shop_section_id?: string | null;
   shop_section_name?: string | null;
   should_auto_renew?: boolean;
-  etsy_properties?: Record<string, any>;
+  etsy_properties?: Record<string, unknown>;
   primary_mockup_asset_id?: string | null;
   shopping_cart_summary?: string | null;
   ai_disclosure?: string | null;
@@ -131,7 +131,7 @@ export interface UpdateListingPayload {
   shop_section_id?: string | null;
   shop_section_name?: string | null;
   should_auto_renew?: boolean | null;
-  etsy_properties?: Record<string, any> | null;
+  etsy_properties?: Record<string, unknown> | null;
   primary_mockup_asset_id?: string | null;
   shopping_cart_summary?: string | null;
   expected_version?: number;

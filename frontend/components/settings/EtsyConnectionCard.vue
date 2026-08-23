@@ -10,8 +10,6 @@ import CardContent from '~/components/ui/CardContent.vue';
 import Button from '~/components/ui/Button.vue';
 import Badge from '~/components/ui/Badge.vue';
 import Alert from '~/components/ui/Alert.vue';
-import AlertTitle from '~/components/ui/AlertTitle.vue';
-import AlertDescription from '~/components/ui/AlertDescription.vue';
 import Dialog from '~/components/ui/Dialog.vue';
 import DialogHeader from '~/components/ui/DialogHeader.vue';
 import DialogTitle from '~/components/ui/DialogTitle.vue';
@@ -19,20 +17,28 @@ import DialogDescription from '~/components/ui/DialogDescription.vue';
 import DialogFooter from '~/components/ui/DialogFooter.vue';
 import Skeleton from '~/components/ui/Skeleton.vue';
 
-let route: any = null;
-let router: any = null;
+interface RouteFallback {
+  query: Record<string, string | string[] | undefined>;
+}
+interface RouterFallback {
+  replace: (to: unknown) => void;
+}
+
+let route: ReturnType<typeof useRoute> | RouteFallback = { query: {} };
+let router: ReturnType<typeof useRouter> | RouterFallback = { replace: () => {} };
 
 try {
   route = useRoute();
-} catch {
+} catch (_err) {
   route = { query: {} };
 }
 
 try {
   router = useRouter();
-} catch {
+} catch (_err) {
   router = { replace: () => {} };
 }
+
 
 const {
   connectionStatus,

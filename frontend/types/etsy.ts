@@ -45,8 +45,10 @@ export interface EtsyVerificationCheck {
   actual?: any;
   message?: string | null;
   source: 'etsy_api' | 'manual_review';
-  details?: Record<string, any> | null;
+  details?: any;
 }
+
+
 
 export interface EtsyVerificationSummary {
   synced: number;

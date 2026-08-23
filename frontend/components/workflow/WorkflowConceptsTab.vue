@@ -57,11 +57,6 @@ interface TrademarkReport {
   reasons?: string[];
 }
 
-interface ProductFitItem {
-  product: string;
-  fit: number;
-}
-
 interface Concept {
   id: string;
   workflow_id: string;
@@ -347,7 +342,7 @@ function getTrademarkBannerClass(concept: Concept): string {
   return "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300";
 }
 
-async function handleScreenTrademark(conceptId: string) {
+async function _handleScreenTrademark(conceptId: string) {
   isScreeningMap.value[conceptId] = true;
   try {
     emit("screenTrademark", conceptId);
@@ -364,7 +359,9 @@ async function handleRefreshSingleConcept(conceptId: string) {
     const headers: Record<string, string> = {};
     try {
       Object.assign(headers, useRequestHeaders(["cookie"]));
-    } catch {}
+    } catch (_err) {
+      // Ignore on client
+    }
     const updated = await $fetch<Concept>(
       `${getApiBase().replace(/\/$/, "")}/api/v1/workflows/${props.workflow.id}/concepts/${conceptId}/refresh`,
       {
@@ -401,7 +398,9 @@ async function openSeeResearch(concept: Concept) {
     const headers: Record<string, string> = {};
     try {
       Object.assign(headers, useRequestHeaders(["cookie"]));
-    } catch {}
+    } catch (_err) {
+      // Ignore on client
+    }
     const res = await $fetch<ResearchSummaryData>(
       `${getApiBase().replace(/\/$/, "")}/api/v1/workflows/${props.workflow.id}/research/summary`,
       {

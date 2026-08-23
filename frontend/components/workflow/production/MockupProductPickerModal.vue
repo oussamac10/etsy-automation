@@ -8,7 +8,6 @@ import {
   normalizeProductKey,
 } from "~/utils/mockupProducts";
 import Button from "~/components/ui/Button.vue";
-import Input from "~/components/ui/Input.vue";
 import { useLibraryProducts } from "~/composables/useLibraryProducts";
 
 const props = defineProps<{
@@ -133,7 +132,7 @@ function initFromSavedSuggestions(suggestions?: string[]) {
   const items: Array<{ key: string; label: string; icon: string }> = [];
 
   for (const s of suggestions) {
-    const clean = String(s).trim().replace(/^['"\[\]\s]+|['"\[\]\s]+$/g, "");
+    const clean = String(s).trim().replace(/^['"[\]\s]+|['"[\]\s]+$/g, "");
     const k = normalizeProductKey(clean);
     if (k && !campaignKeys.has(k) && !seen.has(k)) {
       seen.add(k);
@@ -214,7 +213,7 @@ async function handleGenerateAiIdeas() {
       const items: Array<{ key: string; label: string; icon: string }> = [];
 
       for (const s of res.suggestions) {
-        const clean = String(s).trim().replace(/^['"\[\]\s]+|['"\[\]\s]+$/g, "");
+        const clean = String(s).trim().replace(/^['"[\]\s]+|['"[\]\s]+$/g, "");
         const k = normalizeProductKey(clean);
         if (k && !campaignKeys.has(k) && !seen.has(k)) {
           seen.add(k);

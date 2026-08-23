@@ -59,7 +59,15 @@ export function formatProviderName(provider: string): string {
  */
 export function sanitizeUserErrorMessage(rawError: unknown, fallback: string = "An unexpected error occurred. Please try again."): string {
   if (!rawError) return fallback;
-  const msg = typeof rawError === "string" ? rawError : String((rawError as any)?.data?.detail || (rawError as any)?.message || fallback);
+  let msg = fallback;
+  if (typeof rawError === "string") {
+    msg = rawError;
+  } else if (typeof rawError === "object" && rawError !== null) {
+    const errObj = rawError as Record<string, unknown>;
+    const dataObj = errObj.data as Record<string, unknown> | undefined;
+    msg = String(dataObj?.detail || errObj.message || fallback);
+  }
+
 
   // Map internal gate errors
   if (msg.includes("requires gate IDEA_APPROVAL") || msg.includes("gate-not-approved")) {

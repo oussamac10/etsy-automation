@@ -17,6 +17,13 @@ interface ManifestFile {
   byte_size?: number;
 }
 
+interface PackageManifest {
+  files?: ManifestFile[];
+  has_pdf?: boolean;
+  has_variants?: boolean;
+  has_license?: boolean;
+}
+
 const props = defineProps<{
   packageAsset?: Asset | null;
   downloadUrl?: string | null;
@@ -39,9 +46,11 @@ const byteSize = computed(() => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 });
 
-const manifest = computed(() => {
-  return (props.packageAsset?.provenance as Record<string, any>)?.manifest || null;
+const manifest = computed<PackageManifest | null>(() => {
+  const prov = props.packageAsset?.provenance as Record<string, unknown> | undefined;
+  return (prov?.manifest as PackageManifest | undefined) || null;
 });
+
 
 const manifestFiles = computed<ManifestFile[]>(() => {
   if (manifest.value && Array.isArray(manifest.value.files) && manifest.value.files.length > 0) {
@@ -65,7 +74,7 @@ function getVariantTitle(type: string): string {
 
 const checksum = computed(() => props.packageAsset?.checksum_sha256 || null);
 
-async function copyChecksum() {
+async function _copyChecksum() {
   if (!checksum.value) return;
   try {
     await navigator.clipboard.writeText(checksum.value);

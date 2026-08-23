@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import Badge from "~/components/ui/Badge.vue";
-import Button from "~/components/ui/Button.vue";
 import Skeleton from "~/components/ui/Skeleton.vue";
 import { sanitizeUrl } from "~/utils/sanitize";
 

@@ -9,8 +9,6 @@ import Button from '~/components/ui/Button.vue';
 import Input from '~/components/ui/Input.vue';
 import Label from '~/components/ui/Label.vue';
 import Alert from '~/components/ui/Alert.vue';
-import AlertTitle from '~/components/ui/AlertTitle.vue';
-import AlertDescription from '~/components/ui/AlertDescription.vue';
 import Skeleton from '~/components/ui/Skeleton.vue';
 import { getApiErrorMessage, getCsrfHeaders } from '~/utils/api';
 

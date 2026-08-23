@@ -248,13 +248,13 @@ const STANDARD_ALIASES: Record<string, string> = {
 
 export function normalizeProductKey(raw?: string | null): string {
   if (!raw) return "product";
-  const clean = raw.trim().replace(/^['"\[\]\s]+|['"\[\]\s]+$/g, "");
+  const clean = raw.trim().replace(/^['"[\]\s]+|['"[\]\s]+$/g, "");
   const slug = clean.toLowerCase().replace(/[\s/-]+/g, "_").replace(/^_+|_+$/g, "");
   return STANDARD_ALIASES[slug] || slug;
 }
 
 export function getProductLabel(key: string): string {
-  const clean = key.trim().replace(/^['"\[\]\s]+|['"\[\]\s]+$/g, "");
+  const clean = key.trim().replace(/^['"[\]\s]+|['"[\]\s]+$/g, "");
   const norm = normalizeProductKey(clean);
   if (PRODUCT_PRESETS[norm]) {
     return PRODUCT_PRESETS[norm].label;

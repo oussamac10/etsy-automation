@@ -67,7 +67,7 @@ const activeMasterAssetId = computed(
   () => props.latestProductionJob?.output_asset_id || props.latestProductionJob?.master_asset?.id || null
 );
 
-const recommendedProductList = computed<string[]>(() => {
+const _recommendedProductList = computed<string[]>(() => {
   const fromWorkflow = props.workflow?.intended_product_uses || [];
   const fromConcept = props.approvedConcept?.prompts?.[0]?.intended_product_uses || [];
   const combined = [...fromWorkflow, ...fromConcept];
@@ -88,7 +88,7 @@ const {
 );
 
 const renderNonce = ref<number>(Date.now());
-const packageRefreshNonce = ref<number>(Date.now());
+const _packageRefreshNonce = ref<number>(Date.now());
 const isActionLoading = ref(false);
 const mockupActionError = ref<string | null>(null);
 

@@ -79,7 +79,7 @@ interface Concept {
   risk_level: string;
   risk_note: string | null;
   score: number | null;
-  score_breakdown: Record<string, number>;
+  score_breakdown: Record<string, any>;
   score_explanation: string | null;
   status: string;
   created_at: string;

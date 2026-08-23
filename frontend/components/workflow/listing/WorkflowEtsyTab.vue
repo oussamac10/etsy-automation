@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted } from 'vue';
 import { useListing } from '~/composables/useListing';
 import EtsyDraftCard from './EtsyDraftCard.vue';
 import Card from '~/components/ui/Card.vue';
 import CardHeader from '~/components/ui/CardHeader.vue';
 import CardTitle from '~/components/ui/CardTitle.vue';
-import CardDescription from '~/components/ui/CardDescription.vue';
 import CardContent from '~/components/ui/CardContent.vue';
 import Badge from '~/components/ui/Badge.vue';
-import Button from '~/components/ui/Button.vue';
 import Alert from '~/components/ui/Alert.vue';
 import AlertTitle from '~/components/ui/AlertTitle.vue';
 import AlertDescription from '~/components/ui/AlertDescription.vue';
@@ -20,12 +18,13 @@ const props = defineProps<{
   workflowState: string;
 }>();
 
-const { listingDraft, isLoading, errorMessage, loadListing } = useListing();
+const { listingDraft, isLoading: _isLoading, errorMessage, loadListing } = useListing();
 
 onMounted(async () => {
   await loadListing(props.workflowId);
 });
 </script>
+
 
 <template>
   <div class="space-y-6" data-testid="workflow-etsy-tab">

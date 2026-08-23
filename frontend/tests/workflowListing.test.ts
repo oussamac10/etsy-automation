@@ -419,7 +419,7 @@ describe("WorkflowListingTab 5 Sub-Tabs Navigation & Structure", () => {
   });
 
   it("emits approved event on listing approval to trigger redirect to Etsy Draft tab", async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string, opts?: any) => {
+    const fetchMock = vi.fn().mockImplementation((url: string, _opts?: any) => {
       if (url.includes("/approvals")) {
         return Promise.resolve({
           ...mockDraft,

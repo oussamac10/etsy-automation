@@ -160,8 +160,8 @@ async function loadSummary() {
     editMonthlyBudget.value = parseFloat(String(data.monthly_budget));
     editNotifyWarning.value = data.notify_on_budget_warning;
     editIsPaused.value = data.is_paused;
-  } catch (err: any) {
-    if (err.statusCode === 401) {
+  } catch (err: unknown) {
+    if (typeof err === "object" && err !== null && "statusCode" in err && (err as { statusCode: number }).statusCode === 401) {
       router.push("/login");
       return;
     }
@@ -181,7 +181,7 @@ async function loadLedger() {
       }
     );
     ledgerItems.value = data.items;
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Failed to load usage ledger:", err);
   } finally {
     isLedgerLoading.value = false;
@@ -227,12 +227,13 @@ async function saveBudgetLimits() {
     });
     summary.value = updated;
     isBudgetModalOpen.value = false;
-  } catch (err: any) {
+  } catch (err: unknown) {
     budgetSaveError.value = getApiErrorMessage(err, "Failed to update budget settings.");
   } finally {
     isSavingBudget.value = false;
   }
 }
+
 
 const filteredLedger = computed(() => {
   let list = ledgerItems.value;

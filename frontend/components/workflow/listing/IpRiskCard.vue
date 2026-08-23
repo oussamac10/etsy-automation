@@ -26,23 +26,23 @@ const emit = defineEmits<{
 
 const showDetails = ref(false);
 
-const isCleared = computed(() => props.riskLevel === 'low');
+const _isCleared = computed(() => props.riskLevel === 'low');
 const isWarning = computed(() => props.riskLevel === 'medium');
 const isHighRisk = computed(() => props.riskLevel === 'high');
 
-const isLocalIndex = computed(() =>
+const _isLocalIndex = computed(() =>
   props.findings.screening_source?.startsWith('USPTO_LOCAL_INDEX') ||
   props.findings.screening_source === 'USPTO'
 );
-const isTsdrVerified = computed(() =>
+const _isTsdrVerified = computed(() =>
   props.findings.tsdr_status === 'VERIFIED' ||
   props.findings.screening_source === 'USPTO_LOCAL_INDEX_TSDR_VERIFIED'
 );
-const isTsdrUnavailable = computed(() =>
+const _isTsdrUnavailable = computed(() =>
   props.findings.tsdr_status === 'UNAVAILABLE' ||
   props.findings.screening_source === 'USPTO_LOCAL_INDEX_TSDR_UNAVAILABLE'
 );
-const isLocalFallback = computed(() =>
+const _isLocalFallback = computed(() =>
   props.findings.screening_source === 'local_defense_registry' ||
   props.findings.uspto_status === 'UNAVAILABLE'
 );
@@ -69,7 +69,7 @@ const liveMatchesCount = computed(() => {
 });
 
 const scannedPhrases = computed<string[]>(() => props.findings.scanned_phrases || props.findings.searched_phrases || []);
-const reasons = computed<string[]>(() => {
+const _reasons = computed<string[]>(() => {
   if (props.findings.reasons && props.findings.reasons.length > 0) {
     return props.findings.reasons;
   }
@@ -77,6 +77,7 @@ const reasons = computed<string[]>(() => {
     .map((m) => m.risk_reason)
     .filter((r): r is string => Boolean(r));
 });
+
 </script>
 
 <template>
