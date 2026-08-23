@@ -702,4 +702,3 @@ To regenerate this document after creating or modifying SQLAlchemy models:
 ```bash
 python backend/scripts/generate_schema_docs.py
 ```
-
