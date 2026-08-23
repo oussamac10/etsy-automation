@@ -189,7 +189,7 @@ async def get_telegram_status(user: CurrentUser, uow: UowDep) -> TelegramConnect
             paired=False,
             telegram_username=None,
             pairing_code_expires_at=conn.pairing_code_expires_at if conn else None,
-            is_muted=False,
+            is_muted=conn.is_muted if conn else False,
         )
     return TelegramConnectionResponse(
         paired=True,
