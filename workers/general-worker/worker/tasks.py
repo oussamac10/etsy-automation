@@ -374,7 +374,6 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
         # Special Branch: Market-Led Opportunity Discovery Engine
         if workflow.idea_mode == IdeaMode.MARKET_LED:
             from app.application.market_discovery import MarketOpportunityDiscoveryService
-            from app.domain.opportunity_scoring import OpportunityType
 
             discovery_service = MarketOpportunityDiscoveryService(
                 search_provider=search_provider,
@@ -415,18 +414,21 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
             )
 
             # Candidate pool generation, evaluation & deterministic scoring
-            top_3, all_candidates, confidence_score, proven_observations = (
-                await discovery_service.discover_opportunities(
-                    target_country=workflow.target_country,
-                    output_language=workflow.output_language,
-                    intended_products=workflow.intended_product_uses,
-                    preferred_niche=preferred_niche_list,
-                    target_buyer=[workflow.target_buyer] if workflow.target_buyer else None,
-                    desired_styles=[idea_style] if idea_style else None,
-                    occasions=[idea_season] if idea_season else None,
-                    seasons=[idea_season] if idea_season else None,
-                    evidence_list=evidence_tuples,
-                )
+            (
+                top_3,
+                all_candidates,
+                confidence_score,
+                proven_observations,
+            ) = await discovery_service.discover_opportunities(
+                target_country=workflow.target_country,
+                output_language=workflow.output_language,
+                intended_products=workflow.intended_product_uses,
+                preferred_niche=preferred_niche_list,
+                target_buyer=[workflow.target_buyer] if workflow.target_buyer else None,
+                desired_styles=[idea_style] if idea_style else None,
+                occasions=[idea_season] if idea_season else None,
+                seasons=[idea_season] if idea_season else None,
+                evidence_list=evidence_tuples,
             )
 
             async with UnitOfWork(session_factory) as uow:
@@ -439,9 +441,9 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
 
                 # Trademark screening service
                 from app.application.trademark import TrademarkScreeningService
+                from app.providers.fake import FakeTrademarkSearchAdapter
                 from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
                 from app.providers.tsdr import UsptoTsdrAdapter
-                from app.providers.fake import FakeTrademarkSearchAdapter
 
                 trademark_service: TrademarkScreeningService | None = None
                 try:
@@ -449,15 +451,25 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                         db_adapter = PostgresTrademarkSearchAdapter(uow)
                         tsdr_adapter = None
                         if hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
-                            tsdr_adapter = UsptoTsdrAdapter(api_key=settings.uspto_api_key.get_secret_value())
-                        trademark_service = TrademarkScreeningService(db_adapter, tsdr_adapter=tsdr_adapter)
+                            tsdr_adapter = UsptoTsdrAdapter(
+                                api_key=settings.uspto_api_key.get_secret_value()
+                            )
+                        trademark_service = TrademarkScreeningService(
+                            db_adapter, tsdr_adapter=tsdr_adapter
+                        )
                     else:
                         trademark_service = TrademarkScreeningService(FakeTrademarkSearchAdapter())
                 except Exception as tm_init_err:
                     logger.warning("trademark_service_worker_init_failed", error=str(tm_init_err))
 
                 db_run.query_angles = list({angle for angle, _, _ in evidence_tuples})
-                db_run.confidence = ConfidenceLevel.HIGH if confidence_score >= 0.8 else (ConfidenceLevel.MEDIUM if confidence_score >= 0.5 else ConfidenceLevel.LOW)
+                db_run.confidence = (
+                    ConfidenceLevel.HIGH
+                    if confidence_score >= 0.8
+                    else (
+                        ConfidenceLevel.MEDIUM if confidence_score >= 0.5 else ConfidenceLevel.LOW
+                    )
+                )
                 db_run.proposed_test = "Create 3 pilot listing drafts to validate click-through rate and market search volume."
 
                 # Save Evidence
@@ -491,7 +503,9 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                                 use_case_terms=[pf.product for pf in cand.recommended_products[:3]],
                                 market=workflow.target_country,
                                 language=workflow.output_language,
-                                competition_level=CompetitionLevel.DIFFERENTIABLE if cand.competition_level.value == "Low" else CompetitionLevel.CROWDED,
+                                competition_level=CompetitionLevel.DIFFERENTIABLE
+                                if cand.competition_level.value == "Low"
+                                else CompetitionLevel.CROWDED,
                                 competition_note=f"Market opportunity in {cand.niche}",
                                 relevance_rank=rank,
                             )
@@ -534,6 +548,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 # Save 3 Final Opportunities
                 # Archive previous concepts from prior runs for this workflow
                 from sqlalchemy import update
+
                 await uow.session.execute(
                     update(ProductConcept)
                     .where(ProductConcept.workflow_id == workflow_id)
@@ -547,7 +562,7 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
 
                     risk_level_str = "low"
                     risk_note = "Passed preliminary phrase screen."
-                    tm_findings = {}
+                    tm_findings: dict[str, object] = {}
 
                     if trademark_service:
                         try:
@@ -559,10 +574,12 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                             if tm_risk in (RiskLevel.HIGH, RiskLevel.MEDIUM):
                                 risk_level_str = tm_risk.value
                                 reasons_list = tm_findings.get("reasons", [])
-                                if reasons_list:
-                                    risk_note = "; ".join(reasons_list)
+                                if isinstance(reasons_list, list) and reasons_list:
+                                    risk_note = "; ".join([str(r) for r in reasons_list])
                         except Exception as tm_screen_err:
-                            logger.warning("trademark_screening_worker_error", error=str(tm_screen_err))
+                            logger.warning(
+                                "trademark_screening_worker_error", error=str(tm_screen_err)
+                            )
 
                     breakdown = {
                         "opportunity_type": concept.opportunity_type.value,
@@ -583,7 +600,8 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                         "design_style": concept.design_style,
                         "visual_direction": concept.visual_direction,
                         "recommended_products": [
-                            {"product": pf.product, "fit": pf.fit} for pf in concept.recommended_products
+                            {"product": pf.product, "fit": pf.fit}
+                            for pf in concept.recommended_products
                         ],
                         "confidence": concept.confidence,
                         "trademark_report": tm_findings,
@@ -600,7 +618,9 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                         differentiation=concept.why_it_could_sell,
                         target_buyer=concept.target_buyer,
                         buyer_use_case=f"{concept.niche} - {concept.season_or_event}",
-                        seasonality=Seasonality.SEASONAL if concept.season_or_event.lower() not in ("evergreen", "year-round") else Seasonality.EVERGREEN,
+                        seasonality=Seasonality.SEASONAL
+                        if concept.season_or_event.lower() not in ("evergreen", "year-round")
+                        else Seasonality.EVERGREEN,
                         risk_level=RiskLevel(risk_level_str),
                         risk_note=risk_note,
                         score=db_score,
@@ -618,10 +638,16 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                         typography_instructions=concept.typography_instructions,
                         exact_slogan=concept.slogan,
                         change_note="Initial Market Opportunity Discovery prompt.",
-                        intended_product_uses=[pf.product for pf in concept.recommended_products if pf.fit >= 75],
+                        intended_product_uses=[
+                            pf.product for pf in concept.recommended_products if pf.fit >= 75
+                        ],
                         style_notes=concept.design_style,
                         palette=", ".join(concept.color_palette),
-                        post_generation_checklist=["transparent background", "clean uncropped edges", "sRGB color profile"],
+                        post_generation_checklist=[
+                            "transparent background",
+                            "clean uncropped edges",
+                            "sRGB color profile",
+                        ],
                         generation_metadata={"aspect": "1:1", "quality_tier": "draft"},
                     )
 
@@ -634,7 +660,11 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                 )
                 await uow.commit()
 
-            logger.info("market_opportunity_discovery_task_completed", workflow_id=str(workflow_id), run_id=str(run_id))
+            logger.info(
+                "market_opportunity_discovery_task_completed",
+                workflow_id=str(workflow_id),
+                run_id=str(run_id),
+            )
             return
 
         # -------------------------------------------------------------
@@ -881,18 +911,22 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
 
                 # USPTO & TSDR Trademark Screening for Concept
                 from app.application.trademark import TrademarkScreeningService
+                from app.providers.fake import FakeTrademarkSearchAdapter
                 from app.providers.postgres_trademark import PostgresTrademarkSearchAdapter
                 from app.providers.tsdr import UsptoTsdrAdapter
-                from app.providers.fake import FakeTrademarkSearchAdapter
 
-                trademark_service: TrademarkScreeningService | None = None
+                trademark_service = None
                 try:
                     if is_live:
                         db_adapter = PostgresTrademarkSearchAdapter(uow)
                         tsdr_adapter = None
                         if hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
-                            tsdr_adapter = UsptoTsdrAdapter(api_key=settings.uspto_api_key.get_secret_value())
-                        trademark_service = TrademarkScreeningService(db_adapter, tsdr_adapter=tsdr_adapter)
+                            tsdr_adapter = UsptoTsdrAdapter(
+                                api_key=settings.uspto_api_key.get_secret_value()
+                            )
+                        trademark_service = TrademarkScreeningService(
+                            db_adapter, tsdr_adapter=tsdr_adapter
+                        )
                     else:
                         trademark_service = TrademarkScreeningService(FakeTrademarkSearchAdapter())
                 except Exception as tm_init_err:
@@ -910,8 +944,8 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                         if tm_risk in (RiskLevel.HIGH, RiskLevel.MEDIUM):
                             risk_level_str = tm_risk.value
                             reasons_list = tm_findings.get("reasons", [])
-                            if reasons_list:
-                                risk_note = f"{risk_note} {'; '.join(reasons_list)}".strip()
+                            if isinstance(reasons_list, list) and reasons_list:
+                                risk_note = f"{risk_note} {'; '.join([str(r) for r in reasons_list])}".strip()
                     except Exception as tm_screen_err:
                         logger.warning("trademark_screening_worker_error", error=str(tm_screen_err))
 
@@ -955,15 +989,13 @@ async def _run_research_async(workflow_id: uuid.UUID, run_id: uuid.UUID) -> None
                     generation_metadata=prompt_data.get("generation_metadata", {}),
                 )
 
-
             # Reconcile usage costs (Gemini 2.5 Flash: $0.075 / 1M prompt tokens, $0.30 / 1M completion tokens)
             tokens_in = text_response.input_tokens
             tokens_out = text_response.output_tokens
             if is_live:
                 cost_usd = (
-                    (Decimal(tokens_in) * Decimal("0.075") + Decimal(tokens_out) * Decimal("0.30"))
-                    / Decimal("1000000")
-                )
+                    Decimal(tokens_in) * Decimal("0.075") + Decimal(tokens_out) * Decimal("0.30")
+                ) / Decimal("1000000")
                 actual_cost = Money.from_decimal(cost_usd, "USD")
             else:
                 actual_cost = Money.zero("USD")
@@ -1701,7 +1733,9 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
         async with UnitOfWork(session_factory) as uow:
             workflow = await uow.workflows.get(workflow_id)
             if not workflow:
-                logger.error("workflow_not_found_for_listing_pipeline", workflow_id=str(workflow_id))
+                logger.error(
+                    "workflow_not_found_for_listing_pipeline", workflow_id=str(workflow_id)
+                )
                 return
 
             concepts = await uow.concepts.list_for_workflow(workflow_id)
@@ -1737,7 +1771,9 @@ async def _run_listing_pipeline_async(workflow_id: uuid.UUID) -> None:
                         raw_key = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
                         tsdr_adapter = UsptoTsdrAdapter(api_key=raw_key)
                 elif hasattr(settings, "uspto_api_key") and settings.uspto_api_key:
-                    tsdr_adapter = UsptoTsdrAdapter(api_key=settings.uspto_api_key.get_secret_value())
+                    tsdr_adapter = UsptoTsdrAdapter(
+                        api_key=settings.uspto_api_key.get_secret_value()
+                    )
             else:
                 trademark_provider = FakeTrademarkSearchAdapter()
 
@@ -1874,6 +1910,3 @@ def listing_gate3_decided(
         state=state,
         actor=actor,
     )
-
-
-

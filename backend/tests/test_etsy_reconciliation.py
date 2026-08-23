@@ -32,7 +32,6 @@ def _create_test_png_bytes(
     color_type: int = 6,
     raw_bytes: int = 1000,
 ) -> bytes:
-    import os
     import struct
     import zlib
 
@@ -44,7 +43,12 @@ def _create_test_png_bytes(
     raw_scanlines = b"\x00" + (b"ABCD1234EFGH5678" * (raw_bytes // 16 + 1))[:raw_bytes]
     compressed_idat = zlib.compress(raw_scanlines, level=6)
     idat_crc = zlib.crc32(b"IDAT" + compressed_idat)
-    idat = struct.pack(">I", len(compressed_idat)) + b"IDAT" + compressed_idat + struct.pack(">I", idat_crc)
+    idat = (
+        struct.pack(">I", len(compressed_idat))
+        + b"IDAT"
+        + compressed_idat
+        + struct.pack(">I", idat_crc)
+    )
 
     iend_crc = zlib.crc32(b"IEND")
     iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
@@ -103,9 +107,7 @@ class TestEtsyReconciliation:
         uow.commit = AsyncMock()
 
         fake_etsy = FakeEtsyProvider(default_shop_id="shop_123")
-        fake_etsy.created_listings.append(
-            {"listing_id": listing_id, "title": "Cute Cat PNG"}
-        )
+        fake_etsy.created_listings.append({"listing_id": listing_id, "title": "Cute Cat PNG"})
 
         res = await reconcile_etsy_draft(
             workflow_id=workflow_id,
@@ -240,7 +242,11 @@ class TestEtsyReconciliation:
         fake_etsy = FakeEtsyProvider()
 
         # Test timeout / 5xx / 429
-        for flag_name in ("get_listing_timeout", "get_listing_server_error", "get_listing_rate_limited"):
+        for flag_name in (
+            "get_listing_timeout",
+            "get_listing_server_error",
+            "get_listing_rate_limited",
+        ):
             setattr(fake_etsy, flag_name, True)
 
             res = await reconcile_etsy_draft(
@@ -452,7 +458,10 @@ class TestEtsyReconciliation:
             return listing
 
         async def fake_record_image(draft_id: uuid.UUID, **kwargs: object) -> ListingDraft:
-            listing.etsy_image_ids = [*list(listing.etsy_image_ids or []), str(kwargs.get("image_id"))]
+            listing.etsy_image_ids = [
+                *list(listing.etsy_image_ids or []),
+                str(kwargs.get("image_id")),
+            ]
             return listing
 
         async def fake_record_file(draft_id: uuid.UUID, **kwargs: object) -> ListingDraft:
@@ -537,4 +546,3 @@ class TestEtsyReconciliation:
         assert second_listing_id != first_listing_id
         assert workflow.state == RunStatus.ETSY_DRAFT_CREATED
         assert listing.etsy_dispatch_status == "completed"
-

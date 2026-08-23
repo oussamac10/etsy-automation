@@ -137,6 +137,7 @@ class TestReadWorkflows:
 
         async with UnitOfWork(session_factory) as uow:
             from app.infrastructure.models import ListingDraft
+
             draft = ListingDraft(
                 workflow_id=wf_id,
                 title="Listing with Section",
@@ -160,7 +161,6 @@ class TestReadWorkflows:
         assert matched is not None
         assert matched["shop_section_id"] == "59973386"
         assert matched["shop_section_name"] == "Animals"
-
 
 
 class TestSubmitIdea:

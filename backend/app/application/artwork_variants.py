@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from decimal import Decimal
 import hashlib
 import uuid
+from datetime import UTC, datetime
 from typing import Any
+
 import structlog
 
 from app.application.unit_of_work import UnitOfWork
@@ -21,12 +21,11 @@ from app.domain.artwork_variants import (
     is_variant_outdated,
     recolor_artwork_variant,
     sanitize_hex_color,
-    validate_artwork_variant,
 )
 from app.domain.errors import DomainError, EntityNotFoundError
 from app.domain.production_resolver import get_production_master_asset
 from app.infrastructure.models import Asset, ProductWorkflow
-from app.ports.providers import ImageGenerationProvider, ImageRequest, ObjectStorage
+from app.ports.providers import ImageGenerationProvider, ObjectStorage
 
 logger = structlog.get_logger(__name__)
 
@@ -53,7 +52,7 @@ class ArtworkVariantService:
     ) -> list[Asset]:
         """List all derived color variants for a given workflow."""
         assets = await uow.assets.list_for_workflow(workflow_id)
-        return filter_workflow_artwork_variants(assets)
+        return filter_workflow_artwork_variants(list(assets))
 
     async def generate_variant(
         self,
@@ -71,7 +70,11 @@ class ArtworkVariantService:
             raise EntityNotFoundError("ProductWorkflow", workflow_id)
 
         # Normalize variant type
-        v_type = VariantType(str(variant_type)) if not isinstance(variant_type, VariantType) else variant_type
+        v_type = (
+            VariantType(str(variant_type))
+            if not isinstance(variant_type, VariantType)
+            else variant_type
+        )
         sanitized_color = sanitize_hex_color(custom_color) if v_type == VariantType.CUSTOM else None
 
         # 1. Authoritatively resolve master asset (never mutate source master)
@@ -107,7 +110,9 @@ class ArtworkVariantService:
 
         # 2. Deterministic Pixel/Color-Range Recolor Engine (Exact Alpha & Composition Preserved)
         variant_asset_id = uuid.uuid4()
-        idempotency_key = f"variant-{workflow_id}-{master_asset.id}-{v_type.value}-{variant_asset_id.hex[:8]}"
+        idempotency_key = (
+            f"variant-{workflow_id}-{master_asset.id}-{v_type.value}-{variant_asset_id.hex[:8]}"
+        )
 
         try:
             variant_bytes, validation_report = recolor_artwork_variant(
@@ -116,10 +121,16 @@ class ArtworkVariantService:
                 target_color_hex=sanitized_color,
             )
         except ArtworkVariantValidationError as val_err:
-            logger.error("artwork_variant_validation_failed", error=str(val_err), workflow_id=str(workflow_id))
+            logger.error(
+                "artwork_variant_validation_failed",
+                error=str(val_err),
+                workflow_id=str(workflow_id),
+            )
             raise ArtworkVariantError(f"Validation failed: {val_err}") from val_err
         except Exception as exc:
-            logger.error("artwork_variant_recolor_failed", error=str(exc), workflow_id=str(workflow_id))
+            logger.error(
+                "artwork_variant_recolor_failed", error=str(exc), workflow_id=str(workflow_id)
+            )
             raise ArtworkVariantError(f"Failed to recolor artwork: {exc}") from exc
 
         variant_mime = "image/png"
@@ -129,7 +140,9 @@ class ArtworkVariantService:
         storage_key = f"workflows/{workflow_id}/variants/{variant_asset_id}/{v_type.value}.png"
         stored_obj = await self._storage.put(storage_key, variant_bytes, content_type=variant_mime)
 
-        variant_title = VARIANT_TYPE_LABELS.get(v_type, f"{v_type.value.replace('_', ' ').title()} Version")
+        variant_title = VARIANT_TYPE_LABELS.get(
+            v_type, f"{v_type.value.replace('_', ' ').title()} Version"
+        )
 
         provenance_data: dict[str, Any] = {
             "kind": "artwork_variant",
@@ -200,7 +213,9 @@ class ArtworkVariantService:
         asset.provenance = updated_prov
 
         await uow.commit()
-        logger.info("artwork_variant_approved", workflow_id=str(workflow_id), variant_id=str(asset.id))
+        logger.info(
+            "artwork_variant_approved", workflow_id=str(workflow_id), variant_id=str(asset.id)
+        )
         return asset
 
     async def reject_variant(
@@ -229,7 +244,9 @@ class ArtworkVariantService:
         asset.provenance = updated_prov
 
         await uow.commit()
-        logger.info("artwork_variant_rejected", workflow_id=str(workflow_id), variant_id=str(asset.id))
+        logger.info(
+            "artwork_variant_rejected", workflow_id=str(workflow_id), variant_id=str(asset.id)
+        )
         return asset
 
     async def delete_variant(
@@ -259,7 +276,9 @@ class ArtworkVariantService:
         try:
             await self._storage.delete(storage_key)
         except Exception as del_err:
-            logger.warning("failed_deleting_variant_storage", storage_key=storage_key, error=str(del_err))
+            logger.warning(
+                "failed_deleting_variant_storage", storage_key=storage_key, error=str(del_err)
+            )
 
     async def update_variant_package_inclusion(
         self,
@@ -310,4 +329,3 @@ class ArtworkVariantService:
             include_in_buyer_package=include_in_buyer_package,
         )
         return asset
-

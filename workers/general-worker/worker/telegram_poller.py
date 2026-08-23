@@ -116,7 +116,9 @@ async def run_poller() -> None:
                         tg_user_id = from_user.get("id")
                         username = from_user.get("username")
                         if chat_id is not None and tg_user_id is not None:
-                            logger.info("Processing callback in poller", data=data, username=username)
+                            logger.info(
+                                "Processing callback in poller", data=data, username=username
+                            )
                             async with UnitOfWork(session_factory) as uow:
                                 try:
                                     response_text = await handle_telegram_callback(
@@ -133,7 +135,9 @@ async def run_poller() -> None:
                                         text=response_text,
                                     )
                                 except Exception as exc:
-                                    logger.error("Error processing Telegram callback in poller", exc_info=exc)
+                                    logger.error(
+                                        "Error processing Telegram callback in poller", exc_info=exc
+                                    )
 
                 message = update.get("message")
                 if message and message.get("text"):

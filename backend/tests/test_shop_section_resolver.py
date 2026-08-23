@@ -27,13 +27,20 @@ class TestShopSectionResolver:
 
     def test_suggest_shop_section_title_highland_cow_with_animals_section(self):
         title = "Highland Cow Teacher PNG, Back to School Shirt Design, Cute Baby Calf with Glasses and Pencil Bow, Sublimation Clipart"
-        tags = ["teacher highland cow png", "back to school animal clipart", "cute teacher sweater graphic", "fluffy cow with glasses png"]
+        tags = [
+            "teacher highland cow png",
+            "back to school animal clipart",
+            "cute teacher sweater graphic",
+            "fluffy cow with glasses png",
+        ]
         existing_sections = [
             {"shop_section_id": "59958929", "title": "Medicine"},
             {"shop_section_id": "59973370", "title": "Food & Coffee PNGs"},
             {"shop_section_id": "59973386", "title": "Animals"},
         ]
-        suggested, matched_id = suggest_shop_section_title(title=title, tags=tags, existing_sections=existing_sections)
+        suggested, matched_id = suggest_shop_section_title(
+            title=title, tags=tags, existing_sections=existing_sections
+        )
         assert suggested == "Animals"
         assert matched_id == "59973386"
 

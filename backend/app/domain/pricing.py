@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-import math
-import re
+from dataclasses import dataclass
 from typing import Final
 
 from app.domain.owner_settings import SUPPORTED_CURRENCIES
@@ -101,7 +99,9 @@ def format_currency_amount(amount_minor: int, currency: str = "USD") -> str:
     return f"{symbol}{amount_decimal:.2f}"
 
 
-def validate_price_minor_units(price_minor_units: int | None, currency: str = "USD") -> tuple[bool, str | None]:
+def validate_price_minor_units(
+    price_minor_units: int | None, currency: str = "USD"
+) -> tuple[bool, str | None]:
     """Validate price minor units for Etsy listing creation."""
     if price_minor_units is None:
         return False, "Listing price is required."
@@ -116,7 +116,10 @@ def validate_price_minor_units(price_minor_units: int | None, currency: str = "U
 
     curr_upper = (currency or "").upper().strip()
     if curr_upper and curr_upper not in SUPPORTED_CURRENCIES:
-        return False, f"Unsupported currency '{currency}'. Supported: {', '.join(sorted(SUPPORTED_CURRENCIES))}."
+        return (
+            False,
+            f"Unsupported currency '{currency}'. Supported: {', '.join(sorted(SUPPORTED_CURRENCIES))}.",
+        )
 
     return True, None
 
@@ -133,16 +136,25 @@ def calculate_price_recommendation(
         curr = "USD"
 
     # Base pricing: Commercial License + 4500x5400 Master PNG + Print-Ready PDF + Sizing Guide
-    base_cents = owner_default_minor if (owner_default_minor and owner_default_minor > 0) else DEFAULT_BASE_PRICE_USD_MINOR
+    base_cents = (
+        owner_default_minor
+        if (owner_default_minor and owner_default_minor > 0)
+        else DEFAULT_BASE_PRICE_USD_MINOR
+    )
 
-    factors: list[str] = ["Standard 4500x5400 300 DPI Transparent Master PNG", "Print-Ready PDF & Commercial License included"]
+    factors: list[str] = [
+        "Standard 4500x5400 300 DPI Transparent Master PNG",
+        "Print-Ready PDF & Commercial License included",
+    ]
 
     text_corpus = f"{title or ''} {' '.join(tags or [])}".lower()
 
     # Premium factor: Bundle / Multi-element design
     is_bundle = any(kw in text_corpus for kw in ("bundle", "pack", "collection", "set", "elements"))
     # Seasonal / High Demand factor (e.g. Christmas, Halloween, Mother's Day)
-    is_seasonal_rush = any(kw in text_corpus for kw in ("christmas", "xmas", "halloween", "easter", "valentine"))
+    is_seasonal_rush = any(
+        kw in text_corpus for kw in ("christmas", "xmas", "halloween", "easter", "valentine")
+    )
 
     addon_cents = 0
     if is_bundle:

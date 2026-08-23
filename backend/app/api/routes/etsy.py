@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
 import urllib.parse
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 
 from app.api.dependencies import (
@@ -25,8 +25,6 @@ from app.api.etsy_schemas import (
     EtsyDispatchStepInfo,
     EtsyDraftDispatchResponse,
     EtsyDraftVerificationResponse,
-    EtsyVerificationCheckResponse,
-    EtsyVerificationSummaryResponse,
 )
 from app.application import etsy_auth, etsy_draft, etsy_verification
 from app.domain.workflow import RunStatus
@@ -219,7 +217,10 @@ async def create_etsy_draft_endpoint(
         )
 
     # If already completed, return existing result
-    if workflow.state == RunStatus.ETSY_DRAFT_CREATED and listing.etsy_dispatch_status == "completed":
+    if (
+        workflow.state == RunStatus.ETSY_DRAFT_CREATED
+        and listing.etsy_dispatch_status == "completed"
+    ):
         return _build_etsy_dispatch_response(workflow_id, listing)
 
     # Update status to queued and add to outbox
@@ -262,7 +263,9 @@ def _build_etsy_dispatch_response(
     )
 
     image_count = len(listing.etsy_image_ids or [])
-    file_ids = list(listing.etsy_file_ids or ([listing.etsy_file_id] if listing.etsy_file_id else []))
+    file_ids = list(
+        listing.etsy_file_ids or ([listing.etsy_file_id] if listing.etsy_file_id else [])
+    )
     file_count = len(file_ids)
 
     # Determine individual step states
@@ -274,19 +277,34 @@ def _build_etsy_dispatch_response(
     elif dispatch_status in ("queued", "creating_listing"):
         steps["create_listing"] = EtsyDispatchStepInfo(status="in_progress")
     elif dispatch_status == "failed" and not listing.etsy_listing_id:
-        steps["create_listing"] = EtsyDispatchStepInfo(status="failed", error=listing.etsy_failure_reason)
+        steps["create_listing"] = EtsyDispatchStepInfo(
+            status="failed", error=listing.etsy_failure_reason
+        )
     else:
         steps["create_listing"] = EtsyDispatchStepInfo(status="pending")
 
     # Step 2: Upload Mockups
-    if image_count > 0 and dispatch_status in ("uploading_file", "uploading_files", "applying_attributes", "completed"):
-        steps["upload_mockups"] = EtsyDispatchStepInfo(status="completed", uploaded_count=image_count)
+    if image_count > 0 and dispatch_status in (
+        "uploading_file",
+        "uploading_files",
+        "applying_attributes",
+        "completed",
+    ):
+        steps["upload_mockups"] = EtsyDispatchStepInfo(
+            status="completed", uploaded_count=image_count
+        )
     elif dispatch_status == "uploading_images":
-        steps["upload_mockups"] = EtsyDispatchStepInfo(status="in_progress", uploaded_count=image_count)
+        steps["upload_mockups"] = EtsyDispatchStepInfo(
+            status="in_progress", uploaded_count=image_count
+        )
     elif dispatch_status == "failed" and listing.etsy_listing_id and image_count == 0:
-        steps["upload_mockups"] = EtsyDispatchStepInfo(status="failed", error=listing.etsy_failure_reason)
+        steps["upload_mockups"] = EtsyDispatchStepInfo(
+            status="failed", error=listing.etsy_failure_reason
+        )
     elif dispatch_status == "completed":
-        steps["upload_mockups"] = EtsyDispatchStepInfo(status="completed", uploaded_count=image_count)
+        steps["upload_mockups"] = EtsyDispatchStepInfo(
+            status="completed", uploaded_count=image_count
+        )
     else:
         steps["upload_mockups"] = EtsyDispatchStepInfo(status="pending", uploaded_count=image_count)
 
@@ -294,9 +312,13 @@ def _build_etsy_dispatch_response(
     if file_count > 0 and dispatch_status in ("applying_attributes", "completed"):
         steps["upload_files"] = EtsyDispatchStepInfo(status="completed", uploaded_count=file_count)
     elif dispatch_status in ("uploading_file", "uploading_files"):
-        steps["upload_files"] = EtsyDispatchStepInfo(status="in_progress", uploaded_count=file_count)
+        steps["upload_files"] = EtsyDispatchStepInfo(
+            status="in_progress", uploaded_count=file_count
+        )
     elif dispatch_status == "failed" and image_count > 0 and file_count == 0:
-        steps["upload_files"] = EtsyDispatchStepInfo(status="failed", error=listing.etsy_failure_reason)
+        steps["upload_files"] = EtsyDispatchStepInfo(
+            status="failed", error=listing.etsy_failure_reason
+        )
     elif dispatch_status == "completed":
         steps["upload_files"] = EtsyDispatchStepInfo(status="completed", uploaded_count=file_count)
     else:
@@ -308,7 +330,9 @@ def _build_etsy_dispatch_response(
     elif dispatch_status == "applying_attributes":
         steps["apply_attributes"] = EtsyDispatchStepInfo(status="in_progress")
     elif dispatch_status == "failed" and file_count > 0:
-        steps["apply_attributes"] = EtsyDispatchStepInfo(status="failed", error=listing.etsy_failure_reason)
+        steps["apply_attributes"] = EtsyDispatchStepInfo(
+            status="failed", error=listing.etsy_failure_reason
+        )
     else:
         steps["apply_attributes"] = EtsyDispatchStepInfo(status="pending")
 
@@ -383,7 +407,9 @@ def _build_etsy_dispatch_response(
         etsy_listing_url=etsy_listing_url,
         etsy_state=etsy_state,
         etsy_shop_id=etsy_shop_id,
-        etsy_image_ids=list(listing.etsy_image_ids or []) if isinstance(getattr(listing, "etsy_image_ids", None), list) else [],
+        etsy_image_ids=list(listing.etsy_image_ids or [])
+        if isinstance(getattr(listing, "etsy_image_ids", None), list)
+        else [],
         etsy_file_id=etsy_file_id,
         etsy_file_ids=file_ids,
         taxonomy_id=taxonomy_id,
@@ -407,7 +433,9 @@ async def get_etsy_draft_status_endpoint(
     etsy_gateway: EtsyGatewayDep,
     cipher: CipherDep,
     settings: SettingsDep,
-    reconcile: bool = Query(default=True, description="Reconcile against Etsy if draft listing exists."),
+    reconcile: bool = Query(
+        default=True, description="Reconcile against Etsy if draft listing exists."
+    ),
 ) -> EtsyDraftDispatchResponse:
     """Poll the current progress and results of the Etsy draft listing operation."""
     workflow = await uow.workflows.get(workflow_id)
@@ -427,7 +455,8 @@ async def get_etsy_draft_status_endpoint(
         listing.etsy_listing_id
         and (listing.etsy_file_ids or listing.etsy_file_id)
         and workflow.state == RunStatus.ETSY_DRAFT_CREATED
-        and listing.etsy_dispatch_status in (
+        and listing.etsy_dispatch_status
+        in (
             "queued",
             "creating_listing",
             "uploading_images",

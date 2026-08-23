@@ -55,9 +55,7 @@ def validate_tags(raw_tags: list[str]) -> tuple[bool, list[str], list[str]]:
         accepted.append(tag)
 
     if len(accepted) != MAX_ETSY_TAGS:
-        errors.append(
-            f"Exactly {MAX_ETSY_TAGS} tags required: got {len(accepted)} accepted tags."
-        )
+        errors.append(f"Exactly {MAX_ETSY_TAGS} tags required: got {len(accepted)} accepted tags.")
 
     return len(errors) == 0, accepted, errors
 

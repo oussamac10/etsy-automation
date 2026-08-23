@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -61,8 +62,12 @@ def _parse_single_placement(
             width_pct=float(p_data.get("width_pct", getattr(preset, "default_width_pct", 0.50))),
             height_pct=float(p_data.get("height_pct", getattr(preset, "default_height_pct", 0.50))),
             angle_deg=float(p_data.get("angle_deg", 0.0)),
-            blend_mode=str(p_data.get("blend_mode", getattr(preset, "default_blend_mode", "multiply"))),
-            artwork_source_id=str(p_data["artwork_source_id"]) if p_data.get("artwork_source_id") else None,
+            blend_mode=str(
+                p_data.get("blend_mode", getattr(preset, "default_blend_mode", "multiply"))
+            ),
+            artwork_source_id=str(p_data["artwork_source_id"])
+            if p_data.get("artwork_source_id")
+            else None,
         )
     return CustomMockupPlacement(
         left_pct=getattr(preset, "default_left_pct", 0.25),
@@ -168,7 +173,7 @@ class MockupTemplateStore:
         image_bytes: bytes,
         content_type: str = "image/jpeg",
         placement: CustomMockupPlacement | dict[str, Any] | None = None,
-        placements: list[CustomMockupPlacement | dict[str, Any]] | None = None,
+        placements: Sequence[CustomMockupPlacement | dict[str, Any]] | None = None,
     ) -> MockupTemplateItem:
         """Save a new custom mockup template image and its manifest to S3 for an owner."""
         owner_str = str(owner_id)
@@ -210,6 +215,7 @@ class MockupTemplateStore:
             "placement": asdict(primary_placement),
             "placements": [asdict(p) for p in placements_list],
             "created_at": created_at_str,
+            "is_custom": True,
         }
 
         # 3. Upload manifest JSON
@@ -249,7 +255,7 @@ class MockupTemplateStore:
         template_id: str,
         name: str | None = None,
         placement: CustomMockupPlacement | dict[str, Any] | None = None,
-        placements: list[CustomMockupPlacement | dict[str, Any]] | None = None,
+        placements: Sequence[CustomMockupPlacement | dict[str, Any]] | None = None,
         product_type: str | None = None,
     ) -> MockupTemplateItem | None:
         """Update metadata, name, or placement coordinates of an existing template."""

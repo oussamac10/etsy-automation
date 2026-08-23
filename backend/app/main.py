@@ -19,13 +19,15 @@ from app.api.problems import register_exception_handlers
 from app.api.routes import (
     artwork_variants,
     auth,
-    etsy as etsy_routes,
     health,
     mockup_templates,
     telegram,
     usage,
     workflow,
     workflows,
+)
+from app.api.routes import (
+    etsy as etsy_routes,
 )
 from app.api.routes import settings as settings_routes
 from app.infrastructure.database import create_engine, create_session_factory

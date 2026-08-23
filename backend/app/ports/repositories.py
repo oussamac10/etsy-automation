@@ -603,7 +603,9 @@ class ListingDraftRepository(Protocol):
 
     async def get_by_workflow(self, workflow_id: uuid.UUID) -> ListingDraft | None: ...
 
-    async def get_by_workflows(self, workflow_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, ListingDraft]: ...
+    async def get_by_workflows(
+        self, workflow_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, ListingDraft]: ...
 
     async def update(
         self,
@@ -693,11 +695,19 @@ class ListingDraftRepository(Protocol):
         last_synced_at: datetime | None = None,
     ) -> ListingDraft: ...
 
+    async def update_etsy_verification(
+        self,
+        draft_id: uuid.UUID,
+        *,
+        status: str,
+        verified_at: datetime,
+        result: dict[str, object],
+    ) -> ListingDraft: ...
+
     async def list_distinct_shop_sections_for_user(
         self,
         owner_id: uuid.UUID,
     ) -> list[tuple[str | None, str | None]]: ...
-
 
 
 @runtime_checkable
@@ -715,5 +725,3 @@ class TrademarkRepository(Protocol):
     async def get_latest_source_date(self) -> datetime | None: ...
 
     async def bulk_upsert(self, records: list[dict[str, Any]]) -> dict[str, int]: ...
-
-

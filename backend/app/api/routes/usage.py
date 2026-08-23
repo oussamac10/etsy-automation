@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query
 
 from app.api.dependencies import CurrentUser, UowDep
 from app.api.usage_schemas import (
@@ -209,7 +209,11 @@ async def update_budget_limits(
     if settings is None:
         settings = await settings_use_cases.get_or_create_settings(uow, current_user.id)
 
-    daily = payload.daily_budget if payload.daily_budget is not None else settings.daily_budget.to_decimal()
+    daily = (
+        payload.daily_budget
+        if payload.daily_budget is not None
+        else settings.daily_budget.to_decimal()
+    )
     monthly = (
         payload.monthly_budget
         if payload.monthly_budget is not None

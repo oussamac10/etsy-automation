@@ -78,6 +78,7 @@ def mock_uow() -> MagicMock:
 def _make_test_png() -> bytes:
     import struct
     import zlib
+
     header = b"\x89PNG\r\n\x1a\n"
     ihdr_data = struct.pack(">IIBBBBB", 4500, 5400, 8, 6, 0, 0, 0)
     ihdr_crc = zlib.crc32(b"IHDR" + ihdr_data)
@@ -85,7 +86,12 @@ def _make_test_png() -> bytes:
     raw_scanlines = b"\x00" + b"\xff\x00\x00\xff" * 100
     compressed_idat = zlib.compress(raw_scanlines, level=0)
     idat_crc = zlib.crc32(b"IDAT" + compressed_idat)
-    idat = struct.pack(">I", len(compressed_idat)) + b"IDAT" + compressed_idat + struct.pack(">I", idat_crc)
+    idat = (
+        struct.pack(">I", len(compressed_idat))
+        + b"IDAT"
+        + compressed_idat
+        + struct.pack(">I", idat_crc)
+    )
     iend_crc = zlib.crc32(b"IEND")
     iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
     return header + ihdr + idat + iend
@@ -502,7 +508,3 @@ def test_get_and_create_shop_sections_cross_campaign(
     created = post_resp.json()
     assert created["title"] == "Halloween Bundles"
     assert created["shop_section_id"].startswith("sec-")
-
-
-
-

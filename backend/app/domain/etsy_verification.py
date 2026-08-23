@@ -40,7 +40,9 @@ class EtsyVerificationCheck:
             "key": self.key,
             "label": self.label,
             "category": self.category,
-            "status": self.status.value if isinstance(self.status, EtsyVerificationCheckStatus) else str(self.status),
+            "status": self.status.value
+            if isinstance(self.status, EtsyVerificationCheckStatus)
+            else str(self.status),
             "expected": self.expected,
             "actual": self.actual,
             "message": self.message,
@@ -81,7 +83,9 @@ class EtsyDraftVerification:
         return {
             "workflow_id": self.workflow_id,
             "listing_id": self.listing_id,
-            "status": self.status.value if isinstance(self.status, EtsyOverallVerificationStatus) else str(self.status),
+            "status": self.status.value
+            if isinstance(self.status, EtsyOverallVerificationStatus)
+            else str(self.status),
             "verified_at": self.verified_at.isoformat(),
             "summary": self.summary.to_dict(),
             "checks": [c.to_dict() for c in self.checks],
@@ -107,7 +111,6 @@ def _normalize_text(text: str) -> str:
 
 
 def compare_etsy_draft(
-
     *,
     workflow_id: str,
     listing_id: str,
@@ -256,15 +259,18 @@ def compare_etsy_draft(
             )
         )
 
-
     # 4. Tags (Case-normalized, order-insensitive)
     raw_actual_tags = actual_listing.get("tags") or []
     actual_tags_list = [str(t).strip() for t in raw_actual_tags if t]
     actual_tags_lower = {t.lower(): t for t in actual_tags_list}
     expected_tags_lower = {t.lower(): t for t in expected_tags}
 
-    missing_tags = [expected_tags_lower[k] for k in expected_tags_lower if k not in actual_tags_lower]
-    unexpected_tags = [actual_tags_lower[k] for k in actual_tags_lower if k not in expected_tags_lower]
+    missing_tags = [
+        expected_tags_lower[k] for k in expected_tags_lower if k not in actual_tags_lower
+    ]
+    unexpected_tags = [
+        actual_tags_lower[k] for k in actual_tags_lower if k not in expected_tags_lower
+    ]
 
     tag_count = len(actual_tags_list)
     exp_tag_count = len(expected_tags)
@@ -340,7 +346,10 @@ def compare_etsy_draft(
         exp_fmt = f"{expected_price_minor / 100:.2f} {expected_currency}"
         act_fmt = f"{actual_minor / 100:.2f} {actual_curr}"
 
-        if actual_minor == expected_price_minor and actual_curr.upper() == expected_currency.upper():
+        if (
+            actual_minor == expected_price_minor
+            and actual_curr.upper() == expected_currency.upper()
+        ):
             checks.append(
                 EtsyVerificationCheck(
                     key="price",
@@ -416,7 +425,9 @@ def compare_etsy_draft(
 
     # Verify SKU
     if expected_sku:
-        if actual_sku == expected_sku or (actual_sku is None and actual_listing.get("sku") == expected_sku):
+        if actual_sku == expected_sku or (
+            actual_sku is None and actual_listing.get("sku") == expected_sku
+        ):
             checks.append(
                 EtsyVerificationCheck(
                     key="sku",
@@ -434,7 +445,9 @@ def compare_etsy_draft(
                     key="sku",
                     label="SKU",
                     category="commerce",
-                    status=EtsyVerificationCheckStatus.DIFFERENT if resolved_act_sku else EtsyVerificationCheckStatus.MISSING,
+                    status=EtsyVerificationCheckStatus.DIFFERENT
+                    if resolved_act_sku
+                    else EtsyVerificationCheckStatus.MISSING,
                     expected=expected_sku,
                     actual=resolved_act_sku or "None",
                     message=f"SKU on Etsy is '{resolved_act_sku}' (expected '{expected_sku}').",
@@ -443,9 +456,19 @@ def compare_etsy_draft(
 
     # 8. Shop Section
     actual_section_id = actual_listing.get("shop_section_id")
-    actual_sec_str = str(actual_section_id) if actual_section_id is not None and str(actual_section_id) != "0" else None
-    exp_sec_str = str(expected_shop_section_id) if expected_shop_section_id is not None and str(expected_shop_section_id) != "0" else None
-    has_expected_section = bool(exp_sec_str or (expected_shop_section_name and expected_shop_section_name.strip()))
+    actual_sec_str = (
+        str(actual_section_id)
+        if actual_section_id is not None and str(actual_section_id) != "0"
+        else None
+    )
+    exp_sec_str = (
+        str(expected_shop_section_id)
+        if expected_shop_section_id is not None and str(expected_shop_section_id) != "0"
+        else None
+    )
+    has_expected_section = bool(
+        exp_sec_str or (expected_shop_section_name and expected_shop_section_name.strip())
+    )
 
     if not has_expected_section and not actual_sec_str:
         checks.append(
@@ -469,7 +492,11 @@ def compare_etsy_draft(
                 actual=expected_shop_section_name or f"Section #{actual_sec_str}",
             )
         )
-    elif expected_shop_section_name and actual_sec_str and (not exp_sec_str or not exp_sec_str.isdigit()):
+    elif (
+        expected_shop_section_name
+        and actual_sec_str
+        and (not exp_sec_str or not exp_sec_str.isdigit())
+    ):
         checks.append(
             EtsyVerificationCheck(
                 key="shop_section",
@@ -504,7 +531,6 @@ def compare_etsy_draft(
                 message="Shop section on Etsy differs from expected section.",
             )
         )
-
 
     # 9. Renewal
     actual_renew = actual_listing.get("should_auto_renew", False)
@@ -541,11 +567,7 @@ def compare_etsy_draft(
     item_type = actual_listing.get("listing_type") or actual_listing.get("item_type", "download")
     is_supply = actual_listing.get("is_supply", False)
 
-    is_made_synced = (
-        who_made == "i_did"
-        and item_type in ("download", "both")
-        and not is_supply
-    )
+    is_made_synced = who_made == "i_did" and item_type in ("download", "both") and not is_supply
     if is_made_synced:
         checks.append(
             EtsyVerificationCheck(
@@ -623,7 +645,9 @@ def compare_etsy_draft(
     # 12. Digital Files
     act_file_count = len(actual_files or [])
     if expected_file_count > 0:
-        actual_filenames = [str(f.get("filename", "")) for f in (actual_files or []) if f.get("filename")]
+        actual_filenames = [
+            str(f.get("filename", "")) for f in (actual_files or []) if f.get("filename")
+        ]
         if act_file_count >= expected_file_count:
             checks.append(
                 EtsyVerificationCheck(
@@ -703,7 +727,9 @@ def compare_etsy_draft(
             continue
         pid = int(p_id_raw)
         if isinstance(val, dict):
-            vals = val.get("values") or ([val["value"]] if val.get("value") is not None and str(val["value"]).strip() else [])
+            vals = val.get("values") or (
+                [val["value"]] if val.get("value") is not None and str(val["value"]).strip() else []
+            )
             if not vals:
                 continue
         elif isinstance(val, list):
@@ -741,7 +767,11 @@ def compare_etsy_draft(
 
             # If this is materials property (e.g. 148789511893) and actual_props_map is empty, check raw materials
             act_vals = list(actual_props_map.get(pid, []))
-            if not act_vals and "material" in resolved_name.lower() and isinstance(raw_materials, list):
+            if (
+                not act_vals
+                and "material" in resolved_name.lower()
+                and isinstance(raw_materials, list)
+            ):
                 act_vals = [str(m) for m in raw_materials if m]
 
             exp_norm = {v.lower().strip(): v for v in exp_vals if v.strip()}
@@ -752,35 +782,45 @@ def compare_etsy_draft(
 
             if set(exp_norm.keys()) == set(act_norm.keys()) and exp_norm:
                 matched_props += 1
-                prop_details.append({
-                    "property_id": pid,
-                    "property_name": resolved_name,
-                    "status": "synced",
-                    "expected": exp_vals,
-                    "actual": act_vals,
-                })
+                prop_details.append(
+                    {
+                        "property_id": pid,
+                        "property_name": resolved_name,
+                        "status": "synced",
+                        "expected": exp_vals,
+                        "actual": act_vals,
+                    }
+                )
             elif act_vals:
-                diff_msg = f"{resolved_name} (Missing on Etsy: {', '.join(missing_on_etsy)})" if missing_on_etsy else f"{resolved_name} differs"
+                diff_msg = (
+                    f"{resolved_name} (Missing on Etsy: {', '.join(missing_on_etsy)})"
+                    if missing_on_etsy
+                    else f"{resolved_name} differs"
+                )
                 diff_summaries.append(diff_msg)
-                prop_details.append({
-                    "property_id": pid,
-                    "property_name": resolved_name,
-                    "status": "different",
-                    "expected": exp_vals,
-                    "actual": act_vals,
-                    "missing": missing_on_etsy,
-                    "unexpected": extra_on_etsy,
-                })
+                prop_details.append(
+                    {
+                        "property_id": pid,
+                        "property_name": resolved_name,
+                        "status": "different",
+                        "expected": exp_vals,
+                        "actual": act_vals,
+                        "missing": missing_on_etsy,
+                        "unexpected": extra_on_etsy,
+                    }
+                )
             else:
                 diff_summaries.append(f"{resolved_name} (missing completely on Etsy)")
-                prop_details.append({
-                    "property_id": pid,
-                    "property_name": resolved_name,
-                    "status": "missing",
-                    "expected": exp_vals,
-                    "actual": [],
-                    "missing": exp_vals,
-                })
+                prop_details.append(
+                    {
+                        "property_id": pid,
+                        "property_name": resolved_name,
+                        "status": "missing",
+                        "expected": exp_vals,
+                        "actual": [],
+                        "missing": exp_vals,
+                    }
+                )
 
         if matched_props == total_expected_props:
             checks.append(
@@ -804,7 +844,9 @@ def compare_etsy_draft(
                     status=EtsyVerificationCheckStatus.DIFFERENT,
                     expected=f"{total_expected_props} configured",
                     actual=f"{matched_props} / {total_expected_props} verified on Etsy",
-                    message=f"{total_expected_props - matched_props} attribute(s) differ on Etsy: {diff_text}." if diff_text else f"{total_expected_props - matched_props} attribute(s) differ on Etsy.",
+                    message=f"{total_expected_props - matched_props} attribute(s) differ on Etsy: {diff_text}."
+                    if diff_text
+                    else f"{total_expected_props - matched_props} attribute(s) differ on Etsy.",
                     details={"properties": prop_details},
                 )
             )
@@ -857,7 +899,11 @@ def compare_etsy_draft(
 
     # Tally Summary
     synced_count = sum(1 for c in checks if c.status == EtsyVerificationCheckStatus.SYNCED)
-    warnings_count = sum(1 for c in checks if c.status in (EtsyVerificationCheckStatus.DIFFERENT, EtsyVerificationCheckStatus.MISSING))
+    warnings_count = sum(
+        1
+        for c in checks
+        if c.status in (EtsyVerificationCheckStatus.DIFFERENT, EtsyVerificationCheckStatus.MISSING)
+    )
     errors_count = sum(1 for c in checks if c.status == EtsyVerificationCheckStatus.FAILED)
     manual_count = sum(1 for c in checks if c.status == EtsyVerificationCheckStatus.MANUAL_REVIEW)
 

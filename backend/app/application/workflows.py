@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 
 from app.application.research import queue_research_run
 from app.application.unit_of_work import UnitOfWork
-from app.domain.enums import AuditAction, ConceptOrigin, ConceptStatus, IdeaMode
+from app.domain.enums import AuditAction, ConceptStatus, IdeaMode
 from app.domain.errors import (
     ConcurrentModificationError,
     EntityNotFoundError,

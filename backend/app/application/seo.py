@@ -5,15 +5,13 @@ from __future__ import annotations
 import json
 import re
 from typing import TYPE_CHECKING, Any, Literal
-from pydantic import BaseModel, Field, field_validator
+
 import structlog
+from pydantic import BaseModel, Field, field_validator
 
 from app.domain.errors import DomainError
 from app.domain.seo_quality import (
     MAX_CART_SUMMARY_LENGTH,
-    validate_description_quality,
-    validate_summary_quality,
-    validate_title_quality,
 )
 from app.domain.tags import (
     MAX_ETSY_TAGS,
@@ -21,7 +19,6 @@ from app.domain.tags import (
     MAX_TITLE_LENGTH,
     normalize_tag,
     sanitize_etsy_title,
-    validate_tags,
 )
 from app.infrastructure.models import DesignPrompt, ProductConcept
 from app.ports.errors import ProviderError, ProviderErrorKind
@@ -44,7 +41,9 @@ class ListingSeoDraft(BaseModel):
         default="",
         description="Concise 1-2 sentence shopping cart summary <= 200 chars",
     )
-    tags: list[str] = Field(default_factory=list, description="Etsy tags (automatically formatted to exactly 13)")
+    tags: list[str] = Field(
+        default_factory=list, description="Etsy tags (automatically formatted to exactly 13)"
+    )
     ai_disclosure: str = Field(
         default="This artwork was created with the assistance of AI generation tools and then professionally edited, refined, and prepared for digital production.",
         description="Etsy AI creation disclosure statement",
@@ -110,15 +109,30 @@ def validate_semantic_consistency(
     forbidden_anchors: list[str] | None = None,
 ) -> None:
     """Validate that generated SEO copy matches the active concept and does not contain forbidden/stale anchors."""
-    combined_text = f"{seo_draft.title} {seo_draft.shopping_cart_summary} {seo_draft.description}".lower()
+    combined_text = (
+        f"{seo_draft.title} {seo_draft.shopping_cart_summary} {seo_draft.description}".lower()
+    )
     clean_concept_title = concept_title.strip().lower()
 
     # Extract meaningful anchor tokens from active concept title
     concept_tokens = [
-        w for w in re.findall(r"[a-z0-9]+", clean_concept_title)
-        if len(w) > 2 and w not in {
-            "the", "and", "for", "with", "png", "svg", "eps", "clipart",
-            "design", "graphic", "download", "sublimation"
+        w
+        for w in re.findall(r"[a-z0-9]+", clean_concept_title)
+        if len(w) > 2
+        and w
+        not in {
+            "the",
+            "and",
+            "for",
+            "with",
+            "png",
+            "svg",
+            "eps",
+            "clipart",
+            "design",
+            "graphic",
+            "download",
+            "sublimation",
         }
     ]
 
@@ -147,7 +161,9 @@ def validate_semantic_consistency(
             if not fa_clean or len(fa_clean) < 4:
                 continue
             # Skip if fa_clean matches or overlaps any active concept token
-            if fa_clean in concept_words_set or any(fa_clean in cw or cw in fa_clean for cw in concept_words_set):
+            if fa_clean in concept_words_set or any(
+                fa_clean in cw or cw in fa_clean for cw in concept_words_set
+            ):
                 continue
             # Check whole-word presence in combined tokens
             if fa_clean in combined_tokens:
@@ -173,10 +189,12 @@ def _build_seo_prompt(
 ) -> str:
     # Check if a ListingGenerationContext was passed directly as concept
     if hasattr(concept, "concept") and hasattr(concept, "artwork"):
-        ctx = concept
+        ctx: Any = concept
         concept_title = ctx.concept.title
         concept_desc = ctx.concept.description
-        target_buyer = ctx.concept.target_buyer or "Apparel crafters, sublimation creators, POD buyers"
+        target_buyer = (
+            ctx.concept.target_buyer or "Apparel crafters, sublimation creators, POD buyers"
+        )
         niche = ctx.concept.niche
         seasonality = ctx.concept.seasonality or "Evergreen"
         slogan = ctx.concept.slogan
@@ -188,10 +206,14 @@ def _build_seo_prompt(
         is_transparent = ctx.production.has_transparent_background
         variants = ctx.production.variants
         license_block = ctx.buyer_package.license_terms
+
     else:
         concept_title = getattr(concept, "title", "Digital Artwork")
         concept_desc = getattr(concept, "description", "")
-        target_buyer = getattr(concept, "target_buyer", None) or "Apparel crafters, sublimation creators, POD buyers"
+        target_buyer = (
+            getattr(concept, "target_buyer", None)
+            or "Apparel crafters, sublimation creators, POD buyers"
+        )
         niche = getattr(concept, "niche", "Digital PNG Crafters & Sublimation")
         seasonality = getattr(concept, "seasonality", None) or "Evergreen"
         slogan = prompt.exact_slogan if prompt else None
@@ -231,8 +253,8 @@ Write directly and clearly for real human buyers. Do NOT write like a marketing 
 ACTIVE PRODUCT CONTEXT (ONLY GENERATE FOR THIS PRODUCT):
 - Concept / Title: {concept_title}
 - Concept Details: {concept_desc}
-- Artwork Summary: {art_sum or 'N/A'}
-- Slogan / Text in Art: {slogan or 'None'}
+- Artwork Summary: {art_sum or "N/A"}
+- Slogan / Text in Art: {slogan or "None"}
 - Target Buyer: {target_buyer}
 - Niche / Theme: {niche}
 - Seasonality / Occasion: {seasonality}
@@ -241,8 +263,8 @@ ACTIVE PRODUCT CONTEXT (ONLY GENERATE FOR THIS PRODUCT):
 ACTUAL PRODUCT SPECIFICATIONS (DO NOT INVENT DIFFERENT DIMENSIONS OR FILE COUNTS):
 - Dimensions: {width} × {height} pixels
 - Resolution: {dpi} DPI
-- Background: {'Transparent PNG' if is_transparent else 'Opaque PNG'}
-- Included Variants: {', '.join(variants) if variants else 'Master PNG only'}
+- Background: {"Transparent PNG" if is_transparent else "Opaque PNG"}
+- Included Variants: {", ".join(variants) if variants else "Master PNG only"}
 - Commercial License Terms: {license_block}
 
 CRITICAL DIRECTIVE:
@@ -325,6 +347,7 @@ async def generate_listing_seo(
 ) -> ListingSeoDraft:
     """Generate and validate Etsy listing copy using the configured text provider."""
     # Allow passing context directly
+    concept_obj: Any
     if context is not None:
         concept_obj = context
         concept_title = context.concept.title
@@ -340,6 +363,7 @@ async def generate_listing_seo(
 
     if text_provider is None:
         from app.providers.fake import FakeTextProvider
+
         text_provider = FakeTextProvider()
 
     prompt_text = _build_seo_prompt(
@@ -419,7 +443,9 @@ async def generate_listing_seo(
 
     # Ensure AI disclosure is present
     if not data.get("ai_disclosure"):
-        data["ai_disclosure"] = "This artwork was created with the assistance of AI generation tools and then professionally edited, refined, and prepared for digital production."
+        data["ai_disclosure"] = (
+            "This artwork was created with the assistance of AI generation tools and then professionally edited, refined, and prepared for digital production."
+        )
 
     # Ensure exactly 13 tags
     raw_tags = data.get("tags", [])

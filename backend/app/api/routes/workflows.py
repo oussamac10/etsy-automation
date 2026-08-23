@@ -19,11 +19,18 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 
+import structlog
+from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
 
-from fastapi import APIRouter, Header, HTTPException, Query, Request, Response, status
-
-from app.api.dependencies import CipherDep, CurrentUser, EtsyGatewayDep, SettingsDep, StorageDep, UowDep
+from app.api.dependencies import (
+    CipherDep,
+    CurrentUser,
+    EtsyGatewayDep,
+    SettingsDep,
+    StorageDep,
+    UowDep,
+)
 from app.api.schemas import (
     ApprovalResponse,
     ArtworkJobResponse,
@@ -77,7 +84,6 @@ from app.domain.workflow import JobStatus, RiskLevel, RunStatus
 from app.infrastructure.models import ArtworkJob, Asset, ProductionJob
 from app.providers.s3 import S3ObjectStorage
 from app.settings import get_settings
-import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -530,10 +536,14 @@ async def revise_concept(
     # Re-screen concept with USPTO provider if available
     try:
         from app.application.trademark import TrademarkScreeningService
+
         settings = get_settings()
-        primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
-            await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-        )
+        (
+            primary_provider,
+            fallback_provider,
+            tsdr_adapter,
+            dataset_updated_at,
+        ) = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
         trademark_service = TrademarkScreeningService(
             primary_provider,
             fallback_provider=fallback_provider,
@@ -591,9 +601,12 @@ async def screen_concept_trademark_endpoint(
     prompts = await uow.concepts.prompts(concept.id)
     latest_slogan = prompts[-1].exact_slogan if prompts else None
 
-    primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
-        await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-    )
+    (
+        primary_provider,
+        fallback_provider,
+        tsdr_adapter,
+        dataset_updated_at,
+    ) = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
     trademark_service = TrademarkScreeningService(
         primary_provider,
         fallback_provider=fallback_provider,
@@ -631,8 +644,12 @@ async def screen_concept_trademark_endpoint(
         "differentiation": concept.differentiation,
         "target_buyer": concept.target_buyer,
         "buyer_use_case": concept.buyer_use_case,
-        "seasonality": concept.seasonality.value if hasattr(concept.seasonality, "value") else str(concept.seasonality),
-        "risk_level": concept.risk_level.value if hasattr(concept.risk_level, "value") else str(concept.risk_level),
+        "seasonality": concept.seasonality.value
+        if hasattr(concept.seasonality, "value")
+        else str(concept.seasonality),
+        "risk_level": concept.risk_level.value
+        if hasattr(concept.risk_level, "value")
+        else str(concept.risk_level),
         "risk_note": concept.risk_note,
         "score": concept.score,
         "score_breakdown": concept.score_breakdown,
@@ -681,17 +698,25 @@ async def refresh_concept_endpoint(
             "research_run_id": concept.research_run_id,
             "title": concept.title,
             "description": concept.description,
-            "origin": concept.origin.value if hasattr(concept.origin, "value") else str(concept.origin),
+            "origin": concept.origin.value
+            if hasattr(concept.origin, "value")
+            else str(concept.origin),
             "differentiation": concept.differentiation,
             "target_buyer": concept.target_buyer,
             "buyer_use_case": concept.buyer_use_case,
-            "seasonality": concept.seasonality.value if hasattr(concept.seasonality, "value") else str(concept.seasonality),
-            "risk_level": concept.risk_level.value if hasattr(concept.risk_level, "value") else str(concept.risk_level),
+            "seasonality": concept.seasonality.value
+            if hasattr(concept.seasonality, "value")
+            else str(concept.seasonality),
+            "risk_level": concept.risk_level.value
+            if hasattr(concept.risk_level, "value")
+            else str(concept.risk_level),
             "risk_note": concept.risk_note,
             "score": concept.score,
             "score_breakdown": concept.score_breakdown,
             "score_explanation": concept.score_explanation,
-            "status": concept.status.value if hasattr(concept.status, "value") else str(concept.status),
+            "status": concept.status.value
+            if hasattr(concept.status, "value")
+            else str(concept.status),
             "created_at": concept.created_at,
             "prompts": [DesignPromptResponse.model_validate(p) for p in prompts],
         }
@@ -703,7 +728,11 @@ async def refresh_concept_endpoint(
     # Find next available candidate
     replacement_cand = None
     for cand in pool:
-        if isinstance(cand, dict) and cand.get("title", "").lower() not in active_titles and cand.get("title", "").lower() != concept.title.lower():
+        if (
+            isinstance(cand, dict)
+            and cand.get("title", "").lower() not in active_titles
+            and cand.get("title", "").lower() != concept.title.lower()
+        ):
             replacement_cand = cand
             break
 
@@ -715,16 +744,22 @@ async def refresh_concept_endpoint(
         concept.description = replacement_cand.get("concept_summary", concept.description)
         concept.differentiation = replacement_cand.get("why_it_could_sell", concept.differentiation)
         concept.target_buyer = replacement_cand.get("target_buyer", concept.target_buyer)
-        concept.buyer_use_case = f"{replacement_cand.get('niche', '')} - {replacement_cand.get('season_or_event', '')}"
+        concept.buyer_use_case = (
+            f"{replacement_cand.get('niche', '')} - {replacement_cand.get('season_or_event', '')}"
+        )
 
         overall_val = replacement_cand.get("overall_score", 80)
         concept.score = max(1.00, min(5.00, round(overall_val / 20.0, 2)))
 
         # Screen USPTO for replacement candidate
         from app.application.trademark import TrademarkScreeningService
-        primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
-            await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-        )
+
+        (
+            primary_provider,
+            fallback_provider,
+            tsdr_adapter,
+            dataset_updated_at,
+        ) = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
         trademark_service = TrademarkScreeningService(
             primary_provider,
             fallback_provider=fallback_provider,
@@ -749,26 +784,30 @@ async def refresh_concept_endpoint(
         concept.risk_note = risk_note_val
 
         updated_breakdown = dict(concept.score_breakdown or {})
-        updated_breakdown.update({
-            "overall_score": overall_val,
-            "scores": replacement_cand.get("scores", {}),
-            "competition": replacement_cand.get("competition", "Medium"),
-            "trend_direction": replacement_cand.get("trend_direction", "Rising"),
-            "market_validation": replacement_cand.get("market_validation", "Strong"),
-            "timing_label": replacement_cand.get("timing_label", "Sell Now"),
-            "recommended_launch_window": replacement_cand.get("recommended_launch_window", "Immediate"),
-            "target_buyer": replacement_cand.get("target_buyer"),
-            "niche": replacement_cand.get("niche"),
-            "season_or_event": replacement_cand.get("season_or_event"),
-            "why_it_could_sell": replacement_cand.get("why_it_could_sell"),
-            "evidence_summary": replacement_cand.get("evidence_summary", []),
-            "keyword_cluster": replacement_cand.get("keyword_cluster", []),
-            "color_palette": replacement_cand.get("color_palette", []),
-            "design_style": replacement_cand.get("design_style"),
-            "visual_direction": replacement_cand.get("visual_direction"),
-            "recommended_products": replacement_cand.get("recommended_products", []),
-            "trademark_report": tm_findings,
-        })
+        updated_breakdown.update(
+            {
+                "overall_score": overall_val,
+                "scores": replacement_cand.get("scores", {}),
+                "competition": replacement_cand.get("competition", "Medium"),
+                "trend_direction": replacement_cand.get("trend_direction", "Rising"),
+                "market_validation": replacement_cand.get("market_validation", "Strong"),
+                "timing_label": replacement_cand.get("timing_label", "Sell Now"),
+                "recommended_launch_window": replacement_cand.get(
+                    "recommended_launch_window", "Immediate"
+                ),
+                "target_buyer": replacement_cand.get("target_buyer"),
+                "niche": replacement_cand.get("niche"),
+                "season_or_event": replacement_cand.get("season_or_event"),
+                "why_it_could_sell": replacement_cand.get("why_it_could_sell"),
+                "evidence_summary": replacement_cand.get("evidence_summary", []),
+                "keyword_cluster": replacement_cand.get("keyword_cluster", []),
+                "color_palette": replacement_cand.get("color_palette", []),
+                "design_style": replacement_cand.get("design_style"),
+                "visual_direction": replacement_cand.get("visual_direction"),
+                "recommended_products": replacement_cand.get("recommended_products", []),
+                "trademark_report": tm_findings,
+            }
+        )
         concept.score_breakdown = updated_breakdown
 
         # Add new prompt version
@@ -778,7 +817,9 @@ async def refresh_concept_endpoint(
 
         await uow.concepts.add_prompt_version(
             concept,
-            positive_prompt=replacement_cand.get("positive_prompt", f"{concept.title}, isolated on transparent background"),
+            positive_prompt=replacement_cand.get(
+                "positive_prompt", f"{concept.title}, isolated on transparent background"
+            ),
             negative_prompt=replacement_cand.get("negative_prompt", "background, photo, watermark"),
             typography_instructions=replacement_cand.get("typography_instructions"),
             exact_slogan=replacement_cand.get("slogan"),
@@ -803,8 +844,12 @@ async def refresh_concept_endpoint(
         "differentiation": concept.differentiation,
         "target_buyer": concept.target_buyer,
         "buyer_use_case": concept.buyer_use_case,
-        "seasonality": concept.seasonality.value if hasattr(concept.seasonality, "value") else str(concept.seasonality),
-        "risk_level": concept.risk_level.value if hasattr(concept.risk_level, "value") else str(concept.risk_level),
+        "seasonality": concept.seasonality.value
+        if hasattr(concept.seasonality, "value")
+        else str(concept.seasonality),
+        "risk_level": concept.risk_level.value
+        if hasattr(concept.risk_level, "value")
+        else str(concept.risk_level),
         "risk_note": concept.risk_note,
         "score": concept.score,
         "score_breakdown": concept.score_breakdown,
@@ -1487,7 +1532,11 @@ async def set_mockup_cover_endpoint(
     if hasattr(uow, "listing_drafts") and hasattr(uow.listing_drafts, "get_by_workflow"):
         get_res = uow.listing_drafts.get_by_workflow(workflow_id)
         listing = await get_res if inspect.isawaitable(get_res) else get_res
-        if listing and isinstance(getattr(listing, "id", None), uuid.UUID) and isinstance(getattr(listing, "version", None), int):
+        if (
+            listing
+            and isinstance(getattr(listing, "id", None), uuid.UUID)
+            and isinstance(getattr(listing, "version", None), int)
+        ):
             update_res = uow.listing_drafts.update(
                 listing.id,
                 primary_mockup_asset_id=asset_id,
@@ -1765,15 +1814,16 @@ async def suggest_mockup_ideas_endpoint(
         )
 
         if gemini_key:
-            provider = GeminiSynthesisAdapter(api_key=gemini_key)
-            resp = await provider.generate(TextRequest(prompt=prompt_text))
+            gem_provider = GeminiSynthesisAdapter(api_key=gemini_key)
+            resp = await gem_provider.generate(TextRequest(prompt=prompt_text))
             if resp and resp.text:
                 suggested_raw = _clean_product_suggestion_list(resp.text)
         elif openai_key:
-            provider = OpenAISynthesisAdapter(api_key=openai_key)
-            resp = await provider.generate(TextRequest(prompt=prompt_text))
+            oai_provider = OpenAISynthesisAdapter(api_key=openai_key)
+            resp = await oai_provider.generate(TextRequest(prompt=prompt_text))
             if resp and resp.text:
                 suggested_raw = _clean_product_suggestion_list(resp.text)
+
         elif concept_uses:
             suggested_raw = _clean_product_suggestion_list(concept_uses)
         else:
@@ -1785,13 +1835,17 @@ async def suggest_mockup_ideas_endpoint(
                 "Wall Art Poster",
             ]
     except Exception:
-        suggested_raw = _clean_product_suggestion_list(concept_uses) if concept_uses else [
-            "Graphic Crewneck Sweatshirt",
-            "Insulated Travel Mug",
-            "Die Cut Vinyl Decal",
-            "Canvas Tote Bag",
-            "Wall Art Poster",
-        ]
+        suggested_raw = (
+            _clean_product_suggestion_list(concept_uses)
+            if concept_uses
+            else [
+                "Graphic Crewneck Sweatshirt",
+                "Insulated Travel Mug",
+                "Die Cut Vinyl Decal",
+                "Canvas Tote Bag",
+                "Wall Art Poster",
+            ]
+        )
 
     cleaned = _clean_product_suggestion_list(suggested_raw)
 
@@ -2021,9 +2075,7 @@ async def _build_listing_response(
 
     raw_tag_history = (draft.ip_findings or {}).get("tag_history")
     tag_history_list: list[str] = (
-        [str(t) for t in raw_tag_history if t]
-        if isinstance(raw_tag_history, list)
-        else []
+        [str(t) for t in raw_tag_history if t] if isinstance(raw_tag_history, list) else []
     )
     seen_tags = set(tag_history_list)
     for t in draft.tags or []:
@@ -2038,7 +2090,10 @@ async def _build_listing_response(
                 seen_tags.add(clean)
                 tag_history_list.append(clean)
 
-    from app.application.listing_context import evaluate_listing_staleness, resolve_listing_generation_context
+    from app.application.listing_context import (
+        evaluate_listing_staleness,
+        resolve_listing_generation_context,
+    )
 
     is_stale = False
     stale_reason = None
@@ -2188,9 +2243,12 @@ async def update_listing_draft_endpoint(
             detail="No workflow with that ID",
         )
 
-    primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
-        await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-    )
+    (
+        primary_provider,
+        fallback_provider,
+        tsdr_adapter,
+        dataset_updated_at,
+    ) = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
     trademark_service = TrademarkScreeningService(
         primary_provider,
         fallback_provider=fallback_provider,
@@ -2254,9 +2312,12 @@ async def restore_listing_version_endpoint(
             detail="No workflow with that ID",
         )
 
-    primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
-        await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-    )
+    (
+        primary_provider,
+        fallback_provider,
+        tsdr_adapter,
+        dataset_updated_at,
+    ) = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
     trademark_service = TrademarkScreeningService(
         primary_provider,
         fallback_provider=fallback_provider,
@@ -2388,9 +2449,12 @@ async def rescreen_trademark_endpoint(
             detail="No workflow with that ID",
         )
 
-    primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
-        await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-    )
+    (
+        primary_provider,
+        fallback_provider,
+        tsdr_adapter,
+        dataset_updated_at,
+    ) = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
     trademark_service = TrademarkScreeningService(
         primary_provider,
         fallback_provider=fallback_provider,
@@ -2457,16 +2521,77 @@ async def generate_listing_seo_endpoint(
     forbidden_anchors: list[str] = []
     current_tokens = set(re.findall(r"[a-z0-9]+", ctx.concept.title.lower()))
     generic_words = {
-        "cute", "vintage", "design", "graphic", "clipart", "sublimation",
-        "download", "retro", "print", "png", "svg", "eps", "craft", "high",
-        "resolution", "standard", "quality", "digital", "instant", "commercial",
-        "personal", "physical", "product", "products", "item", "items", "file",
-        "files", "look", "style", "theme", "aesthetic", "pattern", "trend",
-        "discovery", "art", "artwork", "illustration", "vector", "drawing",
-        "bundle", "pack", "collection", "printable", "ready", "scale", "tees",
-        "shirt", "shirts", "gifts", "gift", "idea", "lover", "lovers", "best",
-        "cool", "stay", "wild", "love", "home", "life", "baby", "color", "dark",
-        "light", "girl", "boys", "kids", "card", "room", "wall"
+        "cute",
+        "vintage",
+        "design",
+        "graphic",
+        "clipart",
+        "sublimation",
+        "download",
+        "retro",
+        "print",
+        "png",
+        "svg",
+        "eps",
+        "craft",
+        "high",
+        "resolution",
+        "standard",
+        "quality",
+        "digital",
+        "instant",
+        "commercial",
+        "personal",
+        "physical",
+        "product",
+        "products",
+        "item",
+        "items",
+        "file",
+        "files",
+        "look",
+        "style",
+        "theme",
+        "aesthetic",
+        "pattern",
+        "trend",
+        "discovery",
+        "art",
+        "artwork",
+        "illustration",
+        "vector",
+        "drawing",
+        "bundle",
+        "pack",
+        "collection",
+        "printable",
+        "ready",
+        "scale",
+        "tees",
+        "shirt",
+        "shirts",
+        "gifts",
+        "gift",
+        "idea",
+        "lover",
+        "lovers",
+        "best",
+        "cool",
+        "stay",
+        "wild",
+        "love",
+        "home",
+        "life",
+        "baby",
+        "color",
+        "dark",
+        "light",
+        "girl",
+        "boys",
+        "kids",
+        "card",
+        "room",
+        "wall",
     }
     for other_c in all_concepts:
         if other_c.id != ctx.concept.id:
@@ -2507,7 +2632,9 @@ async def generate_listing_seo_endpoint(
         if target == "all":
             from app.domain.shop_section_resolver import suggest_shop_section_title
 
-            user_sections_raw = await uow.listing_drafts.list_distinct_shop_sections_for_user(user.id)
+            user_sections_raw = await uow.listing_drafts.list_distinct_shop_sections_for_user(
+                user.id
+            )
             existing_sections_list = [
                 {"shop_section_id": s_id, "title": s_name}
                 for s_id, s_name in user_sections_raw
@@ -2517,15 +2644,17 @@ async def generate_listing_seo_endpoint(
                 seo_draft.title, seo_draft.tags, existing_sections=existing_sections_list
             )
 
-            update_kwargs.update({
-                "title": seo_draft.title,
-                "description": seo_draft.description,
-                "shopping_cart_summary": seo_draft.shopping_cart_summary,
-                "tags": seo_draft.tags,
-                "ai_disclosure": seo_draft.ai_disclosure,
-                "shop_section_id": sug_sec_id,
-                "shop_section_name": sug_sec_name,
-            })
+            update_kwargs.update(
+                {
+                    "title": seo_draft.title,
+                    "description": seo_draft.description,
+                    "shopping_cart_summary": seo_draft.shopping_cart_summary,
+                    "tags": seo_draft.tags,
+                    "ai_disclosure": seo_draft.ai_disclosure,
+                    "shop_section_id": sug_sec_id,
+                    "shop_section_name": sug_sec_name,
+                }
+            )
         elif target == "title":
             update_kwargs["title"] = seo_draft.title
         elif target == "description":
@@ -2540,9 +2669,12 @@ async def generate_listing_seo_endpoint(
         # Trademark screen only if title or tags were regenerated
         screened_draft = updated_draft
         if target in ("all", "title", "tags"):
-            primary_provider, fallback_provider, tsdr_adapter, dataset_updated_at = (
-                await _resolve_trademark_provider(workflow.owner_id, uow, settings)
-            )
+            (
+                primary_provider,
+                fallback_provider,
+                tsdr_adapter,
+                dataset_updated_at,
+            ) = await _resolve_trademark_provider(workflow.owner_id, uow, settings)
             trademark_service = TrademarkScreeningService(
                 primary_provider,
                 fallback_provider=fallback_provider,
@@ -2831,8 +2963,12 @@ async def get_listing_taxonomy_categories_endpoint(
                 concept_uses.extend(prompts[0].intended_product_uses)
 
     campaign_context = {
-        "title": listing.title if listing else (approved_concept.title if approved_concept else workflow.name),
-        "description": listing.description if listing else (approved_concept.description if approved_concept else ""),
+        "title": listing.title
+        if listing
+        else (approved_concept.title if approved_concept else workflow.name),
+        "description": listing.description
+        if listing
+        else (approved_concept.description if approved_concept else ""),
         "tags": listing.tags if listing else [],
         "product_type": "digital_png",
         "intended_product_uses": concept_uses,
@@ -2855,9 +2991,7 @@ async def get_listing_taxonomy_categories_endpoint(
 
     if q and q.strip():
         tokens = [t.lower() for t in q.strip().split() if t]
-        matched_nodes = [
-            n for n in valid_nodes if all(t in n.full_path.lower() for t in tokens)
-        ]
+        matched_nodes = [n for n in valid_nodes if all(t in n.full_path.lower() for t in tokens)]
     else:
         # Default to primary digital categories
         matched_nodes = [
@@ -2961,8 +3095,12 @@ async def get_listing_taxonomy_fitness_endpoint(
     taxonomy_path = listing.taxonomy_path or ""
 
     campaign_context = {
-        "title": listing.title if listing else (approved_concept.title if approved_concept else workflow.name),
-        "description": listing.description if listing else (approved_concept.description if approved_concept else ""),
+        "title": listing.title
+        if listing
+        else (approved_concept.title if approved_concept else workflow.name),
+        "description": listing.description
+        if listing
+        else (approved_concept.description if approved_concept else ""),
         "tags": listing.tags if listing else [],
         "product_type": "digital_png",
         "intended_product_uses": concept_uses,
@@ -3184,6 +3322,7 @@ async def get_listing_shop_sections_endpoint(
     conn = await uow.shop_connections.get_by_user_id(user.id, provider="etsy")
     if conn and conn.is_connected and conn.etsy_shop_id and cipher is not None:
         from app.application.etsy_auth import get_valid_access_token
+
         try:
             token = await get_valid_access_token(
                 uow=uow,
@@ -3214,12 +3353,15 @@ async def get_listing_shop_sections_endpoint(
 
     # 2. Also fetch distinct sections defined across all campaigns owned by the user
     user_sections = await uow.listing_drafts.list_distinct_shop_sections_for_user(user.id)
-    for sec_id, sec_name in user_sections:
-        title = (sec_name or sec_id or "").strip()
-        ident = sec_id or title
+    for item in user_sections:
+        raw_sec_id = item[0]
+        raw_sec_name = item[1]
+        title = str(raw_sec_name or raw_sec_id or "").strip()
+        ident = str(raw_sec_id or title)
         if title and ident not in seen_ids and title.lower() not in seen_titles:
             seen_ids.add(ident)
             seen_titles.add(title.lower())
+
             results.append(
                 ShopSectionResponse(
                     shop_section_id=ident,
@@ -3263,6 +3405,7 @@ async def create_listing_shop_section_endpoint(
     conn = await uow.shop_connections.get_by_user_id(user.id, provider="etsy")
     if conn and conn.is_connected and conn.etsy_shop_id and cipher is not None:
         from app.application.etsy_auth import get_valid_access_token
+
         try:
             token = await get_valid_access_token(
                 uow=uow,
@@ -3346,10 +3489,18 @@ async def get_listing_taxonomy_properties_endpoint(
         p_name = p_dict.get("name") if p_dict else getattr(p, "name", "")
         p_display_name = p_dict.get("display_name") if p_dict else getattr(p, "display_name", None)
         p_req = p_dict.get("is_required") if p_dict else getattr(p, "is_required", False)
-        p_attr = p_dict.get("supports_attributes") if p_dict else getattr(p, "supports_attributes", True)
-        p_var = p_dict.get("supports_variations") if p_dict else getattr(p, "supports_variations", False)
+        p_attr = (
+            p_dict.get("supports_attributes") if p_dict else getattr(p, "supports_attributes", True)
+        )
+        p_var = (
+            p_dict.get("supports_variations")
+            if p_dict
+            else getattr(p, "supports_variations", False)
+        )
         p_multi = p_dict.get("is_multivalued") if p_dict else getattr(p, "is_multivalued", False)
-        p_max = p_dict.get("max_values_allowed") if p_dict else getattr(p, "max_values_allowed", None)
+        p_max = (
+            p_dict.get("max_values_allowed") if p_dict else getattr(p, "max_values_allowed", None)
+        )
         p_scales = p_dict.get("scales") if p_dict else getattr(p, "scales", [])
         p_vals = p_dict.get("possible_values") if p_dict else getattr(p, "possible_values", [])
 
@@ -3415,6 +3566,3 @@ async def reconcile_listing_taxonomy_properties_endpoint(
         )
         await uow.commit()
     return await _build_listing_response(listing, workflow_id, uow, storage)
-
-
-

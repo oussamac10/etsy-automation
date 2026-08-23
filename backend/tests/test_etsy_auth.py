@@ -21,10 +21,8 @@ from app.application.etsy_auth import (
     handle_oauth_callback,
 )
 from app.application.unit_of_work import UnitOfWork
-from app.domain.enums import AuditAction
-from app.infrastructure.models import ShopConnection, User
+from app.infrastructure.models import ShopConnection
 from app.infrastructure.security import CredentialCipher
-from app.ports.errors import ProviderError, ProviderErrorKind
 from app.providers.fake import FakeEtsyProvider
 from app.settings import Settings
 
@@ -73,7 +71,11 @@ def test_pkce_pair_generation() -> None:
     verifier, challenge = generate_pkce_pair()
     assert len(verifier) >= 43
     assert len(challenge) > 0
-    expected = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("ascii")).digest()).decode("ascii").rstrip("=")
+    expected = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("ascii")).digest())
+        .decode("ascii")
+        .rstrip("=")
+    )
     assert challenge == expected
 
 

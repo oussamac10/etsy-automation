@@ -22,7 +22,11 @@ async def resolve_connected_shop_name(
     2. Owner-configured shop name from `OwnerSettings.shop_name` (if populated)
     3. Safe generic fallback (`'Digital Art Studio'`) only if neither exists.
     """
-    if owner_id is not None and hasattr(uow, "shop_connections") and uow.shop_connections is not None:
+    if (
+        owner_id is not None
+        and hasattr(uow, "shop_connections")
+        and uow.shop_connections is not None
+    ):
         try:
             conn = await uow.shop_connections.get_by_user_id(owner_id)
             if conn is not None and getattr(conn, "connection_status", None) == "connected":

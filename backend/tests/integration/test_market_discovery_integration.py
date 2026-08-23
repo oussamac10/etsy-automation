@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import uuid
+
 import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from worker.tasks import _run_research_async
 
 from app.application.unit_of_work import UnitOfWork
-from app.domain.enums import IdeaMode
 from app.domain.workflow import RunStatus
-from app.infrastructure.models.workflow import ProductWorkflow
-from worker.tasks import _run_research_async
 
 pytestmark = pytest.mark.integration
 

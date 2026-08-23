@@ -183,9 +183,7 @@ async def get_valid_access_token(
 
     if needs_refresh:
         # Decrypt refresh token
-        plain_refresh = cipher.decrypt(
-            conn.ciphertext_refresh_token, key_version=conn.key_version
-        )
+        plain_refresh = cipher.decrypt(conn.ciphertext_refresh_token, key_version=conn.key_version)
 
         try:
             token_resp = await etsy_gateway.refresh_token(refresh_token=plain_refresh)

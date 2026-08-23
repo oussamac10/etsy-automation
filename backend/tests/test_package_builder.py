@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
-import struct
-import zipfile
-import zlib
-import pytest
+
 from PIL import Image
 
 from app.domain.package_builder import (
@@ -17,8 +14,6 @@ from app.domain.package_builder import (
     generate_instructions_text,
     generate_license_text,
     optimize_png_deflate,
-    sanitize_brand_slug,
-    sanitize_product_title,
 )
 
 
@@ -245,4 +240,3 @@ class TestPackageBuilder:
         opt = optimize_png_deflate(png_bytes)
         assert opt.startswith(b"\x89PNG\r\n\x1a\n")
         assert opt.endswith(b"IEND\xaeB`\x82")
-

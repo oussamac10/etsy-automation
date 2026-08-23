@@ -7,10 +7,9 @@ without mutating the original master artwork.
 
 from __future__ import annotations
 
-from enum import StrEnum
-import hashlib
 import io
 import re
+from enum import StrEnum
 from typing import Any, Final
 
 from PIL import Image, ImageChops
@@ -73,7 +72,7 @@ def sanitize_hex_color(hex_str: str | None, default: str = "#FFFFFF") -> str:
     if re.match(r"^#(?:[0-9a-fA-F]{3}){1,2}$", cleaned):
         if len(cleaned) == 4:
             # Expand #RGB to #RRGGBB
-            cleaned = f"#{cleaned[1]*2}{cleaned[2]*2}{cleaned[3]*2}"
+            cleaned = f"#{cleaned[1] * 2}{cleaned[2] * 2}{cleaned[3] * 2}"
         return cleaned.upper()
     return default
 
@@ -122,11 +121,26 @@ def detect_baked_checkerboard(image: Image.Image) -> bool:
         _, _, _, alpha = corner_crop.split()
         extrema = alpha.getextrema()
         # If corner is completely opaque
-        if extrema[0] == 255 and extrema[1] == 255:
+        if (
+            isinstance(extrema, tuple)
+            and len(extrema) == 2
+            and isinstance(extrema[0], (int, float))
+            and isinstance(extrema[1], (int, float))
+            and extrema[0] == 255
+            and extrema[1] == 255
+        ):
             gray = corner_crop.convert("L")
-            g_min, g_max = gray.getextrema()
+            g_ext = gray.getextrema()
             # Alternating light gray (~190-210) and pure white (255) pattern
-            if g_min >= 180 and g_max == 255 and (g_max - g_min) >= 35:
+            if (
+                isinstance(g_ext, tuple)
+                and len(g_ext) == 2
+                and isinstance(g_ext[0], (int, float))
+                and isinstance(g_ext[1], (int, float))
+                and g_ext[0] >= 180
+                and g_ext[1] == 255
+                and (g_ext[1] - g_ext[0]) >= 35
+            ):
                 return True
 
     return False
@@ -145,8 +159,12 @@ def validate_artwork_variant(
     # 1. Format & Magic Bytes
     if not is_png_format(variant_bytes):
         if variant_bytes.startswith(b"\xff\xd8\xff"):
-            raise ArtworkVariantValidationError("Variant provider returned JPEG. Transparent PNG required.")
-        raise ArtworkVariantValidationError("Output file is not a valid PNG. Transparent PNG required.")
+            raise ArtworkVariantValidationError(
+                "Variant provider returned JPEG. Transparent PNG required."
+            )
+        raise ArtworkVariantValidationError(
+            "Output file is not a valid PNG. Transparent PNG required."
+        )
 
     # 2. Decode Images
     try:
@@ -189,10 +207,17 @@ def validate_artwork_variant(
     if source_img.mode == "RGBA":
         _, _, _, s_alpha = source_img.split()
         s_ext = s_alpha.getextrema()
-        if s_ext[0] < 255:
+        if (
+            isinstance(s_ext, tuple)
+            and len(s_ext) == 2
+            and isinstance(s_ext[0], (int, float))
+            and s_ext[0] < 255
+        ):
             # Source had transparent background. Ensure variant didn't become fully opaque.
             if v_alpha_min == 255:
-                raise ArtworkVariantValidationError("Generated variant lost the transparent background.")
+                raise ArtworkVariantValidationError(
+                    "Generated variant lost the transparent background."
+                )
 
     return {
         "is_valid": True,
@@ -232,12 +257,11 @@ def recolor_artwork_variant(
         raise ArtworkVariantValidationError("Source artwork is not a valid PNG.")
 
     try:
-        src_img = Image.open(io.BytesIO(source_bytes))
+        raw_src = Image.open(io.BytesIO(source_bytes))
     except Exception as exc:
         raise ArtworkVariantValidationError(f"Cannot decode source PNG: {exc}") from exc
 
-    if src_img.mode != "RGBA":
-        src_img = src_img.convert("RGBA")
+    src_img: Image.Image = raw_src.convert("RGBA") if raw_src.mode != "RGBA" else raw_src
 
     dpi = src_img.info.get("dpi", (300, 300))
     width, height = src_img.size
@@ -269,21 +293,27 @@ def recolor_artwork_variant(
 
         # Luminance-preserving cream tone modulation
         mod_r = gray.point(
-            lambda p: min(255, int(target_r * (0.82 + 0.35 * min(1.0, p / float(luma_thresh)))))
-            if p < luma_thresh
-            else target_r,
+            lambda p: (
+                min(255, int(target_r * (0.82 + 0.35 * min(1.0, p / float(luma_thresh)))))
+                if p < luma_thresh
+                else target_r
+            ),
             mode="L",
         )
         mod_g = gray.point(
-            lambda p: min(255, int(target_g * (0.82 + 0.35 * min(1.0, p / float(luma_thresh)))))
-            if p < luma_thresh
-            else target_g,
+            lambda p: (
+                min(255, int(target_g * (0.82 + 0.35 * min(1.0, p / float(luma_thresh)))))
+                if p < luma_thresh
+                else target_g
+            ),
             mode="L",
         )
         mod_b = gray.point(
-            lambda p: min(255, int(target_b * (0.82 + 0.35 * min(1.0, p / float(luma_thresh)))))
-            if p < luma_thresh
-            else target_b,
+            lambda p: (
+                min(255, int(target_b * (0.82 + 0.35 * min(1.0, p / float(luma_thresh)))))
+                if p < luma_thresh
+                else target_b
+            ),
             mode="L",
         )
 
@@ -298,21 +328,27 @@ def recolor_artwork_variant(
         candidate_mask = ImageChops.multiply(light_luma, low_chroma)
 
         mod_r = gray.point(
-            lambda p: max(0, min(255, int(target_r * (1.0 - 0.25 * ((p - light_thresh) / 65.0)))))
-            if p > light_thresh
-            else target_r,
+            lambda p: (
+                max(0, min(255, int(target_r * (1.0 - 0.25 * ((p - light_thresh) / 65.0)))))
+                if p > light_thresh
+                else target_r
+            ),
             mode="L",
         )
         mod_g = gray.point(
-            lambda p: max(0, min(255, int(target_g * (1.0 - 0.25 * ((p - light_thresh) / 65.0)))))
-            if p > light_thresh
-            else target_g,
+            lambda p: (
+                max(0, min(255, int(target_g * (1.0 - 0.25 * ((p - light_thresh) / 65.0)))))
+                if p > light_thresh
+                else target_g
+            ),
             mode="L",
         )
         mod_b = gray.point(
-            lambda p: max(0, min(255, int(target_b * (1.0 - 0.25 * ((p - light_thresh) / 65.0)))))
-            if p > light_thresh
-            else target_b,
+            lambda p: (
+                max(0, min(255, int(target_b * (1.0 - 0.25 * ((p - light_thresh) / 65.0)))))
+                if p > light_thresh
+                else target_b
+            ),
             mode="L",
         )
 
@@ -357,21 +393,27 @@ def recolor_artwork_variant(
         candidate_mask = ImageChops.multiply(dark_luma, low_chroma)
 
         mod_r = gray.point(
-            lambda p: min(255, int(target_r * (0.85 + 0.30 * min(1.0, p / float(luma_thresh)))))
-            if p < luma_thresh
-            else target_r,
+            lambda p: (
+                min(255, int(target_r * (0.85 + 0.30 * min(1.0, p / float(luma_thresh)))))
+                if p < luma_thresh
+                else target_r
+            ),
             mode="L",
         )
         mod_g = gray.point(
-            lambda p: min(255, int(target_g * (0.85 + 0.30 * min(1.0, p / float(luma_thresh)))))
-            if p < luma_thresh
-            else target_g,
+            lambda p: (
+                min(255, int(target_g * (0.85 + 0.30 * min(1.0, p / float(luma_thresh)))))
+                if p < luma_thresh
+                else target_g
+            ),
             mode="L",
         )
         mod_b = gray.point(
-            lambda p: min(255, int(target_b * (0.85 + 0.30 * min(1.0, p / float(luma_thresh)))))
-            if p < luma_thresh
-            else target_b,
+            lambda p: (
+                min(255, int(target_b * (0.85 + 0.30 * min(1.0, p / float(luma_thresh)))))
+                if p < luma_thresh
+                else target_b
+            ),
             mode="L",
         )
 
@@ -470,4 +512,3 @@ def is_variant_eligible_for_package(variant_asset: Any, current_master_asset: An
     if prov.get("variant_status") != VariantStatus.APPROVED.value:
         return False
     return not is_variant_outdated(variant_asset, current_master_asset)
-

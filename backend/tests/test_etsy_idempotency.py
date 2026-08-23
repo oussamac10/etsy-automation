@@ -27,7 +27,6 @@ def _create_test_png_bytes(
     color_type: int = 6,
     raw_bytes: int = 1000,
 ) -> bytes:
-    import os
     import struct
     import zlib
 
@@ -39,7 +38,12 @@ def _create_test_png_bytes(
     raw_scanlines = b"\x00" + (b"ABCD1234EFGH5678" * (raw_bytes // 16 + 1))[:raw_bytes]
     compressed_idat = zlib.compress(raw_scanlines, level=6)
     idat_crc = zlib.crc32(b"IDAT" + compressed_idat)
-    idat = struct.pack(">I", len(compressed_idat)) + b"IDAT" + compressed_idat + struct.pack(">I", idat_crc)
+    idat = (
+        struct.pack(">I", len(compressed_idat))
+        + b"IDAT"
+        + compressed_idat
+        + struct.pack(">I", idat_crc)
+    )
 
     iend_crc = zlib.crc32(b"IEND")
     iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
@@ -172,7 +176,9 @@ async def test_idempotent_retry_reuses_existing_listing_id(
     zip_asset.created_at = now + timedelta(seconds=3)
     zip_asset.provenance = {"kind": "customer_package"}
 
-    uow.assets.list_for_workflow = AsyncMock(return_value=[master_asset, mockup_1, mockup_2, zip_asset])
+    uow.assets.list_for_workflow = AsyncMock(
+        return_value=[master_asset, mockup_1, mockup_2, zip_asset]
+    )
     uow.assets.get_by_checksum_sha256 = AsyncMock(return_value=None)
     uow.assets.add = AsyncMock()
     uow.production_jobs.list_for_workflow = AsyncMock(return_value=[])

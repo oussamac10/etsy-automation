@@ -1,6 +1,7 @@
 """Tests for Etsy Seller Taxonomy Resolution."""
 
 import pytest
+
 from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
 from app.ports.providers import EtsyTaxonomyNode
 from app.providers.fake import FakeEtsyProvider
@@ -10,10 +11,13 @@ from app.providers.fake import FakeEtsyProvider
 def fake_taxonomy_nodes() -> list[EtsyTaxonomyNode]:
     fake_gateway = FakeEtsyProvider()
     import asyncio
+
     return asyncio.run(fake_gateway.get_seller_taxonomy_nodes())
 
 
-def test_resolver_resolves_transparent_png_to_clip_art(fake_taxonomy_nodes: list[EtsyTaxonomyNode]) -> None:
+def test_resolver_resolves_transparent_png_to_clip_art(
+    fake_taxonomy_nodes: list[EtsyTaxonomyNode],
+) -> None:
     resolver = EtsyTaxonomyResolver()
     result = resolver.resolve(
         title="Cute Retro Cat PNG Graphic Sublimation Design",
@@ -27,7 +31,9 @@ def test_resolver_resolves_transparent_png_to_clip_art(fake_taxonomy_nodes: list
     assert result.confidence >= 0.8
 
 
-def test_resolver_resolves_printable_wall_art_to_digital_prints(fake_taxonomy_nodes: list[EtsyTaxonomyNode]) -> None:
+def test_resolver_resolves_printable_wall_art_to_digital_prints(
+    fake_taxonomy_nodes: list[EtsyTaxonomyNode],
+) -> None:
     resolver = EtsyTaxonomyResolver()
     result = resolver.resolve(
         title="Minimalist Botanical Wall Art Printable Poster",
@@ -40,7 +46,9 @@ def test_resolver_resolves_printable_wall_art_to_digital_prints(fake_taxonomy_no
     assert result.confidence >= 0.8
 
 
-def test_resolver_resolves_digital_illustration(fake_taxonomy_nodes: list[EtsyTaxonomyNode]) -> None:
+def test_resolver_resolves_digital_illustration(
+    fake_taxonomy_nodes: list[EtsyTaxonomyNode],
+) -> None:
     resolver = EtsyTaxonomyResolver()
     result = resolver.resolve(
         title="Hand Drawn Line Art Portrait Digital Illustration",
@@ -52,7 +60,9 @@ def test_resolver_resolves_digital_illustration(fake_taxonomy_nodes: list[EtsyTa
     assert "Drawing & Illustration > Digital" in result.taxonomy_path
 
 
-def test_resolver_strictly_rejects_physical_categories(fake_taxonomy_nodes: list[EtsyTaxonomyNode]) -> None:
+def test_resolver_strictly_rejects_physical_categories(
+    fake_taxonomy_nodes: list[EtsyTaxonomyNode],
+) -> None:
     resolver = EtsyTaxonomyResolver()
     # Even if title mentions "t-shirt graphic" or "mug sublimation"
     result = resolver.resolve(
@@ -80,7 +90,10 @@ def test_resolver_deterministic_without_nodes() -> None:
     )
     assert res1.taxonomy_id == res2.taxonomy_id
     assert res1.taxonomy_id == 6844
-    assert res1.taxonomy_path == "Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files"
+    assert (
+        res1.taxonomy_path
+        == "Craft Supplies & Tools > Canvas & Surfaces > Stencils, Templates & Transfers > Clip Art & Image Files"
+    )
 
 
 @pytest.mark.asyncio
@@ -303,5 +316,3 @@ async def test_property_aware_resolution_selects_digital_drawing_over_paper_clip
     assert result.fit_result.fit == "good"
     assert result.fit_result.blocking_mismatch is False
     assert result.fit_result.has_mismatched_required_attributes is False
-
-

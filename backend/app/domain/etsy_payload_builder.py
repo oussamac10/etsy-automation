@@ -9,6 +9,7 @@ Adheres strictly to Etsy Open API v3 specifications:
 from __future__ import annotations
 
 from typing import Any
+
 from app.domain.errors import DomainError
 from app.domain.pricing import validate_price_minor_units
 from app.domain.tags import sanitize_etsy_title, validate_listing_title, validate_tags
@@ -81,4 +82,3 @@ def build_etsy_listing_payload(
             payload["shop_section_id"] = int(sec_str)
 
     return payload
-

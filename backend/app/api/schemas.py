@@ -577,7 +577,9 @@ class ReResolveTaxonomyResponse(BaseModel):
 class CreateArtworkVariantRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    variant_type: Annotated[str, Field(pattern=r"^(dark_shirt|light_shirt|black_accent|white_accent|custom)$")]
+    variant_type: Annotated[
+        str, Field(pattern=r"^(dark_shirt|light_shirt|black_accent|white_accent|custom)$")
+    ]
     custom_color: str | None = None
     target_color: str | None = None
     darkness_threshold: float | None = None
@@ -635,7 +637,3 @@ class BuyerPackagePreviewResponse(BaseModel):
     etsy_files_out_of_sync: bool
     package_asset: AssetResponse | None = None
     package_download_url: str | None = None
-
-
-
-

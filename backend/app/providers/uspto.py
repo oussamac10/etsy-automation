@@ -10,6 +10,7 @@ Never logs API keys or exposes internal request headers.
 from __future__ import annotations
 
 from typing import Any
+
 import httpx
 import structlog
 
@@ -53,7 +54,7 @@ class UsptoTrademarkAdapter(TrademarkSearchPort):
             "Accept": "application/json",
             "User-Agent": "EtsyPngAutomation/1.0",
         }
-        params = {
+        params: dict[str, str | int] = {
             "q": f'"{trimmed}"',
             "start": 0,
             "rows": 20,
@@ -143,10 +144,7 @@ class UsptoTrademarkAdapter(TrademarkSearchPort):
 
         for case in cases:
             mark_text = (
-                case.get("markLiteralText")
-                or case.get("wordMark")
-                or case.get("markText")
-                or ""
+                case.get("markLiteralText") or case.get("wordMark") or case.get("markText") or ""
             ).strip()
 
             if not mark_text:

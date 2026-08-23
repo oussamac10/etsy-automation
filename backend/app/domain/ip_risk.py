@@ -195,8 +195,7 @@ def evaluate_trademark_risk(
         # Check exact vs partial match against searched phrases
         is_exact = any(norm_mark == normalize_trademark_phrase(p) for p in searched_phrases)
         is_contained = any(
-            norm_mark in normalize_trademark_phrase(p)
-            or normalize_trademark_phrase(p) in norm_mark
+            norm_mark in normalize_trademark_phrase(p) or normalize_trademark_phrase(p) in norm_mark
             for p in searched_phrases
         )
 
@@ -226,7 +225,7 @@ def evaluate_trademark_risk(
             has_high_risk = True
             risk_reason = (
                 f'Exact LIVE trademark match for "{mark_text}" in relevant apparel/digital '
-                f'classes ({", ".join(classes) if classes else "POD overlap"}).'
+                f"classes ({', '.join(classes) if classes else 'POD overlap'})."
             )
             rec_action = (
                 "Conflicting active registered trademark found. Strictly blocks Etsy listing. "
@@ -254,7 +253,7 @@ def evaluate_trademark_risk(
             has_warning = True
             risk_reason = (
                 f'Exact LIVE trademark match for "{mark_text}", but registered in unrelated '
-                f'classes ({", ".join(classes)}).'
+                f"classes ({', '.join(classes)})."
             )
             rec_action = "Review goods/services description. Acknowledge risk to proceed."
             findings.append(

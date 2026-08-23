@@ -2,16 +2,39 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 import uuid
 
 # Stopwords to omit from SKU keyword extraction
-SKU_STOPWORDS = frozenset({
-    "a", "an", "the", "and", "or", "for", "with", "in", "on", "at", "by",
-    "png", "digital", "download", "design", "clipart", "sublimation",
-    "instant", "file", "files", "art", "graphic", "graphics", "print", "dtg",
-})
+SKU_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "for",
+        "with",
+        "in",
+        "on",
+        "at",
+        "by",
+        "png",
+        "digital",
+        "download",
+        "design",
+        "clipart",
+        "sublimation",
+        "instant",
+        "file",
+        "files",
+        "art",
+        "graphic",
+        "graphics",
+        "print",
+        "dtg",
+    }
+)
 
 
 def derive_shop_prefix(shop_name: str | None) -> str:

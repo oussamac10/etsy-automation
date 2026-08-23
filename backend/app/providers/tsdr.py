@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 import httpx
 import structlog
 
@@ -50,7 +51,9 @@ class UsptoTsdrAdapter:
                 return None
 
             if response.status_code in (401, 403):
-                logger.warning("tsdr_auth_failed", status_code=response.status_code, serial=clean_serial)
+                logger.warning(
+                    "tsdr_auth_failed", status_code=response.status_code, serial=clean_serial
+                )
                 raise ProviderError(
                     kind=ProviderErrorKind.AUTHENTICATION,
                     provider="tsdr",
@@ -68,7 +71,9 @@ class UsptoTsdrAdapter:
                 )
 
             if response.status_code >= 500:
-                logger.warning("tsdr_server_error", status_code=response.status_code, serial=clean_serial)
+                logger.warning(
+                    "tsdr_server_error", status_code=response.status_code, serial=clean_serial
+                )
                 raise ProviderError(
                     kind=ProviderErrorKind.RETRYABLE,
                     provider="tsdr",
@@ -108,7 +113,10 @@ class UsptoTsdrAdapter:
         owner = None
         mark_text = None
 
-        case_data = data.get("case", data.get("caseList", [{}])[0] if isinstance(data.get("caseList"), list) else data)
+        case_data = data.get(
+            "case",
+            data.get("caseList", [{}])[0] if isinstance(data.get("caseList"), list) else data,
+        )
         header = case_data.get("caseHeader", case_data)
 
         # Mark text
@@ -119,8 +127,15 @@ class UsptoTsdrAdapter:
         if status_desc:
             status_text = status_desc
 
-        live_dead = str(header.get("liveDeadIndicator", case_data.get("liveDeadIndicator", ""))).upper()
-        if "DEAD" in live_dead or "CANCELLED" in status_desc.upper() or "EXPIRED" in status_desc.upper() or "ABANDONED" in status_desc.upper():
+        live_dead = str(
+            header.get("liveDeadIndicator", case_data.get("liveDeadIndicator", ""))
+        ).upper()
+        if (
+            "DEAD" in live_dead
+            or "CANCELLED" in status_desc.upper()
+            or "EXPIRED" in status_desc.upper()
+            or "ABANDONED" in status_desc.upper()
+        ):
             is_live = False
         elif "LIVE" in live_dead:
             is_live = True
@@ -138,7 +153,11 @@ class UsptoTsdrAdapter:
         if isinstance(gs_list, list) and gs_list:
             goods_services = "; ".join(str(g.get("description", g)) for g in gs_list if g)
 
-        owner_info = case_data.get("ownerList", [{}])[0] if isinstance(case_data.get("ownerList"), list) else {}
+        owner_info = (
+            case_data.get("ownerList", [{}])[0]
+            if isinstance(case_data.get("ownerList"), list)
+            else {}
+        )
         owner = owner_info.get("partyName") or owner_info.get("name") or case_data.get("ownerName")
 
         return {

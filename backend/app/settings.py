@@ -114,9 +114,7 @@ class Settings(BaseSettings):
     etsy_redirect_uri: str = Field(
         default="http://localhost:8000/api/v1/auth/etsy/callback", alias="ETSY_REDIRECT_URI"
     )
-    etsy_api_base_url: str = Field(
-        default="https://openapi.etsy.com/v3", alias="ETSY_API_BASE_URL"
-    )
+    etsy_api_base_url: str = Field(default="https://openapi.etsy.com/v3", alias="ETSY_API_BASE_URL")
     etsy_authorization_url: str = Field(
         default="https://www.etsy.com/oauth/connect", alias="ETSY_AUTHORIZATION_URL"
     )
@@ -126,10 +124,7 @@ class Settings(BaseSettings):
     etsy_frontend_redirect_url: str = Field(
         default="http://localhost:3000/settings", alias="ETSY_FRONTEND_REDIRECT_URL"
     )
-    etsy_scopes: str = Field(
-        default="listings_r listings_w shops_r shops_w", alias="ETSY_SCOPES"
-    )
-
+    etsy_scopes: str = Field(default="listings_r listings_w shops_r shops_w", alias="ETSY_SCOPES")
 
     @field_validator("etsy_redirect_uri", mode="before")
     @classmethod

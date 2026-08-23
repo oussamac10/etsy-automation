@@ -1,9 +1,6 @@
 """Tests for Etsy tag and title validation rules."""
 
 from app.domain.tags import (
-    MAX_ETSY_TAGS,
-    MAX_TAG_LENGTH,
-    MAX_TITLE_LENGTH,
     normalize_tag,
     validate_listing_title,
     validate_tags,

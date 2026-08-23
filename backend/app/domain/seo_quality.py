@@ -51,14 +51,25 @@ def detect_duplicate_phrases(text: str, max_allowed: int = 2) -> list[str]:
         return []
 
     duplicates: list[str] = []
-    key_terms = ["png", "digital download", "sublimation", "clipart", "instant download", "cute", "adorable", "kawaii"]
+    key_terms = [
+        "png",
+        "digital download",
+        "sublimation",
+        "clipart",
+        "instant download",
+        "cute",
+        "adorable",
+        "kawaii",
+    ]
     text_lower = text.lower()
 
     for term in key_terms:
         pattern = rf"\b{re.escape(term)}\b"
         matches = re.findall(pattern, text_lower)
         if len(matches) > max_allowed:
-            duplicates.append(f'Term "{term}" repeated {len(matches)} times (max allowed: {max_allowed}).')
+            duplicates.append(
+                f'Term "{term}" repeated {len(matches)} times (max allowed: {max_allowed}).'
+            )
 
     return duplicates
 
@@ -81,7 +92,9 @@ def validate_title_quality(title: str) -> tuple[bool, list[str]]:
     # Etsy sequential capitals rule (at most 3 words starting with 2+ caps)
     caps_count = count_sequential_capital_words(cleaned)
     if caps_count > 3:
-        issues.append(f"Title has {caps_count} words starting with sequential capital letters (Etsy limit is 3).")
+        issues.append(
+            f"Title has {caps_count} words starting with sequential capital letters (Etsy limit is 3)."
+        )
 
     # Duplicate "PNG" or "digital download" check in title (should not repeat in title)
     title_lower = cleaned.lower()
@@ -158,7 +171,9 @@ def validate_description_quality(
         if metadata.get("variants"):
             for variant_name in metadata["variants"]:
                 if variant_name.lower() not in desc_lower:
-                    issues.append(f'Description does not list included variant deliverable: "{variant_name}".')
+                    issues.append(
+                        f'Description does not list included variant deliverable: "{variant_name}".'
+                    )
 
     # Guard against invented physical shipping claims
     if "will be shipped to your address" in desc_lower or "physical package" in desc_lower:
@@ -196,16 +211,29 @@ def validate_summary_quality(
     if description:
         first_line = description.strip().split("\n")[0].strip().lower()
         if clean_summary.lower() == first_line:
-            issues.append("Shopping cart summary is identical to the first line of the description.")
+            issues.append(
+                "Shopping cart summary is identical to the first line of the description."
+            )
 
     # Should contain format/product type (e.g. PNG, digital, sublimation, clipart, download)
     summary_lower = clean_summary.lower()
-    has_format = any(kw in summary_lower for kw in ["png", "digital", "clipart", "graphic", "illustration", "file", "download"])
+    has_format = any(
+        kw in summary_lower
+        for kw in ["png", "digital", "clipart", "graphic", "illustration", "file", "download"]
+    )
     if not has_format:
-        issues.append("Shopping cart summary should state the format/product type (e.g. PNG, digital).")
+        issues.append(
+            "Shopping cart summary should state the format/product type (e.g. PNG, digital)."
+        )
 
     # Should NOT contain legal/license paragraphs or AI disclosure
-    if "commercial license" in summary_lower or "terms of use" in summary_lower or "ai disclosure" in summary_lower:
-        issues.append("Shopping cart summary must not contain legal terms or AI disclosure boilerplate.")
+    if (
+        "commercial license" in summary_lower
+        or "terms of use" in summary_lower
+        or "ai disclosure" in summary_lower
+    ):
+        issues.append(
+            "Shopping cart summary must not contain legal terms or AI disclosure boilerplate."
+        )
 
     return len(issues) == 0, issues

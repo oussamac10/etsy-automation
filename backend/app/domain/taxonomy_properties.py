@@ -97,15 +97,23 @@ def _extract_property_dict(prop: Any) -> dict[str, Any]:
         "max_values_allowed": getattr(prop, "max_values_allowed", None),
         "scales": [
             {
-                "scale_id": getattr(s, "scale_id", None) if not isinstance(s, dict) else s.get("scale_id"),
-                "display_name": getattr(s, "display_name", "") if not isinstance(s, dict) else s.get("display_name", ""),
-                "description": getattr(s, "description", "") if not isinstance(s, dict) else s.get("description", ""),
+                "scale_id": getattr(s, "scale_id", None)
+                if not isinstance(s, dict)
+                else s.get("scale_id"),
+                "display_name": getattr(s, "display_name", "")
+                if not isinstance(s, dict)
+                else s.get("display_name", ""),
+                "description": getattr(s, "description", "")
+                if not isinstance(s, dict)
+                else s.get("description", ""),
             }
             for s in scales
         ],
         "possible_values": [
             {
-                "value_id": getattr(v, "value_id", None) if not isinstance(v, dict) else v.get("value_id"),
+                "value_id": getattr(v, "value_id", None)
+                if not isinstance(v, dict)
+                else v.get("value_id"),
                 "name": getattr(v, "name", "") if not isinstance(v, dict) else v.get("name", ""),
             }
             for v in possible_vals
@@ -164,10 +172,16 @@ def revalidate_listing_taxonomy_properties(
         # Check if this is a scale-based property (e.g. Width, Height)
         if allowed_scales and not allowed_possible:
             scale_id = val_entry.get("scale_id")
-            allowed_scale_ids = {s["scale_id"] for s in allowed_scales if s.get("scale_id") is not None}
-            raw_val = val_entry.get("value") or (val_entry.get("values", [""])[0] if val_entry.get("values") else None)
+            allowed_scale_ids = {
+                s["scale_id"] for s in allowed_scales if s.get("scale_id") is not None
+            }
+            raw_val = val_entry.get("value") or (
+                val_entry.get("values", [""])[0] if val_entry.get("values") else None
+            )
             if scale_id in allowed_scale_ids and raw_val:
-                matched_scale = next((s for s in allowed_scales if s.get("scale_id") == scale_id), None)
+                matched_scale = next(
+                    (s for s in allowed_scales if s.get("scale_id") == scale_id), None
+                )
                 validated[str(prop_id)] = {
                     "property_id": prop_id,
                     "property_name": target_prop.get("display_name") or target_prop.get("name", ""),
@@ -182,9 +196,7 @@ def revalidate_listing_taxonomy_properties(
         allowed_value_ids = {
             v["value_id"] for v in allowed_possible if v.get("value_id") is not None
         }
-        allowed_value_names = {
-            v["name"] for v in allowed_possible if v.get("name")
-        }
+        allowed_value_names = {v["name"] for v in allowed_possible if v.get("name")}
 
         existing_ids = val_entry.get("value_ids", [])
         existing_names = val_entry.get("values", [])
@@ -196,7 +208,14 @@ def revalidate_listing_taxonomy_properties(
         if existing_ids and existing_names and len(existing_ids) == len(existing_names):
             for vid, vname in zip(existing_ids, existing_names):
                 if vid in allowed_value_ids or vname in allowed_value_names:
-                    matched = next((v for v in allowed_possible if v.get("value_id") == vid or v.get("name") == vname), None)
+                    matched = next(
+                        (
+                            v
+                            for v in allowed_possible
+                            if v.get("value_id") == vid or v.get("name") == vname
+                        ),
+                        None,
+                    )
                     if matched:
                         valid_ids.append(matched["value_id"])
                         valid_names.append(matched["name"])
@@ -250,4 +269,3 @@ def check_required_taxonomy_properties(
                 missing.append(prop.get("display_name") or prop.get("name", f"Property {p_id_str}"))
 
     return missing
-

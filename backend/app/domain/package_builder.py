@@ -18,9 +18,10 @@ import io
 import os
 import re
 import struct
-from typing import Any, Final
 import zipfile
 import zlib
+from typing import Any, Final
+
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -89,7 +90,9 @@ def optimize_png_deflate(png_bytes: bytes) -> bytes:
                 + struct.pack(">I", crc)
             )
         crc = zlib.crc32(chunk_type + chunk_data)
-        out.extend(struct.pack(">I", len(chunk_data)) + chunk_type + chunk_data + struct.pack(">I", crc))
+        out.extend(
+            struct.pack(">I", len(chunk_data)) + chunk_type + chunk_data + struct.pack(">I", crc)
+        )
 
     return bytes(out)
 
@@ -163,9 +166,7 @@ def create_print_ready_pdf(
     objects.append(page_dict)
 
     # 4: Contents
-    content_stream = (
-        f"q {width_pt:.2f} 0 0 {height_pt:.2f} 0 0 cm /Im1 Do Q"
-    ).encode("ascii")
+    content_stream = (f"q {width_pt:.2f} 0 0 {height_pt:.2f} 0 0 cm /Im1 Do Q").encode("ascii")
     objects.append(
         f"<< /Length {len(content_stream)} >>\nstream\n".encode("ascii")
         + content_stream
@@ -174,11 +175,15 @@ def create_print_ready_pdf(
 
     # 5: Image XObject (DeviceRGB, FlateDecode, Predictor 15, 8 bits/channel, no /SMask)
     img_dict = (
-        f"<< /Type /XObject /Subtype /Image /Width {w_px} /Height {h_px} "
-        f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode "
-        f"{decode_parms}"
-        f"/Length {len(rgb_stream)} >>\nstream\n"
-    ).encode("ascii") + rgb_stream + b"\nendstream"
+        (
+            f"<< /Type /XObject /Subtype /Image /Width {w_px} /Height {h_px} "
+            f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode "
+            f"{decode_parms}"
+            f"/Length {len(rgb_stream)} >>\nstream\n"
+        ).encode("ascii")
+        + rgb_stream
+        + b"\nendstream"
+    )
     objects.append(img_dict)
 
     # Build PDF binary
@@ -299,7 +304,9 @@ def generate_variant_aware_readme(
         "-" * 80,
     ]
 
-    items = included_variants or [{"type": "original", "title": "Original Version", "filename": "Original.png"}]
+    items = included_variants or [
+        {"type": "original", "title": "Original Version", "filename": "Original.png"}
+    ]
     for idx, v in enumerate(items, start=1):
         v_type = str(v.get("type", "original")).lower()
         v_name = v.get("title") or v.get("name") or "Artwork File"
@@ -319,7 +326,9 @@ def generate_variant_aware_readme(
                 "   Light highlights have been modulated to deep charcoal outlines for maximum clarity."
             )
         elif v_type in ("black_accent", "black"):
-            desc = "Monochrome black accent edition with deep outlines for high-contrast presentation."
+            desc = (
+                "Monochrome black accent edition with deep outlines for high-contrast presentation."
+            )
         elif v_type in ("white_accent", "white"):
             desc = "Monochrome white/cream accent edition designed for dark fabric and apparel."
         elif v_type in ("custom",):
@@ -332,29 +341,31 @@ def generate_variant_aware_readme(
         sections.append(f"{idx}. {v_name}{file_label}")
         sections.append(f"   {desc}\n")
 
-    sections.extend([
-        "FILE SPECIFICATIONS (ALL ARTWORK):",
-        "-" * 80,
-        "- Resolution: 4500 x 5400 Pixels (High-Resolution Print Quality)",
-        "- Print Density: 300 DPI (Dots Per Inch)",
-        "- Format: PNG with Transparent Background (sRGB Color Profile)",
-        "- Suitable for: DTG (Direct-to-Garment), Sublimation, Screen Printing, Cricut/Silhouette craft transfers",
-        "",
-        "HOW TO USE YOUR FILES:",
-        "-" * 80,
-        "1. Unzip the downloaded package (Right-click > Extract All on Windows, or double-click on Mac).",
-        "2. Open the selected PNG variant in your design, rip, or cutter software (Photoshop, Illustrator, Canva, Cricut Design Space).",
-        "3. Choose the appropriate artwork version for your garment color (e.g. Dark Shirt on black tees).",
-        "4. Conduct a small test print before mass production to verify printer settings.",
-        "",
-        "IMPORTANT:",
-        "-" * 80,
-        "Always verify your printer, heat press, and substrate color settings before final production.",
-        "",
-        f"Need assistance? Contact {display_shop} via Etsy Messages.",
-        "=" * 80,
-        "",
-    ])
+    sections.extend(
+        [
+            "FILE SPECIFICATIONS (ALL ARTWORK):",
+            "-" * 80,
+            "- Resolution: 4500 x 5400 Pixels (High-Resolution Print Quality)",
+            "- Print Density: 300 DPI (Dots Per Inch)",
+            "- Format: PNG with Transparent Background (sRGB Color Profile)",
+            "- Suitable for: DTG (Direct-to-Garment), Sublimation, Screen Printing, Cricut/Silhouette craft transfers",
+            "",
+            "HOW TO USE YOUR FILES:",
+            "-" * 80,
+            "1. Unzip the downloaded package (Right-click > Extract All on Windows, or double-click on Mac).",
+            "2. Open the selected PNG variant in your design, rip, or cutter software (Photoshop, Illustrator, Canva, Cricut Design Space).",
+            "3. Choose the appropriate artwork version for your garment color (e.g. Dark Shirt on black tees).",
+            "4. Conduct a small test print before mass production to verify printer settings.",
+            "",
+            "IMPORTANT:",
+            "-" * 80,
+            "Always verify your printer, heat press, and substrate color settings before final production.",
+            "",
+            f"Need assistance? Contact {display_shop} via Etsy Messages.",
+            "=" * 80,
+            "",
+        ]
+    )
 
     return "\n".join(sections)
 
@@ -413,7 +424,7 @@ def generate_checksum_manifest(files: dict[str, bytes]) -> str:
 
 def build_zip_archive(files: dict[str, bytes]) -> bytes:
     """Assemble an in-memory ZIP archive from named file contents deterministically.
-    
+
     Sanitizes filenames to prevent directory traversal or Zip Slip attacks.
     """
     zip_buffer = io.BytesIO()
@@ -430,4 +441,3 @@ def build_zip_archive(files: dict[str, bytes]) -> bytes:
             info.compress_type = zipfile.ZIP_DEFLATED
             zip_file.writestr(info, content)
     return zip_buffer.getvalue()
-

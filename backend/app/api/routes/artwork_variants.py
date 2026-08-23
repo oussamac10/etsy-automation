@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Response, status
 
@@ -52,7 +52,9 @@ def to_variant_response(
         variant_status=str(prov.get("variant_status", "ready")),
         title=str(prov.get("title") or "Color Variant"),
         custom_color=str(prov.get("custom_color")) if prov.get("custom_color") else None,
-        custom_instructions=str(prov.get("custom_instructions")) if prov.get("custom_instructions") else None,
+        custom_instructions=str(prov.get("custom_instructions"))
+        if prov.get("custom_instructions")
+        else None,
         prompt_version=str(prov.get("prompt_version")) if prov.get("prompt_version") else None,
         url=url,
         include_in_buyer_package=bool(prov.get("include_in_buyer_package", False)),

@@ -5,9 +5,8 @@ from __future__ import annotations
 import pytest
 
 from app.domain.taxonomy_fitness import (
-    TaxonomyFitResult,
-    evaluate_taxonomy_fit,
     evaluate_taxonomy_attribute_fit,
+    evaluate_taxonomy_fit,
     is_physical_disqualified,
 )
 from app.ports.providers import EtsyTaxonomyNode, EtsyTaxonomyProperty
@@ -199,7 +198,10 @@ class TestTaxonomyFitness:
                 is_required=True,
                 supports_attributes=True,
                 is_multivalued=True,
-                possible_values=[{"value_id": 1, "name": "Heat transfer"}, {"value_id": 2, "name": "Sublimation"}],
+                possible_values=[
+                    {"value_id": 1, "name": "Heat transfer"},
+                    {"value_id": 2, "name": "Sublimation"},
+                ],
             )
         ]
         campaign = {
@@ -232,7 +234,10 @@ class TestTaxonomyFitness:
         illustration_fit = evaluate_taxonomy_fit(
             taxonomy_node=clip_art_node,
             taxonomy_properties=[],
-            campaign_context={"title": "Custom Cat Portrait Drawing", "product_type": "digital_drawing"},
+            campaign_context={
+                "title": "Custom Cat Portrait Drawing",
+                "product_type": "digital_drawing",
+            },
         )
         assert illustration_fit.campaign_intent == "digital_illustration"
 
@@ -242,7 +247,10 @@ class TestTaxonomyFitness:
         fit_pod = evaluate_taxonomy_fit(
             taxonomy_node=clip_art_node,
             taxonomy_properties=[],
-            campaign_context={"title": "Dog Graphic", "description": "Ready for print on demand apparel and merchandise."},
+            campaign_context={
+                "title": "Dog Graphic",
+                "description": "Ready for print on demand apparel and merchandise.",
+            },
         )
         assert fit_pod.campaign_intent == "apparel_sublimation"
 
@@ -250,7 +258,10 @@ class TestTaxonomyFitness:
         fit_ht = evaluate_taxonomy_fit(
             taxonomy_node=clip_art_node,
             taxonomy_properties=[],
-            campaign_context={"title": "Vintage Floral", "description": "Suitable for heat transfer vinyl on fabrics."},
+            campaign_context={
+                "title": "Vintage Floral",
+                "description": "Suitable for heat transfer vinyl on fabrics.",
+            },
         )
         assert fit_ht.campaign_intent == "apparel_sublimation"
 
@@ -258,7 +269,10 @@ class TestTaxonomyFitness:
         fit_cm = evaluate_taxonomy_fit(
             taxonomy_node=clip_art_node,
             taxonomy_properties=[],
-            campaign_context={"title": "Floral Bundle", "description": "Perfect for card making and scrapbooking invitations."},
+            campaign_context={
+                "title": "Floral Bundle",
+                "description": "Perfect for card making and scrapbooking invitations.",
+            },
         )
         assert fit_cm.campaign_intent == "scrapbooking_paper"
 
@@ -266,7 +280,10 @@ class TestTaxonomyFitness:
         fit_pc = evaluate_taxonomy_fit(
             taxonomy_node=clip_art_node,
             taxonomy_properties=[],
-            campaign_context={"title": "Vintage Ephemera", "description": "Elements for paper craft projects and junk journal pages."},
+            campaign_context={
+                "title": "Vintage Ephemera",
+                "description": "Elements for paper craft projects and junk journal pages.",
+            },
         )
         assert fit_pc.campaign_intent == "scrapbooking_paper"
 
@@ -274,7 +291,9 @@ class TestTaxonomyFitness:
         fit_wa = evaluate_taxonomy_fit(
             taxonomy_node=clip_art_node,
             taxonomy_properties=[],
-            campaign_context={"title": "Abstract Mountain Landscape", "description": "Modern printable wall art poster download."},
+            campaign_context={
+                "title": "Abstract Mountain Landscape",
+                "description": "Modern printable wall art poster download.",
+            },
         )
         assert fit_wa.campaign_intent == "wall_art_print"
-

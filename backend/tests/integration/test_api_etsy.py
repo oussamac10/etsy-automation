@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import UTC, datetime, timedelta
+
 import httpx
 import pytest
 import sqlalchemy
@@ -15,14 +15,12 @@ from app.domain.workflow import RunStatus
 from app.infrastructure.models import (
     Asset,
     ListingDraft,
-    OutboxMessage,
     ProductWorkflow,
-    ShopConnection,
     User,
 )
 from app.infrastructure.security import CredentialCipher
 
-from .conftest import OWNER_EMAIL, open_client
+from .conftest import OWNER_EMAIL
 
 pytestmark = pytest.mark.integration
 
@@ -40,7 +38,9 @@ class TestEtsyApiIntegration:
         response = await anon_client.get("/api/v1/auth/etsy/connect")
         assert response.status_code == 401
 
-    async def test_auth_connect_url_for_authenticated_owner(self, client: httpx.AsyncClient) -> None:
+    async def test_auth_connect_url_for_authenticated_owner(
+        self, client: httpx.AsyncClient
+    ) -> None:
         response = await client.get("/api/v1/auth/etsy/connect")
         # In test environment with fake or unconfigured live keys, either 200 (with mock) or 400/500 without live keys
         if response.status_code == 200:
@@ -51,7 +51,9 @@ class TestEtsyApiIntegration:
         else:
             assert response.status_code in (400, 500)
 
-    async def test_disconnect_when_not_connected_is_idempotent(self, client: httpx.AsyncClient) -> None:
+    async def test_disconnect_when_not_connected_is_idempotent(
+        self, client: httpx.AsyncClient
+    ) -> None:
         response = await client.delete("/api/v1/integrations/etsy")
         assert response.status_code == 204
 
@@ -67,7 +69,9 @@ class TestEtsyApiIntegration:
 
         async with UnitOfWork(session_factory) as uow:
             # Find current owner user
-            owner = (await uow.session.execute(sqlalchemy.select(User).filter_by(email=OWNER_EMAIL))).scalar_one()
+            owner = (
+                await uow.session.execute(sqlalchemy.select(User).filter_by(email=OWNER_EMAIL))
+            ).scalar_one()
 
             # Create connected Etsy shop
             await uow.shop_connections.upsert(
@@ -141,8 +145,12 @@ class TestEtsyApiIntegration:
 
         # Seed S3 storage
         if hasattr(api_app.state, "storage"):
-            await api_app.state.storage.put(master_asset.storage_key, b"fake png data", content_type="image/png")
-            await api_app.state.storage.put(zip_asset.storage_key, b"fake zip data", content_type="application/zip")
+            await api_app.state.storage.put(
+                master_asset.storage_key, b"fake png data", content_type="image/png"
+            )
+            await api_app.state.storage.put(
+                zip_asset.storage_key, b"fake zip data", content_type="application/zip"
+            )
 
         # Trigger draft endpoint
         response = await client.post(f"/api/v1/workflows/{workflow_id}/etsy/draft")

@@ -1,12 +1,14 @@
 import uuid
+
 import pytest
+
 from app.application.listing import (
     ListingDraftService,
     deduplicate_history,
     record_version_snapshot,
 )
-from app.infrastructure.models.listing import ListingDraft
 from app.domain.workflow import RiskLevel
+from app.infrastructure.models.listing import ListingDraft
 
 
 def test_deduplicate_history():
@@ -72,16 +74,23 @@ def test_tag_history_accumulation():
     record_version_snapshot(draft, source="manual")
 
     # All 5 historical tags are retained
-    assert set(draft.ip_findings["tag_history"]) == {"cat", "kitten", "feline", "meow", "sublimation"}
+    assert set(draft.ip_findings["tag_history"]) == {
+        "cat",
+        "kitten",
+        "feline",
+        "meow",
+        "sublimation",
+    }
 
 
 @pytest.mark.asyncio
 async def test_listing_creation_with_gateway_resolves_property_aware():
     from datetime import UTC, datetime
-    from app.domain.enums import ConceptStatus
-    from app.infrastructure.models import ProductWorkflow, ProductConcept
-    from app.providers.fake import FakeEtsyProvider
     from unittest.mock import AsyncMock, MagicMock
+
+    from app.domain.enums import ConceptStatus
+    from app.infrastructure.models import ProductConcept, ProductWorkflow
+    from app.providers.fake import FakeEtsyProvider
 
     workflow_id = uuid.uuid4()
     owner_id = uuid.uuid4()
@@ -128,10 +137,11 @@ async def test_listing_creation_with_gateway_resolves_property_aware():
 
 @pytest.mark.asyncio
 async def test_re_evaluate_taxonomy_preserves_existing_until_applied():
-    from app.domain.enums import ConceptStatus
-    from app.infrastructure.models import ProductWorkflow, ProductConcept
-    from app.providers.fake import FakeEtsyProvider
     from unittest.mock import AsyncMock, MagicMock
+
+    from app.domain.enums import ConceptStatus
+    from app.infrastructure.models import ProductConcept, ProductWorkflow
+    from app.providers.fake import FakeEtsyProvider
 
     workflow_id = uuid.uuid4()
     owner_id = uuid.uuid4()
@@ -195,5 +205,3 @@ async def test_re_evaluate_taxonomy_preserves_existing_until_applied():
     assert res_applied["applied"] is True
     assert draft.taxonomy_id == 77
     assert draft.ip_findings["taxonomy_selection_source"] == "auto"
-
-

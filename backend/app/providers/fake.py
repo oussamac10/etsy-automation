@@ -106,7 +106,11 @@ class FakeTextProvider:
 
         prompt_lower = request.prompt.lower()
 
-        if "seo copywriter" in prompt_lower or "critical copy guidelines" in prompt_lower or "critical etsy guidelines" in prompt_lower:
+        if (
+            "seo copywriter" in prompt_lower
+            or "critical copy guidelines" in prompt_lower
+            or "critical etsy guidelines" in prompt_lower
+        ):
             concept_title = "Cute Artwork"
             match = re.search(
                 r"(?:Product Title/Concept|Concept / Title|ACTIVE PRODUCT CONCEPT|ACTIVE CONCEPT|Title):\s*([^\n]+)",
@@ -118,15 +122,29 @@ class FakeTextProvider:
                 if extracted:
                     concept_title = extracted
 
-            slogan_match = re.search(r"(?:Artwork Slogan|Slogan / Text in Art|Slogan):\s*([^\n]+)", request.prompt, re.IGNORECASE)
-            slogan = slogan_match.group(1).strip() if slogan_match and slogan_match.group(1).strip() not in ("N/A", "None", "") else None
+            slogan_match = re.search(
+                r"(?:Artwork Slogan|Slogan / Text in Art|Slogan):\s*([^\n]+)",
+                request.prompt,
+                re.IGNORECASE,
+            )
+            slogan = (
+                slogan_match.group(1).strip()
+                if slogan_match and slogan_match.group(1).strip() not in ("N/A", "None", "")
+                else None
+            )
 
             # Clean words from concept title
             words = [w.lower() for w in re.findall(r"[a-zA-Z0-9]+", concept_title) if len(w) > 2]
-            niche_words = [w for w in words if w not in {"the", "and", "for", "with", "concept", "faithful", "market", "hybrid"}]
+            niche_words = [
+                w
+                for w in words
+                if w not in {"the", "and", "for", "with", "concept", "faithful", "market", "hybrid"}
+            ]
             main_niche = " ".join(niche_words[:3]) if niche_words else "vintage design"
 
-            generated_title = f"{concept_title[:75]} PNG, Sublimation Clipart, DTG T-Shirt Design"[:140]
+            generated_title = f"{concept_title[:75]} PNG, Sublimation Clipart, DTG T-Shirt Design"[
+                :140
+            ]
 
             candidate_tags = [
                 f"{main_niche[:16]} png"[:20],
@@ -179,7 +197,9 @@ class FakeTextProvider:
                     f"PRINT NOTE\n"
                     f"Colors may vary slightly depending on screen, printer, ink, material, and print settings."
                 ),
-                "shopping_cart_summary": f"Cute {concept_title[:45]} PNG graphic in clean high resolution. 4500x5400 px transparent background file for t-shirts, stickers and sublimation."[:200],
+                "shopping_cart_summary": f"Cute {concept_title[:45]} PNG graphic in clean high resolution. 4500x5400 px transparent background file for t-shirts, stickers and sublimation."[
+                    :200
+                ],
                 "tags": unique_tags[:13],
                 "ai_disclosure": "This artwork was created with the assistance of AI generation tools and then professionally edited, refined, and prepared for digital production.",
             }
@@ -192,7 +212,10 @@ class FakeTextProvider:
             )
 
         # Market Opportunity Discovery Engine branch
-        if request.system and ("market opportunity discovery engine" in request.system.lower() or "candidates" in request.system.lower()):
+        if request.system and (
+            "market opportunity discovery engine" in request.system.lower()
+            or "candidates" in request.system.lower()
+        ):
             candidate_pool = [
                 {
                     "id": "cand-1",
@@ -209,12 +232,12 @@ class FakeTextProvider:
                         "radiology halloween png",
                         "rad tech shirt design",
                         "xray technician gift",
-                        "cute skeleton sublimation"
+                        "cute skeleton sublimation",
                     ],
                     "why_it_could_sell": "Combines proven healthcare Halloween seasonal demand with a highly specific radiology buyer group, avoiding saturated general nurse designs.",
                     "evidence_summary": [
                         "Strong seasonal search intent for healthcare Halloween gifts",
-                        "Low saturation compared to general RN listings"
+                        "Low saturation compared to general RN listings",
                     ],
                     "demand_signal": 92,
                     "competition_signal": 78,
@@ -229,7 +252,7 @@ class FakeTextProvider:
                         "negative_prompt": "background, scene, photo, realistic human, watermark, signature, blurry edges, cropped design",
                         "typography_instructions": None,
                         "exact_slogan": None,
-                    }
+                    },
                 },
                 {
                     "id": "cand-2",
@@ -246,12 +269,12 @@ class FakeTextProvider:
                         "bookish ghost png",
                         "reading fall sublimation",
                         "cute ghost book lover",
-                        "autumn reader mug clipart"
+                        "autumn reader mug clipart",
                     ],
                     "why_it_could_sell": "Bookish community shows exceptionally high repeat purchase rates for seasonal cozy reading apparel and drinkware.",
                     "evidence_summary": [
                         "Consistent top trending interest on Etsy for book lover gifting",
-                        "High demand across mugs, sweatshirts, and stickers"
+                        "High demand across mugs, sweatshirts, and stickers",
                     ],
                     "demand_signal": 90,
                     "competition_signal": 80,
@@ -266,7 +289,7 @@ class FakeTextProvider:
                         "negative_prompt": "dark gothic horror, photo, background scene, watermark, text blur",
                         "typography_instructions": None,
                         "exact_slogan": None,
-                    }
+                    },
                 },
                 {
                     "id": "cand-3",
@@ -283,12 +306,12 @@ class FakeTextProvider:
                         "frog baker png",
                         "cottagecore baking clipart",
                         "sourdough bread shirt",
-                        "whimsical baker gift"
+                        "whimsical baker gift",
                     ],
                     "why_it_could_sell": "Subculture of sourdough baking enthusiasts has high engagement and relatively low commercial competition compared to general chef designs.",
                     "evidence_summary": [
                         "Rising community discussions around artisanal baking merch",
-                        "Excellent evergreen appeal for tote bags and kitchen decor"
+                        "Excellent evergreen appeal for tote bags and kitchen decor",
                     ],
                     "demand_signal": 82,
                     "competition_signal": 88,
@@ -303,7 +326,7 @@ class FakeTextProvider:
                         "negative_prompt": "3d render, plastic, modern photo, watermark, cutoff border",
                         "typography_instructions": None,
                         "exact_slogan": None,
-                    }
+                    },
                 },
                 {
                     "id": "cand-4",
@@ -320,12 +343,12 @@ class FakeTextProvider:
                         "peds nurse png",
                         "pediatric nurse floral",
                         "boho stethoscope sublimation",
-                        "nurse appreciation gift"
+                        "nurse appreciation gift",
                     ],
                     "why_it_could_sell": "Pediatric sub-specialty allows healthcare workers to express gentle, comforting aesthetics for young patients.",
                     "evidence_summary": [
                         "High seasonal surge during Nurse Appreciation Week",
-                        "Strong sales history for floral medical items"
+                        "Strong sales history for floral medical items",
                     ],
                     "demand_signal": 88,
                     "competition_signal": 74,
@@ -340,7 +363,7 @@ class FakeTextProvider:
                         "negative_prompt": "harsh colors, blood, gory, photorealistic, background scene",
                         "typography_instructions": None,
                         "exact_slogan": None,
-                    }
+                    },
                 },
                 {
                     "id": "cand-5",
@@ -357,12 +380,12 @@ class FakeTextProvider:
                         "golden retriever celestial",
                         "dog moon png",
                         "golden retriever lover gift",
-                        "celestial pet sublimation"
+                        "celestial pet sublimation",
                     ],
                     "why_it_could_sell": "Breed-specific pet art paired with celestial elements creates a unique crossover for passionate dog owners.",
                     "evidence_summary": [
                         "Golden retriever is among top 3 searched dog breeds on Etsy",
-                        "Celestial theme adds modern gifting value"
+                        "Celestial theme adds modern gifting value",
                     ],
                     "demand_signal": 86,
                     "competition_signal": 82,
@@ -377,7 +400,7 @@ class FakeTextProvider:
                         "negative_prompt": "cat, aggressive, photo, background wall, watermark",
                         "typography_instructions": None,
                         "exact_slogan": None,
-                    }
+                    },
                 },
                 {
                     "id": "cand-6",
@@ -394,12 +417,12 @@ class FakeTextProvider:
                         "dental halloween png",
                         "tooth mummy clipart",
                         "dental hygienist shirt",
-                        "spooky dental squad"
+                        "spooky dental squad",
                     ],
                     "why_it_could_sell": "Dental offices frequently order matching seasonal shirts for clinic spirit days.",
                     "evidence_summary": [
                         "High bulk purchasing behavior for dental clinic teams",
-                        "Moderate competition in mummy tooth niche"
+                        "Moderate competition in mummy tooth niche",
                     ],
                     "demand_signal": 84,
                     "competition_signal": 85,
@@ -414,7 +437,7 @@ class FakeTextProvider:
                         "negative_prompt": "scary tooth decay, realistic mouth, blood, scene, watermark",
                         "typography_instructions": None,
                         "exact_slogan": None,
-                    }
+                    },
                 },
             ]
 
@@ -423,7 +446,7 @@ class FakeTextProvider:
                 "confidence_explanation": "Extensive multi-angle search verified strong seasonal demand and low saturation in specialized buyer niches.",
                 "proven_market_observations": [
                     "Profession-specific holiday gifts show higher conversion than generic seasonal designs.",
-                    "Retro 70s and cozy watercolor aesthetics command premium perceived value across digital apparel."
+                    "Retro 70s and cozy watercolor aesthetics command premium perceived value across digital apparel.",
                 ],
                 "candidates": candidate_pool,
             }
@@ -993,9 +1016,15 @@ class FakeEtsyProvider(EtsyGateway):
 
         # Fake shop sections
         self.fake_shop_sections: list[EtsyShopSection] = [
-            EtsyShopSection(shop_section_id="101", title="Christmas PNGs", rank=1, active_listing_count=5),
-            EtsyShopSection(shop_section_id="102", title="Fall PNGs", rank=2, active_listing_count=3),
-            EtsyShopSection(shop_section_id="103", title="Book Lover PNGs", rank=3, active_listing_count=2),
+            EtsyShopSection(
+                shop_section_id="101", title="Christmas PNGs", rank=1, active_listing_count=5
+            ),
+            EtsyShopSection(
+                shop_section_id="102", title="Fall PNGs", rank=2, active_listing_count=3
+            ),
+            EtsyShopSection(
+                shop_section_id="103", title="Book Lover PNGs", rank=3, active_listing_count=2
+            ),
         ]
 
         # Error triggers for tests
@@ -1203,7 +1232,8 @@ class FakeEtsyProvider(EtsyGateway):
     ) -> None:
         self.call_count += 1
         self.uploaded_images = [
-            img for img in self.uploaded_images
+            img
+            for img in self.uploaded_images
             if img.get("listing_image_id") != str(listing_image_id)
         ]
 
@@ -1408,7 +1438,11 @@ class FakeEtsyProvider(EtsyGateway):
                     "sku": sku,
                     "offerings": [
                         {
-                            "price": {"amount": price_cents, "divisor": 100, "currency_code": "USD"},
+                            "price": {
+                                "amount": price_cents,
+                                "divisor": 100,
+                                "currency_code": "USD",
+                            },
                             "quantity": qty,
                             "is_enabled": True,
                         }
@@ -1577,7 +1611,9 @@ class FakeEtsyProvider(EtsyGateway):
             )
         return list(self.fake_shop_sections)
 
-    async def create_shop_section(self, *, access_token: str, shop_id: str, title: str) -> EtsyShopSection:
+    async def create_shop_section(
+        self, *, access_token: str, shop_id: str, title: str
+    ) -> EtsyShopSection:
         self.call_count += 1
         sec_id = str(len(self.fake_shop_sections) + 101)
         sec = EtsyShopSection(

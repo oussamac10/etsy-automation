@@ -49,4 +49,3 @@ def test_run_production_task_invokes_async(mock_run_async: MagicMock) -> None:
     with patch("asyncio.run") as mock_asyncio_run:
         run_production_task(workflow_id=wf_id, production_job_id=job_id)
         mock_asyncio_run.assert_called_once()
-

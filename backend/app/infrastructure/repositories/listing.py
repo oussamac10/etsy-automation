@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
-import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.errors import ConcurrentModificationError, EntityNotFoundError
 from app.infrastructure.models import ListingDraft
-
 
 _UNSET: object = object()
 
@@ -34,7 +33,9 @@ class SqlListingDraftRepository:
         )
         return result.scalars().first()
 
-    async def get_by_workflows(self, workflow_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, ListingDraft]:
+    async def get_by_workflows(
+        self, workflow_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, ListingDraft]:
         if not workflow_ids:
             return {}
         result = await self._session.execute(
@@ -55,11 +56,11 @@ class SqlListingDraftRepository:
         taxonomy_path: str | None = None,
         quantity: int | None = None,
         sku: str | None = None,
-        shop_section_id: str | None | object = _UNSET,
-        shop_section_name: str | None | object = _UNSET,
+        shop_section_id: str | object | None = _UNSET,
+        shop_section_name: str | object | None = _UNSET,
         should_auto_renew: bool | None = None,
         etsy_properties: dict[str, object] | None = None,
-        primary_mockup_asset_id: uuid.UUID | None | object = _UNSET,
+        primary_mockup_asset_id: uuid.UUID | object | None = _UNSET,
         shopping_cart_summary: str | None = None,
         ai_disclosure: str | None = None,
         licence_text: str | None = None,
@@ -111,7 +112,9 @@ class SqlListingDraftRepository:
             draft.shop_section_id = shop_section_id if isinstance(shop_section_id, str) else None
             has_changes = True
         if shop_section_name is not _UNSET and draft.shop_section_name != shop_section_name:
-            draft.shop_section_name = shop_section_name if isinstance(shop_section_name, str) else None
+            draft.shop_section_name = (
+                shop_section_name if isinstance(shop_section_name, str) else None
+            )
             has_changes = True
         if should_auto_renew is not None and draft.should_auto_renew != should_auto_renew:
             draft.should_auto_renew = should_auto_renew
@@ -119,10 +122,18 @@ class SqlListingDraftRepository:
         if etsy_properties is not None and draft.etsy_properties != etsy_properties:
             draft.etsy_properties = etsy_properties
             has_changes = True
-        if primary_mockup_asset_id is not _UNSET and draft.primary_mockup_asset_id != primary_mockup_asset_id:
-            draft.primary_mockup_asset_id = primary_mockup_asset_id if isinstance(primary_mockup_asset_id, uuid.UUID) else None
+        if (
+            primary_mockup_asset_id is not _UNSET
+            and draft.primary_mockup_asset_id != primary_mockup_asset_id
+        ):
+            draft.primary_mockup_asset_id = (
+                primary_mockup_asset_id if isinstance(primary_mockup_asset_id, uuid.UUID) else None
+            )
             has_changes = True
-        if shopping_cart_summary is not None and draft.shopping_cart_summary != shopping_cart_summary:
+        if (
+            shopping_cart_summary is not None
+            and draft.shopping_cart_summary != shopping_cart_summary
+        ):
             draft.shopping_cart_summary = shopping_cart_summary
             has_changes = True
         if ai_disclosure is not None and draft.ai_disclosure != ai_disclosure:
@@ -131,7 +142,10 @@ class SqlListingDraftRepository:
         if licence_text is not None and draft.licence_text != licence_text:
             draft.licence_text = licence_text
             has_changes = True
-        if customer_instructions is not None and draft.customer_instructions != customer_instructions:
+        if (
+            customer_instructions is not None
+            and draft.customer_instructions != customer_instructions
+        ):
             draft.customer_instructions = customer_instructions
             has_changes = True
         if concept_id is not None and draft.concept_id != concept_id:
@@ -212,7 +226,9 @@ class SqlListingDraftRepository:
         draft.etsy_listing_id = etsy_listing_id
         draft.etsy_listing_url = etsy_listing_url
         draft.etsy_state = etsy_state
-        draft.etsy_draft_created_at = etsy_draft_created_at or datetime.now(datetime.UTC if hasattr(datetime, 'UTC') else None)
+        draft.etsy_draft_created_at = etsy_draft_created_at or datetime.now(
+            datetime.UTC if hasattr(datetime, "UTC") else None
+        )
         draft.etsy_dispatch_status = etsy_dispatch_status
         draft.etsy_last_synced_at = draft.etsy_draft_created_at
         await self._session.flush()
@@ -336,5 +352,3 @@ class SqlListingDraftRepository:
         )
         res = await self._session.execute(stmt)
         return [(r[0], r[1]) for r in res.all() if r[0] or r[1]]
-
-

@@ -13,14 +13,15 @@ Ensures:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import io
 import re
 import struct
-from typing import Final
 import zipfile
 import zlib
+from dataclasses import dataclass
+from typing import Final
+
 import structlog
 
 from app.domain.errors import DomainError
@@ -212,7 +213,9 @@ class EtsyDigitalDeliveryPlanner:
 
         # 2. Build Documentation
         license_doc = generate_license_text(shop_name, listing_title).encode("utf-8")
-        instructions_doc = generate_instructions_text(listing_title, shop_name=shop_name).encode("utf-8")
+        instructions_doc = generate_instructions_text(listing_title, shop_name=shop_name).encode(
+            "utf-8"
+        )
 
         # 3. Build Print-Ready PDF
         pdf_bytes: bytes | None = None
@@ -302,7 +305,7 @@ class EtsyDigitalDeliveryPlanner:
         extras_files: dict[str, bytes] = {
             f"{base_prefix}_LICENSE.txt": license_doc,
             f"{base_prefix}_INSTRUCTIONS.txt": instructions_doc,
-            f"{base_prefix}_master_artwork_checksum.sha256": f"{master_sha}  {base_prefix}_PNG.png\n".encode("utf-8"),
+            f"{base_prefix}_master_artwork_checksum.sha256": f"{master_sha}  {base_prefix}_PNG.png\n".encode(),
         }
         if pdf_bytes is not None and len(pdf_bytes) < 15 * 1024 * 1024:
             extras_files[f"{base_prefix}_Print_Ready.pdf"] = pdf_bytes
@@ -329,7 +332,10 @@ class EtsyDigitalDeliveryPlanner:
                 f"{base_prefix}_LICENSE.txt": license_doc,
                 f"{base_prefix}_INSTRUCTIONS.txt": instructions_doc,
                 f"{base_prefix}_manifest.sha256": generate_checksum_manifest(
-                    {f"{base_prefix}_LICENSE.txt": license_doc, f"{base_prefix}_INSTRUCTIONS.txt": instructions_doc}
+                    {
+                        f"{base_prefix}_LICENSE.txt": license_doc,
+                        f"{base_prefix}_INSTRUCTIONS.txt": instructions_doc,
+                    }
                 ).encode("utf-8"),
             }
             doc_zip = build_zip_archive(doc_files)

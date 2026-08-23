@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import io
 import uuid
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException
 from PIL import Image, ImageDraw
 
 from app.api.routes.artwork_variants import (
-    approve_artwork_variant_endpoint,
     create_artwork_variant_endpoint,
-    delete_artwork_variant_endpoint,
     list_artwork_variants_endpoint,
-    reject_artwork_variant_endpoint,
-    to_variant_response,
 )
 from app.api.schemas import CreateArtworkVariantRequest
 from app.application.artwork_variants import ArtworkVariantError, ArtworkVariantService
@@ -36,7 +31,7 @@ from app.domain.artwork_variants import (
     sanitize_hex_color,
     validate_artwork_variant,
 )
-from app.infrastructure.models import Asset, ListingDraft, ProductWorkflow, User
+from app.infrastructure.models import Asset, ListingDraft, ProductWorkflow
 from app.providers.fake import FakeImageProvider
 
 
@@ -76,15 +71,29 @@ class TestArtworkVariantsDomain:
         assert is_png_format(b"RIFF....WEBP") is False
 
     def test_is_valid_artwork_variant_asset(self) -> None:
-        assert is_valid_artwork_variant_asset({"kind": "artwork_variant", "variant_type": "dark_shirt"}) is True
+        assert (
+            is_valid_artwork_variant_asset(
+                {"kind": "artwork_variant", "variant_type": "dark_shirt"}
+            )
+            is True
+        )
         assert is_valid_artwork_variant_asset({"kind": "customer_package"}) is False
         assert is_valid_artwork_variant_asset({"asset_type": "mockup"}) is False
         assert is_valid_artwork_variant_asset(None) is False
 
     def test_compute_variant_filename(self) -> None:
-        assert compute_variant_filename("Shop_Fox", VariantType.DARK_SHIRT) == "Shop_Fox_Dark_Shirt.png"
-        assert compute_variant_filename("Shop_Fox", VariantType.LIGHT_SHIRT) == "Shop_Fox_Light_Shirt.png"
-        assert compute_variant_filename("Shop_Fox", VariantType.CUSTOM, "#E85D04") == "Shop_Fox_Custom_E85D04.png"
+        assert (
+            compute_variant_filename("Shop_Fox", VariantType.DARK_SHIRT)
+            == "Shop_Fox_Dark_Shirt.png"
+        )
+        assert (
+            compute_variant_filename("Shop_Fox", VariantType.LIGHT_SHIRT)
+            == "Shop_Fox_Light_Shirt.png"
+        )
+        assert (
+            compute_variant_filename("Shop_Fox", VariantType.CUSTOM, "#E85D04")
+            == "Shop_Fox_Custom_E85D04.png"
+        )
         assert compute_variant_filename("Shop_Fox", "original") == "Shop_Fox_Original.png"
 
     def test_filter_workflow_artwork_variants(self) -> None:
@@ -175,8 +184,8 @@ class TestDeterministicRecolorEngine:
         out_img = Image.open(io.BytesIO(variant_bytes))
         custom_pixel = out_img.getpixel((100, 100))
         assert custom_pixel[0] > 200  # Red
-        assert custom_pixel[1] > 70   # Green
-        assert custom_pixel[2] < 30   # Blue
+        assert custom_pixel[1] > 70  # Green
+        assert custom_pixel[2] < 30  # Blue
         assert custom_pixel[3] == 255
 
 
@@ -185,7 +194,10 @@ class TestVariantValidationGuards:
         master_bytes = _create_sample_master_png()
         jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xff\xdb"
 
-        with pytest.raises(ArtworkVariantValidationError, match="Variant provider returned JPEG. Transparent PNG required."):
+        with pytest.raises(
+            ArtworkVariantValidationError,
+            match="Variant provider returned JPEG. Transparent PNG required.",
+        ):
             validate_artwork_variant(
                 source_bytes=master_bytes,
                 variant_bytes=jpeg_bytes,
@@ -201,7 +213,9 @@ class TestVariantValidationGuards:
         opaque_img.save(buf, format="PNG")
         opaque_png_bytes = buf.getvalue()
 
-        with pytest.raises(ArtworkVariantValidationError, match="Generated variant lacks transparency"):
+        with pytest.raises(
+            ArtworkVariantValidationError, match="Generated variant lacks transparency"
+        ):
             validate_artwork_variant(
                 source_bytes=master_bytes,
                 variant_bytes=opaque_png_bytes,
@@ -217,7 +231,9 @@ class TestVariantValidationGuards:
         # Draw alternating gray/white 10x10 squares in corner (0,0) to (100,100)
         for y in range(0, 100, 10):
             for x in range(0, 100, 10):
-                color = (204, 204, 204, 255) if ((x // 10 + y // 10) % 2 == 0) else (255, 255, 255, 255)
+                color = (
+                    (204, 204, 204, 255) if ((x // 10 + y // 10) % 2 == 0) else (255, 255, 255, 255)
+                )
                 draw.rectangle([x, y, x + 9, y + 9], fill=color)
 
         assert detect_baked_checkerboard(img) is True
@@ -227,7 +243,9 @@ class TestVariantValidationGuards:
         checker_bytes = buf.getvalue()
 
         master_bytes = _create_sample_master_png()
-        with pytest.raises(ArtworkVariantValidationError, match="Detected baked checkerboard pattern"):
+        with pytest.raises(
+            ArtworkVariantValidationError, match="Detected baked checkerboard pattern"
+        ):
             validate_artwork_variant(
                 source_bytes=master_bytes,
                 variant_bytes=checker_bytes,
@@ -267,7 +285,9 @@ class TestArtworkVariantService:
 
         storage = MagicMock()
         storage.get = AsyncMock(return_value=master_bytes)
-        storage.put = AsyncMock(return_value=MagicMock(storage_key="workflows/1/variants/1/dark_shirt.png"))
+        storage.put = AsyncMock(
+            return_value=MagicMock(storage_key="workflows/1/variants/1/dark_shirt.png")
+        )
 
         service = ArtworkVariantService(storage, FakeImageProvider())
         asset = await service.generate_variant(
@@ -409,11 +429,9 @@ class TestArtworkVariantRoutes:
     @pytest.mark.asyncio
     async def test_create_and_list_endpoints(self) -> None:
         from app.api.routes.artwork_variants import (
-            create_artwork_variant_endpoint,
-            list_artwork_variants_endpoint,
             update_artwork_variant_package_endpoint,
         )
-        from app.api.schemas import CreateArtworkVariantRequest, UpdateArtworkVariantPackageRequest
+        from app.api.schemas import UpdateArtworkVariantPackageRequest
 
         workflow_id = uuid.uuid4()
         owner_id = uuid.uuid4()
@@ -468,7 +486,9 @@ class TestArtworkVariantRoutes:
         storage = MagicMock()
         sample_master = _create_sample_master_png()
         storage.get = AsyncMock(return_value=sample_master)
-        storage.put = AsyncMock(return_value=MagicMock(storage_key="workflows/1/variants/1/dark.png"))
+        storage.put = AsyncMock(
+            return_value=MagicMock(storage_key="workflows/1/variants/1/dark.png")
+        )
         storage.signed_url = AsyncMock(return_value="https://storage.test/dark_shirt.png")
 
         settings = MagicMock()
@@ -651,4 +671,3 @@ class TestCustomerPackageWithVariants:
         preview = await service.get_package_preview(workflow_id, uow)
         assert preview["included_count"] == 2  # Original master + 1 selected variant
         assert preview["needs_rebuild"] is False
-

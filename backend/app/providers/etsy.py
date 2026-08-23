@@ -11,15 +11,15 @@ Adheres strictly to Etsy Open API v3 specifications:
 from __future__ import annotations
 
 import asyncio
-import json
 import random
 import re
 from typing import Any
+
 import httpx
 import structlog
 
-from app.ports.errors import ProviderError, ProviderErrorKind
 from app.domain.etsy_payload_builder import build_etsy_listing_payload
+from app.ports.errors import ProviderError, ProviderErrorKind
 from app.ports.providers import (
     EtsyFileResponse,
     EtsyGateway,
@@ -66,9 +66,7 @@ class EtsyProvider(EtsyGateway):
 
     def _default_headers(self, access_token: str | None = None) -> dict[str, str]:
         api_header_value = (
-            f"{self._api_key}:{self._shared_secret}"
-            if self._shared_secret
-            else self._api_key
+            f"{self._api_key}:{self._shared_secret}" if self._shared_secret else self._api_key
         )
         headers = {
             "x-api-key": api_header_value,
@@ -116,7 +114,12 @@ class EtsyProvider(EtsyGateway):
             )
 
         if response.status_code == 400 or response.status_code == 422:
-            logger.warning("etsy_invalid_request", status_code=response.status_code, operation=operation, detail=response.text)
+            logger.warning(
+                "etsy_invalid_request",
+                status_code=response.status_code,
+                operation=operation,
+                detail=response.text,
+            )
             raise ProviderError(
                 kind=ProviderErrorKind.INVALID_REQUEST,
                 provider="etsy",
@@ -134,7 +137,9 @@ class EtsyProvider(EtsyGateway):
             )
 
         if not (200 <= response.status_code < 300):
-            logger.error("etsy_unexpected_status", status_code=response.status_code, operation=operation)
+            logger.error(
+                "etsy_unexpected_status", status_code=response.status_code, operation=operation
+            )
             raise ProviderError(
                 kind=ProviderErrorKind.PERMANENT,
                 provider="etsy",
@@ -179,8 +184,13 @@ class EtsyProvider(EtsyGateway):
                             files=files,
                         )
 
-                if response.status_code in (429, 502, 503, 504) and attempts < MAX_TRANSIENT_RETRIES:
-                    retry_wait = float(response.headers.get("retry-after", 0.5 * (2 ** (attempts - 1))))
+                if (
+                    response.status_code in (429, 502, 503, 504)
+                    and attempts < MAX_TRANSIENT_RETRIES
+                ):
+                    retry_wait = float(
+                        response.headers.get("retry-after", 0.5 * (2 ** (attempts - 1)))
+                    )
                     jitter = random.uniform(0.1, 0.4)
                     await asyncio.sleep(retry_wait + jitter)
                     continue
@@ -216,7 +226,9 @@ class EtsyProvider(EtsyGateway):
             "code": code,
             "code_verifier": code_verifier,
         }
-        response = await self._execute_with_retry("POST", url, headers=headers, data=data, operation="exchange_code")
+        response = await self._execute_with_retry(
+            "POST", url, headers=headers, data=data, operation="exchange_code"
+        )
         payload = response.json()
 
         scopes: list[str] = []
@@ -247,7 +259,9 @@ class EtsyProvider(EtsyGateway):
             "client_id": self._api_key,
             "refresh_token": refresh_token,
         }
-        response = await self._execute_with_retry("POST", url, headers=headers, data=data, operation="refresh_token")
+        response = await self._execute_with_retry(
+            "POST", url, headers=headers, data=data, operation="refresh_token"
+        )
         payload = response.json()
 
         scopes: list[str] = []
@@ -281,7 +295,9 @@ class EtsyProvider(EtsyGateway):
         """Fetch user's Etsy shops."""
         url = f"{self._base_url}/application/users/{user_id}/shops"
         headers = self._default_headers(access_token)
-        response = await self._execute_with_retry("GET", url, headers=headers, operation="get_user_shops")
+        response = await self._execute_with_retry(
+            "GET", url, headers=headers, operation="get_user_shops"
+        )
         payload = response.json()
         results = payload.get("results", [])
         if not results and "shop_id" in payload:
@@ -330,7 +346,9 @@ class EtsyProvider(EtsyGateway):
             when_made=listing.when_made,
         )
 
-        response = await self._execute_with_retry("POST", url, headers=headers, data=data, operation="create_draft_listing")
+        response = await self._execute_with_retry(
+            "POST", url, headers=headers, data=data, operation="create_draft_listing"
+        )
         payload = response.json()
 
         listing_id = str(payload.get("listing_id", ""))
@@ -463,7 +481,9 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/listings/{listing_id}"
         headers = self._default_headers(access_token)
         try:
-            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing")
+            response = await self._execute_with_retry(
+                "GET", url, headers=headers, operation="get_listing"
+            )
             payload = response.json()
             state = str(payload.get("state", "draft")).lower()
             if state in ("deleted", "removed"):
@@ -487,7 +507,9 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/listings/{listing_id}"
         headers = self._default_headers(access_token)
         try:
-            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_details")
+            response = await self._execute_with_retry(
+                "GET", url, headers=headers, operation="get_listing_details"
+            )
             payload = response.json()
             state = str(payload.get("state", "draft")).lower()
             if state in ("deleted", "removed"):
@@ -505,7 +527,9 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/listings/{listing_id}/inventory"
         headers = self._default_headers(access_token)
         try:
-            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_inventory")
+            response = await self._execute_with_retry(
+                "GET", url, headers=headers, operation="get_listing_inventory"
+            )
             return response.json()
         except ProviderError as pe:
             if pe.kind == ProviderErrorKind.NOT_FOUND:
@@ -519,7 +543,9 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/listings/{listing_id}/images"
         headers = self._default_headers(access_token)
         try:
-            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_images")
+            response = await self._execute_with_retry(
+                "GET", url, headers=headers, operation="get_listing_images"
+            )
             payload = response.json()
             results = payload.get("results") or []
             return [
@@ -543,7 +569,9 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}/files"
         headers = self._default_headers(access_token)
         try:
-            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_files")
+            response = await self._execute_with_retry(
+                "GET", url, headers=headers, operation="get_listing_files"
+            )
             payload = response.json()
             results = payload.get("results") or []
             return [
@@ -568,7 +596,9 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/shops/{shop_id}/listings/{listing_id}/properties"
         headers = self._default_headers(access_token)
         try:
-            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_listing_properties")
+            response = await self._execute_with_retry(
+                "GET", url, headers=headers, operation="get_listing_properties"
+            )
             payload = response.json()
             return payload.get("results") or []
         except ProviderError as pe:
@@ -616,7 +646,9 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/shops/{shop_id}/sections"
         headers = self._default_headers(access_token)
         try:
-            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_shop_sections")
+            response = await self._execute_with_retry(
+                "GET", url, headers=headers, operation="get_shop_sections"
+            )
             payload = response.json()
             results = payload.get("results", [])
             sections: list[EtsyShopSection] = []
@@ -634,16 +666,25 @@ class EtsyProvider(EtsyGateway):
             logger.warning("etsy_get_shop_sections_failed", shop_id=shop_id, error=str(exc))
             return []
 
-    async def create_shop_section(self, *, access_token: str, shop_id: str, title: str) -> EtsyShopSection:
+    async def create_shop_section(
+        self, *, access_token: str, shop_id: str, title: str
+    ) -> EtsyShopSection:
         """Create a new shop section on Etsy."""
         url = f"{self._base_url}/application/shops/{shop_id}/sections"
         headers = self._default_headers(access_token)
         headers["Content-Type"] = "application/x-www-form-urlencoded"
         data = {"title": title.strip()}
 
-        response = await self._execute_with_retry("POST", url, headers=headers, data=data, operation="create_shop_section")
+        response = await self._execute_with_retry(
+            "POST", url, headers=headers, data=data, operation="create_shop_section"
+        )
         payload = response.json()
-        if isinstance(payload, dict) and "results" in payload and isinstance(payload["results"], list) and len(payload["results"]) > 0:
+        if (
+            isinstance(payload, dict)
+            and "results" in payload
+            and isinstance(payload["results"], list)
+            and len(payload["results"]) > 0
+        ):
             payload = payload["results"][0]
 
         return EtsyShopSection(
@@ -652,7 +693,6 @@ class EtsyProvider(EtsyGateway):
             rank=int(payload.get("rank", 0)),
             active_listing_count=0,
         )
-
 
     async def get_taxonomy_properties(self, *, taxonomy_id: int) -> list[EtsyTaxonomyProperty]:
         """Fetch official Etsy taxonomy properties/attributes for a category node."""
@@ -667,7 +707,9 @@ class EtsyProvider(EtsyGateway):
         url = f"{self._base_url}/application/seller-taxonomy/nodes/{taxonomy_id}/properties"
         headers = self._default_headers()
         try:
-            response = await self._execute_with_retry("GET", url, headers=headers, operation="get_taxonomy_properties")
+            response = await self._execute_with_retry(
+                "GET", url, headers=headers, operation="get_taxonomy_properties"
+            )
             payload = response.json()
             results = payload.get("results", [])
             properties: list[EtsyTaxonomyProperty] = []
@@ -694,7 +736,9 @@ class EtsyProvider(EtsyGateway):
                     EtsyTaxonomyProperty(
                         property_id=int(item.get("property_id", 0)),
                         name=str(item.get("name", "")),
-                        display_name=str(item.get("display_name")) if item.get("display_name") else None,
+                        display_name=str(item.get("display_name"))
+                        if item.get("display_name")
+                        else None,
                         is_required=bool(item.get("is_required", False)),
                         supports_attributes=bool(item.get("supports_attributes", False)),
                         supports_variations=bool(item.get("supports_variations", False)),
@@ -707,7 +751,9 @@ class EtsyProvider(EtsyGateway):
             self._taxonomy_properties_cache[taxonomy_id] = (now, properties)
             return properties
         except Exception as exc:
-            logger.warning("etsy_get_taxonomy_properties_failed", taxonomy_id=taxonomy_id, error=str(exc))
+            logger.warning(
+                "etsy_get_taxonomy_properties_failed", taxonomy_id=taxonomy_id, error=str(exc)
+            )
             return []
 
     async def update_listing_property(
@@ -733,7 +779,11 @@ class EtsyProvider(EtsyGateway):
 
         try:
             await self._execute_with_retry(
-                "PUT", url, headers=headers, json_body=json_body, operation="update_listing_property"
+                "PUT",
+                url,
+                headers=headers,
+                json_body=json_body,
+                operation="update_listing_property",
             )
             return True
         except Exception as exc:
@@ -776,10 +826,21 @@ class EtsyProvider(EtsyGateway):
         }
 
         try:
-            await self._execute_with_retry("PUT", url, headers=headers, json_body=json_body, operation="update_listing_inventory")
+            await self._execute_with_retry(
+                "PUT",
+                url,
+                headers=headers,
+                json_body=json_body,
+                operation="update_listing_inventory",
+            )
             return True
         except Exception as exc:
-            logger.warning("etsy_update_listing_inventory_failed", listing_id=listing_id, sku=sku, error=str(exc))
+            logger.warning(
+                "etsy_update_listing_inventory_failed",
+                listing_id=listing_id,
+                sku=sku,
+                error=str(exc),
+            )
             return False
 
     async def update_listing(
@@ -837,4 +898,3 @@ class EtsyProvider(EtsyGateway):
                 error=str(exc),
             )
             return False
-

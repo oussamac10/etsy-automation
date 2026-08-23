@@ -14,9 +14,13 @@ from app.providers.fake import FakeEtsyProvider
 class TestFakeEtsyProvider:
     @pytest.mark.asyncio
     async def test_fake_exchange_and_refresh(self) -> None:
-        fake = FakeEtsyProvider(default_shop_id="s123", default_shop_name="Studio", default_user_id="u456")
+        fake = FakeEtsyProvider(
+            default_shop_id="s123", default_shop_name="Studio", default_user_id="u456"
+        )
 
-        token_resp = await fake.exchange_code_for_token(code="c1", code_verifier="v1", redirect_uri="http://cb")
+        token_resp = await fake.exchange_code_for_token(
+            code="c1", code_verifier="v1", redirect_uri="http://cb"
+        )
         assert token_resp.access_token.startswith("u456")
         assert token_resp.refresh_token.startswith("u456")
         assert "listings_w" in token_resp.scope
@@ -76,7 +80,9 @@ class TestLiveEtsyProvider:
     @pytest.mark.asyncio
     async def test_auth_error_mapping_401(self) -> None:
         async def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(401, json={"error": "invalid_token", "error_description": "Token expired"})
+            return httpx.Response(
+                401, json={"error": "invalid_token", "error_description": "Token expired"}
+            )
 
         transport = httpx.MockTransport(handler)
         async with httpx.AsyncClient(transport=transport) as client:

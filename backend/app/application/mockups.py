@@ -135,7 +135,11 @@ class MockupCompositionService:
                 detected_mime = "image/png"
             elif template_bytes.startswith(b"\xff\xd8"):
                 detected_mime = "image/jpeg"
-            elif len(template_bytes) >= 12 and template_bytes[:4] == b"RIFF" and template_bytes[8:12] == b"WEBP":
+            elif (
+                len(template_bytes) >= 12
+                and template_bytes[:4] == b"RIFF"
+                and template_bytes[8:12] == b"WEBP"
+            ):
                 detected_mime = "image/webp"
             else:
                 detected_mime = "image/jpeg"
@@ -235,9 +239,7 @@ class MockupCompositionService:
                     )
                 result_data = resp.json()
         except httpx.HTTPError as http_err:
-            raise MockupCompositionError(
-                f"Image processing worker error: {http_err}"
-            ) from http_err
+            raise MockupCompositionError(f"Image processing worker error: {http_err}") from http_err
 
         composited_bytes = base64.b64decode(result_data["mockup_base64"])
         out_w = result_data.get("width", 1200)
@@ -275,9 +277,7 @@ class MockupCompositionService:
 
         mockup_id = target_asset.id if target_asset else uuid.uuid4()
         mock_sha256 = hashlib.sha256(composited_bytes).hexdigest()
-        mockup_storage_key = (
-            f"production/{workflow_id}/mockups/custom_{canonical_prod}_{mockup_id}_{mock_sha256[:8]}.jpg"
-        )
+        mockup_storage_key = f"production/{workflow_id}/mockups/custom_{canonical_prod}_{mockup_id}_{mock_sha256[:8]}.jpg"
 
         await self.storage.put(mockup_storage_key, composited_bytes, content_type="image/jpeg")
         mockup_url = await self.storage.signed_url(mockup_storage_key, expires_in_seconds=86400 * 7)
@@ -337,7 +337,11 @@ class MockupCompositionService:
                 if hasattr(self.uow, "session") and hasattr(self.uow.session, "add"):
                     self.uow.session.add(wf)
 
-        if resolved_is_cover and hasattr(self.uow, "listing_drafts") and hasattr(self.uow.listing_drafts, "get_by_workflow"):
+        if (
+            resolved_is_cover
+            and hasattr(self.uow, "listing_drafts")
+            and hasattr(self.uow.listing_drafts, "get_by_workflow")
+        ):
             try:
                 res = self.uow.listing_drafts.get_by_workflow(workflow_id)
                 draft = await res if inspect.isawaitable(res) else None

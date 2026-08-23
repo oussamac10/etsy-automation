@@ -152,7 +152,7 @@ async def resolve_listing_generation_context(
     # Filter out archived concepts
     active_candidates = [c for c in concepts if c.status != ConceptStatus.ARCHIVED]
     if not active_candidates:
-        active_candidates = concepts
+        active_candidates = list(concepts)
 
     # Prioritize explicitly APPROVED concept
     approved_concepts = [c for c in active_candidates if c.status == ConceptStatus.APPROVED]
@@ -162,7 +162,7 @@ async def resolve_listing_generation_context(
         active_concept = active_candidates[0]
     else:
         # Multiple concepts exist: select the highest scoring candidate
-        active_concept = max(active_candidates, key=lambda c: (c.score or 0))
+        active_concept = max(active_candidates, key=lambda c: c.score or 0)
 
     if active_concept.workflow_id != workflow_id:
         msg = f"Cross-workflow concept error: {active_concept.id} not in {workflow_id}."
@@ -178,7 +178,9 @@ async def resolve_listing_generation_context(
     # Resolve Niche from title / breakdown
     niche = active_concept.target_buyer or "Digital PNG Crafters & Sublimation"
     if active_concept.score_breakdown and isinstance(active_concept.score_breakdown, dict):
-        niche = active_concept.score_breakdown.get("niche_theme") or niche
+        raw_niche = active_concept.score_breakdown.get("niche_theme")
+        if raw_niche:
+            niche = str(raw_niche)
 
     # Keywords strictly scoped to this concept & its research run
     scoped_keywords: list[str] = []
@@ -201,11 +203,7 @@ async def resolve_listing_generation_context(
             seen_kw.add(k)
             deduped_keywords.append(k)
 
-    uses_list = list(
-        active_concept.intended_product_uses
-        or workflow.intended_product_uses
-        or []
-    )
+    uses_list = list(active_concept.intended_product_uses or workflow.intended_product_uses or [])
     concept_snapshot = ConceptContextSnapshot(
         id=active_concept.id,
         version=concept_version,
@@ -234,12 +232,14 @@ async def resolve_listing_generation_context(
 
     # Find the primary production master or candidate artwork
     master_candidates = [
-        a for a in workflow_assets
+        a
+        for a in workflow_assets
         if isinstance(a.provenance, dict)
         and a.provenance.get("kind") in ("production_master", "master_png")
     ]
     candidate_artworks = [
-        a for a in workflow_assets
+        a
+        for a in workflow_assets
         if a.artwork_job_id is not None
         or (isinstance(a.provenance, dict) and a.provenance.get("kind") == "candidate_artwork")
     ]

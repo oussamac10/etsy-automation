@@ -166,16 +166,24 @@ class ListingDraft(UuidMixin, TimestampMixin, Base):
     etsy_listing_id: Mapped[str | None] = mapped_column(String(60), nullable=True)
     etsy_listing_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     etsy_state: Mapped[str | None] = mapped_column(String(30), nullable=True, default="draft")
-    etsy_image_ids: Mapped[list[str]] = mapped_column(ARRAY(String(60)), nullable=False, default=list)
+    etsy_image_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(String(60)), nullable=False, default=list
+    )
     etsy_file_id: Mapped[str | None] = mapped_column(String(60), nullable=True)
-    etsy_file_ids: Mapped[list[str]] = mapped_column(ARRAY(String(60)), nullable=False, default=list)
-    etsy_dispatch_status: Mapped[str] = mapped_column(String(40), nullable=False, default="not_started")
+    etsy_file_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(String(60)), nullable=False, default=list
+    )
+    etsy_dispatch_status: Mapped[str] = mapped_column(
+        String(40), nullable=False, default="not_started"
+    )
     etsy_last_synced_at: Mapped[datetime | None] = timestamp_column(nullable=True)
     etsy_failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     etsy_draft_created_at: Mapped[datetime | None] = timestamp_column(nullable=True)
     etsy_verification_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
     etsy_verified_at: Mapped[datetime | None] = timestamp_column(nullable=True)
-    etsy_verification_result: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    etsy_verification_result: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, default=dict
+    )
 
     #: Optimistic lock for the listing editor: an approval made against version N
     #: is stale once an edit bumps it to N+1.

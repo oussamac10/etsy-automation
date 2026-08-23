@@ -83,7 +83,11 @@ class TestTaxonomyProperties:
     def test_single_valued_property_truncation(self):
         """Ensures single-valued properties cannot store multiple values."""
         invalid_multi = {
-            "91002": {"property_id": 91002, "value_ids": [82001, 82002], "values": ["Christmas", "Halloween"]}
+            "91002": {
+                "property_id": 91002,
+                "value_ids": [82001, 82002],
+                "values": ["Christmas", "Halloween"],
+            }
         }
         category_props = [
             {
@@ -193,7 +197,9 @@ class TestTaxonomyProperties:
         assert is_listing_attribute_property(prop_b_variation_only) is False
         assert is_listing_attribute_property(prop_c_non_attribute) is False
 
-        filtered = filter_listing_attribute_properties([prop_a, prop_b_variation_only, prop_c_non_attribute])
+        filtered = filter_listing_attribute_properties(
+            [prop_a, prop_b_variation_only, prop_c_non_attribute]
+        )
         assert len(filtered) == 1
         assert filtered[0]["property_id"] == 1
 
@@ -203,7 +209,11 @@ class TestTaxonomyProperties:
             "100": {"property_id": 100, "value_ids": [1166], "values": ["XS"]},
             "515": {"property_id": 515, "value_ids": [5668], "values": ["iPad Mini"]},
             "513": {"property_id": 513, "value_ids": [1], "values": ["Custom Variation"]},
-            "148789511893": {"property_id": 148789511893, "value_ids": [5300], "values": ["Alabaster"]},
+            "148789511893": {
+                "property_id": 148789511893,
+                "value_ids": [5300],
+                "values": ["Alabaster"],
+            },
         }
 
         taxonomy_props = [
@@ -333,4 +343,3 @@ class TestTaxonomyProperties:
 
         assert len(revalidated["400394338806"]["values"]) == 3
         assert revalidated["400394338806"]["values"] == ["Animals", "Botanical", "Abstract"]
-

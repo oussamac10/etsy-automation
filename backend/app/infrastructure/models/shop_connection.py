@@ -48,7 +48,9 @@ class ShopConnection(UuidMixin, TimestampMixin, Base):
     key_version: Mapped[int] = mapped_column(Integer, nullable=False)
 
     token_expires_at: Mapped[datetime] = timestamp_column(nullable=False)
-    granted_scopes: Mapped[list[str]] = mapped_column(ARRAY(String(60)), nullable=False, default=list)
+    granted_scopes: Mapped[list[str]] = mapped_column(
+        ARRAY(String(60)), nullable=False, default=list
+    )
 
     #: Status: 'connected', 'refresh_required', 'reauthorization_required', 'disconnected'
     connection_status: Mapped[str] = mapped_column(String(40), nullable=False, default="connected")
@@ -60,7 +62,9 @@ class ShopConnection(UuidMixin, TimestampMixin, Base):
         UniqueConstraint("user_id", "provider", name="uq_shop_connection_user_provider"),
         CheckConstraint("key_version >= 1", name="shop_connection_key_version_positive"),
         CheckConstraint("octet_length(ciphertext_access_token) > 0", name="access_token_not_empty"),
-        CheckConstraint("octet_length(ciphertext_refresh_token) > 0", name="refresh_token_not_empty"),
+        CheckConstraint(
+            "octet_length(ciphertext_refresh_token) > 0", name="refresh_token_not_empty"
+        ),
     )
 
     @property

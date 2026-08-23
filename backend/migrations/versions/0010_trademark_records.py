@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision: str = "0010_trademark_records"
@@ -28,7 +28,9 @@ def upgrade() -> None:
 
     op.create_table(
         "trademark_records",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
+        ),
         sa.Column("mark_text", sa.String(512), nullable=False),
         sa.Column("normalized_mark_text", sa.String(512), nullable=False),
         sa.Column("serial_number", sa.String(64), nullable=True),
@@ -43,9 +45,24 @@ def upgrade() -> None:
         sa.Column("registration_date", sa.String(32), nullable=True),
         sa.Column("source_file", sa.String(512), nullable=True),
         sa.Column("source_updated_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("imported_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("NOW()")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("NOW()")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("NOW()")),
+        sa.Column(
+            "imported_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("NOW()"),
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("NOW()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("NOW()"),
+        ),
     )
     op.create_index(
         "ix_trademark_records_serial_number",
@@ -54,11 +71,17 @@ def upgrade() -> None:
         unique=True,
         postgresql_where=sa.text("serial_number IS NOT NULL"),
     )
-    op.create_index("ix_trademark_records_normalized_mark_text", "trademark_records", ["normalized_mark_text"])
+    op.create_index(
+        "ix_trademark_records_normalized_mark_text", "trademark_records", ["normalized_mark_text"]
+    )
     op.create_index("ix_trademark_records_mark_text", "trademark_records", ["mark_text"])
-    op.create_index("ix_trademark_records_registration_number", "trademark_records", ["registration_number"])
+    op.create_index(
+        "ix_trademark_records_registration_number", "trademark_records", ["registration_number"]
+    )
     op.create_index("ix_trademark_records_is_live", "trademark_records", ["is_live"])
-    op.create_index("ix_trademark_records_norm_live", "trademark_records", ["normalized_mark_text", "is_live"])
+    op.create_index(
+        "ix_trademark_records_norm_live", "trademark_records", ["normalized_mark_text", "is_live"]
+    )
 
     # High-performance GIN trigram index for phrase similarity and substring lookups
     op.create_index(
@@ -72,4 +95,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("trademark_records")
-

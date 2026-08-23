@@ -67,7 +67,16 @@ def find_matching_existing_section(
 
         sec_words = set(re.findall(r"[a-z0-9]+", sec_stem))
         sug_words = set(re.findall(r"[a-z0-9]+", suggested_stem))
-        common = sec_words & sug_words - {"png", "pngs", "clipart", "design", "designs", "download", "downloads", "and"}
+        common = sec_words & sug_words - {
+            "png",
+            "pngs",
+            "clipart",
+            "design",
+            "designs",
+            "download",
+            "downloads",
+            "and",
+        }
         if common:
             return sec_id, sec_title
 
@@ -80,8 +89,14 @@ def find_matching_existing_section(
                 continue
 
             sec_stem = _stem_simple(sec_title)
-            sec_words = [w for w in re.findall(r"[a-z0-9]+", sec_stem) if len(w) > 3 and w not in {"png", "pngs", "clipart", "design", "designs", "download", "downloads"}]
-            if sec_words and all(w in corpus_lower for w in sec_words):
+            sec_words_list = [
+                w
+                for w in re.findall(r"[a-z0-9]+", sec_stem)
+                if len(w) > 3
+                and w
+                not in {"png", "pngs", "clipart", "design", "designs", "download", "downloads"}
+            ]
+            if sec_words_list and all(w in corpus_lower for w in sec_words_list):
                 return sec_id, sec_title
 
     return None, None
@@ -99,40 +114,233 @@ def suggest_shop_section_title(
     corpus = f"{title} {' '.join(tags or [])}".lower()
 
     # Rule-based thematic mapping
-    if any(k in corpus for k in ("christmas", "xmas", "santa", "gingerbread", "holiday", "winter", "snowman", "reindeer", "nutcracker", "noel")):
+    if any(
+        k in corpus
+        for k in (
+            "christmas",
+            "xmas",
+            "santa",
+            "gingerbread",
+            "holiday",
+            "winter",
+            "snowman",
+            "reindeer",
+            "nutcracker",
+            "noel",
+        )
+    ):
         suggestion = "Christmas PNGs"
-    elif any(k in corpus for k in ("halloween", "spooky", "witch", "ghost", "pumpkin", "skeleton", "skull", "bat", "vampire", "horror", "ghoul", "haunted")):
+    elif any(
+        k in corpus
+        for k in (
+            "halloween",
+            "spooky",
+            "witch",
+            "ghost",
+            "pumpkin",
+            "skeleton",
+            "skull",
+            "bat",
+            "vampire",
+            "horror",
+            "ghoul",
+            "haunted",
+        )
+    ):
         suggestion = "Halloween PNGs"
-    elif any(k in corpus for k in ("fall", "autumn", "thanksgiving", "harvest", "cozy", "hayride", "flannel")):
+    elif any(
+        k in corpus
+        for k in ("fall", "autumn", "thanksgiving", "harvest", "cozy", "hayride", "flannel")
+    ):
         suggestion = "Fall PNGs"
-    elif any(k in corpus for k in (
-        "cow", "calf", "highland cow", "cattle", "bull", "heifer", "dog", "puppy",
-        "cat", "kitten", "pet", "pets", "animal", "animals", "bear", "deer", "horse",
-        "pony", "pig", "piglet", "sheep", "lamb", "duck", "chicken", "rooster", "bunny",
-        "rabbit", "wildlife", "safari", "zoo", "sloth", "llama", "alpaca", "fox", "owl",
-        "bird", "elephant", "lion", "tiger", "giraffe", "farm", "barn"
-    )):
+    elif any(
+        k in corpus
+        for k in (
+            "cow",
+            "calf",
+            "highland cow",
+            "cattle",
+            "bull",
+            "heifer",
+            "dog",
+            "puppy",
+            "cat",
+            "kitten",
+            "pet",
+            "pets",
+            "animal",
+            "animals",
+            "bear",
+            "deer",
+            "horse",
+            "pony",
+            "pig",
+            "piglet",
+            "sheep",
+            "lamb",
+            "duck",
+            "chicken",
+            "rooster",
+            "bunny",
+            "rabbit",
+            "wildlife",
+            "safari",
+            "zoo",
+            "sloth",
+            "llama",
+            "alpaca",
+            "fox",
+            "owl",
+            "bird",
+            "elephant",
+            "lion",
+            "tiger",
+            "giraffe",
+            "farm",
+            "barn",
+        )
+    ):
         suggestion = "Pet & Animal PNGs"
-    elif any(k in corpus for k in (
-        "teacher", "school", "classroom", "student", "teach", "teaching", "educator",
-        "kindergarten", "preschool", "grade", "back to school", "pencil", "chalkboard",
-        "counselor", "principal", "librarian", "study", "academic"
-    )):
+    elif any(
+        k in corpus
+        for k in (
+            "teacher",
+            "school",
+            "classroom",
+            "student",
+            "teach",
+            "teaching",
+            "educator",
+            "kindergarten",
+            "preschool",
+            "grade",
+            "back to school",
+            "pencil",
+            "chalkboard",
+            "counselor",
+            "principal",
+            "librarian",
+            "study",
+            "academic",
+        )
+    ):
         suggestion = "Teacher & School PNGs"
-    elif any(k in corpus for k in (
-        "nurse", "nursing", "doctor", "medical", "medicine", "hospital", "healthcare",
-        "pharma", "scrub", "stethoscope", "rn", "cna", "medic", "pharmacy", "clinic"
-    )):
+    elif any(
+        k in corpus
+        for k in (
+            "nurse",
+            "nursing",
+            "doctor",
+            "medical",
+            "medicine",
+            "hospital",
+            "healthcare",
+            "pharma",
+            "scrub",
+            "stethoscope",
+            "rn",
+            "cna",
+            "medic",
+            "pharmacy",
+            "clinic",
+        )
+    ):
         suggestion = "Medical & Nurse PNGs"
-    elif any(k in corpus for k in ("mushroom", "cottagecore", "nature", "forest", "botanical", "flower", "floral", "plant", "garden", "wildflower", "succulent", "leaves", "herb")):
+    elif any(
+        k in corpus
+        for k in (
+            "mushroom",
+            "cottagecore",
+            "nature",
+            "forest",
+            "botanical",
+            "flower",
+            "floral",
+            "plant",
+            "garden",
+            "wildflower",
+            "succulent",
+            "leaves",
+            "herb",
+        )
+    ):
         suggestion = "Botanical & Cottagecore"
-    elif any(k in corpus for k in ("book", "reading", "reader", "library", "bookish", "bookworm", "literature", "novel", "books")):
+    elif any(
+        k in corpus
+        for k in (
+            "book",
+            "reading",
+            "reader",
+            "library",
+            "bookish",
+            "bookworm",
+            "literature",
+            "novel",
+            "books",
+        )
+    ):
         suggestion = "Book Lover PNGs"
-    elif any(k in corpus for k in ("coffee", "iced coffee", "latte", "espresso", "tea", "baking", "bakery", "food", "drink", "cook", "chef", "cocktail", "beer", "wine", "snack", "cookie", "kitchen")):
+    elif any(
+        k in corpus
+        for k in (
+            "coffee",
+            "iced coffee",
+            "latte",
+            "espresso",
+            "tea",
+            "baking",
+            "bakery",
+            "food",
+            "drink",
+            "cook",
+            "chef",
+            "cocktail",
+            "beer",
+            "wine",
+            "snack",
+            "cookie",
+            "kitchen",
+        )
+    ):
         suggestion = "Food & Coffee PNGs"
-    elif any(k in corpus for k in ("mama", "mom", "mother", "dad", "father", "family", "sister", "brother", "grandma", "grandpa", "aunt", "uncle", "parent")):
+    elif any(
+        k in corpus
+        for k in (
+            "mama",
+            "mom",
+            "mother",
+            "dad",
+            "father",
+            "family",
+            "sister",
+            "brother",
+            "grandma",
+            "grandpa",
+            "aunt",
+            "uncle",
+            "parent",
+        )
+    ):
         suggestion = "Family & Mama PNGs"
-    elif any(k in corpus for k in ("western", "cowboy", "cowgirl", "rodeo", "howdy", "yall", "boots", "retro", "vintage", "70s", "80s", "90s", "groovy", "disco")):
+    elif any(
+        k in corpus
+        for k in (
+            "western",
+            "cowboy",
+            "cowgirl",
+            "rodeo",
+            "howdy",
+            "yall",
+            "boots",
+            "retro",
+            "vintage",
+            "70s",
+            "80s",
+            "90s",
+            "groovy",
+            "disco",
+        )
+    ):
         suggestion = "Retro & Western"
     else:
         suggestion = "Digital PNG Downloads"
@@ -140,7 +348,9 @@ def suggest_shop_section_title(
     # Match against existing shop sections if available
     matched_id = None
     if existing_sections:
-        sec_id, matched_name = find_matching_existing_section(suggestion, existing_sections, corpus=corpus)
+        sec_id, matched_name = find_matching_existing_section(
+            suggestion, existing_sections, corpus=corpus
+        )
         if sec_id and matched_name:
             return matched_name, sec_id
 

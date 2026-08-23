@@ -86,7 +86,7 @@ async def test_mockup_template_store_multi_placement() -> None:
         b'  {"id":"p1","left_pct":0.1,"top_pct":0.1,"width_pct":0.35,"height_pct":0.35,"angle_deg":-15.0,"blend_mode":"over"},'
         b'  {"id":"p2","left_pct":0.55,"top_pct":0.1,"width_pct":0.35,"height_pct":0.35,"angle_deg":15.0,"blend_mode":"multiply"},'
         b'  {"id":"p3","left_pct":0.1,"top_pct":0.55,"width_pct":0.35,"height_pct":0.35,"angle_deg":45.0,"blend_mode":"overlay"}'
-        b'],'
+        b"],"
         b'"created_at":"2026-08-20T00:00:00Z"}'
     )
     mock_storage.get = AsyncMock(return_value=manifest_payload)
@@ -107,8 +107,12 @@ async def test_mockup_template_store_multi_placement() -> None:
         image_bytes=b"fake-image-bytes",
         content_type="image/jpeg",
         placements=[
-            CustomMockupPlacement(id="p1", left_pct=0.1, top_pct=0.1, width_pct=0.35, height_pct=0.35, angle_deg=-15),
-            CustomMockupPlacement(id="p2", left_pct=0.55, top_pct=0.1, width_pct=0.35, height_pct=0.35, angle_deg=15),
+            CustomMockupPlacement(
+                id="p1", left_pct=0.1, top_pct=0.1, width_pct=0.35, height_pct=0.35, angle_deg=-15
+            ),
+            CustomMockupPlacement(
+                id="p2", left_pct=0.55, top_pct=0.1, width_pct=0.35, height_pct=0.35, angle_deg=15
+            ),
         ],
     )
 
@@ -123,4 +127,3 @@ async def test_mockup_template_store_multi_placement() -> None:
     assert len(templates[0].placements) == 3
     assert templates[0].placements[1].angle_deg == 15.0
     assert templates[0].placements[2].blend_mode == "overlay"
-

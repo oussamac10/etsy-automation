@@ -2,33 +2,28 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import hashlib
-import re
-from typing import Any
 import uuid
+from typing import Any
+
 import structlog
 
 from app.application.brand_resolver import resolve_connected_shop_name
 from app.application.unit_of_work import UnitOfWork
-from app.domain.errors import EntityNotFoundError
 from app.domain.artwork_variants import (
     VariantStatus,
     compute_variant_filename,
     is_valid_artwork_variant_asset,
     is_variant_outdated,
 )
+from app.domain.errors import EntityNotFoundError
 from app.domain.etsy_delivery_planner import (
-    MAX_ETSY_DIGITAL_FILE_BYTES,
-    MAX_ETSY_DIGITAL_FILES_COUNT,
-    EtsyDigitalDeliveryPlanner,
     validate_zip_integrity,
 )
 from app.domain.package_builder import (
     build_zip_archive,
     create_print_ready_pdf,
     generate_checksum_manifest,
-    generate_instructions_text,
     generate_license_text,
     generate_variant_aware_readme,
     optimize_png_deflate,
@@ -102,7 +97,11 @@ class CustomerPackageService:
         if master_asset is None:
             raise EntityNotFoundError("Master PNG Asset", workflow_id)
 
-        logger.info("building_customer_package", workflow_id=str(workflow_id), master_id=str(master_asset.id))
+        logger.info(
+            "building_customer_package",
+            workflow_id=str(workflow_id),
+            master_id=str(master_asset.id),
+        )
         master_bytes = await self._storage.get(master_asset.storage_key)
         if not master_bytes:
             raise EntityNotFoundError("Master PNG storage bytes", workflow_id)
@@ -135,7 +134,11 @@ class CustomerPackageService:
                         var_bytes = await self._storage.get(asset.storage_key)
                         if var_bytes:
                             v_type_str = str(p.get("variant_type", "variant"))
-                            c_color_str = str(p.get("custom_color")) if p.get("custom_color") is not None else None
+                            c_color_str = (
+                                str(p.get("custom_color"))
+                                if p.get("custom_color") is not None
+                                else None
+                            )
                             var_filename = compute_variant_filename(
                                 base_prefix,
                                 v_type_str,
@@ -143,14 +146,17 @@ class CustomerPackageService:
                             )
                             optimized_var = optimize_png_deflate(var_bytes)
                             variant_pack_files[var_filename] = optimized_var
-                            included_variant_meta.append({
-                                "type": v_type_str,
-                                "title": p.get("title") or f"{v_type_str.replace('_', ' ').title()} Version",
-                                "filename": var_filename,
-                                "asset_id": str(asset.id),
-                                "byte_size": len(optimized_var),
-                                "custom_color": c_color_str,
-                            })
+                            included_variant_meta.append(
+                                {
+                                    "type": v_type_str,
+                                    "title": p.get("title")
+                                    or f"{v_type_str.replace('_', ' ').title()} Version",
+                                    "filename": var_filename,
+                                    "asset_id": str(asset.id),
+                                    "byte_size": len(optimized_var),
+                                    "custom_color": c_color_str,
+                                }
+                            )
                     except Exception as var_err:
                         logger.warning(
                             "package_builder_variant_skipped",
@@ -307,15 +313,17 @@ class CustomerPackageService:
         # 1. Master PNG
         if master_asset:
             m_size = master_asset.byte_size or 13 * 1024 * 1024
-            files_breakdown.append({
-                "type": "original",
-                "name": "Original Master PNG",
-                "filename": f"{base_prefix}_Original.png",
-                "byte_size": m_size,
-                "included": True,
-                "status": "ready",
-                "asset_id": str(master_asset.id),
-            })
+            files_breakdown.append(
+                {
+                    "type": "original",
+                    "name": "Original Master PNG",
+                    "filename": f"{base_prefix}_Original.png",
+                    "byte_size": m_size,
+                    "included": True,
+                    "status": "ready",
+                    "asset_id": str(master_asset.id),
+                }
+            )
             included_count += 1
             estimated_total_bytes += m_size
 
@@ -343,35 +351,41 @@ class CustomerPackageService:
                 included_count += 1
                 estimated_total_bytes += v_size
 
-            files_breakdown.append({
-                "type": v_type,
-                "name": v_title,
-                "filename": v_filename,
-                "byte_size": v_size,
-                "included": is_inc,
-                "status": status_str,
-                "asset_id": str(v.id),
-            })
+            files_breakdown.append(
+                {
+                    "type": v_type,
+                    "name": v_title,
+                    "filename": v_filename,
+                    "byte_size": v_size,
+                    "included": is_inc,
+                    "status": status_str,
+                    "asset_id": str(v.id),
+                }
+            )
 
         # 3. Documentation
-        files_breakdown.append({
-            "type": "readme",
-            "name": "Usage & Print Guide",
-            "filename": f"{base_prefix}_README.txt",
-            "byte_size": 2500,
-            "included": True,
-            "status": "ready",
-            "asset_id": None,
-        })
-        files_breakdown.append({
-            "type": "license",
-            "name": "Commercial License",
-            "filename": f"{base_prefix}_LICENSE.txt",
-            "byte_size": 1800,
-            "included": True,
-            "status": "ready",
-            "asset_id": None,
-        })
+        files_breakdown.append(
+            {
+                "type": "readme",
+                "name": "Usage & Print Guide",
+                "filename": f"{base_prefix}_README.txt",
+                "byte_size": 2500,
+                "included": True,
+                "status": "ready",
+                "asset_id": None,
+            }
+        )
+        files_breakdown.append(
+            {
+                "type": "license",
+                "name": "Commercial License",
+                "filename": f"{base_prefix}_LICENSE.txt",
+                "byte_size": 1800,
+                "included": True,
+                "status": "ready",
+                "asset_id": None,
+            }
+        )
         estimated_total_bytes += 4300
 
         def _created_at_key(x: Any) -> float:
@@ -397,7 +411,9 @@ class CustomerPackageService:
                 pkg_files = pkg_manifest.get("files", [])
                 pkg_asset_ids = {f.get("asset_id") for f in pkg_files if f.get("asset_id")}
                 current_included_ids = {
-                    f["asset_id"] for f in files_breakdown if f["included"] and f["asset_id"] is not None
+                    f["asset_id"]
+                    for f in files_breakdown
+                    if f["included"] and f["asset_id"] is not None
                 }
                 if pkg_asset_ids == current_included_ids:
                     needs_rebuild = False
@@ -422,4 +438,3 @@ class CustomerPackageService:
     ) -> Asset:
         """Build customer delivery package strictly matching Etsy digital delivery."""
         return await self.build_customer_package(workflow_id, uow)
-

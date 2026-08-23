@@ -292,7 +292,7 @@ class SqlCostRepository:
             .where(base_where & (ProviderUsage.created_at >= today_start))
         )
         today_val = (await self._session.execute(today_stmt)).scalar_one_or_none()
-        today_spent = int(today_val or 0)
+        today_spent = int(today_val) if isinstance(today_val, (int, float, str)) else 0
 
         month_stmt = (
             select(func.coalesce(func.sum(_effective_cost_sql()), 0))
@@ -300,7 +300,7 @@ class SqlCostRepository:
             .where(base_where & (ProviderUsage.created_at >= month_start))
         )
         month_val = (await self._session.execute(month_stmt)).scalar_one_or_none()
-        month_spent = int(month_val or 0)
+        month_spent = int(month_val) if isinstance(month_val, (int, float, str)) else 0
 
         by_prov_stmt = (
             select(

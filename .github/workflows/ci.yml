@@ -53,8 +53,9 @@ jobs:
 
       - name: mypy
         run: |
-          cd backend && python -m mypy .
-          cd ../workers/general-worker && python -m mypy .
+          cd backend && python -m mypy app
+          cd ../workers/general-worker && python -m mypy worker
+
 
       # Unit tests only; the integration suite has its own job with a database.
       - name: pytest

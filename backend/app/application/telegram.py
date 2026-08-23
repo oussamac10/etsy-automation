@@ -742,9 +742,7 @@ async def handle_telegram_callback(
             )
             await uow.commit()
 
-            return (
-                f"Listing '<b>{escape_html(workflow.name)}</b>' rejected and returned to production."
-            )
+            return f"Listing '<b>{escape_html(workflow.name)}</b>' rejected and returned to production."
         except Exception as exc:
             return f"Failed to reject listing: {exc!s}"
 
@@ -779,8 +777,14 @@ async def send_gate3_review_notification(
     web_dashboard_url: str,
 ) -> None:
     """Send a structured Gate 3 review card to Telegram."""
-    risk_icon = "🟢" if risk_level_value == "low" else ("🟡" if risk_level_value == "medium" else "🔴")
-    risk_text = "CLEARED" if risk_level_value == "low" else ("WARNING" if risk_level_value == "medium" else "HIGH RISK")
+    risk_icon = (
+        "🟢" if risk_level_value == "low" else ("🟡" if risk_level_value == "medium" else "🔴")
+    )
+    risk_text = (
+        "CLEARED"
+        if risk_level_value == "low"
+        else ("WARNING" if risk_level_value == "medium" else "HIGH RISK")
+    )
 
     msg_lines = [
         "<b>📦 Gate 3: Listing & IP Review Ready</b>",
@@ -797,14 +801,26 @@ async def send_gate3_review_notification(
     if risk_level_value == "high":
         # Blocked: button opens dashboard only
         inline_keyboard.append(
-            [{"text": "⚠️ High Risk - Edit in Dashboard", "url": f"{web_dashboard_url}/workflow/{workflow_id}?tab=listing"}]
+            [
+                {
+                    "text": "⚠️ High Risk - Edit in Dashboard",
+                    "url": f"{web_dashboard_url}/workflow/{workflow_id}?tab=listing",
+                }
+            ]
         )
     else:
-        approve_text = "✅ Approve & Ready for Etsy" if risk_level_value == "low" else "⚠️ Approve (Acknowledge Warning)"
+        approve_text = (
+            "✅ Approve & Ready for Etsy"
+            if risk_level_value == "low"
+            else "⚠️ Approve (Acknowledge Warning)"
+        )
         inline_keyboard.append(
             [
                 {"text": approve_text, "callback_data": f"listing_app:{workflow_id}"},
-                {"text": "✏️ Edit Listing", "url": f"{web_dashboard_url}/workflow/{workflow_id}?tab=listing"},
+                {
+                    "text": "✏️ Edit Listing",
+                    "url": f"{web_dashboard_url}/workflow/{workflow_id}?tab=listing",
+                },
             ]
         )
 
@@ -843,9 +859,7 @@ async def send_etsy_draft_created_notification(
         "<i>This listing is in <b>draft</b> state. Publish manually inside Etsy Shop Manager when ready.</i>",
     ]
 
-    inline_keyboard = [
-        [{"text": "🛒 Open in Etsy Shop Manager", "url": manager_url}]
-    ]
+    inline_keyboard = [[{"text": "🛒 Open in Etsy Shop Manager", "url": manager_url}]]
 
     await send_telegram_notification(
         uow=uow,

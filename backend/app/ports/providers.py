@@ -382,9 +382,7 @@ class EtsyGateway(Protocol):
         self, *, access_token: str, shop_id: str, title: str
     ) -> EtsyShopSection: ...
 
-    async def get_taxonomy_properties(
-        self, *, taxonomy_id: int
-    ) -> list[EtsyTaxonomyProperty]: ...
+    async def get_taxonomy_properties(self, *, taxonomy_id: int) -> list[EtsyTaxonomyProperty]: ...
 
     async def update_listing_property(
         self,
@@ -424,7 +422,6 @@ class EtsyGateway(Protocol):
         when_made: str | None = None,
         is_supply: bool | None = None,
     ) -> bool: ...
-
 
 
 @runtime_checkable

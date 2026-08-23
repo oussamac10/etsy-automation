@@ -7,9 +7,10 @@ Strictly relies on real Etsy properties without inventing fake values.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import re
-from typing import Any, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import Any
 
 import structlog
 
@@ -207,57 +208,48 @@ def evaluate_taxonomy_fit(
         tokens,
     )
 
-    is_scrapbooking_paper = (
-        not has_apparel_uses
-        and _has_signal(
-            (
-                "scrapbook",
-                "scrapbooking",
-                "card making",
-                "stationery",
-                "junk journal",
-                "paper craft",
-                "planner",
-                "origami",
-                "ephemera",
-            ),
-            norm_text,
-            tokens,
-        )
+    is_scrapbooking_paper = not has_apparel_uses and _has_signal(
+        (
+            "scrapbook",
+            "scrapbooking",
+            "card making",
+            "stationery",
+            "junk journal",
+            "paper craft",
+            "planner",
+            "origami",
+            "ephemera",
+        ),
+        norm_text,
+        tokens,
     )
 
-    is_wall_art_print = (
-        campaign_context.get("product_type") == "digital_print"
-        or _has_signal(
-            (
-                "wall art",
-                "poster",
-                "print",
-                "digital print",
-                "printable wall art",
-                "nursery art",
-                "decor",
-            ),
-            norm_text,
-            tokens,
-        )
+    is_wall_art_print = campaign_context.get("product_type") == "digital_print" or _has_signal(
+        (
+            "wall art",
+            "poster",
+            "print",
+            "digital print",
+            "printable wall art",
+            "nursery art",
+            "decor",
+        ),
+        norm_text,
+        tokens,
     )
 
-    is_illustration = (
-        campaign_context.get("product_type") == "digital_drawing"
-        or _has_signal(
-            (
-                "illustration",
-                "drawing",
-                "portrait",
-                "sketch",
-                "hand drawn",
-                "line art",
-                "digital illustration",
-            ),
-            norm_text,
-            tokens,
-        )
+    is_illustration = campaign_context.get("product_type") == "digital_drawing" or _has_signal(
+        (
+            "illustration",
+            "drawing",
+            "portrait",
+            "sketch",
+            "hand drawn",
+            "line art",
+            "digital illustration",
+        ),
+        norm_text,
+        tokens,
     )
 
     if is_sublimation_apparel:
@@ -290,7 +282,10 @@ def evaluate_taxonomy_fit(
     mismatched_reason: str | None = None
 
     # 3. Path relevance with intent weighting
-    if is_illustration and ("drawing & illustration" in path_lower or "digital" in path_lower and "drawing" in path_lower):
+    if is_illustration and (
+        "drawing & illustration" in path_lower
+        or ("digital" in path_lower and "drawing" in path_lower)
+    ):
         score += 45.0
         reasons.append("Optimized for digital drawing & illustration")
     elif is_wall_art_print and ("prints > digital prints" in path_lower or "prints" in path_lower):
@@ -327,17 +322,17 @@ def evaluate_taxonomy_fit(
                 val_names.append(v.lower().strip())
 
         has_sublimation_values = any(
-            any(sub_val in v for sub_val in SUBLIMATION_PRINTING_CRAFT_VALUES)
-            for v in val_names
+            any(sub_val in v for sub_val in SUBLIMATION_PRINTING_CRAFT_VALUES) for v in val_names
         )
 
         has_paper_values = any(
-            any(paper_val in v for paper_val in PAPER_ONLY_CRAFT_VALUES)
-            for v in val_names
+            any(paper_val in v for paper_val in PAPER_ONLY_CRAFT_VALUES) for v in val_names
         )
 
         if craft_prop.is_required:
-            if campaign_intent == "scrapbooking_paper" and (has_paper_values or any("scrapbooking" in v for v in val_names)):
+            if campaign_intent == "scrapbooking_paper" and (
+                has_paper_values or any("scrapbooking" in v for v in val_names)
+            ):
                 score += 35.0
                 reasons.append("Required Craft type directly supports scrapbooking and papercraft")
             elif campaign_intent == "apparel_sublimation":
@@ -375,8 +370,13 @@ def evaluate_taxonomy_fit(
 
     # 5. Check for physical dimensional requirements (negative on digital)
     physical_dim_props = [
-        p for p in taxonomy_properties
-        if p.is_required and any(dim in p.name.lower() for dim in ("length", "width", "height", "depth", "diameter", "weight"))
+        p
+        for p in taxonomy_properties
+        if p.is_required
+        and any(
+            dim in p.name.lower()
+            for dim in ("length", "width", "height", "depth", "diameter", "weight")
+        )
     ]
     if physical_dim_props:
         score -= 25.0
@@ -386,8 +386,19 @@ def evaluate_taxonomy_fit(
 
     # 6. Check for favorable digital graphic attributes
     useful_props = [
-        p for p in taxonomy_properties
-        if any(attr in p.name.lower() for attr in ("primary color", "secondary color", "holiday", "occasion", "style", "subject"))
+        p
+        for p in taxonomy_properties
+        if any(
+            attr in p.name.lower()
+            for attr in (
+                "primary color",
+                "secondary color",
+                "holiday",
+                "occasion",
+                "style",
+                "subject",
+            )
+        )
     ]
     if useful_props:
         score += 10.0

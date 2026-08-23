@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+
 import structlog
 
 from app.domain.ip_risk import evaluate_trademark_risk, extract_searchable_phrases
@@ -110,9 +111,11 @@ class TrademarkScreeningService:
                                 match["owner"] = tsdr_data["owner"]
                             match["tsdr_verified"] = True
                             tsdr_status = "VERIFIED"
-                            tsdr_verified_at = datetime.now(timezone.utc).isoformat()
+                            tsdr_verified_at = datetime.now(UTC).isoformat()
                     except Exception as tsdr_exc:
-                        logger.warning("tsdr_candidate_verification_failed", serial=serial, error=str(tsdr_exc))
+                        logger.warning(
+                            "tsdr_candidate_verification_failed", serial=serial, error=str(tsdr_exc)
+                        )
                         tsdr_status = "UNAVAILABLE"
 
         if uspto_failed:
@@ -167,4 +170,3 @@ class TrademarkScreeningService:
             keywords=[title] if title else None,
             tags=None,
         )
-

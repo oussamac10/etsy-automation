@@ -223,14 +223,7 @@ def calculate_opportunity_score(
     b = max(0, min(100, buyer_intent_score))
     p = max(0, min(100, product_fit_score))
 
-    raw_overall = (
-        (d * 0.30)
-        + (c * 0.20)
-        + (tr * 0.15)
-        + (ti * 0.15)
-        + (b * 0.10)
-        + (p * 0.10)
-    )
+    raw_overall = (d * 0.30) + (c * 0.20) + (tr * 0.15) + (ti * 0.15) + (b * 0.10) + (p * 0.10)
 
     # Apply IP risk penalty if flagged
     normalized_ip = ip_risk.strip().lower()
@@ -266,9 +259,17 @@ def calculate_product_fit_scores(
     style_lower = (design_style + " " + visual_direction).lower()
     buyer_lower = (target_buyer + " " + niche).lower()
 
-    is_apparel_focus = any(kw in style_lower for kw in ("oversized", "dtg", "chest", "back print", "distressed"))
-    is_gift_heavy = any(kw in buyer_lower for kw in ("mom", "dad", "nurse", "teacher", "coworker", "gift", "friend", "tech"))
-    is_compact_art = any(kw in style_lower for kw in ("minimalist", "kawaii", "sticker", "badge", "centered", "clean"))
+    is_apparel_focus = any(
+        kw in style_lower for kw in ("oversized", "dtg", "chest", "back print", "distressed")
+    )
+    is_gift_heavy = any(
+        kw in buyer_lower
+        for kw in ("mom", "dad", "nurse", "teacher", "coworker", "gift", "friend", "tech")
+    )
+    is_compact_art = any(
+        kw in style_lower
+        for kw in ("minimalist", "kawaii", "sticker", "badge", "centered", "clean")
+    )
 
     scores: list[ProductFitScore] = []
 
@@ -324,7 +325,10 @@ def calculate_seasonal_timing(
     event_lower = season_or_event.lower().strip()
 
     # Evergreen / Non-seasonal concepts
-    if any(kw in event_lower for kw in ("evergreen", "year-round", "everyday", "no special", "all season")):
+    if any(
+        kw in event_lower
+        for kw in ("evergreen", "year-round", "everyday", "no special", "all season")
+    ):
         return TimingLabel.EVERGREEN, "Year-Round", 85
 
     # Season / Event Peak Month Mappings (Northern Hemisphere default)
@@ -341,7 +345,10 @@ def calculate_seasonal_timing(
         "st patrick": (3, 1),
         "easter": (4, 2),
         "spring": (4, 2),
-        "mothers day": (5 if country in ("US", "CA", "DE", "FR", "AU") else 3, 2),  # UK Mother's Day is March
+        "mothers day": (
+            5 if country in ("US", "CA", "DE", "FR", "AU") else 3,
+            2,
+        ),  # UK Mother's Day is March
         "fathers day": (6 if country != "AU" else 9, 4),  # Australia Father's Day is Sept
         "graduation": (5, 3),
         "summer": (7, 4),
@@ -364,8 +371,19 @@ def calculate_seasonal_timing(
 
     # Month Names helper
     month_names = [
-        "", "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December",
+        "",
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
     ]
     prep_name = month_names[prep_month]
     peak_name = month_names[peak_month]
@@ -438,7 +456,7 @@ def filter_and_diversify_opportunities(
     remaining = [c for c in sorted_candidates if c.id != best_candidate.id]
     niche_candidates = sorted(
         remaining,
-        key=lambda c: (c.buyer_intent_signal * 0.5 + c.competition_signal * 0.5),
+        key=lambda c: c.buyer_intent_signal * 0.5 + c.competition_signal * 0.5,
         reverse=True,
     )
     niche_candidate = None
@@ -454,10 +472,12 @@ def filter_and_diversify_opportunities(
         selected.append(niche_candidate)
 
     # 3. Select Emerging Opportunity (Highest trend & timing signal distinct from selected)
-    remaining_emerging = [c for c in remaining if c.id != (niche_candidate.id if niche_candidate else "")]
+    remaining_emerging = [
+        c for c in remaining if c.id != (niche_candidate.id if niche_candidate else "")
+    ]
     emerging_candidates = sorted(
         remaining_emerging,
-        key=lambda c: (c.trend_signal * 0.6 + c.timing_signal * 0.4),
+        key=lambda c: c.trend_signal * 0.6 + c.timing_signal * 0.4,
         reverse=True,
     )
     emerging_candidate = None

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import inspect
-import json
 import re
-from typing import Any
 import uuid
+from datetime import UTC, datetime
+from typing import Any
+
 import structlog
 
 from app.application.package import CustomerPackageService
@@ -23,10 +23,7 @@ from app.domain.workflow import (
     RunStatus,
 )
 from app.infrastructure.models import (
-    Approval,
-    AuditEvent,
     ListingDraft,
-    OutboxMessage,
     ProductWorkflow,
 )
 
@@ -65,7 +62,11 @@ def record_version_snapshot(
     # Clean existing duplicates first
     history = deduplicate_history(history)
 
-    risk_str = draft.ip_risk_level.value if hasattr(draft.ip_risk_level, "value") else str(draft.ip_risk_level)
+    risk_str = (
+        draft.ip_risk_level.value
+        if hasattr(draft.ip_risk_level, "value")
+        else str(draft.ip_risk_level)
+    )
 
     cid = str(concept_id or getattr(draft, "concept_id", None) or "") or None
     cver = concept_version or getattr(draft, "concept_version", None)
@@ -141,7 +142,6 @@ class ListingDraftService:
 
         from app.application.brand_resolver import resolve_connected_shop_name
         from app.application.listing_context import resolve_listing_generation_context
-        from app.domain.pricing import calculate_price_recommendation
         from app.domain.shop_section_resolver import suggest_shop_section_title
         from app.domain.sku_generator import generate_sku
         from app.domain.taxonomy_resolver import EtsyTaxonomyResolver
@@ -172,33 +172,42 @@ class ListingDraftService:
         initial_title = f"{concept_title[:90]} PNG Digital Download Sublimation Design"[:140]
 
         words = [w.lower() for w in re.findall(r"[a-zA-Z0-9]+", concept_title) if len(w) > 2]
-        niche_words = [w for w in words if w not in {"the", "and", "for", "with", "workflow", "campaign", "concept", "png", "svg"}]
+        niche_words = [
+            w
+            for w in words
+            if w
+            not in {"the", "and", "for", "with", "workflow", "campaign", "concept", "png", "svg"}
+        ]
         main_niche = " ".join(niche_words[:2]) if niche_words else ""
 
         candidate_tags = []
         if kw_candidates:
             candidate_tags.extend(kw_candidates[:5])
         if main_niche:
-            candidate_tags.extend([
-                f"{main_niche[:16]} png"[:20],
-                f"{main_niche[:12]} sublimation"[:20],
-                f"{main_niche[:13]} clipart"[:20],
-            ])
-        candidate_tags.extend([
-            "png digital download",
-            "sublimation design",
-            "tshirt graphic",
-            "transparent png",
-            "printable art",
-            "clipart graphic",
-            "instant download",
-            "tshirt design png",
-            "commercial use png",
-            "pod graphics",
-            "mug design download",
-            "sticker png",
-            "digital craft file",
-        ])
+            candidate_tags.extend(
+                [
+                    f"{main_niche[:16]} png"[:20],
+                    f"{main_niche[:12]} sublimation"[:20],
+                    f"{main_niche[:13]} clipart"[:20],
+                ]
+            )
+        candidate_tags.extend(
+            [
+                "png digital download",
+                "sublimation design",
+                "tshirt graphic",
+                "transparent png",
+                "printable art",
+                "clipart graphic",
+                "instant download",
+                "tshirt design png",
+                "commercial use png",
+                "pod graphics",
+                "mug design download",
+                "sticker png",
+                "digital craft file",
+            ]
+        )
 
         seen: set[str] = set()
         initial_tags: list[str] = []
@@ -210,7 +219,9 @@ class ListingDraftService:
             if len(initial_tags) == 13:
                 break
 
-        initial_desc = "High-resolution digital PNG download (4500x5400 px @ 300 DPI, transparent background)."
+        initial_desc = (
+            "High-resolution digital PNG download (4500x5400 px @ 300 DPI, transparent background)."
+        )
 
         # Property-aware taxonomy resolution
         tax_res = None
@@ -227,7 +238,9 @@ class ListingDraftService:
                     slogan=concept_slogan,
                     concept=concept_text,
                     nodes=nodes,
-                    property_fetcher=lambda tid: etsy_gateway.get_taxonomy_properties(taxonomy_id=tid),
+                    property_fetcher=lambda tid: etsy_gateway.get_taxonomy_properties(
+                        taxonomy_id=tid
+                    ),
                 )
                 if tax_res and not tax_res.is_fallback:
                     taxonomy_source = "auto"
@@ -257,7 +270,11 @@ class ListingDraftService:
             currency = owner_settings.currency or "USD"
             default_price = owner_settings.default_digital_price_minor or 499
             default_quantity = owner_settings.default_digital_quantity or 999
-            default_renew = owner_settings.default_auto_renew if owner_settings.default_auto_renew is not None else True
+            default_renew = (
+                owner_settings.default_auto_renew
+                if owner_settings.default_auto_renew is not None
+                else True
+            )
 
         # 2. Generate SKU
         initial_sku = generate_sku(shop_name, initial_title, workflow_id)
@@ -363,7 +380,10 @@ class ListingDraftService:
         # Validate price if provided
         if price_minor_units is not None:
             from app.domain.pricing import validate_price_minor_units
-            p_valid, p_err = validate_price_minor_units(price_minor_units, currency or draft.currency or "USD")
+
+            p_valid, p_err = validate_price_minor_units(
+                price_minor_units, currency or draft.currency or "USD"
+            )
             if not p_valid:
                 raise DomainError(p_err or "Invalid listing price.")
 
@@ -473,7 +493,9 @@ class ListingDraftService:
         restored_description = str(snapshot.get("description", draft.description))
         restored_summary = snapshot.get("shopping_cart_summary", draft.shopping_cart_summary)
         raw_tags = snapshot.get("tags", draft.tags)
-        restored_tags = [str(t) for t in raw_tags] if isinstance(raw_tags, list) else list(draft.tags)
+        restored_tags = (
+            [str(t) for t in raw_tags] if isinstance(raw_tags, list) else list(draft.tags)
+        )
 
         return await self.update_listing_draft(
             workflow_id=workflow_id,
@@ -592,10 +614,10 @@ class ListingDraftService:
         )
 
         raw_history = (draft.ip_findings or {}).get("history")
-        if raw_history:
+        if isinstance(raw_history, list):
             findings["history"] = list(raw_history)
         raw_tag_history = (draft.ip_findings or {}).get("tag_history")
-        if raw_tag_history:
+        if isinstance(raw_tag_history, list):
             findings["tag_history"] = list(raw_tag_history)
 
         reviewed_phrase = slogan or draft.title
@@ -666,7 +688,9 @@ class ListingDraftService:
             # 3. Build/verify customer package asset
             package_asset = await package_service.build_customer_package(workflow_id, uow)
             if package_asset is None:
-                raise DomainError("Failed to verify customer download ZIP package before Gate 3 approval.")
+                raise DomainError(
+                    "Failed to verify customer download ZIP package before Gate 3 approval."
+                )
 
             to_state = RunStatus.READY_FOR_ETSY_DRAFT
 
@@ -823,11 +847,12 @@ class ListingDraftService:
             "recommended_taxonomy_path": resolution.taxonomy_path,
             "fit_score": resolution.confidence,
             "fit_level": resolution.fit_result.fit if resolution.fit_result else "good",
-            "blocking_mismatch": resolution.fit_result.blocking_mismatch if resolution.fit_result else False,
+            "blocking_mismatch": resolution.fit_result.blocking_mismatch
+            if resolution.fit_result
+            else False,
             "fit_reasons": resolution.fit_result.reasons if resolution.fit_result else [],
             "warnings": resolution.fit_result.warnings if resolution.fit_result else [],
             "applied": applied,
             "current_taxonomy_id": draft.taxonomy_id,
             "current_taxonomy_path": draft.taxonomy_path,
         }
-

@@ -7,9 +7,9 @@ and compares it with expected local listing draft state to produce a structured 
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
-from typing import Any
 import uuid
+from datetime import UTC, datetime
+
 import structlog
 
 from app.application.etsy_auth import get_valid_access_token
@@ -140,25 +140,37 @@ async def verify_etsy_draft_listing(
 
     # 3. Concurrently Fetch Remote Etsy Resources
     fetch_tasks = [
-        etsy_gateway.get_listing_details(access_token=access_token, shop_id=shop_id, listing_id=listing_id),
+        etsy_gateway.get_listing_details(
+            access_token=access_token, shop_id=shop_id, listing_id=listing_id
+        ),
         etsy_gateway.get_listing_inventory(access_token=access_token, listing_id=listing_id),
         etsy_gateway.get_listing_images(access_token=access_token, listing_id=listing_id),
-        etsy_gateway.get_listing_files(access_token=access_token, shop_id=shop_id, listing_id=listing_id),
-        etsy_gateway.get_listing_properties(access_token=access_token, shop_id=shop_id, listing_id=listing_id),
+        etsy_gateway.get_listing_files(
+            access_token=access_token, shop_id=shop_id, listing_id=listing_id
+        ),
+        etsy_gateway.get_listing_properties(
+            access_token=access_token, shop_id=shop_id, listing_id=listing_id
+        ),
     ]
 
     results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
 
-    raw_listing = results[0] if not isinstance(results[0], Exception) else None
-    raw_inventory = results[1] if not isinstance(results[1], Exception) else None
-    raw_images = results[2] if not isinstance(results[2], Exception) else []
-    raw_files = results[3] if not isinstance(results[3], Exception) else []
-    raw_properties = results[4] if not isinstance(results[4], Exception) else []
+    raw_listing = results[0] if isinstance(results[0], dict) else None
+    raw_inventory = results[1] if isinstance(results[1], dict) else None
+    raw_images = results[2] if isinstance(results[2], list) else []
+    raw_files = results[3] if isinstance(results[3], list) else []
+    raw_properties = results[4] if isinstance(results[4], list) else []
 
     # Handle 404 / remote draft deleted
-    if raw_listing is None and (isinstance(results[0], ProviderError) and results[0].kind == ProviderErrorKind.NOT_FOUND or results[0] is None):
-        logger.info("etsy_draft_not_found_on_remote", workflow_id=str(workflow_id), listing_id=listing_id)
+    if raw_listing is None and (
+        (isinstance(results[0], ProviderError) and results[0].kind == ProviderErrorKind.NOT_FOUND)
+        or results[0] is None
+    ):
+        logger.info(
+            "etsy_draft_not_found_on_remote", workflow_id=str(workflow_id), listing_id=listing_id
+        )
         from app.application.etsy_draft import reconcile_etsy_draft
+
         await reconcile_etsy_draft(
             workflow_id=workflow_id,
             owner_id=owner_id,
@@ -194,19 +206,29 @@ async def verify_etsy_draft_listing(
     raw_sec_id = getattr(listing, "shop_section_id", None)
     raw_sec_name = getattr(listing, "shop_section_name", None)
 
-    if (not actual_sec_id or str(actual_sec_id) == "0") and (raw_sec_id or raw_sec_name) and isinstance(raw_listing, dict):
+    if (
+        (not actual_sec_id or str(actual_sec_id) == "0")
+        and (raw_sec_id or raw_sec_name)
+        and isinstance(raw_listing, dict)
+    ):
         resolved_sec_id: int | None = None
         target_title = (raw_sec_name or raw_sec_id or "").strip()
         if raw_sec_id and str(raw_sec_id).isdigit():
             resolved_sec_id = int(str(raw_sec_id))
         elif target_title:
             try:
-                sections = await etsy_gateway.get_shop_sections(access_token=access_token, shop_id=conn.etsy_shop_id)
-                matched = next((s for s in sections if s.title.strip().lower() == target_title.lower()), None)
+                sections = await etsy_gateway.get_shop_sections(
+                    access_token=access_token, shop_id=conn.etsy_shop_id
+                )
+                matched = next(
+                    (s for s in sections if s.title.strip().lower() == target_title.lower()), None
+                )
                 if matched and matched.shop_section_id.isdigit():
                     resolved_sec_id = int(matched.shop_section_id)
                 else:
-                    created_sec = await etsy_gateway.create_shop_section(access_token=access_token, shop_id=conn.etsy_shop_id, title=target_title)
+                    created_sec = await etsy_gateway.create_shop_section(
+                        access_token=access_token, shop_id=conn.etsy_shop_id, title=target_title
+                    )
                     if created_sec and created_sec.shop_section_id.isdigit():
                         resolved_sec_id = int(created_sec.shop_section_id)
             except Exception as exc:
@@ -242,12 +264,17 @@ async def verify_etsy_draft_listing(
     else:
         expected_mockup_count = 1
 
-    file_ids = list(listing.etsy_file_ids or ([listing.etsy_file_id] if listing.etsy_file_id else []))
+    file_ids = list(
+        listing.etsy_file_ids or ([listing.etsy_file_id] if listing.etsy_file_id else [])
+    )
     expected_file_count = max(len(file_ids), 1)
 
     expected_filenames = []
     for a in assets:
-        if a.mime_type == "application/zip" or getattr(a, "provenance", {}).get("kind") == "customer_package":
+        if (
+            a.mime_type == "application/zip"
+            or getattr(a, "provenance", {}).get("kind") == "customer_package"
+        ):
             expected_filenames.append(a.storage_key.split("/")[-1])
     if not expected_filenames:
         clean_title = (listing.title or "package").replace(" ", "_")[:50]
@@ -298,7 +325,7 @@ async def verify_etsy_draft_listing(
         actual_inventory=raw_inventory if isinstance(raw_inventory, dict) else None,
         actual_images=images_dicts,
         actual_files=files_dicts,
-        actual_properties=raw_properties if isinstance(raw_properties, list) else [],
+        actual_properties=[p for p in raw_properties if isinstance(p, dict)],
     )
 
     # 6. Persist Verification Snapshot on ListingDraft
@@ -398,7 +425,7 @@ async def update_remote_etsy_draft(
                 access_token=access_token,
                 listing_id=listing_id,
                 sku=active_sku or "",
-                price_cents=listing.price_minor_units,
+                price_cents=int(listing.price_minor_units or 0),
                 quantity=listing.quantity or 999,
             )
         except Exception as exc:
@@ -411,7 +438,9 @@ async def update_remote_etsy_draft(
         from app.domain.taxonomy_properties import revalidate_listing_taxonomy_properties
 
         try:
-            available_taxonomy_props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=listing.taxonomy_id)
+            available_taxonomy_props = await etsy_gateway.get_taxonomy_properties(
+                taxonomy_id=listing.taxonomy_id
+            )
         except Exception:
             available_taxonomy_props = []
 
@@ -441,8 +470,11 @@ async def update_remote_etsy_draft(
                     logger.warning("etsy_update_property_failed", property_id=pid, error=str(exc))
 
     # 4. Sync Mockup Preview Images on Etsy (Ensure Cover Mockup is Rank 1 Thumbnail)
-    from app.domain.production_resolver import filter_active_user_mockups, get_production_master_asset
     from app.domain.media_selector import order_listing_mockup_assets
+    from app.domain.production_resolver import (
+        filter_active_user_mockups,
+        get_production_master_asset,
+    )
 
     master_asset = await get_production_master_asset(uow, workflow_id)
     if master_asset:
@@ -451,7 +483,9 @@ async def update_remote_etsy_draft(
         raw_prim = getattr(listing, "primary_mockup_asset_id", None)
         prim_mockup_id = raw_prim if isinstance(raw_prim, uuid.UUID) else None
         if not prim_mockup_id:
-            cover_m = next((m for m in mockups if m.provenance and m.provenance.get("is_cover") is True), None)
+            cover_m = next(
+                (m for m in mockups if m.provenance and m.provenance.get("is_cover") is True), None
+            )
             if cover_m:
                 prim_mockup_id = cover_m.id
                 await uow.listing_drafts.update(listing.id, primary_mockup_asset_id=cover_m.id)
@@ -464,6 +498,7 @@ async def update_remote_etsy_draft(
             max_images=10,
         )
 
+    if expected_preview_assets and storage is not None:
         try:
             remote_images = await etsy_gateway.get_listing_images(
                 access_token=access_token,
@@ -471,12 +506,15 @@ async def update_remote_etsy_draft(
             )
             old_image_ids = [str(img.listing_image_id) for img in remote_images]
 
-            # 1. Upload new preview assets in deterministic rank order (Rank 1 = Cover)
             new_image_ids: list[str] = []
             for rank, asset in enumerate(expected_preview_assets[:10], start=1):
                 try:
                     img_bytes = await storage.get(asset.storage_key)
-                    filename = f"preview_{rank}.png" if asset.mime_type == "image/png" else f"preview_{rank}.jpg"
+                    filename = (
+                        f"preview_{rank}.png"
+                        if asset.mime_type == "image/png"
+                        else f"preview_{rank}.jpg"
+                    )
                     img_resp = await etsy_gateway.upload_listing_image(
                         access_token=access_token,
                         shop_id=shop_id,
@@ -486,11 +524,16 @@ async def update_remote_etsy_draft(
                         rank=rank,
                         alt_text=f"{listing.title} - Preview {rank}",
                     )
-                    new_image_ids.append(img_resp.listing_image_id)
+                    new_image_ids.append(str(img_resp.listing_image_id))
                 except Exception as exc:
-                    logger.warning("etsy_sync_image_upload_failed", rank=rank, error=str(exc))
+                    logger.warning(
+                        "etsy_photo_upload_failed",
+                        rank=rank,
+                        asset_id=str(asset.id),
+                        error=str(exc),
+                    )
 
-            # 2. Delete superseded old images from Etsy
+            # 2. Prune old stale images after successful new uploads
             for old_id in old_image_ids:
                 if old_id not in new_image_ids:
                     try:
@@ -498,10 +541,14 @@ async def update_remote_etsy_draft(
                             access_token=access_token,
                             shop_id=shop_id,
                             listing_id=listing_id,
-                            listing_image_id=old_id,
+                            listing_image_id=str(old_id),
                         )
                     except Exception as exc:
-                        logger.warning("etsy_delete_old_image_failed", image_id=old_id, error=str(exc))
+                        logger.warning(
+                            "etsy_delete_stale_image_failed",
+                            old_id=old_id,
+                            error=str(exc),
+                        )
 
             if new_image_ids:
                 listing.etsy_image_ids = new_image_ids

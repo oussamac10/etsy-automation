@@ -11,25 +11,17 @@ import pytest
 from app.application.etsy_verification import verify_etsy_draft_listing
 from app.domain.enums import AuditAction
 from app.domain.etsy_verification import (
-    EtsyDraftVerification,
     EtsyOverallVerificationStatus,
     EtsyVerificationCheckStatus,
     compare_etsy_draft,
 )
 from app.domain.workflow import RunStatus
 from app.infrastructure.models import (
-    Asset,
     ListingDraft,
     ProductWorkflow,
     ShopConnection,
 )
 from app.infrastructure.security import CredentialCipher
-from app.ports.errors import ProviderError, ProviderErrorKind
-from app.ports.providers import (
-    EtsyFileResponse,
-    EtsyImageResponse,
-    EtsyListingResponse,
-)
 from app.providers.fake import FakeEtsyProvider
 
 
@@ -48,7 +40,13 @@ class TestEtsyDraftVerificationComparison:
             listing_id="4559404921",
             expected_title="Cozy Fall Book Lover PNG Sublimation Design",
             expected_description="High resolution 300 DPI PNG file for t-shirt printing.",
-            expected_tags=["cozy fall", "book lover", "sublimation png", "autumn art", "reading gift"],
+            expected_tags=[
+                "cozy fall",
+                "book lover",
+                "sublimation png",
+                "autumn art",
+                "reading gift",
+            ],
             expected_price_minor=499,
             expected_currency="EUR",
             expected_quantity=999,
@@ -69,7 +67,13 @@ class TestEtsyDraftVerificationComparison:
                 "state": "draft",
                 "title": "Cozy Fall Book Lover PNG Sublimation Design",
                 "description": "High resolution 300 DPI PNG file for t-shirt printing.",
-                "tags": ["cozy fall", "book lover", "sublimation png", "autumn art", "reading gift"],
+                "tags": [
+                    "cozy fall",
+                    "book lover",
+                    "sublimation png",
+                    "autumn art",
+                    "reading gift",
+                ],
                 "price": {"amount": 499, "divisor": 100, "currency_code": "EUR"},
                 "quantity": 999,
                 "sku": "NCP-COZY-FALL-6125",
@@ -86,7 +90,12 @@ class TestEtsyDraftVerificationComparison:
                     {
                         "product_id": 1,
                         "sku": "NCP-COZY-FALL-6125",
-                        "offerings": [{"price": {"amount": 499, "divisor": 100, "currency_code": "EUR"}, "quantity": 999}],
+                        "offerings": [
+                            {
+                                "price": {"amount": 499, "divisor": 100, "currency_code": "EUR"},
+                                "quantity": 999,
+                            }
+                        ],
                     }
                 ]
             },
@@ -101,7 +110,9 @@ class TestEtsyDraftVerificationComparison:
         assert res.summary.synced >= 10
         assert res.summary.warnings == 0
         assert res.summary.errors == 0
-        assert res.summary.manual_review == 3  # ai_disclosure, thumbnail_crop, shopping_cart_summary
+        assert (
+            res.summary.manual_review == 3
+        )  # ai_disclosure, thumbnail_crop, shopping_cart_summary
 
     def test_published_active_listing_is_synced(self) -> None:
         """Published active listing state on Etsy is recognized as SYNCED rather than a warning."""
@@ -397,7 +408,10 @@ class TestEtsyDraftVerificationComparison:
                 "is_supply": False,
             },
             actual_inventory=None,
-            actual_images=[{"listing_image_id": "img-1", "rank": 1}, {"listing_image_id": "img-2", "rank": 2}],
+            actual_images=[
+                {"listing_image_id": "img-1", "rank": 1},
+                {"listing_image_id": "img-2", "rank": 2},
+            ],
             actual_files=[],  # Missing files
             actual_properties=[],
         )
@@ -496,8 +510,18 @@ class TestEtsyVerificationService:
         )
         fake_etsy.uploaded_files.extend(
             [
-                {"listing_file_id": "f-1", "listing_id": "4559404921", "filename": "package.zip", "rank": 1},
-                {"listing_file_id": "f-2", "listing_id": "4559404921", "filename": "extras.zip", "rank": 2},
+                {
+                    "listing_file_id": "f-1",
+                    "listing_id": "4559404921",
+                    "filename": "package.zip",
+                    "rank": 1,
+                },
+                {
+                    "listing_file_id": "f-2",
+                    "listing_id": "4559404921",
+                    "filename": "extras.zip",
+                    "rank": 2,
+                },
             ]
         )
 
@@ -575,14 +599,15 @@ class TestEtsyVerificationService:
 
         assert report.status == EtsyOverallVerificationStatus.FAILED
         assert report.summary.errors >= 1
-        assert "Etsy authorization" in report.error_message or "reconnect" in report.error_message.lower()
+        assert (
+            "Etsy authorization" in report.error_message
+            or "reconnect" in report.error_message.lower()
+        )
         # Verify local draft was NOT cleared or deleted
         uow.listing_drafts.clear_etsy_draft_state.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_etsy_404_triggers_reconciliation(
-        self, cipher: CredentialCipher
-    ) -> None:
+    async def test_etsy_404_triggers_reconciliation(self, cipher: CredentialCipher) -> None:
         """Authoritative 404 from Etsy triggers reconciliation resetting workflow to READY_FOR_ETSY_DRAFT."""
         uow = MagicMock()
         workflow_id = uuid.uuid4()
@@ -730,8 +755,6 @@ class TestEtsyVerificationService:
         sec_check = next(c for c in report.checks if c.key == "shop_section")
         assert sec_check.status == EtsyVerificationCheckStatus.SYNCED
 
-
-
     def test_materials_removed_on_etsy_reported_as_different(self) -> None:
         """When a material is removed on Etsy, verification reports 'different' with missing material item."""
         expected_properties = {
@@ -781,7 +804,9 @@ class TestEtsyVerificationService:
             actual_inventory=None,
             actual_images=[{"listing_image_id": "img-1", "rank": 1}],
             actual_files=[{"listing_file_id": "f-1", "filename": "file.zip", "rank": 1}],
-            actual_properties=[{"property_id": 148789511893, "property_name": "Materials", "values": ["Canvas"]}],
+            actual_properties=[
+                {"property_id": 148789511893, "property_name": "Materials", "values": ["Canvas"]}
+            ],
         )
 
         assert res.status == EtsyOverallVerificationStatus.NEEDS_ATTENTION
@@ -883,5 +908,3 @@ class TestEtsyVerificationService:
         # There should be no spurious 'attributes' check failure
         attr_checks = [c for c in res.checks if c.key == "attributes"]
         assert len(attr_checks) == 0
-
-

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from decimal import Decimal
 import re
+from decimal import Decimal
 from typing import Any, cast
 
 import httpx
@@ -355,7 +355,9 @@ class GeminiSynthesisAdapter:
 
         # Resolve response schema if requested
         schema_cls = request.schema_class
-        if schema_cls is None and ("synthesize market evidence into structured keyword clusters" in request.prompt.lower()):
+        if schema_cls is None and (
+            "synthesize market evidence into structured keyword clusters" in request.prompt.lower()
+        ):
             schema_cls = ResearchSynthesisSchema
 
         max_tokens = request.max_output_tokens or 16384
@@ -386,7 +388,11 @@ class GeminiSynthesisAdapter:
             "gemini-1.5-flash",
         ]
         models_to_try: list[str] = []
-        if self._model and self._model not in ("gemini-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash"):
+        if self._model and self._model not in (
+            "gemini-flash-latest",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+        ):
             models_to_try.append(self._model)
         for m in preferred_models:
             if m not in models_to_try:
@@ -436,7 +442,9 @@ class GeminiSynthesisAdapter:
                                 config_copy = dict(payload_no_schema["generationConfig"])
                                 config_copy.pop("responseSchema", None)
                                 payload_no_schema["generationConfig"] = config_copy
-                                retry_resp = await client.post(url, headers=headers, json=payload_no_schema)
+                                retry_resp = await client.post(
+                                    url, headers=headers, json=payload_no_schema
+                                )
                                 if retry_resp.status_code == 200:
                                     response = retry_resp
                                 else:
@@ -472,7 +480,7 @@ class GeminiSynthesisAdapter:
                         for p in parts:
                             if p.get("thought"):
                                 continue
-                            if "text" in p and p["text"]:
+                            if p.get("text"):
                                 text_parts.append(p["text"])
                         if not text_parts and parts:
                             text_parts = [p.get("text", "") for p in parts if p.get("text")]
@@ -489,8 +497,12 @@ class GeminiSynthesisAdapter:
                         if schema_cls is not None:
                             cleaned_json_text = text.strip()
                             if cleaned_json_text.startswith("```"):
-                                cleaned_json_text = re.sub(r"^```(?:json)?\n?", "", cleaned_json_text)
-                                cleaned_json_text = re.sub(r"\n?```$", "", cleaned_json_text).strip()
+                                cleaned_json_text = re.sub(
+                                    r"^```(?:json)?\n?", "", cleaned_json_text
+                                )
+                                cleaned_json_text = re.sub(
+                                    r"\n?```$", "", cleaned_json_text
+                                ).strip()
                             try:
                                 schema_cls.model_validate_json(cleaned_json_text)
                             except Exception:
@@ -511,7 +523,9 @@ class GeminiSynthesisAdapter:
                                             repaired += '"'
                                         open_braces = repaired.count("{") - repaired.count("}")
                                         open_brackets = repaired.count("[") - repaired.count("]")
-                                        repaired += ("]" * max(0, open_brackets)) + ("}" * max(0, open_braces))
+                                        repaired += ("]" * max(0, open_brackets)) + (
+                                            "}" * max(0, open_braces)
+                                        )
                                         json.loads(repaired)
                                         text = repaired
                                     except Exception as exc:

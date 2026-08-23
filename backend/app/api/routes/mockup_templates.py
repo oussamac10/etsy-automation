@@ -175,7 +175,7 @@ class CompositeMockupResponse(BaseModel):
 
 
 def _to_response_placements(item: Any) -> tuple[PlacementSchema, list[PlacementSchema]]:
-    raw_list = getattr(item, "placements", None) or [getattr(item, "placement")]
+    raw_list = getattr(item, "placements", None) or [item.placement]
     schemas = [
         PlacementSchema(
             id=getattr(p, "id", None),

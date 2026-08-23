@@ -8,9 +8,10 @@ Evaluates attribute compatibility to avoid paper-only categories for apparel/sub
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-from typing import Any, Callable, Coroutine, Mapping, Sequence
+from collections.abc import Callable, Coroutine, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 from app.domain.taxonomy_fitness import (
     TaxonomyFitResult,
@@ -114,7 +115,9 @@ class EtsyTaxonomyResolver:
                 if best_fit.has_mismatched_required_attributes:
                     warnings = list(best_fit.warnings)
                     if not any("precisely matches" in w for w in warnings):
-                        warnings.append("Etsy does not currently expose a Craft type that precisely matches this product's intended use.")
+                        warnings.append(
+                            "Etsy does not currently expose a Craft type that precisely matches this product's intended use."
+                        )
                     best_fit = TaxonomyFitResult(
                         score=best_fit.score,
                         fit=best_fit.fit,
@@ -198,11 +201,23 @@ class EtsyTaxonomyResolver:
                 concept=concept,
             )
 
-        DIGITAL_PATH_KEYWORDS = frozenset([
-            "digital", "clip art", "clipart", "graphic", "graphics", "design",
-            "template", "templates", "download", "printable", "drawing & illustration",
-            "digital prints", "stencils, templates & transfers",
-        ])
+        DIGITAL_PATH_KEYWORDS = frozenset(
+            [
+                "digital",
+                "clip art",
+                "clipart",
+                "graphic",
+                "graphics",
+                "design",
+                "template",
+                "templates",
+                "download",
+                "printable",
+                "drawing & illustration",
+                "digital prints",
+                "stencils, templates & transfers",
+            ]
+        )
 
         def is_plausible_digital(n: EtsyTaxonomyNode) -> bool:
             if self.is_physical_disqualified(n.full_path):
@@ -223,7 +238,7 @@ class EtsyTaxonomyResolver:
         # Prioritize top candidates to avoid fetching properties for all nodes
         def pre_rank_heuristic(n: EtsyTaxonomyNode) -> int:
             p = n.full_path.lower()
-            if "drawing & illustration > digital" in p or "digital" in p and "drawing" in p:
+            if "drawing & illustration > digital" in p or ("digital" in p and "drawing" in p):
                 return 45
             if "digital graphics" in p or "graphics" in p:
                 return 40

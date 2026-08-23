@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Annotated
 
+import redis.asyncio as aioredis
 from fastapi import Depends, Request
 
 from app.application import auth as auth_use_cases
@@ -21,7 +22,6 @@ from app.infrastructure.security import (
     EncryptionConfigurationError,
     tokens_equal,
 )
-import redis.asyncio as aioredis
 from app.ports.providers import EtsyGateway
 from app.ports.telegram import TelegramGateway
 from app.providers.s3 import S3ObjectStorage

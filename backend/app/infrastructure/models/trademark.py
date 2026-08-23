@@ -18,7 +18,9 @@ class TrademarkRecord(Base, UuidMixin, TimestampMixin):
 
     mark_text: Mapped[str] = mapped_column(String(512), nullable=False)
     normalized_mark_text: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
-    serial_number: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    serial_number: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
     registration_number: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     status_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
     status_text: Mapped[str] = mapped_column(String(64), nullable=False, default="REGISTERED")
@@ -29,7 +31,9 @@ class TrademarkRecord(Base, UuidMixin, TimestampMixin):
     filing_date: Mapped[str | None] = mapped_column(String(32), nullable=True)
     registration_date: Mapped[str | None] = mapped_column(String(32), nullable=True)
     source_file: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     imported_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -44,4 +48,3 @@ class TrademarkRecord(Base, UuidMixin, TimestampMixin):
             postgresql_ops={"normalized_mark_text": "gin_trgm_ops"},
         ),
     )
-

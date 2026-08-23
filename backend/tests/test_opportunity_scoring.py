@@ -1,15 +1,12 @@
 """Unit tests for Market Opportunity Discovery scoring, diversity filtering, and product fit."""
 
 from datetime import UTC, datetime
-import pytest
 
 from app.domain.opportunity_scoring import (
     CandidateOpportunity,
     CompetitionClassification,
     MarketValidation,
-    OpportunityScores,
     OpportunityType,
-    ProductFitScore,
     TimingLabel,
     TrendDirection,
     calculate_opportunity_score,

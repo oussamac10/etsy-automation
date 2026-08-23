@@ -11,11 +11,11 @@ Guarantees:
 
 from __future__ import annotations
 
-import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+
 import structlog
 
 from app.application.brand_resolver import resolve_connected_shop_name
@@ -26,19 +26,10 @@ from app.application.unit_of_work import UnitOfWork
 from app.domain.enums import AuditAction
 from app.domain.errors import DomainError, EntityNotFoundError
 from app.domain.etsy_delivery_planner import (
-    EtsyDeliveryFile,
-    EtsyDigitalDeliveryPlanner,
     MAX_ETSY_DIGITAL_FILES_COUNT,
+    EtsyDigitalDeliveryPlanner,
 )
 from app.domain.media_selector import order_listing_mockup_assets
-from app.domain.package_builder import (
-    build_zip_archive,
-    create_print_ready_pdf,
-    generate_checksum_manifest,
-    generate_instructions_text,
-    generate_license_text,
-    optimize_png_deflate,
-)
 from app.domain.production_resolver import (
     filter_active_user_mockups,
     get_production_master_asset,
@@ -96,7 +87,10 @@ async def validate_pre_dispatch(
     if workflow.owner_id != owner_id:
         raise DomainError("Workflow does not belong to the current owner.")
 
-    if workflow.state != RunStatus.READY_FOR_ETSY_DRAFT and workflow.state != RunStatus.ETSY_DRAFT_CREATED:
+    if (
+        workflow.state != RunStatus.READY_FOR_ETSY_DRAFT
+        and workflow.state != RunStatus.ETSY_DRAFT_CREATED
+    ):
         raise DomainError(
             f"Workflow state must be 'READY_FOR_ETSY_DRAFT' (Gate 3 approved) before creating an Etsy draft. "
             f"Current state: '{workflow.state}'."
@@ -105,7 +99,9 @@ async def validate_pre_dispatch(
     # Validate Etsy Connection
     conn = await uow.shop_connections.get_by_user_id(owner_id)
     if conn is None or not conn.is_connected:
-        raise DomainError("No active Etsy shop connection found. Please connect your Etsy shop in Settings.")
+        raise DomainError(
+            "No active Etsy shop connection found. Please connect your Etsy shop in Settings."
+        )
 
     # Validate Listing Draft
     listing = await uow.listing_drafts.get_by_workflow(workflow_id)
@@ -126,12 +122,16 @@ async def validate_pre_dispatch(
 
     # Validate Price
     if listing.price_minor_units is None or listing.price_minor_units <= 0:
-        raise DomainError("Etsy listing price must be configured and greater than zero before dispatch.")
+        raise DomainError(
+            "Etsy listing price must be configured and greater than zero before dispatch."
+        )
 
     # Validate / Resolve Master PNG
     master_asset = await get_production_master_asset(uow, workflow_id)
     if master_asset is None:
-        raise DomainError("Master print-ready PNG asset is missing. Complete asset production before dispatching to Etsy.")
+        raise DomainError(
+            "Master print-ready PNG asset is missing. Complete asset production before dispatching to Etsy."
+        )
 
     # Validate / Resolve Taxonomy Category
     if not listing.taxonomy_id:
@@ -155,7 +155,9 @@ async def validate_pre_dispatch(
         await uow.commit()
 
     if not listing.taxonomy_id:
-        raise DomainError("Could not resolve a valid Etsy seller taxonomy category for digital artwork.")
+        raise DomainError(
+            "Could not resolve a valid Etsy seller taxonomy category for digital artwork."
+        )
 
     # Validate / Build Etsy Delivery Package (without marketing mockups)
     package_service = CustomerPackageService(storage)
@@ -218,7 +220,11 @@ async def execute_etsy_draft_pipeline(
                         shop_id=conn.etsy_shop_id,
                     )
                     matched = next(
-                        (s for s in existing_sections if s.title.strip().lower() == target_title.lower()),
+                        (
+                            s
+                            for s in existing_sections
+                            if s.title.strip().lower() == target_title.lower()
+                        ),
                         None,
                     )
                     if matched and matched.shop_section_id.isdigit():
@@ -232,7 +238,9 @@ async def execute_etsy_draft_pipeline(
                         if created_sec and created_sec.shop_section_id.isdigit():
                             shop_section_id = created_sec.shop_section_id
                 except Exception as exc:
-                    logger.warning("etsy_section_resolution_failed", error=str(exc), title=target_title)
+                    logger.warning(
+                        "etsy_section_resolution_failed", error=str(exc), title=target_title
+                    )
                     shop_section_id = None
         elif isinstance(raw_sec_name, str) and raw_sec_name.strip():
             target_title = raw_sec_name.strip()
@@ -242,7 +250,11 @@ async def execute_etsy_draft_pipeline(
                     shop_id=conn.etsy_shop_id,
                 )
                 matched = next(
-                    (s for s in existing_sections if s.title.strip().lower() == target_title.lower()),
+                    (
+                        s
+                        for s in existing_sections
+                        if s.title.strip().lower() == target_title.lower()
+                    ),
                     None,
                 )
                 if matched and matched.shop_section_id.isdigit():
@@ -265,7 +277,6 @@ async def execute_etsy_draft_pipeline(
                 shop_section_id=shop_section_id,
             )
             await uow.commit()
-
 
         raw_renew = getattr(listing, "should_auto_renew", False)
         should_auto_renew = raw_renew if isinstance(raw_renew, bool) else False
@@ -330,9 +341,7 @@ async def execute_etsy_draft_pipeline(
             )
 
         # Step 2: Upload Preview Images in Deterministic Order (Primary Mockup at Rank 1)
-        await uow.listing_drafts.update_etsy_dispatch_status(
-            listing.id, status="uploading_images"
-        )
+        await uow.listing_drafts.update_etsy_dispatch_status(listing.id, status="uploading_images")
         await uow.commit()
 
         assets = await uow.assets.list_for_workflow(workflow_id)
@@ -340,7 +349,9 @@ async def execute_etsy_draft_pipeline(
         raw_prim = getattr(listing, "primary_mockup_asset_id", None)
         prim_mockup_id = raw_prim if isinstance(raw_prim, uuid.UUID) else None
         if not prim_mockup_id:
-            cover_m = next((m for m in mockups if m.provenance and m.provenance.get("is_cover") is True), None)
+            cover_m = next(
+                (m for m in mockups if m.provenance and m.provenance.get("is_cover") is True), None
+            )
             if cover_m:
                 prim_mockup_id = cover_m.id
                 await uow.listing_drafts.update(listing.id, primary_mockup_asset_id=cover_m.id)
@@ -362,7 +373,11 @@ async def execute_etsy_draft_pipeline(
 
             try:
                 img_bytes = await storage.get(asset.storage_key)
-                filename = f"preview_{rank}.png" if asset.mime_type == "image/png" else f"preview_{rank}.jpg"
+                filename = (
+                    f"preview_{rank}.png"
+                    if asset.mime_type == "image/png"
+                    else f"preview_{rank}.jpg"
+                )
                 img_resp = await etsy_gateway.upload_listing_image(
                     access_token=access_token,
                     shop_id=conn.etsy_shop_id,
@@ -394,9 +409,7 @@ async def execute_etsy_draft_pipeline(
                 raise
 
         # Step 3: Plan & Upload Real Customer Digital Download Files (Up to 5 files, <= 20MB each)
-        await uow.listing_drafts.update_etsy_dispatch_status(
-            listing.id, status="uploading_file"
-        )
+        await uow.listing_drafts.update_etsy_dispatch_status(listing.id, status="uploading_file")
         await uow.commit()
 
         # Resolve dynamic connected Etsy shop name
@@ -460,7 +473,9 @@ async def execute_etsy_draft_pipeline(
             raise DomainError("No digital product files were uploaded to Etsy.")
 
         # Step 4: Update Listing Inventory SKU (if configured)
-        active_sku = sku or (listing.sku if isinstance(getattr(listing, "sku", None), str) else None)
+        active_sku = sku or (
+            listing.sku if isinstance(getattr(listing, "sku", None), str) else None
+        )
         if active_sku:
             try:
                 await etsy_gateway.update_listing_inventory(
@@ -498,7 +513,9 @@ async def execute_etsy_draft_pipeline(
             from app.domain.taxonomy_properties import revalidate_listing_taxonomy_properties
 
             try:
-                available_taxonomy_props = await etsy_gateway.get_taxonomy_properties(taxonomy_id=listing.taxonomy_id)
+                available_taxonomy_props = await etsy_gateway.get_taxonomy_properties(
+                    taxonomy_id=listing.taxonomy_id
+                )
             except Exception:
                 available_taxonomy_props = []
 
@@ -591,7 +608,10 @@ async def execute_etsy_draft_pipeline(
                 "taxonomy_id": listing.taxonomy_id,
                 "taxonomy_path": listing.taxonomy_path,
                 "image_count": len(listing.etsy_image_ids or []),
-                "file_count": len(listing.etsy_file_ids or ([listing.etsy_file_id] if listing.etsy_file_id else [])),
+                "file_count": len(
+                    listing.etsy_file_ids
+                    or ([listing.etsy_file_id] if listing.etsy_file_id else [])
+                ),
                 "etsy_management_url": build_etsy_shop_manager_url(listing_id),
             },
         )
@@ -613,6 +633,7 @@ async def execute_etsy_draft_pipeline(
         # Step 6: Post-Dispatch Automatic Verification
         try:
             from app.application.etsy_verification import verify_etsy_draft_listing
+
             await verify_etsy_draft_listing(
                 workflow_id=workflow_id,
                 owner_id=owner_id,
@@ -696,8 +717,8 @@ async def send_etsy_draft_created_notification(
             f"<b>Listing ID:</b> <code>{listing_id}</code>\n"
             f"<b>State:</b> Draft (Private & Safe)\n\n"
             f"All mockups and digital download files have been attached.\n\n"
-            f"<a href=\"{etsy_edit_url}\">Open in Etsy Shop Manager</a> | "
-            f"<a href=\"{app_url}\">View in Dashboard</a>"
+            f'<a href="{etsy_edit_url}">Open in Etsy Shop Manager</a> | '
+            f'<a href="{app_url}">View in Dashboard</a>'
         )
 
         await send_telegram_notification(
@@ -735,7 +756,7 @@ async def send_etsy_draft_failed_notification(
             f"<b>Etsy Dispatch Failed</b>\n\n"
             f"Draft creation for <b>{safe_title}</b> encountered an error:\n"
             f"<code>{safe_error}</code>\n\n"
-            f"<a href=\"{app_url}\">Review & Retry in Dashboard</a>"
+            f'<a href="{app_url}">Review & Retry in Dashboard</a>'
         )
 
         await send_telegram_notification(
@@ -854,7 +875,9 @@ async def reconcile_etsy_draft(
         if pe.kind == ProviderErrorKind.NOT_FOUND:
             remote_listing = None
         elif pe.kind == ProviderErrorKind.AUTHENTICATION:
-            logger.warning("reconcile_etsy_auth_failed", workflow_id=str(workflow_id), error=str(pe))
+            logger.warning(
+                "reconcile_etsy_auth_failed", workflow_id=str(workflow_id), error=str(pe)
+            )
             return ReconciliationResult(
                 workflow_id=workflow_id,
                 reconciled=False,
@@ -864,7 +887,9 @@ async def reconcile_etsy_draft(
                 detail=f"Etsy authentication revoked: {pe.message}",
             )
         elif pe.is_retryable:
-            logger.warning("reconcile_etsy_transient_error", workflow_id=str(workflow_id), error=str(pe))
+            logger.warning(
+                "reconcile_etsy_transient_error", workflow_id=str(workflow_id), error=str(pe)
+            )
             return ReconciliationResult(
                 workflow_id=workflow_id,
                 reconciled=False,
@@ -874,7 +899,9 @@ async def reconcile_etsy_draft(
                 detail=f"Transient Etsy communication error: {pe.message}",
             )
         else:
-            logger.warning("reconcile_etsy_request_error", workflow_id=str(workflow_id), error=str(pe))
+            logger.warning(
+                "reconcile_etsy_request_error", workflow_id=str(workflow_id), error=str(pe)
+            )
             return ReconciliationResult(
                 workflow_id=workflow_id,
                 reconciled=False,
@@ -901,9 +928,8 @@ async def reconcile_etsy_draft(
         listing.etsy_last_synced_at = now
         if remote_listing.state:
             listing.etsy_state = remote_listing.state
-        if (
-            listing.etsy_dispatch_status != "completed"
-            and (listing.etsy_file_ids or listing.etsy_file_id)
+        if listing.etsy_dispatch_status != "completed" and (
+            listing.etsy_file_ids or listing.etsy_file_id
         ):
             listing.etsy_dispatch_status = "completed"
         await uow.commit()

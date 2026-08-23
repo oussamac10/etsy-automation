@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision: str = "0014_phase_9_listing_fields"
@@ -70,7 +70,9 @@ def upgrade() -> None:
     # 2. Add listing defaults to owner_settings
     op.add_column(
         "owner_settings",
-        sa.Column("default_digital_price_minor", sa.BigInteger(), nullable=False, server_default="499"),
+        sa.Column(
+            "default_digital_price_minor", sa.BigInteger(), nullable=False, server_default="499"
+        ),
     )
     op.add_column(
         "owner_settings",
@@ -82,7 +84,9 @@ def upgrade() -> None:
     )
     op.add_column(
         "owner_settings",
-        sa.Column("default_shop_section_strategy", sa.String(50), nullable=False, server_default="auto"),
+        sa.Column(
+            "default_shop_section_strategy", sa.String(50), nullable=False, server_default="auto"
+        ),
     )
 
     op.create_check_constraint(

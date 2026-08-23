@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any
-import uuid
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.ip_risk import normalize_trademark_phrase
@@ -143,17 +142,23 @@ class SqlTrademarkRepository:
                             else None
                         ),
                         status_code=str(item["status_code"]) if item.get("status_code") else None,
-                        status_text=str(item.get("status_text") or item.get("status", "REGISTERED")),
+                        status_text=str(
+                            item.get("status_text") or item.get("status", "REGISTERED")
+                        ),
                         is_live=bool(item.get("is_live", True)),
                         classes=list(item.get("classes", [])),
-                        goods_services=str(item["goods_services"]) if item.get("goods_services") else None,
+                        goods_services=str(item["goods_services"])
+                        if item.get("goods_services")
+                        else None,
                         owner_name=(
                             str(item.get("owner_name") or item.get("owner"))
                             if (item.get("owner_name") or item.get("owner"))
                             else None
                         ),
                         filing_date=str(item["filing_date"]) if item.get("filing_date") else None,
-                        registration_date=str(item["registration_date"]) if item.get("registration_date") else None,
+                        registration_date=str(item["registration_date"])
+                        if item.get("registration_date")
+                        else None,
                         source_file=str(item["source_file"]) if item.get("source_file") else None,
                         source_updated_at=item.get("source_updated_at"),
                     )
@@ -164,4 +169,3 @@ class SqlTrademarkRepository:
 
         await self._session.flush()
         return {"inserted": inserted, "updated": updated, "failed": failed}
-

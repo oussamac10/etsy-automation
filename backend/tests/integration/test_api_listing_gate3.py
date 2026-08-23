@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+
 import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -210,7 +211,9 @@ class TestListingGate3Api:
         workflow_id = await _create_workflow(client)
         await _seed_workflow_production(session_factory, workflow_id)
 
-        response = await client.post(f"/api/v1/workflows/{workflow_id}/listing/generate-seo?target=all")
+        response = await client.post(
+            f"/api/v1/workflows/{workflow_id}/listing/generate-seo?target=all"
+        )
         assert response.status_code == 200, response.text
         data = response.json()
         assert len(data["title"]) > 0

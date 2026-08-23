@@ -7,21 +7,17 @@ import struct
 import tempfile
 import zipfile
 import zlib
+
 import pytest
 
 from app.domain.errors import DomainError
 from app.domain.etsy_delivery_planner import (
-    EtsyDeliveryFile,
     EtsyDigitalDeliveryPlanner,
-    MAX_ETSY_DIGITAL_FILE_BYTES,
-    MAX_ETSY_DIGITAL_FILES_COUNT,
     validate_png_integrity,
     validate_zip_integrity,
 )
 from app.domain.package_builder import (
     build_zip_archive,
-    create_print_ready_pdf,
-    generate_checksum_manifest,
 )
 
 
@@ -38,12 +34,18 @@ def _create_test_png_bytes(
     ihdr = struct.pack(">I", len(ihdr_data)) + b"IHDR" + ihdr_data + struct.pack(">I", ihdr_crc)
 
     import os
+
     raw_scanlines = b"\x00" + os.urandom(raw_payload_bytes)
 
     # Use level 0 (store only) so raw_payload_bytes doesn't shrink under deflate
     compressed_idat = zlib.compress(raw_scanlines, level=0)
     idat_crc = zlib.crc32(b"IDAT" + compressed_idat)
-    idat = struct.pack(">I", len(compressed_idat)) + b"IDAT" + compressed_idat + struct.pack(">I", idat_crc)
+    idat = (
+        struct.pack(">I", len(compressed_idat))
+        + b"IDAT"
+        + compressed_idat
+        + struct.pack(">I", idat_crc)
+    )
 
     iend_crc = zlib.crc32(b"IEND")
     iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
@@ -100,7 +102,12 @@ class TestPngIntegrityValidation:
 
         corrupt_idat_data = b"NOT_VALID_ZLIB_DATA_AT_ALL_XYZ123"
         idat_crc = zlib.crc32(b"IDAT" + corrupt_idat_data)
-        idat = struct.pack(">I", len(corrupt_idat_data)) + b"IDAT" + corrupt_idat_data + struct.pack(">I", idat_crc)
+        idat = (
+            struct.pack(">I", len(corrupt_idat_data))
+            + b"IDAT"
+            + corrupt_idat_data
+            + struct.pack(">I", idat_crc)
+        )
 
         iend_crc = zlib.crc32(b"IEND")
         iend = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
@@ -127,7 +134,10 @@ class TestEtsyDigitalDeliveryPlanner:
 
         assert len(planned) == 1
         complete_zip = planned[0]
-        assert complete_zip.filename == "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_Digital_Download.zip"
+        assert (
+            complete_zip.filename
+            == "Autumn_Crafts_Studio_Cozy_Fall_Book_Lover_PNG_Digital_Download.zip"
+        )
         assert complete_zip.mime_type == "application/zip"
         assert len(complete_zip.content) <= 20 * 1024 * 1024
 
@@ -272,6 +282,9 @@ class TestEtsyDigitalDeliveryPlanner:
 
         assert len(planned) > 0
         for item in planned:
-            assert 3 <= len(item.filename) <= 70, f"Filename '{item.filename}' length {len(item.filename)} violates Etsy 3-70 constraint"
-            assert re.match(r"^[a-zA-Z0-9_.-]+$", item.filename), f"Filename '{item.filename}' contains invalid Etsy chars"
-
+            assert 3 <= len(item.filename) <= 70, (
+                f"Filename '{item.filename}' length {len(item.filename)} violates Etsy 3-70 constraint"
+            )
+            assert re.match(r"^[a-zA-Z0-9_.-]+$", item.filename), (
+                f"Filename '{item.filename}' contains invalid Etsy chars"
+            )

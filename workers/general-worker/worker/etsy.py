@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+
 import httpx
 import structlog
 
@@ -66,7 +67,9 @@ async def run_etsy_draft_pipeline_async(workflow_id: uuid.UUID) -> None:
                     else:
                         cred = await uow.credentials.get(owner_id, ProviderName.TELEGRAM)
                         if cred:
-                            bot_token = cipher.decrypt(cred.ciphertext, key_version=cred.key_version)
+                            bot_token = cipher.decrypt(
+                                cred.ciphertext, key_version=cred.key_version
+                            )
 
                     tg_gateway: TelegramGateway
                     if bot_token:
@@ -99,7 +102,9 @@ async def run_etsy_draft_pipeline_async(workflow_id: uuid.UUID) -> None:
             logger.info("etsy_draft_worker_pipeline_succeeded", workflow_id=str(workflow_id))
 
     except Exception as exc:
-        logger.exception("etsy_draft_worker_pipeline_failed", workflow_id=str(workflow_id), error=str(exc))
+        logger.exception(
+            "etsy_draft_worker_pipeline_failed", workflow_id=str(workflow_id), error=str(exc)
+        )
         raise exc
     finally:
         await engine.dispose()

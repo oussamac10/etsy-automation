@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -105,7 +104,9 @@ def test_sanitize_brand_slug():
 def test_sanitize_product_title():
     """Product titles are concise and free of punctuation."""
     assert (
-        sanitize_product_title("Cozy Fall Book Lover PNG Digital Download, Bookish Autumn Sublimation Design")
+        sanitize_product_title(
+            "Cozy Fall Book Lover PNG Digital Download, Bookish Autumn Sublimation Design"
+        )
         == "Cozy_Fall_Book_Lover_PNG_Digital_Downloa"
     )
     assert sanitize_product_title("Vintage Mushroom - DTG Clipart | Cute Art") == "Vintage_Mushroom"

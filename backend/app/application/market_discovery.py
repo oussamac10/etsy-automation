@@ -19,17 +19,12 @@ from app.domain.opportunity_scoring import (
     CandidateOpportunity,
     CompetitionClassification,
     MarketValidation,
-    OpportunityScores,
-    OpportunityType,
-    ProductFitScore,
-    TimingLabel,
     TrendDirection,
     calculate_opportunity_score,
     calculate_product_fit_scores,
     calculate_seasonal_timing,
     filter_and_diversify_opportunities,
 )
-from app.domain.workflow import RiskLevel
 from app.ports.providers import (
     ResearchProvider,
     SearchQuery,
@@ -43,7 +38,10 @@ logger = logging.getLogger("app.application.market_discovery")
 
 class CandidatePromptSchema(BaseModel):
     positive_prompt: str = Field(description="Visual art prompt, transparent background, isolated")
-    negative_prompt: str = Field(default="background, scene, photo, realistic human, watermark", description="Negative prompt")
+    negative_prompt: str = Field(
+        default="background, scene, photo, realistic human, watermark",
+        description="Negative prompt",
+    )
     typography_instructions: str | None = Field(default=None)
     exact_slogan: str | None = Field(default=None)
 
@@ -233,8 +231,14 @@ class MarketOpportunityDiscoveryService:
         try:
             confidence = float(raw_conf)
         except (ValueError, TypeError):
-            confidence = 0.9 if str(raw_conf).lower() == "high" else (0.7 if str(raw_conf).lower() == "medium" else 0.5)
-        proven_observations = payload.get("proven_market_observations", []) if isinstance(payload, dict) else []
+            confidence = (
+                0.9
+                if str(raw_conf).lower() == "high"
+                else (0.7 if str(raw_conf).lower() == "medium" else 0.5)
+            )
+        proven_observations = (
+            payload.get("proven_market_observations", []) if isinstance(payload, dict) else []
+        )
         raw_candidates = payload.get("candidates", []) if isinstance(payload, dict) else []
 
         # If candidates is empty due to parsing, attempt to regex-extract individual candidate objects
@@ -250,37 +254,55 @@ class MarketOpportunityDiscoveryService:
 
         if not raw_candidates:
             clean_pref = [n for n in (preferred_niche or []) if "Trend Discovery" not in n]
-            fallback_niches = clean_pref + ["Botanical Nature", "Cozy Coffee & Books", "Retro Vintage Mascots", "Healthcare & Teachers", "Outdoor Adventure"]
+            fallback_niches = clean_pref + [
+                "Botanical Nature",
+                "Cozy Coffee & Books",
+                "Retro Vintage Mascots",
+                "Healthcare & Teachers",
+                "Outdoor Adventure",
+            ]
             for f_idx, f_niche in enumerate(fallback_niches[:4]):
-                raw_candidates.append({
-                    "id": f"cand-fb-{f_idx + 1}",
-                    "title": f"Aesthetic {f_niche} Design",
-                    "concept_summary": f"Clean aesthetic {f_niche} illustration designed for digital download merchandise.",
-                    "target_buyer": f"{f_niche} Enthusiasts & Gift Shoppers",
-                    "niche": f_niche,
-                    "season_or_event": occasions[0] if occasions else (seasons[0] if seasons else "Evergreen"),
-                    "visual_direction": f"Isolated central {f_niche} graphic on transparent background",
-                    "design_style": desired_styles[0] if desired_styles else "Modern Illustration",
-                    "slogan": None,
-                    "color_palette": ["#2D3142", "#4F5D75", "#BFC0C0"],
-                    "keyword_cluster": [f"{f_niche.lower()} png", f"{f_niche.lower()} clipart", "digital download sublimation"],
-                    "why_it_could_sell": "Consistent demand across seasonal and gift merchandise with clear buyer intent.",
-                    "evidence_summary": ["Strong search volume for transparent digital downloads"],
-                    "demand_signal": 85 - (f_idx * 2),
-                    "competition_signal": 80 - (f_idx * 2),
-                    "trend_signal": 82,
-                    "buyer_intent_signal": 88,
-                    "competition_level": "Medium",
-                    "trend_direction": "Rising",
-                    "market_validation": "Moderate",
-                    "ip_risk": "Low",
-                    "prompt": {
-                        "positive_prompt": f"Artistic {f_niche} illustration, isolated central artwork on transparent background, clean uncropped edges, high resolution",
-                        "negative_prompt": "background, scene, photo, realistic human, watermark",
-                        "typography_instructions": None,
-                        "exact_slogan": None,
-                    },
-                })
+                raw_candidates.append(
+                    {
+                        "id": f"cand-fb-{f_idx + 1}",
+                        "title": f"Aesthetic {f_niche} Design",
+                        "concept_summary": f"Clean aesthetic {f_niche} illustration designed for digital download merchandise.",
+                        "target_buyer": f"{f_niche} Enthusiasts & Gift Shoppers",
+                        "niche": f_niche,
+                        "season_or_event": occasions[0]
+                        if occasions
+                        else (seasons[0] if seasons else "Evergreen"),
+                        "visual_direction": f"Isolated central {f_niche} graphic on transparent background",
+                        "design_style": desired_styles[0]
+                        if desired_styles
+                        else "Modern Illustration",
+                        "slogan": None,
+                        "color_palette": ["#2D3142", "#4F5D75", "#BFC0C0"],
+                        "keyword_cluster": [
+                            f"{f_niche.lower()} png",
+                            f"{f_niche.lower()} clipart",
+                            "digital download sublimation",
+                        ],
+                        "why_it_could_sell": "Consistent demand across seasonal and gift merchandise with clear buyer intent.",
+                        "evidence_summary": [
+                            "Strong search volume for transparent digital downloads"
+                        ],
+                        "demand_signal": 85 - (f_idx * 2),
+                        "competition_signal": 80 - (f_idx * 2),
+                        "trend_signal": 82,
+                        "buyer_intent_signal": 88,
+                        "competition_level": "Medium",
+                        "trend_direction": "Rising",
+                        "market_validation": "Moderate",
+                        "ip_risk": "Low",
+                        "prompt": {
+                            "positive_prompt": f"Artistic {f_niche} illustration, isolated central artwork on transparent background, clean uncropped edges, high resolution",
+                            "negative_prompt": "background, scene, photo, realistic human, watermark",
+                            "typography_instructions": None,
+                            "exact_slogan": None,
+                        },
+                    }
+                )
 
         # 3. Process, Score, and Evaluate each candidate deterministically
         candidate_objects: list[CandidateOpportunity] = []
@@ -292,12 +314,16 @@ class MarketOpportunityDiscoveryService:
             buyer = str(raw.get("target_buyer", "General Gift Buyers"))
             niche = str(raw.get("niche", "General"))
             season_event = str(raw.get("season_or_event", "Evergreen"))
-            visual_dir = str(raw.get("visual_direction", "Clean illustration on transparent background"))
+            visual_dir = str(
+                raw.get("visual_direction", "Clean illustration on transparent background")
+            )
             style = str(raw.get("design_style", "Modern Illustration"))
             slogan = raw.get("slogan")
             palette = list(raw.get("color_palette", []))
             keywords = list(raw.get("keyword_cluster", []))
-            why_sell = str(raw.get("why_it_could_sell", "Proven buyer interest and room for differentiation."))
+            why_sell = str(
+                raw.get("why_it_could_sell", "Proven buyer interest and room for differentiation.")
+            )
             evidence_sum = list(raw.get("evidence_summary", []))
 
             demand_sig = int(raw.get("demand_signal", 80))
@@ -322,9 +348,15 @@ class MarketOpportunityDiscoveryService:
             )
             # Find average product fit for the requested intended products
             matching_fits = [
-                pf.fit for pf in product_fits if pf.product.lower() in [p.lower() for p in intended_products]
+                pf.fit
+                for pf in product_fits
+                if pf.product.lower() in [p.lower() for p in intended_products]
             ]
-            product_fit_score = int(sum(matching_fits) / max(1, len(matching_fits))) if matching_fits else product_fits[0].fit
+            product_fit_score = (
+                int(sum(matching_fits) / max(1, len(matching_fits)))
+                if matching_fits
+                else product_fits[0].fit
+            )
 
             ip_risk_str = str(raw.get("ip_risk", "Low")).title()
 
@@ -359,8 +391,17 @@ class MarketOpportunityDiscoveryService:
                     break
 
             prompt_dict = raw.get("prompt", {})
-            pos_prompt = str(prompt_dict.get("positive_prompt", f"{visual_dir}, isolated central artwork on a transparent background, clean uncropped edges"))
-            neg_prompt = str(prompt_dict.get("negative_prompt", "background, scene, photo, watermark, signature, cropped"))
+            pos_prompt = str(
+                prompt_dict.get(
+                    "positive_prompt",
+                    f"{visual_dir}, isolated central artwork on a transparent background, clean uncropped edges",
+                )
+            )
+            neg_prompt = str(
+                prompt_dict.get(
+                    "negative_prompt", "background, scene, photo, watermark, signature, cropped"
+                )
+            )
             typo_instr = prompt_dict.get("typography_instructions")
 
             cand = CandidateOpportunity(
@@ -416,7 +457,7 @@ class MarketOpportunityDiscoveryService:
             b2 = set(c2.target_buyer.lower().split())
             n1 = set(c1.niche.lower().split())
             n2 = set(c2.niche.lower().split())
-            return (len(b1.intersection(b2)) > 0 and len(n1.intersection(n2)) > 0)
+            return len(b1.intersection(b2)) > 0 and len(n1.intersection(n2)) > 0
 
         active_ids = {c.id for c in current_active_concepts}
 
