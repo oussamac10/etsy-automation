@@ -258,7 +258,7 @@ function handleKeyDown(e: KeyboardEvent) {
       <div class="space-y-1.5">
         <div class="flex items-center justify-between text-xs text-muted-foreground px-0.5">
           <span class="font-medium text-foreground text-[11px] uppercase tracking-wider">Active Campaign Tags</span>
-          <span class="font-mono text-[11px]">
+          <span class="font-mono tabular-nums text-[11px]">
             {{ tagCount }} of {{ MAX_ETSY_TAGS }} slots filled
           </span>
         </div>
@@ -269,7 +269,7 @@ function handleKeyDown(e: KeyboardEvent) {
             :key="tag + idx"
             class="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-border text-foreground shadow-2xs hover:border-slate-300 transition-all touch-manipulation animate-in fade-in duration-150"
           >
-            <span class="font-mono text-[10px] text-muted-foreground">{{ idx + 1 }}.</span>
+            <span class="font-mono tabular-nums text-[10px] text-muted-foreground">{{ idx + 1 }}.</span>
             <span>{{ tag }}</span>
             <button
               type="button"
@@ -304,7 +304,7 @@ function handleKeyDown(e: KeyboardEvent) {
             />
             <span
               v-if="newTagInput.trim()"
-              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono tabular-nums"
               :class="isNewTagTooLong ? 'text-destructive font-bold' : 'text-muted-foreground'"
             >
               {{ newTagLength }}/{{ MAX_TAG_LENGTH }}

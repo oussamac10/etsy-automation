@@ -708,12 +708,12 @@ const subTabs = computed(() => [
       <div v-if="isGate2Approved && listingDraft" class="flex flex-wrap items-center gap-2">
         <Badge variant="outline" class="text-xs py-1 px-2.5 gap-1.5 font-normal bg-muted/40 shrink-0">
           <Icon name="lucide:tags" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>Tags: {{ localTags.length }}/13</span>
+          <span class="tabular-nums">Tags: {{ localTags.length }}/13</span>
         </Badge>
 
         <Badge variant="outline" class="text-xs py-1 px-2.5 gap-1.5 font-normal bg-muted/40 shrink-0">
           <Icon name="lucide:tag" class="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-          <span>{{ formattedPriceDisplay }}</span>
+          <span class="tabular-nums">{{ formattedPriceDisplay }}</span>
         </Badge>
 
         <Badge
@@ -721,7 +721,7 @@ const subTabs = computed(() => [
           class="text-xs py-1 px-2.5 gap-1.5 font-medium shrink-0"
         >
           <Icon :name="canApprove ? 'lucide:check-circle-2' : 'lucide:alert-circle'" class="size-3.5" :class="canApprove ? 'text-emerald-500' : 'text-amber-500'" aria-hidden="true" />
-          <span>Readiness: {{ totalPassedChecks }}/{{ totalRequiredChecks }}</span>
+          <span class="tabular-nums">Readiness: {{ totalPassedChecks }}/{{ totalRequiredChecks }}</span>
         </Badge>
       </div>
     </div>

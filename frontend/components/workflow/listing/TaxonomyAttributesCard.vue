@@ -353,7 +353,7 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
           <span>Category Attributes</span>
           <Badge
             :variant="totalSelectedCount > 0 ? 'success' : 'secondary'"
-            class="text-[9px] sm:text-[10px] font-mono font-medium py-0 px-1.5"
+            class="text-[9px] sm:text-[10px] font-mono tabular-nums font-medium py-0 px-1.5"
           >
             <span v-if="totalSelectedCount > 0" class="size-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" aria-hidden="true" />
             {{ totalSelectedCount }} selected
@@ -418,40 +418,58 @@ function getFilteredComboboxValues(prop: TaxonomyProperty) {
 
     <CardContent class="p-3 sm:p-4 pt-0 space-y-3">
       <!-- Info Tooltip Banner -->
-      <div v-if="showInfoTooltip" class="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-foreground space-y-1">
-        <p class="font-medium text-foreground">What are Category Attributes?</p>
-        <p class="text-muted-foreground leading-relaxed text-[11px]">
-          Etsy taxonomy attributes allow shoppers to filter search results by specific dimensions like Materials, Subject, Aspect Ratio, Room, Orientation, and Framing.
-        </p>
-      </div>
-
-      <!-- Warning Banner for Mismatched Required Attributes -->
-      <div
-        v-if="fitness?.has_mismatched_required_attributes || fitness?.blocking_mismatch || (fitness?.warnings && fitness.warnings.length > 0)"
-        class="p-2.5 sm:p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
-        data-testid="category-attribute-mismatch-warning"
+      <transition
+        enter-active-class="transition-all duration-200 ease-out"
+        enter-from-class="opacity-0 -translate-y-1"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-all duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-1"
       >
-        <div class="space-y-0.5 min-w-0">
-          <p class="font-semibold flex items-center gap-1.5 text-foreground text-xs">
-            <Icon name="lucide:alert-triangle" class="size-3.5 shrink-0 text-amber-500" aria-hidden="true" />
-            <span>Category mismatch</span>
-          </p>
-          <p class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
-            {{ fitness?.mismatched_required_reason || fitness?.warnings?.[0] || 'Required Etsy attributes for this category do not match this campaign\'s intended use.' }}
+        <div v-if="showInfoTooltip" class="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-foreground space-y-1">
+          <p class="font-medium text-foreground">What are Category Attributes?</p>
+          <p class="text-muted-foreground leading-relaxed text-[11px]">
+            Etsy taxonomy attributes allow shoppers to filter search results by specific dimensions like Materials, Subject, Aspect Ratio, Room, Orientation, and Framing.
           </p>
         </div>
+      </transition>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          class="h-7 text-xs shrink-0 cursor-pointer self-start sm:self-auto bg-background text-foreground border-border hover:bg-muted px-2.5"
-          @click="emit('reviewCategory')"
+      <!-- Warning Banner for Mismatched Required Attributes -->
+      <transition
+        enter-active-class="transition-all duration-200 ease-out"
+        enter-from-class="opacity-0 -translate-y-1"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-all duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-1"
+      >
+        <div
+          v-if="fitness?.has_mismatched_required_attributes || fitness?.blocking_mismatch || (fitness?.warnings && fitness.warnings.length > 0)"
+          class="p-2.5 sm:p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+          data-testid="category-attribute-mismatch-warning"
         >
-          <Icon name="lucide:folder-tree" class="size-3 mr-1 text-primary" aria-hidden="true" />
-          <span>Review Etsy Category</span>
-        </Button>
-      </div>
+          <div class="space-y-0.5 min-w-0">
+            <p class="font-semibold flex items-center gap-1.5 text-foreground text-xs">
+              <Icon name="lucide:alert-triangle" class="size-3.5 shrink-0 text-amber-500" aria-hidden="true" />
+              <span>Category mismatch</span>
+            </p>
+            <p class="text-[11px] text-foreground/80 dark:text-foreground/90 leading-relaxed">
+              {{ fitness?.mismatched_required_reason || fitness?.warnings?.[0] || 'Required Etsy attributes for this category do not match this campaign\'s intended use.' }}
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            class="h-7 text-xs shrink-0 cursor-pointer self-start sm:self-auto bg-background text-foreground border-border hover:bg-muted px-2.5"
+            @click="emit('reviewCategory')"
+          >
+            <Icon name="lucide:folder-tree" class="size-3 mr-1 text-primary" aria-hidden="true" />
+            <span>Review Etsy Category</span>
+          </Button>
+        </div>
+      </transition>
 
       <!-- Loading State -->
       <div v-if="isLoading" class="py-4 flex flex-col items-center justify-center gap-1.5 text-muted-foreground text-xs">

@@ -571,7 +571,7 @@ function confirmHighRiskApproval() {
                   <Icon name="lucide:gauge" class="size-4 text-primary" aria-hidden="true" />
                   <div class="text-right leading-none">
                     <span class="text-[10px] uppercase block text-muted-foreground font-bold">Opportunity</span>
-                    <span class="text-sm font-extrabold font-mono text-primary">{{ getOpportunityScore(concept) }}/100</span>
+                    <span class="text-sm font-extrabold font-mono tabular-nums text-primary">{{ getOpportunityScore(concept) }}/100</span>
                   </div>
                 </div>
               </div>
@@ -597,7 +597,7 @@ function confirmHighRiskApproval() {
               </div>
               <div class="flex items-center gap-1.5 p-1.5 rounded-lg bg-secondary/50 border border-border/80">
                 <Icon name="lucide:zap" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
-                <span class="truncate text-muted-foreground">Confidence: <strong class="text-foreground">{{ getConfidence(concept) }}</strong></span>
+                <span class="truncate text-muted-foreground">Confidence: <strong class="text-foreground tabular-nums">{{ getConfidence(concept) }}</strong></span>
               </div>
             </div>
           </CardHeader>
@@ -613,78 +613,75 @@ function confirmHighRiskApproval() {
             </div>
 
             <!-- Target Buyer & Market Alignment -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div class="space-y-1">
-                <span class="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Target Buyer Persona</span>
-                <p class="text-[11px] font-medium text-foreground bg-secondary/30 p-2 rounded-lg border border-border/60">
-                  {{ getTargetBuyer(concept) }}
-                </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <div class="p-2.5 rounded-lg bg-secondary/40 border border-border space-y-0.5">
+                <span class="text-muted-foreground flex items-center gap-1 font-medium">
+                  <Icon name="lucide:users" class="size-3 text-primary" aria-hidden="true" />
+                  <span>Target Buyer:</span>
+                </span>
+                <p class="font-semibold text-foreground">{{ getTargetBuyer(concept) }}</p>
               </div>
-              <div class="space-y-1">
-                <span class="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Niche / Category</span>
-                <p class="text-[11px] font-medium text-foreground bg-secondary/30 p-2 rounded-lg border border-border/60">
-                  {{ getNiche(concept) }}
-                </p>
+              <div class="p-2.5 rounded-lg bg-secondary/40 border border-border space-y-0.5">
+                <span class="text-muted-foreground flex items-center gap-1 font-medium">
+                  <Icon name="lucide:target" class="size-3 text-primary" aria-hidden="true" />
+                  <span>Niche / Angle:</span>
+                </span>
+                <p class="font-semibold text-foreground">{{ getNiche(concept) }}</p>
               </div>
             </div>
 
-            <!-- Product Fit Match Badges -->
-            <div class="space-y-1.5">
-              <span class="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">Recommended Product Types</span>
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span
-                  v-for="prod in getRecommendedProducts(concept)"
-                  :key="prod.product"
-                  class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-secondary text-secondary-foreground border border-border inline-flex items-center gap-1"
-                >
-                  <Icon name="lucide:package" class="size-3 text-muted-foreground" aria-hidden="true" />
-                  <span class="capitalize">{{ prod.product }}</span>
-                  <span class="text-[10px] font-mono text-muted-foreground font-bold">({{ prod.fit }}%)</span>
+            <!-- Recommended Products Suitability Badges -->
+            <div class="space-y-1.5 pt-1 border-t border-border/80">
+              <div class="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span class="font-medium flex items-center gap-1">
+                  <Icon name="lucide:layers" class="size-3 text-primary" aria-hidden="true" />
+                  <span>Optimal Digital Products (Product-Market Fit):</span>
                 </span>
               </div>
+              <div class="flex flex-wrap gap-1.5">
+                <Badge
+                  v-for="p in getRecommendedProducts(concept)"
+                  :key="p.product"
+                  variant="outline"
+                  class="text-[10px] px-2 py-0.5 rounded-md bg-secondary/60 text-foreground border-border flex items-center gap-1 font-medium"
+                >
+                  <Icon name="lucide:package" class="size-3 text-primary" aria-hidden="true" />
+                  <span>{{ formatProductName(p.product) }}</span>
+                  <span class="text-muted-foreground font-mono tabular-nums">({{ Math.round(p.fit) }}%)</span>
+                </Badge>
+              </div>
             </div>
 
-            <!-- High-Intent Search Keywords -->
-            <div v-if="getKeywordCluster(concept).length > 0" class="space-y-1.5">
-              <span class="font-bold text-muted-foreground uppercase text-[10px] tracking-wider">High-Intent Keywords</span>
-              <div class="flex items-center gap-1.5 flex-wrap">
+            <!-- High-Intent Etsy Keyword Cluster -->
+            <div v-if="getKeywordCluster(concept).length > 0" class="space-y-1.5 pt-1 border-t border-border/80">
+              <div class="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span class="font-medium flex items-center gap-1">
+                  <Icon name="lucide:search" class="size-3 text-primary" aria-hidden="true" />
+                  <span>High-Intent Etsy Search Keywords:</span>
+                </span>
+              </div>
+              <div class="flex flex-wrap gap-1">
                 <span
                   v-for="kw in getKeywordCluster(concept)"
                   :key="kw"
-                  class="px-2 py-0.5 rounded-full text-[11px] font-mono bg-primary/5 text-primary border border-primary/20 inline-flex items-center gap-1"
+                  class="px-2 py-0.5 rounded text-[10px] font-mono bg-muted/60 text-foreground border border-border"
                 >
-                  <Icon name="lucide:tag" class="size-2.5" aria-hidden="true" />
-                  <span>{{ kw }}</span>
+                  "{{ kw }}"
                 </span>
               </div>
             </div>
 
-            <!-- Integrated USPTO Trademark & IP Screening Banner -->
-            <div class="p-3 rounded-lg border text-xs" :class="getTrademarkBannerClass(concept)">
-              <div class="flex items-start justify-between gap-2">
+            <!-- Trademark Clearance & Safeguard Strip -->
+            <div
+              class="p-3 rounded-lg border text-xs"
+              :class="getTrademarkBannerClass(concept)"
+            >
+              <div class="flex items-center justify-between gap-2 flex-wrap">
                 <div class="flex items-center gap-2">
-                  <Icon
-                    :name="
-                      concept.risk_level?.toUpperCase() === 'LOW'
-                        ? 'lucide:shield-check'
-                        : concept.risk_level?.toUpperCase() === 'HIGH'
-                          ? 'lucide:shield-alert'
-                          : 'lucide:shield'
-                    "
-                    class="size-4 shrink-0"
-                    :class="
-                      concept.risk_level?.toUpperCase() === 'LOW'
-                        ? 'text-emerald-600'
-                        : concept.risk_level?.toUpperCase() === 'HIGH'
-                          ? 'text-red-600'
-                          : 'text-amber-500'
-                    "
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <span class="font-bold">USPTO Screening: </span>
-                    <span>{{ concept.risk_note || 'Passed preliminary screen.' }}</span>
-                  </div>
+                  <Badge variant="outline" class="text-[10px] uppercase font-bold tracking-wider">
+                    {{ concept.risk_level || 'LOW' }} RISK
+                  </Badge>
+                  <span class="text-[11px] font-medium opacity-90">{{ concept.risk_note || 'Passed preliminary USPTO check.' }}</span>
                 </div>
 
                 <Button
@@ -694,29 +691,38 @@ function confirmHighRiskApproval() {
                   class="h-6 px-2 text-[10px] font-semibold underline shrink-0 cursor-pointer"
                   @click="toggleFindings(concept.id)"
                 >
-                  <span>{{ expandedFindingsMap[concept.id] ? 'Hide' : 'View' }} {{ getMatches(concept).length }} Findings</span>
+                  <span class="tabular-nums">{{ expandedFindingsMap[concept.id] ? 'Hide' : 'View' }} {{ getMatches(concept).length }} Findings</span>
                 </Button>
               </div>
 
               <!-- Expanded Trademark Findings -->
-              <div
-                v-if="expandedFindingsMap[concept.id] && getMatches(concept).length > 0"
-                class="mt-3 pt-3 border-t border-current/20 space-y-2"
+              <transition
+                enter-active-class="transition-all duration-200 ease-out"
+                enter-from-class="opacity-0 -translate-y-1"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition-all duration-150 ease-in"
+                leave-from-class="opacity-100 translate-y-0"
+                leave-to-class="opacity-0 -translate-y-1"
               >
                 <div
-                  v-for="m in getMatches(concept)"
-                  :key="m.serial_number || m.mark_text"
-                  class="p-2 rounded bg-black/5 dark:bg-white/5 space-y-1 text-[11px]"
+                  v-if="expandedFindingsMap[concept.id] && getMatches(concept).length > 0"
+                  class="mt-3 pt-3 border-t border-current/20 space-y-2"
                 >
-                  <div class="flex items-center justify-between">
-                    <span class="font-bold font-mono">"{{ m.mark_text }}"</span>
-                    <Badge :variant="m.is_live ? 'destructive' : 'secondary'" class="text-[9px] uppercase">
-                      {{ m.is_live ? 'Live Registration' : 'Dead Mark' }}
-                    </Badge>
+                  <div
+                    v-for="m in getMatches(concept)"
+                    :key="m.serial_number || m.mark_text"
+                    class="p-2 rounded bg-black/5 dark:bg-white/5 space-y-1 text-[11px]"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span class="font-bold font-mono">"{{ m.mark_text }}"</span>
+                      <Badge :variant="m.is_live ? 'destructive' : 'secondary'" class="text-[9px] uppercase">
+                        {{ m.is_live ? 'Live Registration' : 'Dead Mark' }}
+                      </Badge>
+                    </div>
+                    <p class="text-[10px] opacity-80">{{ m.goods_services }}</p>
                   </div>
-                  <p class="text-[10px] opacity-80">{{ m.goods_services }}</p>
                 </div>
-              </div>
+              </transition>
             </div>
 
             <!-- Expandable Prompt Direction Details -->
@@ -733,14 +739,23 @@ function confirmHighRiskApproval() {
                   <Icon :name="expandedPromptMap[concept.id] ? 'lucide:chevron-up' : 'lucide:chevron-down'" class="size-3.5" aria-hidden="true" />
                 </Button>
               </div>
-              <div v-if="expandedPromptMap[concept.id]" class="pt-2 border-t border-border space-y-1.5 font-mono text-[11px]">
-                <p><span class="font-bold text-muted-foreground">Positive:</span> {{ concept.prompts[concept.prompts.length - 1]?.positive_prompt }}</p>
-                <p><span class="font-bold text-muted-foreground">Negative:</span> {{ concept.prompts[concept.prompts.length - 1]?.negative_prompt }}</p>
-                <p v-if="concept.prompts[concept.prompts.length - 1]?.exact_slogan">
-                  <span class="font-bold text-muted-foreground">Typography:</span>
-                  "{{ concept.prompts[concept.prompts.length - 1]?.exact_slogan }}"
-                </p>
-              </div>
+              <transition
+                enter-active-class="transition-all duration-200 ease-out"
+                enter-from-class="opacity-0 -translate-y-1"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition-all duration-150 ease-in"
+                leave-from-class="opacity-100 translate-y-0"
+                leave-to-class="opacity-0 -translate-y-1"
+              >
+                <div v-if="expandedPromptMap[concept.id]" class="pt-2 border-t border-border space-y-1.5 font-mono text-[11px]">
+                  <p><span class="font-bold text-muted-foreground">Positive:</span> {{ concept.prompts[concept.prompts.length - 1]?.positive_prompt }}</p>
+                  <p><span class="font-bold text-muted-foreground">Negative:</span> {{ concept.prompts[concept.prompts.length - 1]?.negative_prompt }}</p>
+                  <p v-if="concept.prompts[concept.prompts.length - 1]?.exact_slogan">
+                    <span class="font-bold text-muted-foreground">Typography:</span>
+                    "{{ concept.prompts[concept.prompts.length - 1]?.exact_slogan }}"
+                  </p>
+                </div>
+              </transition>
             </div>
           </CardContent>
 

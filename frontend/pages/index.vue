@@ -937,7 +937,7 @@ onUnmounted(() => {
                       </span>
                     </div>
 
-                    <span v-if="stageProgress(wf.state)[0] > 0" class="text-[11px] font-mono text-muted-foreground">
+                    <span v-if="stageProgress(wf.state)[0] > 0" class="text-[11px] font-mono tabular-nums text-muted-foreground">
                       Step {{ stageProgress(wf.state)[0] }}/{{ stageProgress(wf.state)[1] }}
                     </span>
                   </div>
