@@ -117,14 +117,14 @@ onBeforeUnmount(() => {
   <div ref="containerRef" class="relative w-full text-xs">
     <!-- Trigger Button / Box -->
     <div
-      class="min-h-9 w-full rounded-lg border border-border bg-white px-2 py-1.5 shadow-2xs transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 flex flex-wrap items-center gap-1.5 cursor-pointer"
+      class="min-h-9 w-full rounded-lg border border-border bg-card px-2 py-1.5 shadow-2xs transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 flex flex-wrap items-center gap-1.5 cursor-pointer"
       @click="isOpen = true"
     >
       <!-- Selected tags -->
       <span
         v-for="item in modelValue"
         :key="item"
-        class="inline-flex items-center gap-1.5 rounded-md bg-secondary border border-border px-2 py-0.5 text-[11px] font-medium text-foreground shadow-3xs hover:bg-slate-200 transition-colors"
+        class="inline-flex items-center gap-1.5 rounded-md bg-secondary border border-border px-2 py-0.5 text-[11px] font-medium text-foreground shadow-3xs hover:bg-secondary/80 transition-colors"
       >
         <Icon :name="getProductInfo(item).icon" class="size-3 text-muted-foreground shrink-0" aria-hidden="true" />
         <span>{{ getProductInfo(item).label }}</span>
@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="isOpen"
-        class="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-white p-1.5 shadow-lg space-y-0.5 text-foreground"
+        class="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-card p-1.5 shadow-lg space-y-0.5 text-foreground"
       >
         <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           Catalog Products

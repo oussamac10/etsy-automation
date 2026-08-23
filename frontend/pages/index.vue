@@ -520,7 +520,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Campaign Creation Card -->
-      <Card v-if="showCreateForm" class="shadow-lg border-border bg-gradient-to-b from-white to-slate-50/50">
+      <Card v-if="showCreateForm" class="shadow-lg border-border bg-card">
         <CardHeader class="pb-4">
           <div class="flex items-center gap-2.5">
             <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-primary border border-border">

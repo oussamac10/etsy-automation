@@ -219,7 +219,7 @@ onBeforeUnmount(() => {
       <span
         v-for="item in (Array.isArray(modelValue) ? modelValue : [])"
         :key="item"
-        class="inline-flex items-center gap-1.5 rounded-md bg-secondary border border-border px-2 py-0.5 text-[11px] font-medium text-foreground shadow-3xs hover:bg-slate-200 transition-colors"
+        class="inline-flex items-center gap-1.5 rounded-md bg-secondary border border-border px-2 py-0.5 text-[11px] font-medium text-foreground shadow-3xs hover:bg-secondary/80 transition-colors"
       >
         <Icon
           v-if="isIconifyName(getOptionInfo(item).icon)"

@@ -337,7 +337,7 @@ function setAngle(deg: number): void {
           :class="[
             (currentZone.blend_mode || props.blendMode) === opt.value
               ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
-              : 'bg-white border-border/80 hover:border-slate-300 hover:bg-slate-50/50'
+              : 'bg-card border-border hover:border-border hover:bg-secondary/60'
           ]"
           @click="emit('update:blendMode', opt.value)"
         >
@@ -371,8 +371,8 @@ function setAngle(deg: number): void {
       </div>
 
       <!-- Active Mode Detailed Explainer Banner -->
-      <div class="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px] text-slate-700 space-y-1">
-        <div class="font-bold flex items-center gap-1 text-slate-900">
+      <div class="p-2.5 bg-secondary/40 border border-border rounded-xl text-[11px] text-secondary-foreground space-y-1">
+        <div class="font-bold flex items-center gap-1 text-foreground">
           <Icon :name="activeBlendInfo.iconName" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
           <span>{{ activeBlendInfo.label }}</span>
         </div>
@@ -387,7 +387,7 @@ function setAngle(deg: number): void {
         :class="[
           isCover
             ? 'bg-emerald-500/10 border-emerald-500/30 ring-1 ring-emerald-500/30 shadow-2xs'
-            : 'bg-white border-border hover:border-slate-300 hover:bg-slate-50/60'
+            : 'bg-card border-border hover:border-border hover:bg-secondary/60'
         ]"
         @click="emit('update:isCover', !isCover)"
       >
@@ -440,7 +440,7 @@ function setAngle(deg: number): void {
         :class="[
           saveToLibrary
             ? 'bg-primary/5 border-primary ring-1 ring-primary shadow-2xs'
-            : 'bg-white border-border hover:border-slate-300 hover:bg-slate-50/60'
+            : 'bg-card border-border hover:border-border hover:bg-secondary/60'
         ]"
       >
         <div
