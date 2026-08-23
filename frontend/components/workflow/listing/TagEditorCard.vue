@@ -418,15 +418,15 @@ function handleKeyDown(e: KeyboardEvent) {
           </div>
 
           <!-- History Tag Chips -->
-          <div class="flex flex-wrap gap-1.5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl max-h-48 overflow-y-auto">
+          <div class="flex flex-wrap gap-1.5 p-3 bg-secondary/40 border border-border rounded-xl max-h-48 overflow-y-auto">
             <div
               v-for="tag in filteredHistory"
               :key="tag"
               class="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all"
               :class="[
                 localTags.some((t) => normalizeTag(t) === tag)
-                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
-                  : 'bg-white border-slate-200 text-slate-700 shadow-2xs hover:border-primary/50'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-card border-border text-foreground shadow-2xs hover:border-primary/50'
               ]"
             >
               <span class="font-sans">{{ tag }}</span>
@@ -434,7 +434,7 @@ function handleKeyDown(e: KeyboardEvent) {
               <!-- Active Status Badge -->
               <span
                 v-if="localTags.some((t) => normalizeTag(t) === tag)"
-                class="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 font-mono ml-0.5"
+                class="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 font-mono ml-0.5"
               >
                 <Icon name="lucide:check" class="size-3" aria-hidden="true" />
                 <span>Active</span>

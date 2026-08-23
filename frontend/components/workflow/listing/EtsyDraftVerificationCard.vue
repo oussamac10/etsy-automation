@@ -165,10 +165,10 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
           class="flex size-9 shrink-0 items-center justify-center rounded-lg border"
           :class="[
             overallStatus === 'verified'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
               : overallStatus === 'needs_attention'
                 ? 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                : 'border-rose-200 bg-rose-50 text-rose-700',
+                : 'border-destructive/30 bg-destructive/10 text-destructive',
           ]"
         >
           <Icon
@@ -267,10 +267,10 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
 
     <!-- Summary Stats Bar -->
     <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-      <div class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
-        <Icon name="lucide:circle-check" class="size-4 text-emerald-700 shrink-0" aria-hidden="true" />
+      <div class="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5">
+        <Icon name="lucide:circle-check" class="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
         <div>
-          <div class="font-semibold text-emerald-700 font-mono">{{ summary.synced }} Synced</div>
+          <div class="font-semibold text-emerald-600 dark:text-emerald-400 font-mono">{{ summary.synced }} Synced</div>
           <div class="text-[11px] text-muted-foreground">API Verified Match</div>
         </div>
       </div>

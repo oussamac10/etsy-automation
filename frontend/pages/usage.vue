@@ -346,7 +346,7 @@ onMounted(async () => {
         <Card class="p-5 border shadow-2xs relative overflow-hidden">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <div class="size-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
+              <div class="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/30">
                 <Icon name="lucide:sun" class="size-4" aria-hidden="true" />
               </div>
               <div>

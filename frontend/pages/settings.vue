@@ -581,23 +581,23 @@ onBeforeUnmount(stopCountdown);
                   class="space-y-4"
                   data-testid="telegram-paired-container"
                 >
-                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
                     <div class="flex items-center gap-3">
-                      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shrink-0">
+                      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
                         <Icon name="lucide:circle-check" class="size-5" aria-hidden="true" />
                       </div>
                       <div>
-                        <div class="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
+                        <div class="flex items-center gap-2 text-foreground font-semibold text-sm">
                           <span>Connected to Telegram</span>
                           <span
                             class="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 inline-flex items-center gap-1"
-                            :class="telegramStatus.is_muted ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' : 'bg-emerald-100 text-emerald-800 border-emerald-300'"
+                            :class="telegramStatus.is_muted ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'"
                           >
                             <Icon :name="telegramStatus.is_muted ? 'lucide:bell-off' : 'lucide:bell'" class="size-2.5" aria-hidden="true" />
                             <span>{{ telegramStatus.is_muted ? 'Muted' : 'Active Alerts' }}</span>
                           </span>
                         </div>
-                        <p v-if="telegramStatus.telegram_username" class="text-xs text-emerald-700 font-medium mt-0.5" data-testid="telegram-username">
+                        <p v-if="telegramStatus.telegram_username" class="text-xs text-foreground/80 font-medium mt-0.5" data-testid="telegram-username">
                           Username: @{{ telegramStatus.telegram_username }}
                         </p>
                       </div>

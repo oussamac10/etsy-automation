@@ -308,14 +308,14 @@ function getBgClass(bg: BgMode): string {
           <!-- Status Badge -->
           <span
             v-if="item.variant_status === 'approved'"
-            class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0"
+            class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30 shrink-0"
           >
             <Icon name="lucide:check" class="size-2.5" aria-hidden="true" />
             Approved
           </span>
           <span
             v-else-if="item.variant_status === 'rejected'"
-            class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 shrink-0"
+            class="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground bg-secondary px-2 py-0.5 rounded-full border border-border shrink-0"
           >
             Rejected
           </span>

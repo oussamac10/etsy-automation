@@ -414,7 +414,7 @@ onUnmounted(() => {
               class="overflow-hidden border transition-all cursor-pointer shadow-2xs hover:shadow-xs group/card"
               :class="[
                 asset.id === chosenCandidateId
-                  ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/10'
+                  ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-500/5'
                   : asset.id === selectedCandidateId
                     ? 'border-primary ring-2 ring-primary/30 bg-secondary/30'
                     : 'border-border hover:border-primary/40 bg-card'
@@ -512,7 +512,7 @@ onUnmounted(() => {
                 <div v-else-if="workflow.state === 'ARTWORK_APPROVED' || workflow.state === 'PRODUCTION' || latestProductionJob !== null">
                   <div
                     v-if="asset.id === chosenCandidateId"
-                    class="flex items-center justify-center gap-1 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded border border-emerald-200"
+                    class="flex items-center justify-center gap-1 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 rounded border border-emerald-500/30"
                   >
                     <Icon name="lucide:circle-check" class="size-3" aria-hidden="true" />
                     <span>Active in Master</span>

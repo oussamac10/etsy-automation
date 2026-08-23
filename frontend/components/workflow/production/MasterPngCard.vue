@@ -111,7 +111,7 @@ async function copyUrl(url: string | null) {
     <!-- Footer Toolbar & Specs -->
     <div class="flex items-center justify-between pt-2 border-t border-border/80 text-xs">
       <div class="flex items-center gap-2 text-muted-foreground">
-        <span class="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/50">
+        <span class="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30">
           <span class="size-1.5 rounded-full bg-emerald-500 inline-block" />
           Ready for print
         </span>
