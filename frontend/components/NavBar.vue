@@ -33,7 +33,7 @@ async function handleLogout() {
           @click="isMobileMenuOpen = false"
         >
           <AppLogo sizeClass="size-7 sm:size-8" />
-          <span class="inline font-bold">Marketplace Studio</span>
+          <span class="font-extrabold tracking-tight">NovaCraft<span class="text-primary">Pixel</span></span>
         </NuxtLink>
 
         <!-- Desktop Navigation -->

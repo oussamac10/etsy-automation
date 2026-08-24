@@ -47,26 +47,26 @@
 
   :root {
     color-scheme: light;
-    --background: #F8FAFC;
-    --foreground: #0F172A;
+    --background: #FAF9F5;
+    --foreground: #1C1917;
 
     --card: #FFFFFF;
-    --card-foreground: #0F172A;
+    --card-foreground: #1C1917;
 
     --popover: #FFFFFF;
-    --popover-foreground: #0F172A;
+    --popover-foreground: #1C1917;
 
-    --primary: #2563EB;
-    --primary-hover: #1D4ED8;
+    --primary: #EA580C;
+    --primary-hover: #C2410C;
     --primary-foreground: #FFFFFF;
 
-    --secondary: #F1F5F9;
-    --secondary-foreground: #475569;
+    --secondary: #F5F2EB;
+    --secondary-foreground: #44403C;
 
-    --muted: #F1F5F9;
-    --muted-foreground: #94A3B8;
+    --muted: #F5F2EB;
+    --muted-foreground: #78716C;
 
-    --accent: #7C3AED;
+    --accent: #EA580C;
     --accent-foreground: #FFFFFF;
 
     --destructive: #DC2626;
@@ -78,9 +78,9 @@
     --warning: #D97706;
     --warning-foreground: #FFFFFF;
 
-    --border: #E2E8F0;
-    --input: #E2E8F0;
-    --ring: #2563EB;
+    --border: #E7E5E4;
+    --input: #E7E5E4;
+    --ring: #EA580C;
 
     --radius: 0.5rem;
   }
@@ -88,25 +88,25 @@
   .dark {
     color-scheme: dark;
     --background: #0B0F17;
-    --foreground: #F8FAFC;
+    --foreground: #F5F5F4;
 
     --card: #111827;
-    --card-foreground: #F8FAFC;
+    --card-foreground: #F5F5F4;
 
     --popover: #111827;
-    --popover-foreground: #F8FAFC;
+    --popover-foreground: #F5F5F4;
 
-    --primary: #3B82F6;
-    --primary-hover: #2563EB;
+    --primary: #F97316;
+    --primary-hover: #EA580C;
     --primary-foreground: #FFFFFF;
 
     --secondary: #1F2937;
-    --secondary-foreground: #E2E8F0;
+    --secondary-foreground: #E7E5E4;
 
     --muted: #1F2937;
-    --muted-foreground: #94A3B8;
+    --muted-foreground: #9CA3AF;
 
-    --accent: #8B5CF6;
+    --accent: #F97316;
     --accent-foreground: #FFFFFF;
 
     --destructive: #EF4444;
@@ -118,9 +118,9 @@
     --warning: #F59E0B;
     --warning-foreground: #FFFFFF;
 
-    --border: #1E293B;
-    --input: #1E293B;
-    --ring: #3B82F6;
+    --border: #27272A;
+    --input: #27272A;
+    --ring: #F97316;
   }
 
   body {
