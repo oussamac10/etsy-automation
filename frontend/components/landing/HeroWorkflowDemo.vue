@@ -21,12 +21,16 @@ let timer: ReturnType<typeof setInterval> | null = null;
 
 function scrollToActiveTab() {
   if (tabListRef.value && typeof window !== "undefined") {
-    const activeBtn = tabListRef.value.querySelector<HTMLElement>('button[aria-selected="true"]');
+    const container = tabListRef.value;
+    const activeBtn = container.querySelector<HTMLElement>('button[aria-selected="true"]');
     if (activeBtn) {
-      activeBtn.scrollIntoView({
+      const btnLeft = activeBtn.offsetLeft;
+      const btnWidth = activeBtn.offsetWidth;
+      const containerWidth = container.clientWidth;
+      const targetScrollLeft = btnLeft - containerWidth / 2 + btnWidth / 2;
+      container.scrollTo({
+        left: Math.max(0, targetScrollLeft),
         behavior: "smooth",
-        block: "nearest",
-        inline: "center",
       });
     }
   }
