@@ -70,32 +70,32 @@ function selectMockup(item: MockupItem) {
       </div>
 
       <!-- Main Interactive Showcase Layout -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center">
         
         <!-- Left: Product Selector Tabs (9 Catalog Products) -->
-        <div class="lg:col-span-5 space-y-2 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
+        <div class="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
           <button
             v-for="item in mockups"
             :key="item.id"
             type="button"
             :class="[
-              'w-full flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer hover:-translate-y-0.5 active:translate-y-0 group',
+              'w-full flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer group',
               selectedMockup.id === item.id
-                ? 'border-orange-500 bg-white dark:bg-stone-900 shadow-md ring-2 ring-orange-500/20 scale-[1.01]'
+                ? 'border-orange-500 bg-white dark:bg-stone-900 shadow-sm'
                 : 'border-stone-200/80 dark:border-stone-800 bg-white/60 dark:bg-stone-900/40 hover:bg-white dark:hover:bg-stone-900 hover:border-orange-500/40',
             ]"
             @click="selectMockup(item)"
           >
-            <div class="flex items-center gap-3 min-w-0">
+            <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div
                 :class="[
-                  'size-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs',
+                  'size-9 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 shadow-2xs',
                   selectedMockup.id === item.id
-                    ? 'bg-orange-600 text-white scale-105'
+                    ? 'bg-orange-600 text-white'
                     : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-orange-500/10 group-hover:text-orange-600 dark:group-hover:text-orange-400',
                 ]"
               >
-                <Icon :name="item.icon" class="size-5" aria-hidden="true" />
+                <Icon :name="item.icon" class="size-4.5" aria-hidden="true" />
               </div>
               <div class="truncate">
                 <p class="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 truncate group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
@@ -107,14 +107,14 @@ function selectMockup(item: MockupItem) {
               </div>
             </div>
 
-            <div class="text-right shrink-0 flex items-center gap-2">
-              <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-stone-700/60">
+            <div class="text-right shrink-0 flex items-center gap-1.5 sm:gap-2">
+              <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-stone-700/60">
                 {{ item.category }}
               </span>
               <Icon
                 name="lucide:chevron-right"
                 :class="[
-                  'size-4 transition-transform duration-200',
+                  'size-3.5 sm:size-4 transition-transform duration-200',
                   selectedMockup.id === item.id ? 'text-orange-600 translate-x-0.5' : 'text-stone-300 dark:text-stone-600 group-hover:text-stone-400',
                 ]"
                 aria-hidden="true"
