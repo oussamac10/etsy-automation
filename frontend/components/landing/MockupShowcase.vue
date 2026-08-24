@@ -12,18 +12,20 @@ interface MockupItem {
   aspect: string;
   blendMode: string;
   desc: string;
+  dpi: string;
+  bleed: string;
 }
 
 const mockups: MockupItem[] = [
-  { id: "tshirt", name: "Graphic T-Shirt", category: "Apparel", icon: "lucide:shirt", aspect: "Classic Fit Unisex Tee", blendMode: "Solid / DTG Print", desc: "Realistic fabric folds, neckband alignment, and natural shading." },
-  { id: "sweatshirt", name: "Cozy Sweatshirt", category: "Apparel", icon: "lucide:shirt", aspect: "Heavyweight Crewneck", blendMode: "Overlay / Textured", desc: "True textured fleece drape with centered chest placement." },
-  { id: "mug", name: "Ceramic Mug", category: "Drinkware", icon: "lucide:coffee", aspect: "11oz / 15oz Gloss White", blendMode: "Sublimation Wrap", desc: "Cylindrical warp curve and realistic ceramic gloss highlight." },
-  { id: "tumbler", name: "Skinny Tumbler", category: "Drinkware", icon: "lucide:cup-soda", aspect: "20oz Stainless Steel", blendMode: "Wrap Sublimation", desc: "Seamless vertical wrap with metallic rim reflections." },
-  { id: "tote", name: "Canvas Tote Bag", category: "Bags", icon: "lucide:shopping-bag", aspect: "Heavy Cotton Canvas", blendMode: "Direct Print", desc: "Woven canvas texture and natural handle shadows." },
-  { id: "poster", name: "Art Poster", category: "Wall Art", icon: "lucide:image", aspect: "Matte Fine Art Print", blendMode: "Full Color Raster", desc: "Crisp wall display with wooden frame and glass reflections." },
-  { id: "sticker", name: "Die-Cut Sticker", category: "Stationery", icon: "lucide:tags", aspect: "Vinyl Waterproof Decal", blendMode: "Contour Die-Cut", desc: "Crisp white border cutout and peel-away angle preview." },
-  { id: "phone", name: "Phone Case", category: "Accessories", icon: "lucide:smartphone", aspect: "Snap Case with Camera Gap", blendMode: "Edge-to-Edge", desc: "Precise camera cutout clearance and rounded bumper wraps." },
-  { id: "candle", name: "Scented Candle", category: "Home Goods", icon: "lucide:flame", aspect: "9oz Amber Glass Jar", blendMode: "Kraft Label Wrap", desc: "Realistic glass reflections with textured adhesive label." },
+  { id: "tshirt", name: "Graphic T-Shirt", category: "Apparel", icon: "lucide:shirt", aspect: "Classic Fit Unisex Tee", blendMode: "Solid / DTG Print", desc: "Realistic fabric folds, neckband alignment, and natural shading.", dpi: "300 DPI", bleed: "Centered DTG" },
+  { id: "sweatshirt", name: "Cozy Sweatshirt", category: "Apparel", icon: "lucide:shirt", aspect: "Heavyweight Crewneck", blendMode: "Overlay / Textured", desc: "True textured fleece drape with centered chest placement.", dpi: "300 DPI", bleed: "Chest Centered" },
+  { id: "mug", name: "Ceramic Mug", category: "Drinkware", icon: "lucide:coffee", aspect: "11oz / 15oz Gloss White", blendMode: "Sublimation Wrap", desc: "Cylindrical warp curve and realistic ceramic gloss highlight.", dpi: "300 DPI", bleed: "Full Sublimation" },
+  { id: "tumbler", name: "Skinny Tumbler", category: "Drinkware", icon: "lucide:cup-soda", aspect: "20oz Stainless Steel", blendMode: "Wrap Sublimation", desc: "Seamless vertical wrap with metallic rim reflections.", dpi: "300 DPI", bleed: "Full Wrap" },
+  { id: "tote", name: "Canvas Tote Bag", category: "Bags", icon: "lucide:shopping-bag", aspect: "Heavy Cotton Canvas", blendMode: "Direct Print", desc: "Woven canvas texture and natural handle shadows.", dpi: "300 DPI", bleed: "Flat Surface" },
+  { id: "poster", name: "Art Poster", category: "Wall Art", icon: "lucide:image", aspect: "Matte Fine Art Print", blendMode: "Full Color Raster", desc: "Crisp wall display with wooden frame and glass reflections.", dpi: "300 DPI", bleed: "3:4 / 4:5 Ratio" },
+  { id: "sticker", name: "Die-Cut Sticker", category: "Stationery", icon: "lucide:tags", aspect: "Vinyl Waterproof Decal", blendMode: "Contour Die-Cut", desc: "Crisp white border cutout and peel-away angle preview.", dpi: "300 DPI", bleed: "Contour Cut" },
+  { id: "phone", name: "Phone Case", category: "Accessories", icon: "lucide:smartphone", aspect: "Snap Case with Camera Gap", blendMode: "Edge-to-Edge", desc: "Precise camera cutout clearance and rounded bumper wraps.", dpi: "300 DPI", bleed: "3D Wrap" },
+  { id: "candle", name: "Scented Candle", category: "Home Goods", icon: "lucide:flame", aspect: "9oz Amber Glass Jar", blendMode: "Kraft Label Wrap", desc: "Realistic glass reflections with textured adhesive label.", dpi: "300 DPI", bleed: "Label Center" },
 ];
 
 const selectedMockup = ref<MockupItem>(mockups[0]);
@@ -37,17 +39,22 @@ function selectMockup(item: MockupItem) {
   <section
     id="mockups"
     ref="targetRef"
-    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FAF9F5] dark:bg-[#0B0F17]"
+    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FAF9F5] dark:bg-[#0B0F17] relative overflow-hidden"
     aria-labelledby="mockups-heading"
   >
-    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12">
+    <!-- Background Ambient Glow -->
+    <div class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden="true">
+      <div class="size-[500px] rounded-full bg-purple-500/5 dark:bg-purple-500/10 blur-3xl" />
+    </div>
+
+    <div class="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-10 sm:space-y-12">
       
       <!-- Section Header -->
       <div
         class="max-w-3xl mx-auto text-center space-y-4 transition-all duration-700"
         :class="[isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6']"
       >
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-semibold">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-semibold shadow-2xs">
           <Icon name="lucide:shirt" class="size-3.5" aria-hidden="true" />
           Catalog Mockups
         </span>
@@ -63,35 +70,35 @@ function selectMockup(item: MockupItem) {
       </div>
 
       <!-- Main Interactive Showcase Layout -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
         
         <!-- Left: Product Selector Tabs (9 Catalog Products) -->
-        <div class="lg:col-span-5 space-y-2 max-h-[480px] overflow-y-auto pr-1">
+        <div class="lg:col-span-5 space-y-2 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
           <button
             v-for="item in mockups"
             :key="item.id"
             type="button"
             :class="[
-              'w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer hover:-translate-y-0.5 active:translate-y-0',
+              'w-full flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer hover:-translate-y-0.5 active:translate-y-0 group',
               selectedMockup.id === item.id
-                ? 'border-orange-500 bg-white dark:bg-stone-900 shadow-sm scale-[1.01]'
-                : 'border-stone-200/80 dark:border-stone-800 bg-white/40 dark:bg-stone-900/40 hover:bg-white dark:hover:bg-stone-900 hover:border-orange-500/40',
+                ? 'border-orange-500 bg-white dark:bg-stone-900 shadow-md ring-2 ring-orange-500/20 scale-[1.01]'
+                : 'border-stone-200/80 dark:border-stone-800 bg-white/60 dark:bg-stone-900/40 hover:bg-white dark:hover:bg-stone-900 hover:border-orange-500/40',
             ]"
             @click="selectMockup(item)"
           >
             <div class="flex items-center gap-3 min-w-0">
               <div
                 :class="[
-                  'size-9 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200',
+                  'size-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs',
                   selectedMockup.id === item.id
-                    ? 'bg-orange-600 text-white shadow-xs'
-                    : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300',
+                    ? 'bg-orange-600 text-white scale-105'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-orange-500/10 group-hover:text-orange-600 dark:group-hover:text-orange-400',
                 ]"
               >
-                <Icon :name="item.icon" class="size-4.5" aria-hidden="true" />
+                <Icon :name="item.icon" class="size-5" aria-hidden="true" />
               </div>
               <div class="truncate">
-                <p class="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 truncate">
+                <p class="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 truncate group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                   {{ item.name }}
                 </p>
                 <span class="text-[11px] text-stone-500 dark:text-stone-400">
@@ -100,32 +107,55 @@ function selectMockup(item: MockupItem) {
               </div>
             </div>
 
-            <div class="text-right shrink-0">
-              <span class="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300">
+            <div class="text-right shrink-0 flex items-center gap-2">
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-stone-700/60">
                 {{ item.category }}
               </span>
+              <Icon
+                name="lucide:chevron-right"
+                :class="[
+                  'size-4 transition-transform duration-200',
+                  selectedMockup.id === item.id ? 'text-orange-600 translate-x-0.5' : 'text-stone-300 dark:text-stone-600 group-hover:text-stone-400',
+                ]"
+                aria-hidden="true"
+              />
             </div>
           </button>
         </div>
 
         <!-- Right: Active Mockup Large Visual Canvas -->
         <div class="lg:col-span-7">
-          <div class="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col items-center justify-center min-h-[380px] sm:min-h-[440px]">
+          <div class="rounded-3xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col items-center justify-center min-h-[420px] sm:min-h-[480px]">
             
-            <!-- Background Accent Blob -->
-            <div class="absolute inset-0 bg-gradient-to-b from-stone-50/50 to-transparent dark:from-stone-950/40 pointer-events-none" />
+            <!-- Studio Stage Top Header Bar -->
+            <div class="w-full flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-3 mb-6">
+              <div class="flex items-center gap-2">
+                <span class="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span class="text-xs font-bold text-stone-800 dark:text-stone-200">
+                  Studio Compositor View
+                </span>
+              </div>
+              <div class="flex items-center gap-2 text-[10px] font-semibold text-stone-500 dark:text-stone-400">
+                <span class="px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800">
+                  {{ selectedMockup.dpi }}
+                </span>
+                <span class="px-2 py-0.5 rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400 font-bold">
+                  {{ selectedMockup.bleed }}
+                </span>
+              </div>
+            </div>
 
-            <!-- Dynamic Product Visual Mockup Container with Smooth Fade Transition -->
-            <div class="relative z-10 w-full max-w-sm flex flex-col items-center text-center space-y-4 transition-all duration-300">
+            <!-- Dynamic Product Visual Mockup Container -->
+            <div class="relative z-10 w-full max-w-sm flex flex-col items-center text-center space-y-5 transition-all duration-300">
               
               <!-- Product Graphic Render Frame -->
-              <div class="relative size-56 sm:size-64 rounded-2xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700/80 flex items-center justify-center shadow-inner overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+              <div class="relative size-60 sm:size-68 rounded-2xl bg-stone-100/80 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700/80 flex items-center justify-center shadow-inner overflow-hidden hover:scale-[1.02] transition-transform duration-300">
                 <!-- Base Silhouette Icon -->
-                <Icon :name="selectedMockup.icon" class="size-36 text-stone-300 dark:text-stone-700/60" aria-hidden="true" />
+                <Icon :name="selectedMockup.icon" class="size-40 text-stone-300 dark:text-stone-700/50" aria-hidden="true" />
 
                 <!-- Placed Artwork Graphic Layer -->
                 <div class="absolute inset-0 flex items-center justify-center p-8">
-                  <div class="size-24 sm:size-28 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 p-1 flex items-center justify-center shadow-md animate-pulse-soft">
+                  <div class="size-24 sm:size-28 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 p-1 flex items-center justify-center shadow-lg animate-pulse-soft">
                     <div class="size-full rounded-full bg-stone-950 flex items-center justify-center text-amber-400">
                       <Icon name="lucide:sparkles" class="size-10" />
                     </div>
@@ -133,24 +163,35 @@ function selectMockup(item: MockupItem) {
                 </div>
 
                 <!-- Product Badge -->
-                <div class="absolute top-2.5 right-2.5 bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">
+                <div class="absolute top-3 right-3 bg-stone-900/80 backdrop-blur-xs text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg shadow-md border border-white/10">
                   {{ selectedMockup.blendMode }}
                 </div>
               </div>
 
               <!-- Product Info Description -->
-              <div class="space-y-1">
-                <h3 class="text-lg font-black text-stone-900 dark:text-stone-100">
+              <div class="space-y-1.5">
+                <h3 class="text-xl font-extrabold text-stone-900 dark:text-stone-100">
                   {{ selectedMockup.name }}
                 </h3>
-                <p class="text-xs sm:text-sm text-stone-600 dark:text-stone-400 max-w-xs">
+                <p class="text-xs sm:text-sm text-stone-600 dark:text-stone-400 max-w-xs leading-relaxed">
                   {{ selectedMockup.desc }}
                 </p>
               </div>
 
-              <div class="flex items-center gap-2 pt-1 text-[11px] text-stone-500 dark:text-stone-400">
-                <span class="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Auto-centered with standard print bleed</span>
+              <!-- Verification Check Footers -->
+              <div class="flex flex-wrap items-center justify-center gap-3 pt-1 text-[11px] text-stone-500 dark:text-stone-400">
+                <span class="inline-flex items-center gap-1">
+                  <Icon name="lucide:check-circle" class="size-3.5 text-emerald-500" />
+                  Auto-centered
+                </span>
+                <span class="inline-flex items-center gap-1">
+                  <Icon name="lucide:check-circle" class="size-3.5 text-emerald-500" />
+                  Natural Fabric Bleed
+                </span>
+                <span class="inline-flex items-center gap-1">
+                  <Icon name="lucide:check-circle" class="size-3.5 text-emerald-500" />
+                  Realistic Shading
+                </span>
               </div>
             </div>
 
