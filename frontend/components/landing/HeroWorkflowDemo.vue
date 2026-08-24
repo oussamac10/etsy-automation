@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, watch, nextTick } from "vue";
 
 const currentStep = ref(1);
 const totalSteps = 7;
 const isAutoPlaying = ref(true);
 const prefersReducedMotion = ref(false);
+const tabListRef = ref<HTMLElement | null>(null);
 
 const steps = [
   { id: 1, label: "Market Signals", short: "Signals", icon: "lucide:trending-up" },
@@ -17,6 +18,24 @@ const steps = [
 ];
 
 let timer: ReturnType<typeof setInterval> | null = null;
+
+function scrollToActiveTab() {
+  if (tabListRef.value && typeof window !== "undefined") {
+    const activeBtn = tabListRef.value.querySelector<HTMLElement>('button[aria-selected="true"]');
+    if (activeBtn) {
+      activeBtn.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }
+}
+
+watch(currentStep, async () => {
+  await nextTick();
+  scrollToActiveTab();
+});
 
 function setStep(step: number) {
   currentStep.value = step;
@@ -121,39 +140,42 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <!-- Right: Segmented Step Navigation Tabs -->
-      <div
-        class="inline-flex items-center p-0.5 rounded-xl bg-stone-200/60 dark:bg-stone-900 border border-stone-300/50 dark:border-stone-800 overflow-x-auto scrollbar-none max-w-full"
-        role="tablist"
-        aria-label="Workflow Demo Steps"
-      >
-        <button
-          v-for="step in steps"
-          :key="step.id"
-          type="button"
-          role="tab"
-          :aria-selected="currentStep === step.id"
-          :class="[
-            'px-2.5 sm:px-3 py-1 rounded-lg text-[11px] font-bold transition-all duration-150 cursor-pointer flex items-center gap-1.5 shrink-0',
-            currentStep === step.id
-              ? 'bg-orange-600 text-white shadow-sm scale-[1.02]'
-              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-white/40 dark:hover:bg-stone-800/40',
-          ]"
-          @click="setStep(step.id)"
+      <!-- Right: Scrollable Segmented Step Navigation Tabs -->
+      <div class="min-w-0 w-full sm:w-auto overflow-hidden">
+        <div
+          ref="tabListRef"
+          class="flex items-center p-0.5 rounded-xl bg-stone-200/60 dark:bg-stone-900 border border-stone-300/50 dark:border-stone-800 overflow-x-auto scroll-smooth scrollbar-none w-full max-w-full touch-pan-x"
+          role="tablist"
+          aria-label="Workflow Demo Steps"
         >
-          <span
+          <button
+            v-for="step in steps"
+            :key="step.id"
+            type="button"
+            role="tab"
+            :aria-selected="currentStep === step.id"
             :class="[
-              'size-3.5 rounded-full text-[9px] font-black flex items-center justify-center',
+              'px-2.5 sm:px-3 py-1 rounded-lg text-[11px] font-bold transition-all duration-150 cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap',
               currentStep === step.id
-                ? 'bg-white/20 text-white'
-                : 'bg-stone-300/60 dark:bg-stone-700/60 text-stone-500 dark:text-stone-400',
+                ? 'bg-orange-600 text-white shadow-sm scale-[1.02]'
+                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-white/40 dark:hover:bg-stone-800/40',
             ]"
+            @click="setStep(step.id)"
           >
-            {{ step.id }}
-          </span>
-          <span class="hidden md:inline">{{ step.label }}</span>
-          <span class="md:hidden">{{ step.short }}</span>
-        </button>
+            <span
+              :class="[
+                'size-3.5 rounded-full text-[9px] font-black flex items-center justify-center shrink-0',
+                currentStep === step.id
+                  ? 'bg-white/20 text-white'
+                  : 'bg-stone-300/60 dark:bg-stone-700/60 text-stone-500 dark:text-stone-400',
+              ]"
+            >
+              {{ step.id }}
+            </span>
+            <span class="hidden sm:inline">{{ step.label }}</span>
+            <span class="sm:hidden">{{ step.short }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
