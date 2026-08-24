@@ -336,13 +336,11 @@ onUnmounted(() => {
         </div>
 
         <div class="flex items-center justify-center">
-          <div class="relative size-48 sm:size-56 rounded-2xl border-2 border-dashed border-stone-300 dark:border-stone-700 overflow-hidden shadow-inner flex items-center justify-center bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:12px_12px]">
+          <div class="relative size-48 sm:size-56 rounded-2xl border border-stone-300 dark:border-stone-700 overflow-hidden shadow-inner flex items-center justify-center bg-alpha-grid bg-stone-100/90 dark:bg-stone-900/90">
             <!-- Graphic Representation -->
-            <div class="relative z-10 text-center p-3">
-              <div class="size-20 sm:size-24 mx-auto rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 p-0.5 flex items-center justify-center shadow-lg">
-                <div class="size-full rounded-full bg-stone-950 flex items-center justify-center text-white">
-                  <Icon name="lucide:sparkles" class="size-8 sm:size-10 text-amber-400" />
-                </div>
+            <div class="relative z-10 text-center p-3 filter drop-shadow-md">
+              <div class="size-16 sm:size-20 mx-auto flex items-center justify-center text-orange-500">
+                <Icon name="lucide:sparkles" class="size-14 sm:size-16 text-orange-500 animate-spin-slow filter drop-shadow-sm" />
               </div>
               <p class="mt-2 text-xs font-extrabold tracking-wide text-stone-900 dark:text-stone-100 uppercase">Retro Skeleton Coffee</p>
               <span class="inline-block text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full mt-1">

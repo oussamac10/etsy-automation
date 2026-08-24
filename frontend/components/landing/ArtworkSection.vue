@@ -89,21 +89,26 @@ const previewBg = ref<"transparent" | "white" | "dark">("transparent");
             <div
               :class="[
                 'relative h-72 sm:h-96 flex items-center justify-center p-6 transition-colors duration-300 overflow-hidden',
-                previewBg === 'transparent' ? 'bg-alpha-grid bg-stone-100/90 dark:bg-stone-900/90' : '',
+                previewBg === 'transparent' ? 'bg-alpha-grid bg-stone-100/80 dark:bg-stone-900/80' : '',
                 previewBg === 'white' ? 'bg-white text-stone-900' : '',
                 previewBg === 'dark' ? 'bg-stone-950 text-white' : '',
               ]"
             >
-              <!-- Graphic Representation -->
+              <!-- Graphic Representation (Pure Transparent PNG Cutout Artwork) -->
               <div class="relative z-10 text-center max-w-xs space-y-3 hover:scale-105 transition-transform duration-300 cursor-pointer filter drop-shadow-xl">
-                <div class="size-32 sm:size-40 mx-auto rounded-3xl bg-gradient-to-tr from-amber-400 via-orange-500 to-rose-500 p-1 shadow-2xl flex items-center justify-center animate-pulse-soft">
-                  <div class="size-full rounded-3xl bg-stone-900/70 dark:bg-stone-950/80 backdrop-blur-xs flex flex-col items-center justify-center text-amber-400 p-3 border border-white/20">
-                    <Icon name="lucide:sparkles" class="size-12 sm:size-14 animate-spin-slow hover:scale-110 transition-transform duration-300 text-amber-300" />
-                  </div>
+                <!-- Cutout Artwork Vector (No solid dark box) -->
+                <div class="relative size-28 sm:size-36 mx-auto flex items-center justify-center">
+                  <div class="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-500/20 via-orange-500/25 to-rose-500/20 blur-md" />
+                  <Icon
+                    name="lucide:sparkles"
+                    class="size-20 sm:size-24 text-orange-500 filter drop-shadow-md animate-spin-slow transition-transform duration-300"
+                    aria-hidden="true"
+                  />
                 </div>
+
                 <div>
                   <h4
-                    class="text-sm sm:text-base font-black tracking-wider uppercase transition-colors"
+                    class="text-base sm:text-lg font-black tracking-widest uppercase transition-colors duration-300"
                     :class="[
                       previewBg === 'dark' ? 'text-white' : 'text-stone-900 dark:text-stone-100',
                     ]"
@@ -111,10 +116,10 @@ const previewBg = ref<"transparent" | "white" | "dark">("transparent");
                     SPOOKY X-RAY SQUAD
                   </h4>
                   <p
-                    class="text-[11px] font-medium transition-colors"
-                    :class="[previewBg === 'dark' ? 'text-stone-300' : 'text-stone-500 dark:text-stone-400']"
+                    class="text-xs font-semibold tracking-wide transition-colors duration-300"
+                    :class="[previewBg === 'dark' ? 'text-stone-300' : 'text-stone-600 dark:text-stone-400']"
                   >
-                    Est. 2026 · Original Creator Asset
+                    Est. 2026 · Pure Transparent PNG Cutout
                   </p>
                 </div>
               </div>
