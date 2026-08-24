@@ -55,7 +55,7 @@ function handleDelete() {
     <header class="flex flex-col sm:flex-row sm:items-start md:items-center justify-between gap-4 sm:gap-6 border-b border-border pb-4 sm:pb-6">
       <div class="space-y-1.5 min-w-0 flex-1">
         <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-          <NuxtLink to="/" class="flex items-center gap-1 font-semibold text-primary hover:text-primary-hover transition-colors">
+          <NuxtLink to="/dashboard" class="flex items-center gap-1 font-semibold text-primary hover:text-primary-hover transition-colors">
             <Icon name="lucide:arrow-left" class="size-3.5" aria-hidden="true" />
             <span>Campaigns</span>
           </NuxtLink>

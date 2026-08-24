@@ -39,9 +39,10 @@ async function handleLogout() {
         <!-- Desktop Navigation -->
         <nav class="hidden md:flex items-center gap-1" role="navigation" aria-label="Main Navigation">
           <NuxtLink
-            to="/"
+            to="/dashboard"
             class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
             active-class="bg-primary/10 text-primary font-bold border border-primary/20"
+            data-testid="nav-dashboard-link"
           >
             <Icon name="lucide:layout-dashboard" class="size-3.5" aria-hidden="true" />
             <span>Dashboard</span>
@@ -128,9 +129,10 @@ async function handleLogout() {
         class="md:hidden border-t border-border bg-card px-4 py-3 space-y-2 shadow-md"
       >
         <NuxtLink
-          to="/"
+          to="/dashboard"
           class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary hover:text-foreground transition-colors"
           active-class="bg-primary/10 text-primary font-bold border border-primary/20"
+          data-testid="nav-dashboard-mobile-link"
           @click="isMobileMenuOpen = false"
         >
           <Icon name="lucide:layout-dashboard" class="size-4 text-primary" aria-hidden="true" />

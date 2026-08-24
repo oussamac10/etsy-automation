@@ -723,7 +723,7 @@ async function handleWorkflowControl(action: string, options?: Record<string, un
   if (action === "delete") {
     stopPolling();
     if (await controlWorkflow(workflowId, "delete")) {
-      await router.push("/");
+      await router.push("/dashboard");
     }
   } else if (action === "cancel") {
     await controlWorkflow(workflowId, "cancel");
