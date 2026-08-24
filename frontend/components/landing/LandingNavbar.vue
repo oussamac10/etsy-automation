@@ -38,6 +38,21 @@ const navLinks = [
 function closeMobileMenu() {
   isMobileMenuOpen.value = false;
 }
+
+function scrollToSection(e: MouseEvent, href: string) {
+  if (href.startsWith("#") && typeof document !== "undefined") {
+    e.preventDefault();
+    const targetId = href.slice(1);
+    const targetEl = document.getElementById(targetId);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (typeof window !== "undefined" && window.history?.pushState) {
+        window.history.pushState(null, "", href);
+      }
+      closeMobileMenu();
+    }
+  }
+}
 </script>
 
 <template>
@@ -67,7 +82,8 @@ function closeMobileMenu() {
           v-for="link in navLinks"
           :key="link.href"
           :href="link.href"
-          class="text-xs lg:text-sm font-medium text-stone-600 dark:text-stone-300 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+          class="text-xs lg:text-sm font-medium text-stone-600 dark:text-stone-300 hover:text-orange-600 dark:hover:text-orange-400 transition-colors cursor-pointer"
+          @click="scrollToSection($event, link.href)"
         >
           {{ link.label }}
         </a>
@@ -143,8 +159,8 @@ function closeMobileMenu() {
             v-for="link in navLinks"
             :key="link.href"
             :href="link.href"
-            class="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
-            @click="closeMobileMenu"
+            class="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 hover:text-orange-600 dark:hover:text-orange-400 transition-colors cursor-pointer"
+            @click="scrollToSection($event, link.href)"
           >
             {{ link.label }}
           </a>

@@ -39,7 +39,7 @@ function selectMockup(item: MockupItem) {
   <section
     id="mockups"
     ref="targetRef"
-    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FAF9F5] dark:bg-[#0B0F17] relative overflow-hidden"
+    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FAF9F5] dark:bg-[#0B0F17] relative overflow-hidden scroll-mt-16 sm:scroll-mt-20"
     aria-labelledby="mockups-heading"
   >
     <!-- Background Ambient Glow -->

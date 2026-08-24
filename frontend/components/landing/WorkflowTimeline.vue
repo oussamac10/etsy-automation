@@ -43,7 +43,7 @@ const timelineSteps = [
   <section
     id="how-it-works"
     ref="targetRef"
-    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FAF9F5] dark:bg-[#0B0F17]"
+    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FAF9F5] dark:bg-[#0B0F17] scroll-mt-16 sm:scroll-mt-20"
     aria-labelledby="how-it-works-heading"
   >
     <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16">
