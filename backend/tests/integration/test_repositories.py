@@ -643,6 +643,51 @@ class TestCostLedger:
         )
         assert exceeded is True
 
+    async def test_get_owner_metrics_aggregates_across_workflows(
+        self, uow: UnitOfWork, owner: User
+    ) -> None:
+        workflow = await _workflow(uow, owner)
+        await uow.costs.record_estimate(
+            workflow_id=workflow.id,
+            provider=ProviderName.GEMINI,
+            service="gemini-2.5-flash",
+            operation="text_synthesis",
+            estimated=Money.from_decimal(Decimal("0.10")),
+            input_units=1000,
+            output_units=500,
+            unit_kind="tokens",
+        )
+        await uow.costs.record_estimate(
+            workflow_id=workflow.id,
+            provider=ProviderName.RECRAFT,
+            service="v3",
+            operation="image_generation",
+            estimated=Money.from_decimal(Decimal("0.20")),
+            input_units=0,
+            output_units=1,
+            unit_kind="images",
+        )
+        await uow.commit()
+
+        now = datetime.now(UTC)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        metrics = await uow.costs.get_owner_metrics(
+            owner.id,
+            today_start=today_start,
+            month_start=month_start,
+            currency="USD",
+        )
+        assert metrics["total_input_tokens"] == 1000
+        assert metrics["total_output_tokens"] == 500
+        assert metrics["total_images"] == 1
+        assert metrics["total_calls"] == 2
+        assert metrics["total_spent_minor"] == 30
+        assert "gemini" in metrics["by_provider"]
+        assert "recraft" in metrics["by_provider"]
+
+
 
 class TestAuditLog:
     async def test_events_are_recorded_in_order(self, uow: UnitOfWork, owner: User) -> None:

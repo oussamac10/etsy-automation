@@ -246,7 +246,7 @@ class SqlCostRepository:
     ) -> dict[str, Any]:
         from app.infrastructure.models.workflow import ProductWorkflow
 
-        base_where = (ProductWorkflow.owner_id == owner_id) & (ProviderUsage.currency == currency)
+        owner_where = ProductWorkflow.owner_id == owner_id
 
         totals_stmt = (
             select(
@@ -254,7 +254,10 @@ class SqlCostRepository:
                 func.coalesce(
                     func.sum(
                         case(
-                            (ProviderUsage.unit_kind == "tokens", ProviderUsage.input_units),
+                            (
+                                ProviderUsage.unit_kind.in_(["tokens", "token"]),
+                                ProviderUsage.input_units,
+                            ),
                             else_=0,
                         )
                     ),
@@ -263,7 +266,10 @@ class SqlCostRepository:
                 func.coalesce(
                     func.sum(
                         case(
-                            (ProviderUsage.unit_kind == "tokens", ProviderUsage.output_units),
+                            (
+                                ProviderUsage.unit_kind.in_(["tokens", "token"]),
+                                ProviderUsage.output_units,
+                            ),
                             else_=0,
                         )
                     ),
@@ -272,8 +278,21 @@ class SqlCostRepository:
                 func.coalesce(
                     func.sum(
                         case(
-                            (ProviderUsage.unit_kind == "images", ProviderUsage.output_units),
-                            (ProviderUsage.operation == "image_generation", 1),
+                            (
+                                ProviderUsage.unit_kind.in_(["images", "image"]),
+                                func.greatest(ProviderUsage.output_units, ProviderUsage.input_units, 1),
+                            ),
+                            (
+                                ProviderUsage.operation.in_(
+                                    [
+                                        "image_generation",
+                                        "artwork_generation",
+                                        "raster_generation",
+                                        "vector_generation",
+                                    ]
+                                ),
+                                1,
+                            ),
                             else_=0,
                         )
                     ),
@@ -282,14 +301,14 @@ class SqlCostRepository:
                 func.count(ProviderUsage.id).label("total_calls"),
             )
             .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
-            .where(base_where)
+            .where(owner_where)
         )
         totals_row = (await self._session.execute(totals_stmt)).one()
 
         today_stmt = (
             select(func.coalesce(func.sum(_effective_cost_sql()), 0))
             .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
-            .where(base_where & (ProviderUsage.created_at >= today_start))
+            .where(owner_where & (ProviderUsage.created_at >= today_start))
         )
         today_val = (await self._session.execute(today_stmt)).scalar_one_or_none()
         today_spent = int(today_val) if isinstance(today_val, (int, float, str)) else 0
@@ -297,7 +316,7 @@ class SqlCostRepository:
         month_stmt = (
             select(func.coalesce(func.sum(_effective_cost_sql()), 0))
             .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
-            .where(base_where & (ProviderUsage.created_at >= month_start))
+            .where(owner_where & (ProviderUsage.created_at >= month_start))
         )
         month_val = (await self._session.execute(month_stmt)).scalar_one_or_none()
         month_spent = int(month_val) if isinstance(month_val, (int, float, str)) else 0
@@ -310,7 +329,7 @@ class SqlCostRepository:
                     func.sum(
                         case(
                             (
-                                ProviderUsage.unit_kind == "tokens",
+                                ProviderUsage.unit_kind.in_(["tokens", "token"]),
                                 ProviderUsage.input_units + ProviderUsage.output_units,
                             ),
                             else_=0,
@@ -320,7 +339,7 @@ class SqlCostRepository:
                 ),
             )
             .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
-            .where(base_where)
+            .where(owner_where)
             .group_by(ProviderUsage.provider)
         )
         by_prov_res = (await self._session.execute(by_prov_stmt)).all()
@@ -339,7 +358,7 @@ class SqlCostRepository:
                 func.count(ProviderUsage.id),
             )
             .join(ProductWorkflow, ProviderUsage.workflow_id == ProductWorkflow.id)
-            .where(base_where)
+            .where(owner_where)
             .group_by(ProviderUsage.operation)
         )
         by_op_res = (await self._session.execute(by_op_stmt)).all()

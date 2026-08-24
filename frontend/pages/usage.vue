@@ -101,8 +101,7 @@ const isSavingBudget = ref(false);
 const budgetSaveError = ref<string | null>(null);
 
 function formatCurrency(amount: string | number | null | undefined, currency = "USD"): string {
-  if (amount === null || amount === undefined) return "$0.00";
-  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  const num = amount === null || amount === undefined ? 0 : (typeof amount === "string" ? parseFloat(amount) : amount);
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currency || "USD",

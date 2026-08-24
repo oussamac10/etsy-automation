@@ -72,13 +72,15 @@ async def get_usage_summary(
     # Provider breakdown list
     by_provider_list: list[ProviderSpendBreakdown] = []
     total_spent_minor = metrics["total_spent_minor"]
+    total_tokens = metrics["total_input_tokens"] + metrics["total_output_tokens"]
     for prov_key, p_data in metrics.get("by_provider", {}).items():
         cost_dec = Money(p_data["cost_minor"], currency).to_decimal()
-        pct = (
-            float((p_data["cost_minor"] / total_spent_minor) * 100)
-            if total_spent_minor > 0
-            else 0.0
-        )
+        if total_spent_minor > 0:
+            pct = float((p_data["cost_minor"] / total_spent_minor) * 100)
+        elif total_tokens > 0 and p_data["tokens"] > 0:
+            pct = float((p_data["tokens"] / total_tokens) * 100)
+        else:
+            pct = 0.0
         by_provider_list.append(
             ProviderSpendBreakdown(
                 provider=prov_key,
@@ -87,17 +89,19 @@ async def get_usage_summary(
                 percentage=round(pct, 1),
             )
         )
-    by_provider_list.sort(key=lambda x: x.cost_decimal, reverse=True)
+    by_provider_list.sort(key=lambda x: (x.cost_decimal, x.tokens), reverse=True)
 
     # Operation breakdown list
     by_op_list: list[OperationSpendBreakdown] = []
+    total_calls = metrics["total_calls"]
     for op_key, op_data in metrics.get("by_operation", {}).items():
         cost_dec = Money(op_data["cost_minor"], currency).to_decimal()
-        pct = (
-            float((op_data["cost_minor"] / total_spent_minor) * 100)
-            if total_spent_minor > 0
-            else 0.0
-        )
+        if total_spent_minor > 0:
+            pct = float((op_data["cost_minor"] / total_spent_minor) * 100)
+        elif total_calls > 0 and op_data["calls"] > 0:
+            pct = float((op_data["calls"] / total_calls) * 100)
+        else:
+            pct = 0.0
         by_op_list.append(
             OperationSpendBreakdown(
                 operation=op_key,
@@ -106,7 +110,7 @@ async def get_usage_summary(
                 percentage=round(pct, 1),
             )
         )
-    by_op_list.sort(key=lambda x: x.cost_decimal, reverse=True)
+    by_op_list.sort(key=lambda x: (x.cost_decimal, x.calls), reverse=True)
 
     total_in = metrics["total_input_tokens"]
     total_out = metrics["total_output_tokens"]
