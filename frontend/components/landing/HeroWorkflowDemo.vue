@@ -75,18 +75,24 @@ onUnmounted(() => {
     @mouseleave="isPaused = false"
   >
     <!-- Top Demo Window Header -->
-    <div class="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-stone-100 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-950/40">
-      <div class="flex items-center gap-2">
-        <div class="size-3 rounded-full bg-red-400/80" />
-        <div class="size-3 rounded-full bg-amber-400/80" />
-        <div class="size-3 rounded-full bg-emerald-400/80" />
-        <span class="ml-2 text-xs font-medium text-stone-500 dark:text-stone-400 hidden sm:inline">
-          Live Studio Workflow Preview
-        </span>
+    <div class="flex items-center justify-between px-3.5 sm:px-6 py-2.5 sm:py-3 border-b border-stone-200/80 dark:border-stone-800 bg-stone-50/90 dark:bg-stone-950/60">
+      <!-- Window Controls & Title -->
+      <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        <div class="flex items-center gap-1.5" aria-hidden="true">
+          <div class="size-2.5 sm:size-3 rounded-full bg-red-500/80 border border-red-600/30 shadow-2xs" />
+          <div class="size-2.5 sm:size-3 rounded-full bg-amber-500/80 border border-amber-600/30 shadow-2xs" />
+          <div class="size-2.5 sm:size-3 rounded-full bg-emerald-500/80 border border-emerald-600/30 shadow-2xs" />
+        </div>
+        <div class="h-3.5 w-px bg-stone-300 dark:bg-stone-700 hidden sm:block mx-1" aria-hidden="true" />
+        <div class="flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-stone-600 dark:text-stone-300">
+          <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span class="hidden sm:inline">Studio Workflow Preview</span>
+          <span class="sm:hidden">Studio Demo</span>
+        </div>
       </div>
 
       <!-- Step Navigation Pills -->
-      <div class="flex items-center gap-1 overflow-x-auto py-0.5" role="tablist" aria-label="Workflow Demo Steps">
+      <div class="flex items-center gap-1 overflow-x-auto py-0.5 scrollbar-none" role="tablist" aria-label="Workflow Demo Steps">
         <button
           v-for="step in steps"
           :key="step.id"
@@ -94,10 +100,10 @@ onUnmounted(() => {
           role="tab"
           :aria-selected="currentStep === step.id"
           :class="[
-            'px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-semibold transition-all cursor-pointer flex items-center gap-1 shrink-0',
+            'px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-semibold transition-all duration-150 cursor-pointer flex items-center gap-1 shrink-0',
             currentStep === step.id
-              ? 'bg-orange-600 text-white shadow-xs'
-              : 'text-stone-600 dark:text-stone-400 hover:bg-stone-200/60 dark:hover:bg-stone-800',
+              ? 'bg-orange-600 text-white shadow-xs scale-[1.02]'
+              : 'text-stone-600 dark:text-stone-400 hover:bg-stone-200/60 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100',
           ]"
           @click="setStep(step.id)"
         >
