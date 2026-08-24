@@ -88,17 +88,17 @@ const previewBg = ref<"transparent" | "white" | "dark">("transparent");
             <!-- Artwork Display Box -->
             <div
               :class="[
-                'relative h-72 sm:h-96 flex items-center justify-center p-6 transition-colors duration-300',
-                previewBg === 'transparent' ? 'bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:16px_16px] bg-stone-100/70 dark:bg-stone-950' : '',
+                'relative h-72 sm:h-96 flex items-center justify-center p-6 transition-colors duration-300 overflow-hidden',
+                previewBg === 'transparent' ? 'bg-alpha-grid bg-stone-100/90 dark:bg-stone-900/90' : '',
                 previewBg === 'white' ? 'bg-white text-stone-900' : '',
                 previewBg === 'dark' ? 'bg-stone-950 text-white' : '',
               ]"
             >
               <!-- Graphic Representation -->
-              <div class="relative z-10 text-center max-w-xs space-y-3 hover:scale-105 transition-transform duration-300 cursor-pointer">
-                <div class="size-32 sm:size-40 mx-auto rounded-full bg-gradient-to-tr from-amber-400 via-orange-500 to-rose-500 p-1 shadow-2xl flex items-center justify-center animate-pulse-soft">
-                  <div class="size-full rounded-full bg-stone-950 flex flex-col items-center justify-center text-amber-400 p-2">
-                    <Icon name="lucide:sparkles" class="size-12 sm:size-14 animate-spin-slow hover:scale-110 transition-transform duration-300" />
+              <div class="relative z-10 text-center max-w-xs space-y-3 hover:scale-105 transition-transform duration-300 cursor-pointer filter drop-shadow-xl">
+                <div class="size-32 sm:size-40 mx-auto rounded-3xl bg-gradient-to-tr from-amber-400 via-orange-500 to-rose-500 p-1 shadow-2xl flex items-center justify-center animate-pulse-soft">
+                  <div class="size-full rounded-3xl bg-stone-900/70 dark:bg-stone-950/80 backdrop-blur-xs flex flex-col items-center justify-center text-amber-400 p-3 border border-white/20">
+                    <Icon name="lucide:sparkles" class="size-12 sm:size-14 animate-spin-slow hover:scale-110 transition-transform duration-300 text-amber-300" />
                   </div>
                 </div>
                 <div>

@@ -149,15 +149,18 @@ function selectMockup(item: MockupItem) {
             <div class="relative z-10 w-full max-w-sm flex flex-col items-center text-center space-y-5 transition-all duration-300">
               
               <!-- Product Graphic Render Frame -->
-              <div class="relative size-60 sm:size-68 rounded-2xl bg-stone-100/80 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700/80 flex items-center justify-center shadow-inner overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+              <div class="relative size-60 sm:size-68 rounded-2xl bg-stone-100/90 dark:bg-stone-800/90 border border-stone-200 dark:border-stone-700/80 flex items-center justify-center shadow-inner overflow-hidden hover:scale-[1.02] transition-transform duration-300">
                 <!-- Base Silhouette Icon -->
-                <Icon :name="selectedMockup.icon" class="size-40 text-stone-300 dark:text-stone-700/50" aria-hidden="true" />
+                <Icon :name="selectedMockup.icon" class="size-44 text-stone-400/90 dark:text-stone-500/70" aria-hidden="true" />
 
-                <!-- Placed Artwork Graphic Layer -->
-                <div class="absolute inset-0 flex items-center justify-center p-8">
-                  <div class="size-24 sm:size-28 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 p-1 flex items-center justify-center shadow-lg animate-pulse-soft">
-                    <div class="size-full rounded-full bg-stone-950 flex items-center justify-center text-amber-400">
-                      <Icon name="lucide:sparkles" class="size-10" />
+                <!-- Placed Artwork Graphic Layer (Transparent Master PNG on Product) -->
+                <div class="absolute inset-0 flex items-center justify-center p-6 pointer-events-none">
+                  <div class="flex flex-col items-center justify-center text-center filter drop-shadow-md transition-transform duration-300">
+                    <div class="size-22 sm:size-26 rounded-2xl bg-gradient-to-tr from-amber-500/90 via-orange-500 to-rose-500 p-0.5 shadow-md flex items-center justify-center">
+                      <div class="size-full rounded-2xl bg-stone-900/60 dark:bg-stone-950/70 backdrop-blur-xs flex flex-col items-center justify-center text-amber-400 p-2 border border-white/20">
+                        <Icon name="lucide:sparkles" class="size-8 sm:size-9 text-amber-300 animate-spin-slow" />
+                        <span class="text-[9px] font-black tracking-widest text-white uppercase mt-0.5">VINTAGE ART</span>
+                      </div>
                     </div>
                   </div>
                 </div>
