@@ -10,7 +10,10 @@ const isMobileMenuOpen = ref(false);
 
 function handleScroll() {
   if (typeof window !== "undefined") {
-    isScrolled.value = window.scrollY > 20;
+    const scrolled = window.scrollY > 20;
+    if (isScrolled.value !== scrolled) {
+      isScrolled.value = scrolled;
+    }
   }
 }
 

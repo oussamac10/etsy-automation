@@ -34,7 +34,7 @@ const controlPillars = [
 <template>
   <section
     ref="targetRef"
-    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FAF9F5] dark:bg-[#0B0F17]"
+    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FAF9F5] dark:bg-[#0B0F17] section-render-opt"
     aria-labelledby="trust-heading"
   >
     <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12">

@@ -6,6 +6,8 @@ const totalSteps = 7;
 const isAutoPlaying = ref(true);
 const prefersReducedMotion = ref(false);
 const tabListRef = ref<HTMLElement | null>(null);
+const rootDemoRef = ref<HTMLElement | null>(null);
+const isDemoInView = ref(true);
 
 const steps = [
   { id: 1, label: "Market Signals", short: "Signals", icon: "lucide:trending-up" },
@@ -18,6 +20,7 @@ const steps = [
 ];
 
 let timer: ReturnType<typeof setInterval> | null = null;
+let visibilityObserver: IntersectionObserver | null = null;
 
 function scrollToActiveTab() {
   if (tabListRef.value && typeof window !== "undefined") {
@@ -66,12 +69,22 @@ function stopLoop() {
 
 function restartLoop() {
   stopLoop();
-  if (prefersReducedMotion.value || !isAutoPlaying.value) return;
+  if (prefersReducedMotion.value || !isAutoPlaying.value || !isDemoInView.value) return;
   timer = setInterval(() => {
-    if (isAutoPlaying.value && !prefersReducedMotion.value) {
+    if (isAutoPlaying.value && !prefersReducedMotion.value && isDemoInView.value) {
       currentStep.value = currentStep.value >= totalSteps ? 1 : currentStep.value + 1;
     }
-  }, 2200);
+  }, 2600);
+}
+
+function handleVisibilityChange() {
+  if (typeof document !== "undefined") {
+    if (document.hidden) {
+      stopLoop();
+    } else if (isDemoInView.value && isAutoPlaying.value) {
+      restartLoop();
+    }
+  }
 }
 
 onMounted(() => {
@@ -86,7 +99,22 @@ onMounted(() => {
       return;
     }
 
-    restartLoop();
+    if ("IntersectionObserver" in window && rootDemoRef.value) {
+      visibilityObserver = new IntersectionObserver((entries) => {
+        const entry = entries[0];
+        isDemoInView.value = entry?.isIntersecting ?? true;
+        if (isDemoInView.value && isAutoPlaying.value) {
+          restartLoop();
+        } else {
+          stopLoop();
+        }
+      }, { threshold: 0.1 });
+      visibilityObserver.observe(rootDemoRef.value);
+    } else {
+      restartLoop();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     if (motionQuery?.addEventListener) {
       motionQuery.addEventListener("change", (e) => {
@@ -104,11 +132,19 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopLoop();
+  if (visibilityObserver) {
+    visibilityObserver.disconnect();
+    visibilityObserver = null;
+  }
+  if (typeof document !== "undefined") {
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }
 });
 </script>
 
 <template>
   <div
+    ref="rootDemoRef"
     class="w-full max-w-4xl mx-auto rounded-2xl border border-stone-200/90 dark:border-stone-800 bg-white/90 dark:bg-stone-900/90 shadow-xl overflow-hidden backdrop-blur-md"
     data-testid="hero-workflow-demo"
   >

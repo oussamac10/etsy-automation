@@ -31,7 +31,7 @@ const withAppPoints = [
 <template>
   <section
     ref="targetRef"
-    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FFFDF7]/60 dark:bg-stone-950/30"
+    class="py-16 sm:py-24 border-b border-stone-200/80 dark:border-stone-800 bg-[#FFFDF7]/60 dark:bg-stone-950/30 section-render-opt"
     aria-labelledby="comparison-heading"
   >
     <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12">

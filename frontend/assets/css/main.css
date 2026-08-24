@@ -225,6 +225,11 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+
+  .section-render-opt {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 700px;
+  }
 }
 
 /* Modern View Transitions API for unified viewport cross-fade */

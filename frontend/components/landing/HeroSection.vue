@@ -19,11 +19,11 @@ const trustPillars = [
     class="relative pt-8 pb-16 sm:pt-14 sm:pb-24 overflow-hidden"
     aria-labelledby="hero-heading"
   >
-    <!-- Background Warm Gradient Circles (Decorative) -->
+    <!-- Background Warm Gradient Circles (Hardware-Accelerated Ambient Lighting) -->
     <div class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden="true">
-      <div class="absolute -top-24 size-[550px] rounded-full bg-orange-400/10 dark:bg-orange-500/10 blur-3xl animate-pulse-soft" />
-      <div class="absolute top-1/2 -right-24 size-[450px] rounded-full bg-amber-400/10 dark:bg-amber-500/10 blur-3xl animate-pulse-soft" style="animation-delay: 2s;" />
-      <div class="absolute -bottom-24 -left-24 size-[450px] rounded-full bg-orange-500/5 blur-3xl animate-pulse-soft" style="animation-delay: 4s;" />
+      <div class="absolute -top-24 size-[550px] rounded-full bg-[radial-gradient(circle,rgba(249,115,22,0.08)_0%,transparent_70%)] will-change-transform" />
+      <div class="absolute top-1/2 -right-24 size-[450px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.07)_0%,transparent_70%)] will-change-transform" />
+      <div class="absolute -bottom-24 -left-24 size-[450px] rounded-full bg-[radial-gradient(circle,rgba(234,88,12,0.05)_0%,transparent_70%)] will-change-transform" />
     </div>
 
     <!-- Floating Decorative Badges (Desktop) -->
