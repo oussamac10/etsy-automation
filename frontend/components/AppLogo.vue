@@ -11,42 +11,73 @@ withDefaults(
 
 <template>
   <svg
-    :class="['shrink-0 select-none drop-shadow-2xs transition-transform duration-200 group-hover:scale-105', sizeClass]"
+    :class="['shrink-0 select-none drop-shadow-xs transition-transform duration-300 group-hover:scale-105', sizeClass]"
     viewBox="0 0 32 32"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     aria-hidden="true"
   >
     <defs>
-      <linearGradient id="logo-bg-grad" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stop-color="#3B82F6" />
-        <stop offset="50%" stop-color="#2563EB" />
-        <stop offset="100%" stop-color="#1D4ED8" />
+      <linearGradient id="ncp-logo-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#FB923C" />
+        <stop offset="50%" stop-color="#EA580C" />
+        <stop offset="100%" stop-color="#C2410C" />
       </linearGradient>
-      <linearGradient id="logo-sparkle-grad" x1="20" y1="4" x2="28" y2="12" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stop-color="#FDE047" />
-        <stop offset="100%" stop-color="#F59E0B" />
+      <linearGradient id="ncp-logo-rim" x1="2" y1="2" x2="30" y2="18" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.45" />
+        <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.05" />
       </linearGradient>
-      <filter id="logo-shadow" x="0" y="0" width="32" height="32" filterUnits="userSpaceOnUse">
-        <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#0F172A" flood-opacity="0.18" />
+      <radialGradient id="ncp-logo-glow" cx="16" cy="16" r="12" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#FEF08A" stop-opacity="0.5" />
+        <stop offset="70%" stop-color="#F97316" stop-opacity="0" />
+      </radialGradient>
+      <filter id="ncp-logo-shadow" x="0" y="0" width="32" height="32" filterUnits="userSpaceOnUse">
+        <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#7C2D12" flood-opacity="0.3" />
       </filter>
     </defs>
 
     <!-- Base Squircle Container -->
-    <rect x="2" y="2" width="28" height="28" rx="7" fill="url(#logo-bg-grad)" filter="url(#logo-shadow)" />
-    <rect x="2.5" y="2.5" width="27" height="27" rx="6.5" stroke="#60A5FA" stroke-opacity="0.4" stroke-width="1" />
+    <rect x="2" y="2" width="28" height="28" rx="7.5" fill="url(#ncp-logo-bg)" filter="url(#ncp-logo-shadow)" />
+    <rect x="2.5" y="2.5" width="27" height="27" rx="7" stroke="url(#ncp-logo-rim)" stroke-width="1" />
 
-    <!-- Marketplace Storefront / Studio Icon -->
-    <!-- Awning Top -->
-    <path d="M7 11.5L9 8h14l2 3.5v1.5c0 1.1-.9 2-2 2s-2-.9-2-2c0 1.1-.9 2-2 2s-2-.9-2-2c0 1.1-.9 2-2 2s-2-.9-2-2c0 1.1-.9 2-2 2s-2-.9-2-2v-1.5z" fill="#FFFFFF" fill-opacity="0.95" />
-    
-    <!-- Store Body -->
-    <path d="M8 15v8c0 .55.45 1 1 1h14c.55 0 1-.45 1-1v-8" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
-    
-    <!-- Store Door / Counter -->
-    <path d="M13 24v-5c0-.55.45-1 1-1h4c.55 0 1 .45 1 1v5" fill="#DBEAFE" fill-opacity="0.3" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+    <!-- Ambient Core Glow -->
+    <circle cx="16" cy="16" r="10" fill="url(#ncp-logo-glow)" />
 
-    <!-- Magic Sparkle (Automation / AI indicator) -->
-    <path d="M24 4.5L24.8 6.8L27 7.5L24.8 8.2L24 10.5L23.2 8.2L21 7.5L23.2 6.8L24 4.5Z" fill="url(#logo-sparkle-grad)" />
+    <!-- Geometric Craft Diamond Base -->
+    <path
+      d="M16 6.5L25 15.5L16 24.5L7 15.5L16 6.5Z"
+      fill="#FFFFFF"
+      fill-opacity="0.14"
+      stroke="#FFFFFF"
+      stroke-opacity="0.35"
+      stroke-width="0.8"
+    />
+
+    <!-- Left Prism Fold -->
+    <path
+      d="M16 7.5L9 14.5V17.5L16 24.5V7.5Z"
+      fill="#FFFFFF"
+      fill-opacity="0.22"
+    />
+
+    <!-- Right Prism Fold -->
+    <path
+      d="M16 7.5L23 14.5V17.5L16 24.5V7.5Z"
+      fill="#FFFFFF"
+      fill-opacity="0.35"
+    />
+
+    <!-- 4-Point Radiant Nova Star -->
+    <path
+      d="M16 9.5L17.4 13.8C17.7 14.7 18.3 15.3 19.2 15.6L23.5 17L19.2 18.4C18.3 18.7 17.7 19.3 17.4 20.2L16 24.5L14.6 20.2C14.3 19.3 13.7 18.7 12.8 18.4L8.5 17L12.8 15.6C13.7 15.3 14.3 14.7 14.6 13.8L16 9.5Z"
+      fill="#FFFFFF"
+    />
+
+    <!-- Golden Nexus Center -->
+    <circle cx="16" cy="17" r="1.4" fill="#FDE047" />
+
+    <!-- Vector Pixel Nodes -->
+    <rect x="22.5" y="8" width="1.5" height="1.5" rx="0.4" fill="#FFFFFF" fill-opacity="0.9" />
+    <rect x="8" y="22.5" width="1.5" height="1.5" rx="0.4" fill="#FFFFFF" fill-opacity="0.6" />
   </svg>
 </template>
