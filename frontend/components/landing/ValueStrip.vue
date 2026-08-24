@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useScrollReveal } from "~/composables/useScrollReveal";
+
+const { targetRef, isVisible } = useScrollReveal();
+
 const steps = [
   {
     step: "01",
@@ -34,31 +38,52 @@ const steps = [
 </script>
 
 <template>
-  <section class="border-y border-stone-200/80 dark:border-stone-800 bg-[#FFFDF7]/60 dark:bg-stone-950/40 py-10 sm:py-14">
-    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 sm:gap-4 divide-y sm:divide-y-0 lg:divide-x divide-stone-200/70 dark:divide-stone-800">
+  <section
+    ref="targetRef"
+    class="border-y border-stone-200/80 dark:border-stone-800 bg-[#FFFDF7]/80 dark:bg-stone-950/40 py-12 sm:py-16 relative overflow-hidden"
+    aria-label="Workflow Stages Overview"
+  >
+    <!-- Ambient Background Glow -->
+    <div class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden" aria-hidden="true">
+      <div class="size-[450px] rounded-full bg-orange-500/5 dark:bg-orange-500/10 blur-3xl" />
+    </div>
+
+    <div class="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-4.5">
         <div
           v-for="(item, index) in steps"
           :key="item.step"
           :class="[
-            'flex flex-col space-y-2 pt-4 sm:pt-0',
-            index > 0 ? 'lg:pl-6' : '',
+            'group rounded-2xl border border-stone-200/80 dark:border-stone-800/90 bg-white/80 dark:bg-stone-900/80 p-5 shadow-2xs backdrop-blur-xs flex flex-col justify-between hover:-translate-y-1.5 hover:border-orange-500/40 hover:shadow-md dark:hover:border-orange-500/40 transition-all duration-300 cursor-default',
+            index === 4 ? 'sm:col-span-2 lg:col-span-1' : '',
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6',
           ]"
+          :style="{ transitionDelay: `${index * 80}ms` }"
         >
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-extrabold text-orange-600 dark:text-orange-400 uppercase tracking-wider">
-              Step {{ item.step }}
-            </span>
-            <div class="size-8 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
-              <Icon :name="item.icon" class="size-4" aria-hidden="true" />
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-black uppercase tracking-widest text-stone-400 dark:text-stone-500 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                Step {{ item.step }}
+              </span>
+              <div class="size-9 rounded-xl bg-orange-500/10 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center shadow-2xs group-hover:bg-orange-600 group-hover:text-white group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                <Icon :name="item.icon" class="size-4.5" aria-hidden="true" />
+              </div>
             </div>
+
+            <h2 class="text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+              {{ item.title }}
+            </h2>
+
+            <p class="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+              {{ item.desc }}
+            </p>
           </div>
-          <h2 class="text-sm font-bold text-stone-900 dark:text-stone-100">
-            {{ item.title }}
-          </h2>
-          <p class="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
-            {{ item.desc }}
-          </p>
+
+          <!-- Bottom Micro-Progress Indicator -->
+          <div class="pt-3 mt-2 border-t border-stone-100 dark:border-stone-800/80 flex items-center justify-between text-[10px] font-semibold text-stone-400 dark:text-stone-500">
+            <span>Stage {{ index + 1 }} of 5</span>
+            <Icon name="lucide:arrow-right" class="size-3 text-stone-300 dark:text-stone-600 group-hover:text-orange-500 group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+          </div>
         </div>
       </div>
     </div>
