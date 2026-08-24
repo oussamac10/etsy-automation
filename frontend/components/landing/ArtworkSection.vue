@@ -106,16 +106,14 @@ const previewBg = ref<"transparent" | "white" | "dark">("transparent");
                 />
               </div>
 
-              <!-- Graphic Representation (Pure Transparent PNG Cutout Artwork) -->
-              <div class="relative z-10 text-center max-w-xs space-y-2 hover:scale-105 transition-transform duration-300 cursor-pointer filter drop-shadow-xl">
-                <!-- Cutout Artwork Vector -->
-                <div class="relative size-20 sm:size-24 mx-auto flex items-center justify-center">
-                  <div class="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-500/20 via-orange-500/25 to-rose-500/20 blur-md" />
-                  <Icon
-                    name="lucide:sparkles"
-                    class="size-12 sm:size-14 text-orange-500 filter drop-shadow-md animate-spin-slow transition-transform duration-300"
-                    aria-hidden="true"
-                  />
+              <!-- Graphic Representation (Master Transparent PNG Artwork) -->
+              <div class="relative z-10 text-center max-w-xs space-y-3 hover:scale-105 transition-transform duration-300 cursor-pointer filter drop-shadow-xl">
+                <!-- Placed Artwork Graphic Layer (Same as MockupShowcase) -->
+                <div class="size-24 sm:size-28 mx-auto rounded-2xl bg-gradient-to-tr from-amber-500/90 via-orange-500 to-rose-500 p-0.5 shadow-md flex items-center justify-center">
+                  <div class="size-full rounded-2xl bg-stone-900/60 dark:bg-stone-950/70 backdrop-blur-xs flex flex-col items-center justify-center text-amber-400 p-2.5 border border-white/20">
+                    <Icon name="lucide:sparkles" class="size-9 sm:size-10 text-amber-300 animate-spin-slow" />
+                    <span class="text-[10px] font-black tracking-widest text-white uppercase mt-0.5">VINTAGE ART</span>
+                  </div>
                 </div>
 
                 <div>
@@ -131,7 +129,7 @@ const previewBg = ref<"transparent" | "white" | "dark">("transparent");
                     class="text-[10px] font-semibold tracking-wide transition-colors duration-300"
                     :class="[previewBg === 'dark' ? 'text-stone-300' : 'text-stone-600 dark:text-stone-400']"
                   >
-                    Est. 2026 · Pure Transparent PNG Cutout
+                    Est. 2026 · Master 300 DPI Transparent Asset
                   </p>
                 </div>
               </div>
