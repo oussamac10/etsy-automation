@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted } from "vue";
 
 const currentStep = ref(1);
 const totalSteps = 7;
-const isPaused = ref(false);
+const isAutoPlaying = ref(true);
 const prefersReducedMotion = ref(false);
 
 const steps = [
@@ -20,15 +20,35 @@ let timer: ReturnType<typeof setInterval> | null = null;
 
 function setStep(step: number) {
   currentStep.value = step;
+  if (isAutoPlaying.value) {
+    restartLoop();
+  }
 }
 
-function startLoop() {
-  if (timer) clearInterval(timer);
+function toggleAutoPlay() {
+  isAutoPlaying.value = !isAutoPlaying.value;
+  if (isAutoPlaying.value) {
+    restartLoop();
+  } else {
+    stopLoop();
+  }
+}
+
+function stopLoop() {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+
+function restartLoop() {
+  stopLoop();
+  if (prefersReducedMotion.value || !isAutoPlaying.value) return;
   timer = setInterval(() => {
-    if (!isPaused.value && !prefersReducedMotion.value) {
+    if (isAutoPlaying.value && !prefersReducedMotion.value) {
       currentStep.value = currentStep.value >= totalSteps ? 1 : currentStep.value + 1;
     }
-  }, 1300);
+  }, 2200);
 }
 
 onMounted(() => {
@@ -43,16 +63,16 @@ onMounted(() => {
       return;
     }
 
-    startLoop();
+    restartLoop();
 
     if (motionQuery?.addEventListener) {
       motionQuery.addEventListener("change", (e) => {
         prefersReducedMotion.value = e.matches;
         if (e.matches) {
-          if (timer) clearInterval(timer);
+          stopLoop();
           currentStep.value = totalSteps;
         } else {
-          startLoop();
+          restartLoop();
         }
       });
     }
@@ -60,10 +80,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
+  stopLoop();
 });
 </script>
 
@@ -71,8 +88,6 @@ onUnmounted(() => {
   <div
     class="w-full max-w-4xl mx-auto rounded-2xl border border-stone-200/90 dark:border-stone-800 bg-white/90 dark:bg-stone-900/90 shadow-xl overflow-hidden backdrop-blur-md"
     data-testid="hero-workflow-demo"
-    @mouseenter="isPaused = true"
-    @mouseleave="isPaused = false"
   >
     <!-- Top Demo Window Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3.5 sm:px-5 py-2.5 sm:py-3 border-b border-stone-200/80 dark:border-stone-800 bg-stone-50/95 dark:bg-stone-950/70">
@@ -97,12 +112,12 @@ onUnmounted(() => {
         <!-- Play / Pause Button -->
         <button
           type="button"
-          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 bg-stone-200/60 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors cursor-pointer"
-          :aria-label="isPaused ? 'Resume auto-play' : 'Pause auto-play'"
-          @click="isPaused = !isPaused"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-stone-600 dark:text-stone-300 hover:text-orange-600 dark:hover:text-orange-400 bg-stone-200/70 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors cursor-pointer shadow-2xs"
+          :aria-label="isAutoPlaying ? 'Pause auto-play' : 'Resume auto-play'"
+          @click="toggleAutoPlay"
         >
-          <Icon :name="isPaused ? 'lucide:play' : 'lucide:pause'" class="size-2.5" aria-hidden="true" />
-          <span>{{ isPaused ? 'Resume' : 'Pause' }}</span>
+          <Icon :name="isAutoPlaying ? 'lucide:pause' : 'lucide:play'" class="size-3 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+          <span>{{ isAutoPlaying ? 'Pause' : 'Resume' }}</span>
         </button>
       </div>
 
@@ -119,9 +134,9 @@ onUnmounted(() => {
           role="tab"
           :aria-selected="currentStep === step.id"
           :class="[
-            'px-2 sm:px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all duration-150 cursor-pointer flex items-center gap-1.5 shrink-0',
+            'px-2.5 sm:px-3 py-1 rounded-lg text-[11px] font-bold transition-all duration-150 cursor-pointer flex items-center gap-1.5 shrink-0',
             currentStep === step.id
-              ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs scale-[1.01]'
+              ? 'bg-orange-600 text-white shadow-sm scale-[1.02]'
               : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-white/40 dark:hover:bg-stone-800/40',
           ]"
           @click="setStep(step.id)"
@@ -130,7 +145,7 @@ onUnmounted(() => {
             :class="[
               'size-3.5 rounded-full text-[9px] font-black flex items-center justify-center',
               currentStep === step.id
-                ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                ? 'bg-white/20 text-white'
                 : 'bg-stone-300/60 dark:bg-stone-700/60 text-stone-500 dark:text-stone-400',
             ]"
           >
