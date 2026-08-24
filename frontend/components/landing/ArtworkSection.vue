@@ -55,57 +55,45 @@ const previewBg = ref<"transparent" | "white" | "dark">("transparent");
                 <button
                   type="button"
                   :class="[
-                    'px-2 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer',
+                    'px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer',
                     previewBg === 'transparent' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-2xs' : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200',
                   ]"
                   @click="previewBg = 'transparent'"
                 >
-                  Alpha
+                  Alpha Grid
                 </button>
                 <button
                   type="button"
                   :class="[
-                    'px-2 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer',
+                    'px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer',
                     previewBg === 'white' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-2xs' : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200',
                   ]"
                   @click="previewBg = 'white'"
                 >
-                  Light Tee
+                  White
                 </button>
                 <button
                   type="button"
                   :class="[
-                    'px-2 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer',
+                    'px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer',
                     previewBg === 'dark' ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-2xs' : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200',
                   ]"
                   @click="previewBg = 'dark'"
                 >
-                  Dark Tee
+                  Dark
                 </button>
               </div>
             </div>
 
-            <!-- Artwork Display Box -->
+            <!-- Artwork Display Box (Master Canvas Asset) -->
             <div
               :class="[
                 'relative h-72 sm:h-96 flex items-center justify-center p-6 transition-colors duration-300 overflow-hidden',
                 previewBg === 'transparent' ? 'bg-alpha-grid bg-stone-100/80 dark:bg-stone-900/80' : '',
-                previewBg === 'white' ? 'bg-stone-100/90 dark:bg-stone-800/90' : '',
-                previewBg === 'dark' ? 'bg-stone-950' : '',
+                previewBg === 'white' ? 'bg-white text-stone-900' : '',
+                previewBg === 'dark' ? 'bg-stone-950 text-white' : '',
               ]"
             >
-              <!-- Garment Silhouette for Light Tee & Dark Tee -->
-              <div
-                v-if="previewBg !== 'transparent'"
-                class="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300 animate-in fade-in"
-              >
-                <Icon
-                  name="lucide:shirt"
-                  class="size-44 text-stone-400/90 dark:text-stone-500/70 transition-colors duration-300"
-                  aria-hidden="true"
-                />
-              </div>
-
               <!-- Graphic Representation (Master Transparent PNG Artwork) -->
               <div class="relative z-10 text-center max-w-xs space-y-3 hover:scale-105 transition-transform duration-300 cursor-pointer filter drop-shadow-xl">
                 <!-- Placed Artwork Graphic Layer (Same as MockupShowcase) -->
