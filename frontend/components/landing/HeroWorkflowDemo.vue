@@ -112,74 +112,69 @@ onUnmounted(() => {
     class="w-full max-w-4xl mx-auto rounded-2xl border border-stone-200/90 dark:border-stone-800 bg-white/90 dark:bg-stone-900/90 shadow-xl overflow-hidden backdrop-blur-md"
     data-testid="hero-workflow-demo"
   >
-    <!-- Top Demo Window Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3.5 sm:px-5 py-2.5 sm:py-3 border-b border-stone-200/80 dark:border-stone-800 bg-stone-50/95 dark:bg-stone-950/70">
-      
-      <!-- Left: Window Controls, Live Badge & Play/Pause -->
-      <div class="flex items-center justify-between sm:justify-start gap-2.5 shrink-0">
-        <!-- Mac Window Dots -->
+    <!-- Top Window Chrome Header -->
+    <div class="flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-3 border-b border-stone-200/80 dark:border-stone-800 bg-stone-50/95 dark:bg-stone-950/70">
+      <!-- Left: Mac Window Dots & Live Studio Badge -->
+      <div class="flex items-center gap-2.5 sm:gap-3">
         <div class="flex items-center gap-1.5" aria-hidden="true">
           <div class="size-2.5 sm:size-3 rounded-full bg-red-500/80 border border-red-600/30 shadow-2xs" />
           <div class="size-2.5 sm:size-3 rounded-full bg-amber-500/80 border border-amber-600/30 shadow-2xs" />
           <div class="size-2.5 sm:size-3 rounded-full bg-emerald-500/80 border border-emerald-600/30 shadow-2xs" />
         </div>
-
-        <div class="h-3.5 w-px bg-stone-300 dark:bg-stone-700 hidden sm:block mx-0.5" aria-hidden="true" />
-
-        <!-- Live Studio Badge -->
-        <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] sm:text-[11px] font-bold shadow-2xs">
+        <div class="h-3.5 w-px bg-stone-300 dark:bg-stone-700 mx-0.5" aria-hidden="true" />
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] sm:text-[11px] font-bold shadow-2xs">
           <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Live Studio Preview</span>
+          <span>Live Studio Workflow Demo</span>
         </div>
-
-        <!-- Play / Pause Button -->
-        <button
-          type="button"
-          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-stone-600 dark:text-stone-300 hover:text-orange-600 dark:hover:text-orange-400 bg-stone-200/70 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors cursor-pointer shadow-2xs"
-          :aria-label="isAutoPlaying ? 'Pause auto-play' : 'Resume auto-play'"
-          @click="toggleAutoPlay"
-        >
-          <Icon :name="isAutoPlaying ? 'lucide:pause' : 'lucide:play'" class="size-3 text-orange-600 dark:text-orange-400" aria-hidden="true" />
-          <span>{{ isAutoPlaying ? 'Pause' : 'Resume' }}</span>
-        </button>
       </div>
 
-      <!-- Right: Scrollable Segmented Step Navigation Tabs -->
-      <div class="min-w-0 w-full sm:w-auto overflow-hidden">
-        <div
-          ref="tabListRef"
-          class="flex items-center p-0.5 rounded-xl bg-stone-200/60 dark:bg-stone-900 border border-stone-300/50 dark:border-stone-800 overflow-x-auto scroll-smooth scrollbar-none w-full max-w-full touch-pan-x"
-          role="tablist"
-          aria-label="Workflow Demo Steps"
+      <!-- Right: Play / Pause Control Button -->
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-[11px] sm:text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-orange-600 dark:hover:text-orange-400 bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200/80 dark:border-stone-700/80 transition-colors cursor-pointer shadow-2xs"
+        :aria-label="isAutoPlaying ? 'Pause auto-play' : 'Resume auto-play'"
+        @click="toggleAutoPlay"
+      >
+        <Icon :name="isAutoPlaying ? 'lucide:pause' : 'lucide:play'" class="size-3 text-orange-600 dark:text-orange-400" aria-hidden="true" />
+        <span>{{ isAutoPlaying ? 'Pause Demo' : 'Resume Demo' }}</span>
+      </button>
+    </div>
+
+    <!-- Dedicated Full-Width Segmented Tab Navigation Bar -->
+    <div class="px-3 sm:px-5 py-2 border-b border-stone-200/80 dark:border-stone-800 bg-stone-100/50 dark:bg-stone-900/50">
+      <div
+        ref="tabListRef"
+        class="flex items-center gap-1 overflow-x-auto scroll-smooth scrollbar-none w-full max-w-full touch-pan-x p-1 rounded-xl bg-stone-200/60 dark:bg-stone-950 border border-stone-300/50 dark:border-stone-800"
+        role="tablist"
+        aria-label="Workflow Demo Steps"
+      >
+        <button
+          v-for="step in steps"
+          :key="step.id"
+          type="button"
+          role="tab"
+          :aria-selected="currentStep === step.id"
+          :class="[
+            'flex-1 min-w-fit px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap',
+            currentStep === step.id
+              ? 'bg-orange-600 text-white shadow-sm'
+              : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-white/50 dark:hover:bg-stone-800/50',
+          ]"
+          @click="setStep(step.id)"
         >
-          <button
-            v-for="step in steps"
-            :key="step.id"
-            type="button"
-            role="tab"
-            :aria-selected="currentStep === step.id"
+          <span
             :class="[
-              'px-2.5 sm:px-3 py-1 rounded-lg text-[11px] font-bold transition-all duration-150 cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap',
+              'size-4 rounded-full text-[10px] font-black flex items-center justify-center shrink-0',
               currentStep === step.id
-                ? 'bg-orange-600 text-white shadow-sm scale-[1.02]'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-white/40 dark:hover:bg-stone-800/40',
+                ? 'bg-white/20 text-white'
+                : 'bg-stone-300/80 dark:bg-stone-800 text-stone-600 dark:text-stone-400',
             ]"
-            @click="setStep(step.id)"
           >
-            <span
-              :class="[
-                'size-3.5 rounded-full text-[9px] font-black flex items-center justify-center shrink-0',
-                currentStep === step.id
-                  ? 'bg-white/20 text-white'
-                  : 'bg-stone-300/60 dark:bg-stone-700/60 text-stone-500 dark:text-stone-400',
-              ]"
-            >
-              {{ step.id }}
-            </span>
-            <span class="hidden sm:inline">{{ step.label }}</span>
-            <span class="sm:hidden">{{ step.short }}</span>
-          </button>
-        </div>
+            {{ step.id }}
+          </span>
+          <span class="hidden md:inline">{{ step.label }}</span>
+          <span class="md:hidden">{{ step.short }}</span>
+        </button>
       </div>
     </div>
 
