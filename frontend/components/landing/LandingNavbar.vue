@@ -43,15 +43,23 @@ function closeMobileMenu() {
 }
 
 function scrollToSection(e: MouseEvent, href: string) {
-  if (href.startsWith("#") && typeof document !== "undefined") {
+  if (href.startsWith("#")) {
     e.preventDefault();
     const targetId = href.slice(1);
-    const targetEl = document.getElementById(targetId);
-    if (targetEl) {
-      targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (typeof window !== "undefined" && window.history?.pushState) {
-        window.history.pushState(null, "", href);
+    const isHomePage = typeof window !== "undefined" && (window.location.pathname === "/" || window.location.pathname === "");
+    if (isHomePage) {
+      if (typeof document !== "undefined") {
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (typeof window !== "undefined" && window.history?.pushState) {
+            window.history.pushState(null, "", href);
+          }
+          closeMobileMenu();
+        }
       }
+    } else if (typeof window !== "undefined") {
+      window.location.href = `/${href}`;
       closeMobileMenu();
     }
   }
