@@ -57,13 +57,7 @@ export default defineNuxtConfig({
         },
       ],
       link: [
-        {
-          rel: "icon",
-          type: "image/svg+xml",
-          href: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSJub25lIj48cmVjdCB4PSIzIiB5PSIzIiB3aWR0aD0iNyIgaGVpZ2h0PSIxNiIgcng9IjMuNSIgZmlsbD0iI0ZGNkIzNSIvPjxyZWN0IHg9IjMiIHk9IjIyIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiByeD0iMi41IiBmaWxsPSIjMTgxODFCIi8+PHJlY3QgeD0iMTIuNSIgeT0iNy41IiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiByeD0iMi41IiBmaWxsPSIjRkZCMDg5Ii8+PHJlY3QgeD0iMTIuNSIgeT0iMTcuNSIgd2lkdGg9IjciIGhlaWdodD0iNyIgcng9IjIuNSIgZmlsbD0iI0ZGNkIzNSIvPjxyZWN0IHg9IjIyIiB5PSIzIiB3aWR0aD0iNyIgaGVpZ2h0PSI3IiByeD0iMi41IiBmaWxsPSIjRkZCMDg5Ii8+PHJlY3QgeD0iMjIiIHk9IjEzIiB3aWR0aD0iNyIgaGVpZ2h0PSIxNiIgcng9IjMuNSIgZmlsbD0iI0ZGNkIzNSIvPjwvc3ZnPg==",
-        },
-        { rel: "alternate icon", type: "image/svg+xml", href: "/favicon.svg" },
-        { rel: "alternate icon", type: "image/x-icon", href: "/favicon.ico" },
+        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       ],
       script: [
         {
