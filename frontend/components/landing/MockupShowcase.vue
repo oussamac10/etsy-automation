@@ -70,18 +70,18 @@ function selectMockup(item: MockupItem) {
       </div>
 
       <!-- Main Interactive Showcase Layout -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start lg:items-center">
         
-        <!-- Left: Product Selector Tabs (9 Catalog Products) -->
-        <div class="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+        <!-- Product Selector: Horizontal scrollable on mobile/tablet, full-stack grid on desktop -->
+        <div class="lg:col-span-5 flex lg:grid lg:grid-cols-1 overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0 scrollbar-none gap-2 -mx-4 px-4 sm:mx-0 sm:px-0 touch-pan-x">
           <button
             v-for="item in mockups"
             :key="item.id"
             type="button"
             :class="[
-              'w-full flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer group',
+              'shrink-0 lg:w-full flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer group whitespace-nowrap lg:whitespace-normal',
               selectedMockup.id === item.id
-                ? 'border-orange-500 bg-white dark:bg-stone-900 shadow-sm'
+                ? 'border-orange-500 bg-white dark:bg-stone-900 shadow-sm ring-1 ring-orange-500/20'
                 : 'border-stone-200/80 dark:border-stone-800 bg-white/60 dark:bg-stone-900/40 hover:bg-white dark:hover:bg-stone-900 hover:border-orange-500/40',
             ]"
             @click="selectMockup(item)"
@@ -89,32 +89,32 @@ function selectMockup(item: MockupItem) {
             <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div
                 :class="[
-                  'size-9 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 shadow-2xs',
+                  'size-8 sm:size-9 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 shadow-2xs',
                   selectedMockup.id === item.id
                     ? 'bg-orange-600 text-white'
                     : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-orange-500/10 group-hover:text-orange-600 dark:group-hover:text-orange-400',
                 ]"
               >
-                <Icon :name="item.icon" class="size-4.5" aria-hidden="true" />
+                <Icon :name="item.icon" class="size-4 sm:size-4.5" aria-hidden="true" />
               </div>
               <div class="truncate">
                 <p class="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 truncate group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                   {{ item.name }}
                 </p>
-                <span class="text-[11px] text-stone-500 dark:text-stone-400">
+                <span class="text-[10px] sm:text-[11px] text-stone-500 dark:text-stone-400">
                   {{ item.aspect }}
                 </span>
               </div>
             </div>
 
-            <div class="text-right shrink-0 flex items-center gap-1.5 sm:gap-2">
-              <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-stone-700/60">
+            <div class="text-right shrink-0 flex items-center gap-1.5 sm:gap-2 ml-3 lg:ml-0">
+              <span class="inline-block px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-stone-700/60">
                 {{ item.category }}
               </span>
               <Icon
                 name="lucide:chevron-right"
                 :class="[
-                  'size-3.5 sm:size-4 transition-transform duration-200',
+                  'size-3.5 sm:size-4 transition-transform duration-200 hidden lg:block',
                   selectedMockup.id === item.id ? 'text-orange-600 translate-x-0.5' : 'text-stone-300 dark:text-stone-600 group-hover:text-stone-400',
                 ]"
                 aria-hidden="true"
@@ -125,7 +125,7 @@ function selectMockup(item: MockupItem) {
 
         <!-- Right: Active Mockup Large Visual Canvas -->
         <div class="lg:col-span-7">
-          <div class="rounded-3xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col items-center justify-center min-h-[420px] sm:min-h-[480px]">
+          <div class="rounded-2xl sm:rounded-3xl border border-stone-200/90 dark:border-stone-800 bg-white dark:bg-stone-900 p-4 sm:p-8 shadow-xl relative overflow-hidden flex flex-col items-center justify-center min-h-[360px] sm:min-h-[480px]">
             
             <!-- Studio Stage Top Header Bar -->
             <div class="w-full flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-3 mb-6">

@@ -55,46 +55,46 @@ watch(isVisible, (visible) => {
       </div>
 
       <!-- Mode Selector Pills -->
-      <div class="flex items-center justify-center gap-2 max-w-md mx-auto p-1 rounded-xl bg-stone-200/60 dark:bg-stone-900 border border-stone-300/60 dark:border-stone-800">
+      <div class="flex items-center justify-center gap-1 sm:gap-2 max-w-md mx-auto p-1 rounded-xl bg-stone-200/60 dark:bg-stone-900 border border-stone-300/60 dark:border-stone-800">
         <button
           type="button"
           :class="[
-            'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5',
+            'flex-1 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap',
             activeModeTab === 'market-led'
               ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs'
               : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200',
           ]"
           @click="activeModeTab = 'market-led'"
         >
-          <Icon name="lucide:search" class="size-3.5" aria-hidden="true" />
+          <Icon name="lucide:search" class="size-3.5 shrink-0" aria-hidden="true" />
           <span>Discover Ideas</span>
         </button>
 
         <button
           type="button"
           :class="[
-            'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5',
+            'flex-1 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap',
             activeModeTab === 'user-idea'
               ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs'
               : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200',
           ]"
           @click="activeModeTab = 'user-idea'"
         >
-          <Icon name="lucide:lightbulb" class="size-3.5" aria-hidden="true" />
+          <Icon name="lucide:lightbulb" class="size-3.5 shrink-0" aria-hidden="true" />
           <span>Use My Idea</span>
         </button>
 
         <button
           type="button"
           :class="[
-            'flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5',
+            'flex-1 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap',
             activeModeTab === 'hybrid'
               ? 'bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 shadow-xs'
               : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200',
           ]"
           @click="activeModeTab = 'hybrid'"
         >
-          <Icon name="lucide:git-merge" class="size-3.5" aria-hidden="true" />
+          <Icon name="lucide:git-merge" class="size-3.5 shrink-0" aria-hidden="true" />
           <span>Hybrid</span>
         </button>
       </div>
@@ -107,23 +107,23 @@ watch(isVisible, (visible) => {
           class="lg:col-span-7 transition-all duration-700 delay-100"
           :class="[isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-6']"
         >
-          <div class="rounded-2xl border-2 border-orange-500/30 bg-white dark:bg-stone-900 p-5 sm:p-7 shadow-xl relative overflow-hidden">
+          <div class="rounded-2xl border-2 border-orange-500/30 bg-white dark:bg-stone-900 p-4 sm:p-7 shadow-xl relative overflow-hidden">
             <div class="absolute top-0 right-0 transform translate-x-6 -translate-y-6 size-32 rounded-full bg-orange-400/10 blur-2xl pointer-events-none" />
 
             <!-- Card Header -->
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 dark:border-stone-800 pb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 dark:border-stone-800 pb-4">
               <div>
                 <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-orange-600 text-white">
                   <Icon name="lucide:award" class="size-3" aria-hidden="true" />
                   <span>Best Opportunity</span>
                 </div>
-                <h3 class="text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 mt-1.5">
+                <h3 class="text-lg sm:text-2xl font-black text-stone-900 dark:text-stone-100 mt-1.5">
                   Retro Radiology Halloween
                 </h3>
               </div>
 
               <!-- Score Badge -->
-              <div class="flex items-center gap-2 rounded-xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200/80 dark:border-orange-900/60 px-3.5 py-2 hover:scale-105 transition-transform duration-200 shadow-2xs">
+              <div class="flex items-center gap-2 rounded-xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200/80 dark:border-orange-900/60 px-3.5 py-2 hover:scale-105 transition-transform duration-200 shadow-2xs self-start sm:self-auto">
                 <Icon name="lucide:gauge" class="size-5 text-orange-600 dark:text-orange-400" aria-hidden="true" />
                 <div>
                   <span class="text-[10px] font-bold text-stone-500 uppercase block leading-none">Score</span>

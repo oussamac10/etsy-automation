@@ -44,14 +44,16 @@ const previewBg = ref<"transparent" | "white" | "dark">("transparent");
           <div class="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-xl overflow-hidden">
             
             <!-- Canvas Header & Background Mode Toggle -->
-            <div class="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-stone-100 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/40">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 sm:px-6 py-2.5 sm:py-3 border-b border-stone-100 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/40">
               <div class="flex items-center gap-2">
-                <span class="size-2.5 rounded-full bg-emerald-500" />
-                <span class="text-xs font-bold text-stone-700 dark:text-stone-300">Master Asset: 4500 × 5400px (300 DPI)</span>
+                <span class="size-2.5 rounded-full bg-emerald-500 shrink-0" />
+                <span class="text-xs font-bold text-stone-700 dark:text-stone-300">
+                  <span class="hidden sm:inline">Master Asset: </span>4500 × 5400px (300 DPI)
+                </span>
               </div>
 
               <!-- BG Switcher -->
-              <div class="flex items-center gap-1 bg-stone-200/80 dark:bg-stone-800 p-0.5 rounded-lg text-xs" role="group" aria-label="Preview Background Color">
+              <div class="flex items-center gap-1 bg-stone-200/80 dark:bg-stone-800 p-0.5 rounded-lg text-xs self-start sm:self-auto" role="group" aria-label="Preview Background Color">
                 <button
                   type="button"
                   :class="[
