@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { ref, computed, watch, onMounted, nextTick } from "vue";
 import Badge from "~/components/ui/Badge.vue";
 
 const props = defineProps<{
@@ -13,6 +13,33 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "update:activeTab", tab: string): void;
 }>();
+
+const navRef = ref<HTMLElement | null>(null);
+
+function scrollToActiveTab(smooth = true): void {
+  nextTick(() => {
+    if (!navRef.value) return;
+    const activeEl = navRef.value.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (activeEl) {
+      activeEl.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  });
+}
+
+watch(
+  () => props.activeTab,
+  () => {
+    scrollToActiveTab(true);
+  }
+);
+
+onMounted(() => {
+  scrollToActiveTab(false);
+});
 
 const isGate1Done = computed(() => {
   return [
@@ -69,7 +96,7 @@ const isListingActive = computed(() => {
 </script>
 
 <template>
-  <nav class="border border-border bg-muted/70 backdrop-blur-md sticky top-12 sm:top-14 z-20 rounded-xl shadow-2xs p-1.5 w-full overflow-x-auto scrollbar-none overscroll-x-contain touch-pan-x" role="tablist" aria-label="Workflow Stages">
+  <nav ref="navRef" class="border border-border bg-muted/70 backdrop-blur-md sticky top-12 sm:top-14 z-20 rounded-xl shadow-2xs p-1.5 w-full overflow-x-auto scrollbar-none overscroll-x-contain touch-pan-x scroll-smooth" role="tablist" aria-label="Workflow Stages">
     <div class="flex items-center gap-1 min-w-max lg:min-w-0 lg:w-full lg:justify-between">
       <!-- Tab 1: Overview -->
       <button
