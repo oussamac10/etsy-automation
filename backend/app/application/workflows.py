@@ -10,6 +10,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from app.application.research import queue_research_run
 from app.application.unit_of_work import UnitOfWork
@@ -503,11 +504,35 @@ async def decide_gate(
 
     if concept is not None:
         if decision == ApprovalDecision.APPROVED:
+            # Demote any other approved concepts for this workflow so only one concept is active
+            other_concepts = await uow.concepts.list_for_workflow(workflow_id)
+            for other_c in other_concepts:
+                if other_c.id != concept.id and other_c.status == ConceptStatus.APPROVED:
+                    other_c.status = ConceptStatus.PROPOSED
             concept.status = ConceptStatus.APPROVED
             if concept.title:
                 workflow.name = concept.title
+            # Invalidate downstream artifacts for new concept selection
+            from app.application.workflow_context import invalidate_downstream
+            await invalidate_downstream(workflow_id, "concept", concept.id, uow)
         elif decision == ApprovalDecision.REJECTED:
             concept.status = ConceptStatus.REJECTED
+
+    if gate == ApprovalGate.ARTWORK_APPROVAL and decision == ApprovalDecision.APPROVED and target_id is not None:
+        # Mark chosen artwork as approved and demote previous artworks
+        workflow_assets = await uow.assets.list_for_workflow(workflow_id)
+        for a in workflow_assets:
+            prov: dict[str, Any] = dict(a.provenance) if isinstance(a.provenance, dict) else {}
+            if a.id == target_id:
+                prov["approved"] = True
+                prov["status"] = "current"
+                a.provenance = prov
+            elif prov.get("approved"):
+                prov["approved"] = False
+                prov["status"] = "superseded"
+                a.provenance = prov
+        from app.application.workflow_context import invalidate_downstream
+        await invalidate_downstream(workflow_id, "artwork", target_id, uow)
 
     approval = await uow.approvals.record(
         workflow=workflow,

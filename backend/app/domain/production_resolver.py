@@ -1,7 +1,7 @@
 """Authoritative production asset resolution and user mockup filtering.
 
 Provides single-source domain logic for identifying production master PNGs
-and filtering active user-template mockups.
+and filtering active user-template mockups with strict provenance checks.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.application.unit_of_work import UnitOfWork
+from app.domain.workflow import ApprovalDecision, ApprovalGate
 from app.infrastructure.models import Asset
 
 
@@ -25,6 +26,8 @@ def is_valid_user_mockup_asset(asset: Asset) -> bool:
     if not (prov.get("template_id") or prov.get("template_storage_key")):
         return False
     if prov.get("provider") in ("fake", "default"):
+        return False
+    if prov.get("status") in ("superseded", "deleted"):
         return False
     return not bool(prov.get("default_mockup"))
 
@@ -101,7 +104,30 @@ async def get_production_master_asset(
     if master_asset:
         return master_asset
 
-    # 3. Fallback to newest artwork candidate asset
+    # 3. Check for approved Gate 2 artwork asset
+    approvals = await uow.approvals.history(workflow_id, gate=ApprovalGate.ARTWORK_APPROVAL)
+    approved_gate2 = next((a for a in approvals if a.decision == ApprovalDecision.APPROVED), None)
+    if approved_gate2 and approved_gate2.target_id:
+        target = await uow.assets.get(approved_gate2.target_id)
+        if target and target.workflow_id == workflow_id:
+            return target
+
+    # 4. Fallback to candidate artwork asset explicitly marked approved
+    approved_artwork = next(
+        (
+            a
+            for a in sorted_assets
+            if (a.artwork_job_id is not None or (a.provenance and a.provenance.get("kind") == "candidate_artwork"))
+            and (a.provenance and a.provenance.get("approved"))
+            and not is_valid_user_mockup_asset(a)
+            and "/mockups/" not in a.storage_key
+        ),
+        None,
+    )
+    if approved_artwork:
+        return approved_artwork
+
+    # 5. Last resort candidate artwork (if workflow is in early stage before Gate 2 approval)
     artwork_assets = [
         a
         for a in sorted_assets

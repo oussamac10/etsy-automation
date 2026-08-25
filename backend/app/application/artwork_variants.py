@@ -212,6 +212,8 @@ class ArtworkVariantService:
         updated_prov["approved_at"] = datetime.now(UTC).isoformat()
         asset.provenance = updated_prov
 
+        from app.application.workflow_context import invalidate_downstream
+        await invalidate_downstream(workflow_id, "variants", asset_id, uow)
         await uow.commit()
         logger.info(
             "artwork_variant_approved", workflow_id=str(workflow_id), variant_id=str(asset.id)
@@ -243,6 +245,8 @@ class ArtworkVariantService:
         updated_prov["rejected_at"] = datetime.now(UTC).isoformat()
         asset.provenance = updated_prov
 
+        from app.application.workflow_context import invalidate_downstream
+        await invalidate_downstream(workflow_id, "variants", asset_id, uow)
         await uow.commit()
         logger.info(
             "artwork_variant_rejected", workflow_id=str(workflow_id), variant_id=str(asset.id)
@@ -271,6 +275,8 @@ class ArtworkVariantService:
 
         storage_key = asset.storage_key
         await uow.assets.delete(asset)
+        from app.application.workflow_context import invalidate_downstream
+        await invalidate_downstream(workflow_id, "variants", asset_id, uow)
         await uow.commit()
 
         try:
@@ -321,6 +327,8 @@ class ArtworkVariantService:
         updated_prov["buyer_package_updated_at"] = datetime.now(UTC).isoformat()
         asset.provenance = updated_prov
 
+        from app.application.workflow_context import invalidate_downstream
+        await invalidate_downstream(workflow_id, "variants", asset_id, uow)
         await uow.commit()
         logger.info(
             "artwork_variant_package_inclusion_updated",
