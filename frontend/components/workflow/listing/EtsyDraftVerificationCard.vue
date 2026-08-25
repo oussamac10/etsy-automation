@@ -309,7 +309,10 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
             :key="check.key"
             class="p-3 hover:bg-muted/20 transition-colors"
           >
-            <div class="flex items-center justify-between gap-3">
+            <div
+              class="flex justify-between gap-2"
+              :class="check.key === 'shopping_cart_summary' ? 'flex-col sm:flex-row sm:items-center' : 'items-center'"
+            >
               <div class="flex items-center gap-2.5 min-w-0">
                 <Icon
                   :name="
@@ -340,13 +343,16 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 <span class="font-medium text-foreground text-xs whitespace-nowrap">{{ check.label }}</span>
               </div>
 
-              <!-- Status Badge / Val -->
-              <div class="flex items-center gap-2 shrink-0">
+              <!-- Status Badge / Actions -->
+              <div
+                class="flex items-center gap-2 shrink-0"
+                :class="check.key === 'shopping_cart_summary' ? 'pl-6.5 sm:pl-0 self-start sm:self-auto' : ''"
+              >
                 <button
                   v-if="check.key === 'shopping_cart_summary' && check.details?.shopping_cart_summary"
                   type="button"
                   @click="copyToClipboard(check.details.shopping_cart_summary, 'cart-summary')"
-                  class="inline-flex items-center gap-1 text-[11px] text-primary hover:underline px-1.5 py-0.5 rounded hover:bg-primary/10 transition-colors cursor-pointer shrink-0"
+                  class="inline-flex items-center gap-1 text-[11px] text-primary hover:underline px-1.5 py-0.5 rounded hover:bg-primary/10 transition-colors cursor-pointer shrink-0 font-medium"
                   title="Copy shopping cart summary to clipboard"
                 >
                   <Icon :name="copiedKey === 'cart-summary' ? 'lucide:check' : 'lucide:copy'" class="size-3" aria-hidden="true" />
@@ -360,7 +366,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                   {{ getCheckBadgeText(check) }}
                 </Badge>
                 <button
-                  v-if="check.details || check.status === 'different' || check.status === 'missing' || check.message || check.key === 'title' || check.key === 'description' || check.key === 'item_metadata'"
+                  v-if="check.details || check.status === 'different' || check.status === 'missing' || check.message || check.key === 'title' || check.key === 'description' || check.key === 'item_metadata' || check.key === 'shopping_cart_summary'"
                   type="button"
                   @click="toggleExpand(check.key)"
                   class="text-[11px] text-primary hover:underline cursor-pointer shrink-0"
