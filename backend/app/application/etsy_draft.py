@@ -625,6 +625,19 @@ async def execute_etsy_draft_pipeline(
             last_synced_at=now,
         )
 
+        # Refresh listing_context_hash upon dispatch completion
+        from app.application.workflow_context import resolve_current_workflow_context
+
+        try:
+            ctx_snap = await resolve_current_workflow_context(workflow_id, owner_id, uow)
+            if ctx_snap and ctx_snap.hashes and ctx_snap.hashes.listing_context_hash:
+                listing = await uow.listing_drafts.update(
+                    listing.id,
+                    listing_context_hash=ctx_snap.hashes.listing_context_hash,
+                )
+        except Exception as exc:
+            logger.warning("failed_to_refresh_listing_context_hash_dispatch", error=str(exc))
+
         await uow.audit.record(
             action=AuditAction.ETSY_DRAFT_CREATED,
             entity_type="ListingDraft",

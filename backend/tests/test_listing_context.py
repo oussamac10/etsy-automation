@@ -59,11 +59,14 @@ def _make_context_snapshots(
         visual_summary="Highland cow calf with teacher glasses",
     )
     production = ProductionContextSnapshot(
+        master_asset_id=art_id,
+        job_id=None,
         width=4500,
         height=5400,
         dpi=300,
+        checksum_sha256="abc123sha",
         has_transparent_background=True,
-        variants=["Dark garment PNG", "Light garment PNG"],
+        qa_passed=True,
         color_profile="sRGB",
     )
     buyer_package = PackageContextSnapshot(

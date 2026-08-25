@@ -247,6 +247,9 @@ function startPolling() {
     if (updated?.dispatch_status === 'completed') {
       stopPolling();
       startReconciliationPolling();
+      if (props.workflowId) {
+        fetchContext(props.workflowId);
+      }
       emit('draft-created');
     } else if (updated?.dispatch_status === 'failed') {
       stopPolling();

@@ -447,6 +447,21 @@ class ListingDraftService:
             ip_findings=updated_draft.ip_findings,
         )
 
+        # Refresh listing_context_hash upon manual update
+        from app.application.workflow_context import resolve_current_workflow_context
+
+        try:
+            wf = await uow.workflows.get(workflow_id)
+            if wf:
+                ctx_snap = await resolve_current_workflow_context(workflow_id, wf.owner_id, uow)
+                if ctx_snap and ctx_snap.hashes and ctx_snap.hashes.listing_context_hash:
+                    updated_draft = await uow.listing_drafts.update(
+                        updated_draft.id,
+                        listing_context_hash=ctx_snap.hashes.listing_context_hash,
+                    )
+        except Exception as exc:
+            logger.warning("failed_to_refresh_listing_context_hash", error=str(exc))
+
         # Record audit event
         await uow.audit.record(
             action=AuditAction.SETTINGS_UPDATED,
@@ -704,6 +719,19 @@ class ListingDraftService:
                 raise DomainError(
                     "Failed to verify customer download ZIP package before Gate 3 approval."
                 )
+
+            # Refresh listing_context_hash upon Gate 3 approval
+            from app.application.workflow_context import resolve_current_workflow_context
+
+            try:
+                ctx_snap = await resolve_current_workflow_context(workflow_id, workflow.owner_id, uow)
+                if ctx_snap and ctx_snap.hashes and ctx_snap.hashes.listing_context_hash:
+                    draft = await uow.listing_drafts.update(
+                        draft.id,
+                        listing_context_hash=ctx_snap.hashes.listing_context_hash,
+                    )
+            except Exception as exc:
+                logger.warning("failed_to_refresh_listing_context_hash_gate3", error=str(exc))
 
             to_state = RunStatus.READY_FOR_ETSY_DRAFT
 

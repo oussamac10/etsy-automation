@@ -28,52 +28,13 @@ from app.infrastructure.models import (
     ListingDraft,
     ProductWorkflow,
 )
+from app.domain.workflow_context import (
+    ArtworkContextSnapshot,
+    ConceptContextSnapshot,
+    ProductionContextSnapshot,
+)
 
 logger = structlog.get_logger(__name__)
-
-
-@dataclass(frozen=True, slots=True)
-class ConceptContextSnapshot:
-    """Snapshot of the active concept at listing generation time."""
-
-    id: uuid.UUID
-    version: int
-    title: str
-    description: str
-    target_buyer: str | None
-    niche: str
-    seasonality: str | None
-    visual_direction: str | None
-    slogan: str | None
-    keywords: list[str] = field(default_factory=list)
-    intended_product_uses: list[str] = field(default_factory=list)
-
-
-@dataclass(frozen=True, slots=True)
-class ArtworkContextSnapshot:
-    """Snapshot of the approved artwork/master PNG linked to the active concept."""
-
-    asset_id: uuid.UUID | None
-    concept_id: uuid.UUID | None
-    is_approved: bool
-    width: int
-    height: int
-    dpi: int
-    has_transparent_pixels: bool
-    checksum_sha256: str | None
-    visual_summary: str | None
-
-
-@dataclass(frozen=True, slots=True)
-class ProductionContextSnapshot:
-    """Snapshot of the production deliverable specifications."""
-
-    width: int
-    height: int
-    dpi: int
-    has_transparent_background: bool
-    variants: list[str] = field(default_factory=list)
-    color_profile: str = "sRGB"
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,23 +66,24 @@ def compute_listing_context_hash(
     buyer_package: PackageContextSnapshot,
 ) -> str:
     """Compute a deterministic SHA-256 hash representing the upstream context inputs."""
-    payload = {
-        "workflow_id": str(workflow_id),
-        "concept_id": str(concept.id),
-        "concept_version": concept.version,
-        "concept_title": concept.title.strip(),
-        "concept_slogan": (concept.slogan or "").strip(),
-        "artwork_asset_id": str(artwork.asset_id) if artwork.asset_id else None,
-        "artwork_checksum": artwork.checksum_sha256,
-        "artwork_width": artwork.width,
-        "artwork_height": artwork.height,
-        "production_width": production.width,
-        "production_height": production.height,
-        "production_variants": sorted(production.variants),
-        "package_file_count": buyer_package.file_count,
-    }
-    raw_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(raw_json.encode("utf-8")).hexdigest()
+    from app.domain.workflow_context import (
+        compute_artwork_context_hash,
+        compute_concept_context_hash,
+        compute_listing_context_hash as domain_compute_listing_context_hash,
+        compute_production_context_hash,
+        compute_variant_set_hash,
+    )
+
+    c_hash = compute_concept_context_hash(workflow_id, concept)
+    a_hash = compute_artwork_context_hash(c_hash, artwork)
+    p_hash = compute_production_context_hash(a_hash, production)
+    v_hash = compute_variant_set_hash(p_hash, [])
+    return domain_compute_listing_context_hash(
+        production_context_hash=p_hash,
+        variant_set_hash=v_hash,
+        package_file_count=buyer_package.file_count,
+        prompt_version=concept.version,
+    )
 
 
 async def resolve_listing_generation_context(
@@ -312,11 +274,14 @@ async def resolve_listing_generation_context(
                 production_variants.append(str(v_name))
 
     production_snapshot = ProductionContextSnapshot(
+        master_asset_id=artwork_snapshot.asset_id,
+        job_id=None,
         width=artwork_snapshot.width,
         height=artwork_snapshot.height,
         dpi=artwork_snapshot.dpi,
+        checksum_sha256=artwork_snapshot.checksum_sha256,
         has_transparent_background=artwork_snapshot.has_transparent_pixels,
-        variants=production_variants,
+        qa_passed=True,
         color_profile="sRGB",
     )
 
