@@ -337,7 +337,13 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 <div class="min-w-0">
                   <span class="font-medium text-foreground">{{ check.label }}</span>
                   <p
-                    v-if="check.message"
+                    v-if="check.key === 'shopping_cart_summary'"
+                    class="text-[11px] mt-0.5 text-muted-foreground font-normal"
+                  >
+                    Optional web editor summary (click Copy or Details)
+                  </p>
+                  <p
+                    v-else-if="check.message"
                     class="text-[11px] mt-0.5"
                     :class="
                       check.status === 'synced' || check.status === 'manual_review'
@@ -388,10 +394,24 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
               v-if="expandedKeys[check.key]"
               class="mt-2.5 rounded bg-muted/40 p-2.5 text-[11px] space-y-1.5 border border-border/50 font-mono"
             >
-              <div v-if="check.key === 'shopping_cart_summary'" class="space-y-1 text-muted-foreground">
-                <div class="text-foreground font-semibold">Optional Etsy Web Editor Field:</div>
-                <div class="text-[11px] font-sans text-foreground/90 leading-relaxed">
-                  Etsy's Developer API does not provide a field for Shopping Cart Summary. You can click <b>Copy</b> above and paste it into Etsy's listing editor if you wish.
+              <div v-if="check.key === 'shopping_cart_summary'" class="space-y-2 font-sans">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-foreground font-semibold text-xs">Generated Cart Summary ({{ check.details?.shopping_cart_summary?.length || 0 }}/200 chars):</span>
+                  <button
+                    v-if="check.details?.shopping_cart_summary"
+                    type="button"
+                    @click="copyToClipboard(check.details.shopping_cart_summary, 'cart-summary')"
+                    class="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer"
+                  >
+                    <Icon :name="copiedKey === 'cart-summary' ? 'lucide:check' : 'lucide:copy'" class="size-3" aria-hidden="true" />
+                    <span>{{ copiedKey === 'cart-summary' ? 'Copied!' : 'Copy Summary' }}</span>
+                  </button>
+                </div>
+                <div class="p-2.5 rounded bg-background/80 border border-border/60 text-[11px] text-foreground/90 leading-relaxed select-all">
+                  {{ check.details?.shopping_cart_summary }}
+                </div>
+                <div class="text-[10px] text-muted-foreground">
+                  Etsy's Open API does not provide a field for Shopping Cart Summary. You can click <b>Copy Summary</b> and paste it into Etsy's web listing editor.
                 </div>
               </div>
               <div v-else class="flex gap-2">

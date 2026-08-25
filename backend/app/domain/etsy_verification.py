@@ -462,8 +462,8 @@ def compare_etsy_draft(
         else None
     )
     exp_sec_str = (
-        str(expected_shop_section_id)
-        if expected_shop_section_id is not None and str(expected_shop_section_id) != "0"
+        expected_shop_section_id
+        if expected_shop_section_id is not None and expected_shop_section_id != "0"
         else None
     )
     has_expected_section = bool(
@@ -534,7 +534,7 @@ def compare_etsy_draft(
 
     # 9. Renewal
     actual_renew = actual_listing.get("should_auto_renew", False)
-    if bool(actual_renew) == bool(expected_should_auto_renew):
+    if bool(actual_renew) == expected_should_auto_renew:
         renew_label = "Automatic" if expected_should_auto_renew else "Manual"
         checks.append(
             EtsyVerificationCheck(
@@ -723,7 +723,7 @@ def compare_etsy_draft(
     # Filter expected_props to only valid numeric taxonomy property IDs with actual values configured
     cleaned_expected_props: dict[int, Any] = {}
     for p_id_raw, val in raw_expected_props.items():
-        if not str(p_id_raw).isdigit():
+        if not p_id_raw.isdigit():
             continue
         pid = int(p_id_raw)
         if isinstance(val, dict):
@@ -877,7 +877,7 @@ def compare_etsy_draft(
                 status=EtsyVerificationCheckStatus.MANUAL_REVIEW,
                 expected=f"{len(expected_shopping_cart_summary)}/200 chars",
                 actual="Etsy Web Editor",
-                message=expected_shopping_cart_summary,
+                message="Optional web editor summary snippet (not supported in Etsy API)",
                 source="listing_draft",
                 details={"shopping_cart_summary": expected_shopping_cart_summary},
             )
