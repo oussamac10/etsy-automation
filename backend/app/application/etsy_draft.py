@@ -281,7 +281,7 @@ async def execute_etsy_draft_pipeline(
         raw_renew = getattr(listing, "should_auto_renew", False)
         should_auto_renew = raw_renew if isinstance(raw_renew, bool) else False
 
-        # Step 1: Create Etsy Draft Listing (Idempotent)
+        # Step 1: Create or Update Etsy Draft Listing (Deterministic & Idempotent)
         listing_id = listing.etsy_listing_id
         if not listing_id:
             await uow.listing_drafts.update_etsy_dispatch_status(
@@ -313,7 +313,7 @@ async def execute_etsy_draft_pipeline(
                 access_token=access_token,
                 shop_id=conn.etsy_shop_id,
                 listing=payload,
-                idempotency_key=f"{workflow_id}_{listing.version}_{uuid.uuid4().hex[:8]}",
+                idempotency_key=f"etsy_draft_{workflow_id}_{listing.id}",
             )
             listing_id = create_resp.listing_id
             management_url = build_etsy_shop_manager_url(listing_id)
@@ -339,6 +339,37 @@ async def execute_etsy_draft_pipeline(
                 sku=sku,
                 shop_section_id=shop_section_id,
             )
+        else:
+            # Re-sync existing draft listing on Etsy
+            await uow.listing_drafts.update_etsy_dispatch_status(
+                listing.id, status="creating_listing"
+            )
+            await uow.commit()
+            try:
+                sec_int = int(shop_section_id) if shop_section_id and shop_section_id.isdigit() else None
+                await etsy_gateway.update_listing(
+                    access_token=access_token,
+                    shop_id=conn.etsy_shop_id,
+                    listing_id=listing_id,
+                    title=listing.title,
+                    description=listing.description,
+                    tags=list(listing.tags),
+                    shop_section_id=sec_int,
+                    taxonomy_id=listing.taxonomy_id,
+                    should_auto_renew=should_auto_renew,
+                )
+                logger.info(
+                    "etsy_draft_listing_updated",
+                    workflow_id=str(workflow_id),
+                    listing_id=listing_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "etsy_draft_listing_update_failed",
+                    workflow_id=str(workflow_id),
+                    listing_id=listing_id,
+                    error=str(exc),
+                )
 
         # Step 2: Upload Preview Images in Deterministic Order (Primary Mockup at Rank 1)
         await uow.listing_drafts.update_etsy_dispatch_status(listing.id, status="uploading_images")

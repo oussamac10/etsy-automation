@@ -216,10 +216,14 @@ async def create_etsy_draft_endpoint(
             detail=str(exc),
         )
 
-    # If already completed, return existing result
-    if (
-        workflow.state == RunStatus.ETSY_DRAFT_CREATED
-        and listing.etsy_dispatch_status == "completed"
+    # Only short-circuit if an active dispatch is currently in progress
+    if listing.etsy_dispatch_status in (
+        "queued",
+        "creating_listing",
+        "uploading_images",
+        "uploading_file",
+        "uploading_files",
+        "applying_attributes",
     ):
         return _build_etsy_dispatch_response(workflow_id, listing)
 
