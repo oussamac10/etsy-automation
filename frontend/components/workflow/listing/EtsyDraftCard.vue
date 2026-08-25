@@ -11,6 +11,8 @@ import Button from '~/components/ui/Button.vue';
 import Badge from '~/components/ui/Badge.vue';
 import Alert from '~/components/ui/Alert.vue';
 import EtsyDraftVerificationCard from '~/components/workflow/listing/EtsyDraftVerificationCard.vue';
+import WorkflowStaleNotice from '~/components/workflow/WorkflowStaleNotice.vue';
+import { useWorkflowContext } from '~/composables/useWorkflowContext';
 import type { EtsyDraftVerification } from '~/types/etsy';
 
 const props = defineProps<{
@@ -39,6 +41,32 @@ let pollInterval: ReturnType<typeof setInterval> | null = null;
 let reconciliationInterval: ReturnType<typeof setInterval> | null = null;
 let isReconcilingInProgress = false;
 const copied = ref(false);
+
+const {
+  fetchContext,
+  staleReasons,
+  etsySyncStatus,
+} = useWorkflowContext();
+
+const etsyStaleReasons = computed(() => {
+  if (etsySyncStatus.value === 'STALE') {
+    return staleReasons.value;
+  }
+  return [];
+});
+
+onMounted(() => {
+  if (props.workflowId) {
+    fetchContext(props.workflowId);
+  }
+});
+
+watch(
+  () => props.workflowId,
+  (newId) => {
+    if (newId) fetchContext(newId);
+  }
+);
 
 const currentStatus = computed(() => {
   return draftStatus.value?.dispatch_status || props.listing?.etsy_dispatch_status || 'not_started';
@@ -383,6 +411,16 @@ async function copyListingId() {
     </CardHeader>
 
     <CardContent class="pt-4 space-y-4">
+      <!-- Out of Sync Notice -->
+      <WorkflowStaleNotice
+        v-if="isCompleted && etsyStaleReasons.length > 0"
+        title="Etsy Draft Out of Sync"
+        :reasons="etsyStaleReasons"
+        action-label="Sync Changes to Etsy"
+        :is-action-loading="isDispatching"
+        @action="handleCreateDraft"
+      />
+
       <!-- Error / Failure Alert -->
       <Alert
         v-if="isFailed || errorMessage"

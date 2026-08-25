@@ -36,8 +36,28 @@ export function useListing() {
   const isDeletingTagHistory = ref(false);
   const errorMessage = ref<string | null>(null);
 
+  const currentWorkflowId = ref<string | null>(null);
+  let latestListingReqSeq = 0;
+
+  function resetState() {
+    listingDraft.value = null;
+    shopSections.value = [];
+    taxonomyProperties.value = [];
+    priceRecommendation.value = null;
+    currentWorkflowId.value = null;
+    errorMessage.value = null;
+    isLoading.value = false;
+  }
+
   async function loadListing(workflowId: string): Promise<ListingDraft | null> {
     if (!workflowId) return null;
+
+    if (currentWorkflowId.value !== workflowId) {
+      listingDraft.value = null;
+      currentWorkflowId.value = workflowId;
+    }
+
+    const seq = ++latestListingReqSeq;
     isLoading.value = true;
     errorMessage.value = null;
 
@@ -49,13 +69,20 @@ export function useListing() {
           credentials: 'include',
         }
       );
-      listingDraft.value = data;
-      return data;
+      if (seq === latestListingReqSeq && currentWorkflowId.value === workflowId) {
+        listingDraft.value = data;
+        return data;
+      }
+      return null;
     } catch (err: unknown) {
-      errorMessage.value = getApiErrorMessage(err, 'Failed to load listing details.');
+      if (seq === latestListingReqSeq && currentWorkflowId.value === workflowId) {
+        errorMessage.value = getApiErrorMessage(err, 'Failed to load listing details.');
+      }
       return null;
     } finally {
-      isLoading.value = false;
+      if (seq === latestListingReqSeq) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -458,6 +485,7 @@ export function useListing() {
     decideGate3,
     fetchTaxonomyCategories,
     updateTaxonomy,
+    resetState,
   };
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import type { ProductionJob } from "~/types/production";
 import type { MockupAsset } from "~/types/mockup";
 import { useMockups } from "~/composables/useMockups";
@@ -16,8 +16,10 @@ import ProductionQaCard from "~/components/workflow/production/ProductionQaCard.
 import ArtworkVariantsCard from "~/components/workflow/production/ArtworkVariantsCard.vue";
 import MockupGallery from "~/components/workflow/production/MockupGallery.vue";
 import WorkflowCustomMockupModal, { type MockupAssetItem } from "~/components/workflow/WorkflowCustomMockupModal.vue";
+import WorkflowStaleNotice from "~/components/workflow/WorkflowStaleNotice.vue";
 import DeleteConfirmModal from "~/components/ui/DeleteConfirmModal.vue";
 import { getProductLabel, normalizeProductKey } from "~/utils/mockupProducts";
+import { useWorkflowContext } from "~/composables/useWorkflowContext";
 
 interface DesignPrompt {
   id: string;
@@ -84,7 +86,7 @@ const {
   deleteMockup,
 } = useMockups(
   () => activeMasterAssetId.value,
-  () => props.workflow?.intended_product_uses,
+  () => props.workflow?.intended_product_uses
 );
 
 const renderNonce = ref<number>(Date.now());
@@ -95,6 +97,34 @@ const mockupActionError = ref<string | null>(null);
 // Modal state
 const showCustomMockupModal = ref(false);
 const editingMockupAsset = ref<MockupAssetItem | null>(null);
+
+const {
+  contextData: _contextData,
+  fetchContext,
+  staleReasons,
+  productionStatus,
+  mockupsStatus,
+} = useWorkflowContext();
+
+const productionStaleReasons = computed(() => {
+  if (productionStatus.value === "STALE" || mockupsStatus.value === "STALE") {
+    return staleReasons.value;
+  }
+  return [];
+});
+
+onMounted(() => {
+  if (props.workflow?.id) {
+    fetchContext(props.workflow.id);
+  }
+});
+
+watch(
+  () => props.workflow?.id,
+  (newId) => {
+    if (newId) fetchContext(newId);
+  }
+);
 
 // Sync with latestProductionJob
 watch(
@@ -350,6 +380,16 @@ async function handleMoveMockup(asset: MockupAsset, direction: "up" | "down"): P
       </CardHeader>
 
       <CardContent class="pt-6 space-y-6">
+        <!-- Stale Upstream Artifact Warning Notice -->
+        <WorkflowStaleNotice
+          v-if="productionStaleReasons.length > 0"
+          title="Master PNG & Mockup Assets Outdated"
+          :reasons="productionStaleReasons"
+          action-label="Regenerate Master PNG"
+          :is-action-loading="isProductionLoading"
+          @action="emit('triggerProduction', true)"
+        />
+
         <!-- Ready & Running States -->
         <ProductionStatusCard
           :state="workflow.state"

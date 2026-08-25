@@ -150,6 +150,12 @@ export function useMockups(
     }
   }
 
+  function resetState() {
+    localMockupAssets.value = [];
+    templates.value = [];
+    isLoadingTemplates.value = false;
+  }
+
   return {
     localMockupAssets,
     templates,
@@ -162,5 +168,6 @@ export function useMockups(
     loadTemplates,
     deleteMockup,
     deleteTemplate,
+    resetState,
   };
 }

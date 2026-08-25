@@ -11,13 +11,31 @@ export function useArtworkVariants() {
   const isGenerating = ref(false);
   const isActing = ref(false);
   const actionError = ref<string | null>(null);
+  const currentWorkflowId = ref<string | null>(null);
+  let latestVariantReqSeq = 0;
 
   const approvedVariants = computed(() =>
     variants.value.filter((v) => v.variant_status === "approved")
   );
 
+  function resetState() {
+    variants.value = [];
+    currentWorkflowId.value = null;
+    actionError.value = null;
+    isFetching.value = false;
+    isGenerating.value = false;
+    isActing.value = false;
+  }
+
   async function fetchVariants(workflowId: string): Promise<void> {
     if (!workflowId) return;
+
+    if (currentWorkflowId.value !== workflowId) {
+      variants.value = [];
+      currentWorkflowId.value = workflowId;
+    }
+
+    const seq = ++latestVariantReqSeq;
     isFetching.value = true;
     actionError.value = null;
     try {
@@ -28,12 +46,18 @@ export function useArtworkVariants() {
           credentials: "include",
         }
       );
-      variants.value = Array.isArray(data) ? data : [];
+      if (seq === latestVariantReqSeq && currentWorkflowId.value === workflowId) {
+        variants.value = Array.isArray(data) ? data : [];
+      }
     } catch (err: unknown) {
-      actionError.value = getApiErrorMessage(err, "Failed to load artwork color variants.");
-      variants.value = [];
+      if (seq === latestVariantReqSeq && currentWorkflowId.value === workflowId) {
+        actionError.value = getApiErrorMessage(err, "Failed to load artwork color variants.");
+        variants.value = [];
+      }
     } finally {
-      isFetching.value = false;
+      if (seq === latestVariantReqSeq) {
+        isFetching.value = false;
+      }
     }
   }
 
@@ -199,5 +223,6 @@ export function useArtworkVariants() {
     rejectVariant,
     deleteVariant,
     togglePackageInclusion,
+    resetState,
   };
 }

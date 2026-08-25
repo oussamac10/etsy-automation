@@ -10,9 +10,11 @@ export function useProduction() {
   const isTriggeringProduction = ref(false);
   const isPolling = ref(false);
   const productionError = ref<string | null>(null);
+  const currentWorkflowId = ref<string | null>(null);
 
   let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let isUnmounted = false;
+  let latestReqSeq = 0;
 
   function stopPolling() {
     if (pollTimeoutId) {
@@ -22,8 +24,24 @@ export function useProduction() {
     isPolling.value = false;
   }
 
+  function resetState() {
+    stopPolling();
+    latestProductionJob.value = null;
+    currentWorkflowId.value = null;
+    productionError.value = null;
+    isTriggeringProduction.value = false;
+  }
+
   async function loadProductionJob(workflowId: string): Promise<ProductionJob | null> {
     if (!workflowId) return null;
+
+    if (currentWorkflowId.value !== workflowId) {
+      stopPolling();
+      latestProductionJob.value = null;
+      currentWorkflowId.value = workflowId;
+    }
+
+    const seq = ++latestReqSeq;
     try {
       const data = await $fetch<ProductionJob>(
         `${apiBase}/api/v1/workflows/${workflowId}/production`,
@@ -32,7 +50,7 @@ export function useProduction() {
           credentials: "include",
         }
       );
-      if (data) {
+      if (seq === latestReqSeq && currentWorkflowId.value === workflowId && data) {
         latestProductionJob.value = data;
         return data;
       }
@@ -118,5 +136,6 @@ export function useProduction() {
     triggerProduction,
     startPolling,
     stopPolling,
+    resetState,
   };
 }
