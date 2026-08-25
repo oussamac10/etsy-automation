@@ -15,18 +15,20 @@ const currentYear = new Date().getFullYear();
       <div class="flex flex-col md:flex-row items-center justify-between gap-6">
         
         <!-- Brand / Identity -->
-        <div class="flex items-center gap-3">
-          <AppLogo sizeClass="size-7" />
-          <span class="text-base font-extrabold tracking-tight text-stone-900 dark:text-stone-100">
-            NovaCraft<span class="text-orange-600 dark:text-orange-500">Pixel</span>
-          </span>
-          <span class="text-xs text-stone-400 dark:text-stone-500 border-l border-stone-300 dark:border-stone-700 pl-3">
+        <div class="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-2 sm:gap-3">
+          <div class="flex items-center gap-2.5">
+            <AppLogo sizeClass="size-7" />
+            <span class="text-base font-extrabold tracking-tight text-stone-900 dark:text-stone-100">
+              NovaCraft<span class="text-orange-600 dark:text-orange-500">Pixel</span>
+            </span>
+          </div>
+          <span class="text-xs text-stone-400 dark:text-stone-500 sm:border-l sm:border-stone-300 dark:sm:border-stone-700 sm:pl-3">
             Built for digital-product creators.
           </span>
         </div>
 
         <!-- Navigation Links -->
-        <div class="flex flex-wrap items-center justify-center gap-6 text-xs font-medium text-stone-600 dark:text-stone-400">
+        <div class="flex flex-wrap items-center justify-center gap-x-5 sm:gap-x-6 gap-y-2.5 text-xs font-medium text-stone-600 dark:text-stone-400">
           <a href="#how-it-works" class="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">How It Works</a>
           <a href="#discover" class="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Discover</a>
           <a href="#mockups" class="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">Mockups</a>

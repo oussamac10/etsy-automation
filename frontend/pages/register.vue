@@ -61,20 +61,12 @@ async function handleRegister() {
       id="main"
       class="flex-1 flex items-center justify-center p-4 sm:p-6"
     >
-      <div class="w-full max-w-md py-6">
-        <div class="mb-8 text-center">
-          <AppLogo sizeClass="size-12 mb-3 inline-block drop-shadow-md" />
-          <h1 class="text-2xl font-extrabold tracking-tight text-stone-900 dark:text-stone-100">
-            NovaCraft<span class="text-orange-600 dark:text-orange-500">Pixel</span>
-          </h1>
-          <p class="mt-1 text-sm text-stone-600 dark:text-stone-400">Autonomous research-to-draft digital product studio</p>
-        </div>
-
-      <Card class="shadow-xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 backdrop-blur-xs">
-        <CardHeader class="space-y-1 pb-4">
-          <CardTitle class="text-xl">Create your account</CardTitle>
-          <CardDescription class="text-stone-500 dark:text-stone-400">Create your profile to get started</CardDescription>
-        </CardHeader>
+      <div class="w-full max-w-md py-4 sm:py-6">
+        <Card class="shadow-xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 backdrop-blur-xs">
+          <CardHeader class="space-y-1 pb-4">
+            <CardTitle class="text-xl sm:text-2xl font-extrabold tracking-tight">Create your account</CardTitle>
+            <CardDescription class="text-stone-500 dark:text-stone-400">Create your profile to get started</CardDescription>
+          </CardHeader>
 
         <CardContent>
           <form class="space-y-4" @submit.prevent="handleRegister">
