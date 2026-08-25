@@ -307,7 +307,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
             class="p-3 hover:bg-muted/20 transition-colors"
           >
             <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2 min-w-0 flex-1">
+              <div class="flex items-center gap-2.5 min-w-0">
                 <Icon
                   :name="
                     check.status === 'synced'
@@ -334,16 +334,8 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                   ]"
                   aria-hidden="true"
                 />
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <span class="font-medium text-foreground truncate text-xs">{{ check.label }}</span>
-                    <span
-                      v-if="check.key === 'title' && check.expected && check.status === 'synced'"
-                      class="text-[11px] text-muted-foreground truncate hidden md:inline font-normal"
-                    >
-                      - {{ check.expected }}
-                    </span>
-                  </div>
+                <div class="min-w-0">
+                  <span class="font-medium text-foreground text-xs leading-snug">{{ check.label }}</span>
                   <p
                     v-if="check.status !== 'synced' && check.status !== 'manual_review' && check.key !== 'shopping_cart_summary' && check.message"
                     class="text-[11px] mt-0.5 text-amber-600 dark:text-amber-400 font-normal break-words"
@@ -440,15 +432,15 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
             class="p-3 hover:bg-muted/20 transition-colors"
           >
             <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2 min-w-0 flex-1">
+              <div class="flex items-center gap-2.5 min-w-0">
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0"
                   :class="check.status === 'synced' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'"
                   aria-hidden="true"
                 />
-                <div class="min-w-0 flex-1">
-                  <span class="font-medium text-foreground truncate text-xs block">{{ check.label }}</span>
+                <div class="min-w-0">
+                  <span class="font-medium text-foreground text-xs leading-snug">{{ check.label }}</span>
                   <p
                     v-if="check.status !== 'synced' && check.status !== 'manual_review' && check.message"
                     class="text-[11px] mt-0.5 text-amber-600 dark:text-amber-400 font-normal break-words"
@@ -491,7 +483,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
       <div v-if="checksByCategory.media.length > 0" class="rounded-lg border border-border/60 overflow-hidden">
         <div class="bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground flex items-center gap-2">
           <Icon name="lucide:layers" class="size-3.5 text-primary" aria-hidden="true" />
-          <span>Mockup Images & Real Digital Download Deliverables</span>
+          <span>Mockup Images & Deliverables</span>
         </div>
         <div class="divide-y divide-border/40 text-xs">
           <div
@@ -500,15 +492,15 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
             class="p-3 hover:bg-muted/20 transition-colors"
           >
             <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2 min-w-0 flex-1">
+              <div class="flex items-center gap-2.5 min-w-0">
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0"
                   :class="check.status === 'synced' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'"
                   aria-hidden="true"
                 />
-                <div class="min-w-0 flex-1">
-                  <span class="font-medium text-foreground truncate text-xs block">{{ check.label }}</span>
+                <div class="min-w-0">
+                  <span class="font-medium text-foreground text-xs leading-snug">{{ check.label }}</span>
                   <p
                     v-if="check.status !== 'synced' && check.status !== 'manual_review' && check.message"
                     class="text-[11px] mt-0.5 text-amber-600 dark:text-amber-400 font-normal break-words"
@@ -603,15 +595,15 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
             class="p-3 hover:bg-muted/20 transition-colors"
           >
             <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2 min-w-0 flex-1">
+              <div class="flex items-center gap-2.5 min-w-0">
                 <Icon
                   :name="check.status === 'synced' ? 'lucide:circle-check' : 'lucide:alert-triangle'"
                   class="size-4 shrink-0"
                   :class="check.status === 'synced' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'"
                   aria-hidden="true"
                 />
-                <div class="min-w-0 flex-1">
-                  <span class="font-medium text-foreground truncate text-xs block">{{ check.label }}</span>
+                <div class="min-w-0">
+                  <span class="font-medium text-foreground text-xs leading-snug">{{ check.label }}</span>
                   <p
                     v-if="check.status !== 'synced' && check.status !== 'manual_review' && check.message"
                     class="text-[11px] mt-0.5 text-amber-600 dark:text-amber-400 font-normal break-words"
