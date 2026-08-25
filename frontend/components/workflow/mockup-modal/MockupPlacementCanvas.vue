@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import type { MockupPlacement } from "~/types/mockup";
 
 export interface ArtworkVariantOption {
@@ -344,6 +344,132 @@ function onRotateEnd(): void {
   window.removeEventListener("pointermove", onRotateMove);
   window.removeEventListener("pointerup", onRotateEnd);
 }
+
+function handleKeyDown(e: KeyboardEvent): void {
+  if (props.viewMode === "preview" || !props.templateImageUrl) return;
+
+  // Don't intercept if user is typing in an input, textarea, or contentEditable
+  const target = e.target as HTMLElement | null;
+  const isInput =
+    target &&
+    (target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.tagName === "SELECT" ||
+      target.isContentEditable);
+  if (isInput) return;
+
+  const key = e.key;
+  const isShift = e.shiftKey;
+  const isAlt = e.altKey;
+
+  // Step sizes: default 1%, Shift 5% for fast, Alt 0.2% for ultra-precision
+  const posStep = isShift ? 5 : isAlt ? 0.2 : 1;
+  const sizeStep = isShift ? 5 : isAlt ? 0.5 : 1;
+  const rotStep = isShift ? 15 : isAlt ? 1 : 5;
+
+  let handled = false;
+  const curr = currentZone.value;
+  const l = getZoneLeftPct(curr);
+  const t = getZoneTopPct(curr);
+  const w = getZoneWidthPct(curr);
+  const h = getZoneHeightPct(curr);
+  const angle = curr.angle_deg || 0;
+
+  if (key === "ArrowUp") {
+    const newTop = Math.max(0, Math.min(100 - h, t - posStep));
+    emitZoneUpdate({
+      ...curr,
+      top_pct: Math.round(newTop * 10) / 10,
+    });
+    handled = true;
+  } else if (key === "ArrowDown") {
+    const newTop = Math.max(0, Math.min(100 - h, t + posStep));
+    emitZoneUpdate({
+      ...curr,
+      top_pct: Math.round(newTop * 10) / 10,
+    });
+    handled = true;
+  } else if (key === "ArrowLeft") {
+    const newLeft = Math.max(0, Math.min(100 - w, l - posStep));
+    emitZoneUpdate({
+      ...curr,
+      left_pct: Math.round(newLeft * 10) / 10,
+    });
+    handled = true;
+  } else if (key === "ArrowRight") {
+    const newLeft = Math.max(0, Math.min(100 - w, l + posStep));
+    emitZoneUpdate({
+      ...curr,
+      left_pct: Math.round(newLeft * 10) / 10,
+    });
+    handled = true;
+  } else if (key === "+" || key === "=") {
+    const newW = Math.max(8, Math.min(100 - l, w + sizeStep));
+    const newH = Math.max(8, Math.min(100 - t, h + sizeStep));
+    emitZoneUpdate({
+      ...curr,
+      width_pct: Math.round(newW * 10) / 10,
+      height_pct: Math.round(newH * 10) / 10,
+    });
+    handled = true;
+  } else if (key === "-" || key === "_") {
+    const newW = Math.max(8, w - sizeStep);
+    const newH = Math.max(8, h - sizeStep);
+    emitZoneUpdate({
+      ...curr,
+      width_pct: Math.round(newW * 10) / 10,
+      height_pct: Math.round(newH * 10) / 10,
+    });
+    handled = true;
+  } else if (key === "[" || key === "{") {
+    let newAngle = Math.round(angle - rotStep);
+    while (newAngle < -180) newAngle += 360;
+    emitZoneUpdate({
+      ...curr,
+      angle_deg: newAngle,
+    });
+    handled = true;
+  } else if (key === "]" || key === "}") {
+    let newAngle = Math.round(angle + rotStep);
+    while (newAngle > 180) newAngle -= 360;
+    emitZoneUpdate({
+      ...curr,
+      angle_deg: newAngle,
+    });
+    handled = true;
+  } else if (key === "r" || key === "R") {
+    let newAngle = Math.round(angle + (isShift ? -90 : 90));
+    while (newAngle > 180) newAngle -= 360;
+    while (newAngle < -180) newAngle += 360;
+    emitZoneUpdate({
+      ...curr,
+      angle_deg: newAngle,
+    });
+    handled = true;
+  } else if (key === "c" || key === "C") {
+    const newLeft = Math.max(0, Math.min(100 - w, (100 - w) / 2));
+    const newTop = Math.max(0, Math.min(100 - h, (100 - h) / 2));
+    emitZoneUpdate({
+      ...curr,
+      left_pct: Math.round(newLeft * 10) / 10,
+      top_pct: Math.round(newTop * 10) / 10,
+    });
+    handled = true;
+  }
+
+  if (handled) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
+});
 </script>
 
 <template>
@@ -407,9 +533,13 @@ function onRotateEnd(): void {
         <!-- Active Interactive Control Box for Current Zone -->
         <div
           v-if="activeZones.length > 0"
-          class="absolute cursor-move border-2 border-dashed border-primary bg-primary/10 shadow-sm select-none z-20"
+          tabindex="0"
+          role="region"
+          aria-label="Artwork Placement Controls"
+          class="absolute cursor-move border-2 border-dashed border-primary bg-primary/10 shadow-sm select-none z-20 focus:outline-none focus:ring-2 focus:ring-primary focus:border-solid transition-shadow"
           :style="getBoxStyle(currentZone)"
           @mousedown="startDrag"
+          @keydown="handleKeyDown"
         >
           <!-- Top Rotation Stalk & Handle -->
           <div class="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto select-none">
@@ -451,6 +581,15 @@ function onRotateEnd(): void {
           </div>
         </div>
       </template>
+
+      <!-- Keyboard Nudge Navigation Pill -->
+      <div
+        v-if="templateImageUrl && viewMode === 'edit'"
+        class="absolute bottom-2.5 left-2.5 z-30 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 text-zinc-300 text-[10px] font-mono backdrop-blur-xs border border-white/10 shadow-xs pointer-events-none select-none transition-opacity"
+      >
+        <Icon name="lucide:keyboard" class="size-3 text-primary shrink-0" aria-hidden="true" />
+        <span>Arrow keys to move <span class="text-zinc-500 hidden sm:inline">(Shift: 5% · Alt: 0.2%)</span></span>
+      </div>
     </div>
   </div>
 </template>
