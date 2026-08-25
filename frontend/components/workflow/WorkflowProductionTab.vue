@@ -176,11 +176,19 @@ function handleCustomMockupCreated(result: {
   selectedMockupTab.value = result.product_type;
 
   if (result.asset_id) {
-    const existingIdx = localMockupAssets.value.findIndex((a) => a.id === result.asset_id);
+    const existingIdx = localMockupAssets.value.findIndex(
+      (a) =>
+        a.id === result.asset_id ||
+        (result.template_id &&
+          a.provenance?.template_id === result.template_id &&
+          (a.provenance?.product_type === result.product_type ||
+            a.storage_key.includes(`custom_${result.product_type}_`)))
+    );
     if (existingIdx >= 0) {
       const updated = [...localMockupAssets.value];
       updated[existingIdx] = {
         ...updated[existingIdx],
+        id: result.asset_id,
         url: result.mockup_url,
         provenance: {
           ...updated[existingIdx].provenance,
@@ -191,10 +199,19 @@ function handleCustomMockupCreated(result: {
           listing_order: result.listing_order,
         },
       };
-      localMockupAssets.value = updated;
+      localMockupAssets.value = updated.filter(
+        (a, idx) =>
+          idx === existingIdx ||
+          (a.id !== result.asset_id &&
+            (!result.template_id || a.provenance?.template_id !== result.template_id))
+      );
     } else {
       localMockupAssets.value = [
-        ...localMockupAssets.value,
+        ...localMockupAssets.value.filter(
+          (a) =>
+            a.id !== result.asset_id &&
+            (!result.template_id || a.provenance?.template_id !== result.template_id)
+        ),
         {
           id: result.asset_id,
           workflow_id: props.workflow.id,

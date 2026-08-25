@@ -16,7 +16,19 @@ export function useMockups(
   const selectedMockupTab = ref<string>("tshirt");
 
   function syncMockupAssets(assets: MockupAsset[] | undefined | null) {
-    localMockupAssets.value = assets ? [...assets] : [];
+    if (!assets) {
+      localMockupAssets.value = [];
+      return;
+    }
+    const unique: MockupAsset[] = [];
+    const seen = new Set<string>();
+    for (const a of assets) {
+      if (a && a.id && !seen.has(a.id)) {
+        seen.add(a.id);
+        unique.push(a);
+      }
+    }
+    localMockupAssets.value = unique;
   }
 
   // Authoritative grouping of valid user-template mockups
@@ -48,8 +60,10 @@ export function useMockups(
       map[p].push(a);
     }
 
+    const dedupedMap: Record<string, MockupAsset[]> = {};
+
     for (const k in map) {
-      map[k].sort((a, b) => {
+      const sorted = [...map[k]].sort((a, b) => {
         const aCov = a.provenance?.is_cover ? 0 : 1;
         const bCov = b.provenance?.is_cover ? 0 : 1;
         if (aCov !== bCov) return aCov - bCov;
@@ -60,9 +74,22 @@ export function useMockups(
         const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
         return bTime - aTime;
       });
+
+      // Deduplicate by template_id within the product tab so duplicate cards never appear
+      const seenTemplateIds = new Set<string>();
+      const dedupedForProduct: MockupAsset[] = [];
+      for (const item of sorted) {
+        const tplKey = item.provenance?.template_id ? String(item.provenance.template_id) : item.id;
+        if (seenTemplateIds.has(tplKey)) {
+          continue;
+        }
+        seenTemplateIds.add(tplKey);
+        dedupedForProduct.push(item);
+      }
+      dedupedMap[k] = dedupedForProduct;
     }
 
-    return map;
+    return dedupedMap;
   });
 
   const availableProductTabs = computed<string[]>(() => {

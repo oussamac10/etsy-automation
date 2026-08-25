@@ -252,6 +252,23 @@ class MockupCompositionService:
         target_asset: Asset | None = None
         if target_asset_id:
             target_asset = next((a for a in existing_mockups if a.id == target_asset_id), None)
+            if not target_asset:
+                target_asset = next((a for a in all_wf_assets if str(a.id) == str(target_asset_id)), None)
+
+        if target_asset is None and resolved_template_id:
+            target_asset = next(
+                (
+                    a
+                    for a in existing_mockups
+                    if a.provenance
+                    and str(a.provenance.get("template_id")) == resolved_template_id
+                    and (
+                        normalize_product_type(str(a.provenance.get("product_type", ""))) == canonical_prod
+                        or a.provenance.get("product_type") == canonical_prod
+                    )
+                ),
+                None,
+            )
 
         if target_asset and target_asset.provenance:
             order = int(str(target_asset.provenance.get("listing_order", "1") or "1"))
@@ -326,6 +343,23 @@ class MockupCompositionService:
                 provenance=provenance_data,
             )
             await self.uow.assets.add(custom_asset)
+
+        # Mark any other sibling duplicate assets with the same template_id as superseded
+        if resolved_template_id:
+            for sibling in all_wf_assets:
+                if sibling.id != mockup_id and sibling.provenance:
+                    if (
+                        sibling.provenance.get("asset_type") == "mockup"
+                        and str(sibling.provenance.get("template_id")) == resolved_template_id
+                        and (
+                            normalize_product_type(str(sibling.provenance.get("product_type", ""))) == canonical_prod
+                            or sibling.provenance.get("product_type") == canonical_prod
+                        )
+                    ):
+                        sibling_prov = dict(sibling.provenance)
+                        sibling_prov["status"] = "superseded"
+                        sibling.provenance = sibling_prov
+            await self.uow.session.flush()
 
         # Synchronize workflow intended_product_uses with newly composited product type
         wf = await self.uow.workflows.get(workflow_id)

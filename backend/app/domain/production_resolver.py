@@ -55,7 +55,21 @@ def filter_active_user_mockups(
             created_dt = created_dt.replace(tzinfo=UTC)
         return (0 if is_cov else 1, order, -created_dt.timestamp())
 
-    return sorted(valid_mockups, key=_mockup_sort_key)
+    sorted_list = sorted(valid_mockups, key=_mockup_sort_key)
+
+    deduped: list[Asset] = []
+    seen_template_keys: set[str] = set()
+    for a in sorted_list:
+        prov = a.provenance or {}
+        prod_type = str(prov.get("product_type", "")).lower().strip()
+        tpl_id = str(prov.get("template_id", "") or prov.get("template_storage_key", "")).strip()
+        key = f"{prod_type}::{tpl_id}" if tpl_id else str(a.id)
+        if key in seen_template_keys:
+            continue
+        seen_template_keys.add(key)
+        deduped.append(a)
+
+    return deduped
 
 
 async def get_production_master_asset(
