@@ -609,7 +609,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
           </div>
           <span
             v-if="checksByCategory.attributes[0]?.details?.properties?.length"
-            class="text-[11px] font-mono text-muted-foreground"
+            class="text-[10px] font-mono text-muted-foreground font-normal"
           >
             {{ checksByCategory.attributes[0].details.properties.length }} attributes
           </span>
