@@ -345,7 +345,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                     </span>
                   </div>
                   <p
-                    v-if="check.status !== 'synced' && check.message"
+                    v-if="check.status !== 'synced' && check.status !== 'manual_review' && check.key !== 'shopping_cart_summary' && check.message"
                     class="text-[11px] mt-0.5 text-amber-600 dark:text-amber-400 font-normal break-words"
                   >
                     {{ check.message }}
@@ -450,7 +450,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 <div class="min-w-0 flex-1">
                   <span class="font-medium text-foreground truncate text-xs block">{{ check.label }}</span>
                   <p
-                    v-if="check.status !== 'synced' && check.message"
+                    v-if="check.status !== 'synced' && check.status !== 'manual_review' && check.message"
                     class="text-[11px] mt-0.5 text-amber-600 dark:text-amber-400 font-normal break-words"
                   >
                     {{ check.message }}
@@ -510,7 +510,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 <div class="min-w-0 flex-1">
                   <span class="font-medium text-foreground truncate text-xs block">{{ check.label }}</span>
                   <p
-                    v-if="check.status !== 'synced' && check.message"
+                    v-if="check.status !== 'synced' && check.status !== 'manual_review' && check.message"
                     class="text-[11px] mt-0.5 text-amber-600 dark:text-amber-400 font-normal break-words"
                   >
                     {{ check.message }}
@@ -613,7 +613,7 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
                 <div class="min-w-0 flex-1">
                   <span class="font-medium text-foreground truncate text-xs block">{{ check.label }}</span>
                   <p
-                    v-if="check.status !== 'synced' && check.message"
+                    v-if="check.status !== 'synced' && check.status !== 'manual_review' && check.message"
                     class="text-[11px] mt-0.5 text-amber-600 dark:text-amber-400 font-normal break-words"
                   >
                     {{ check.message }}
