@@ -117,49 +117,61 @@ const timelineSteps = [
       </div>
 
       <!-- Mobile / Tablet Vertical Connected Timeline -->
-      <div class="lg:hidden relative space-y-4 sm:space-y-6 before:absolute before:left-5 before:top-4 before:bottom-4 before:w-0.5 before:bg-gradient-to-b before:from-orange-500 before:via-amber-500 before:to-emerald-500 pl-12 sm:pl-14">
+      <div class="lg:hidden relative space-y-4 sm:space-y-6">
+        <!-- Exact Center Spine with Gradient Glow -->
+        <div class="absolute left-[18px] sm:left-[22px] top-6 bottom-6 w-0.5 -translate-x-1/2 bg-gradient-to-b from-orange-500 via-amber-500 to-emerald-500 rounded-full" aria-hidden="true" />
+
         <div
-          v-for="item in timelineSteps"
+          v-for="(item, index) in timelineSteps"
           :key="item.step"
-          :class="[
-            'relative rounded-2xl border transition-all duration-200 p-4 sm:p-5 shadow-xs backdrop-blur-xs cursor-pointer',
-            activeStep === item.step
-              ? 'border-orange-500 bg-white dark:bg-stone-900 shadow-md ring-1 ring-orange-500/20'
-              : 'border-stone-200/80 dark:border-stone-800 bg-white/70 dark:bg-stone-900/60 hover:border-orange-500/40',
-          ]"
+          class="relative flex items-start gap-3 sm:gap-4 transition-all duration-500"
+          :class="[isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6']"
+          :style="{ transitionDelay: `${index * 100}ms` }"
           @click="activeStep = item.step"
         >
-          <!-- Node Dot on Spine -->
+          <!-- Node Dot on Spine: Exact 36px / 44px centered on spine line -->
+          <div class="relative shrink-0 flex items-center justify-center pt-3.5">
+            <div
+              :class="[
+                'size-9 sm:size-11 rounded-xl flex items-center justify-center font-black text-xs shadow-md transition-all duration-300 cursor-pointer z-10',
+                activeStep === item.step
+                  ? 'bg-orange-600 text-white scale-110 ring-4 ring-orange-500/25 shadow-orange-500/30'
+                  : item.step < activeStep
+                    ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                    : 'bg-white dark:bg-stone-900 border-2 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:border-orange-500 hover:scale-105',
+              ]"
+            >
+              <Icon v-if="item.step < activeStep" name="lucide:check" class="size-4 sm:size-5" />
+              <Icon v-else :name="item.icon" class="size-4 sm:size-5" />
+            </div>
+          </div>
+
+          <!-- Step Content Card -->
           <div
             :class="[
-              'absolute -left-[40px] sm:-left-[46px] top-4 size-8 sm:size-9 rounded-xl flex items-center justify-center font-black text-xs shadow-xs transition-all duration-200',
+              'flex-1 rounded-2xl border transition-all duration-300 p-4 sm:p-5 shadow-xs backdrop-blur-xs cursor-pointer group',
               activeStep === item.step
-                ? 'bg-orange-600 text-white scale-110 ring-4 ring-orange-500/20'
-                : item.step < activeStep
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-white dark:bg-stone-900 border-2 border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300',
+                ? 'border-orange-500 bg-white dark:bg-stone-900 shadow-md ring-1 ring-orange-500/20 -translate-y-0.5'
+                : 'border-stone-200/80 dark:border-stone-800 bg-white/80 dark:bg-stone-900/60 hover:border-orange-500/40 hover:bg-white dark:hover:bg-stone-900 hover:-translate-y-0.5',
             ]"
           >
-            <Icon v-if="item.step < activeStep" name="lucide:check" class="size-4" />
-            <Icon v-else :name="item.icon" class="size-4" />
+            <div class="flex items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 bg-orange-500/10 dark:bg-orange-500/15 px-2.5 py-0.5 rounded-md">
+                Stage 0{{ item.step }}
+              </span>
+              <span class="text-[10px] font-semibold text-stone-400 dark:text-stone-500">
+                Step {{ item.step }} of 5
+              </span>
+            </div>
+
+            <h3 class="text-base font-bold text-stone-900 dark:text-stone-100 mt-1.5 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+              {{ item.title }}
+            </h3>
+
+            <p class="text-xs sm:text-sm text-stone-600 dark:text-stone-400 leading-relaxed mt-1">
+              {{ item.desc }}
+            </p>
           </div>
-
-          <div class="flex items-center justify-between gap-2">
-            <span class="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-md">
-              Stage 0{{ item.step }}
-            </span>
-            <span class="text-[10px] font-semibold text-stone-400 dark:text-stone-500">
-              Step {{ item.step }} of 5
-            </span>
-          </div>
-
-          <h3 class="text-base font-bold text-stone-900 dark:text-stone-100 mt-1.5">
-            {{ item.title }}
-          </h3>
-
-          <p class="text-xs sm:text-sm text-stone-600 dark:text-stone-400 leading-relaxed mt-1">
-            {{ item.desc }}
-          </p>
         </div>
       </div>
 
