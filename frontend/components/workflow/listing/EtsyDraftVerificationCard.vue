@@ -602,14 +602,14 @@ function getCheckBadgeText(check: EtsyVerificationCheck): string {
 
       <!-- 4. Category Attributes & Properties -->
       <div v-if="checksByCategory.attributes.length > 0" class="rounded-lg border border-border/60 overflow-hidden">
-        <div class="bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <Icon name="lucide:tag" class="size-3.5 text-primary" aria-hidden="true" />
+        <div class="bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2 min-w-0">
+            <Icon name="lucide:tag" class="size-3.5 text-primary shrink-0" aria-hidden="true" />
             <span>Category Attributes & Properties</span>
           </div>
           <span
             v-if="checksByCategory.attributes[0]?.details?.properties?.length"
-            class="text-[10px] font-mono text-muted-foreground font-normal"
+            class="text-[10px] font-mono text-muted-foreground font-normal shrink-0 ml-auto"
           >
             {{ checksByCategory.attributes[0].details.properties.length }} attributes
           </span>
