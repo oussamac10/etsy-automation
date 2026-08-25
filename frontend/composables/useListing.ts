@@ -260,7 +260,7 @@ export function useListing() {
   }
 
   async function decideGate3(workflowId: string, payload: Gate3DecisionPayload): Promise<ListingDraft | null> {
-    if (!workflowId) return null;
+    if (!workflowId || isDecidingGate.value) return null;
     isDecidingGate.value = true;
     errorMessage.value = null;
 

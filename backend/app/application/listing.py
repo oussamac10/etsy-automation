@@ -657,6 +657,19 @@ class ListingDraftService:
         from_state = workflow.state
 
         if decision == ApprovalDecision.APPROVED:
+            # Check if this exact decision was already applied (idempotent retry or concurrent click)
+            if workflow.state in (
+                RunStatus.READY_FOR_ETSY_DRAFT,
+                RunStatus.ETSY_DRAFT_CREATED,
+                RunStatus.PUBLISHED,
+            ):
+                logger.info(
+                    "gate3_already_approved_idempotent",
+                    workflow_id=str(workflow_id),
+                    current_state=workflow.state.value,
+                )
+                return workflow, draft
+
             # 1. Validate listing fields
             is_title_valid, title_err = validate_listing_title(draft.title)
             if not is_title_valid:

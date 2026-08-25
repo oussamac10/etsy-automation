@@ -421,6 +421,7 @@ async function handleCategoryReResolved(res: { applied?: boolean; recommended_ta
 }
 
 async function handleApprove() {
+  if (isDecidingGate.value) return;
   successMessage.value = null;
   const draft = await decideGate3(props.workflowId, {
     decision: 'APPROVED',
@@ -432,6 +433,7 @@ async function handleApprove() {
 }
 
 async function _handleReject() {
+  if (isDecidingGate.value) return;
   successMessage.value = null;
   const draft = await decideGate3(props.workflowId, {
     decision: 'REJECTED',
