@@ -637,3 +637,43 @@ class BuyerPackagePreviewResponse(BaseModel):
     etsy_files_out_of_sync: bool
     package_asset: AssetResponse | None = None
     package_download_url: str | None = None
+
+
+class StalenessReportResponse(BaseModel):
+    concept_status: str
+    artwork_status: str
+    production_status: str
+    variants_status: str
+    mockups_status: str
+    listing_status: str
+    package_status: str
+    etsy_sync_status: str
+    is_any_stale: bool
+    stale_reasons: list[str] = []
+
+
+class ContextHashesResponse(BaseModel):
+    concept_context_hash: str
+    artwork_context_hash: str
+    production_context_hash: str
+    variant_set_hash: str
+    mockup_set_hash: str
+    listing_context_hash: str
+    etsy_sync_hash: str
+
+
+class WorkflowContextResponse(BaseModel):
+    workflow_id: uuid.UUID
+    workflow_name: str
+    workflow_state: str
+    workflow_version: int
+    active_concept_id: uuid.UUID | None = None
+    active_concept_title: str | None = None
+    approved_artwork_asset_id: uuid.UUID | None = None
+    production_master_asset_id: uuid.UUID | None = None
+    active_mockup_count: int = 0
+    buyer_package_asset_id: uuid.UUID | None = None
+    etsy_listing_id: str | None = None
+    hashes: ContextHashesResponse
+    staleness: StalenessReportResponse
+

@@ -69,8 +69,11 @@ from app.api.schemas import (
     UpdateListingDraftRequest,
     UpdateListingTaxonomyRequest,
     UpdateMockupSuggestionsRequest,
+    WorkflowContextResponse,
     WorkflowListResponse,
     WorkflowResponse,
+    ContextHashesResponse,
+    StalenessReportResponse,
 )
 from app.application import workflows as use_cases
 from app.application.artwork import ensure_artwork_within_budget
@@ -179,6 +182,55 @@ async def get_workflow(workflow_id: uuid.UUID, user: CurrentUser, uow: UowDep) -
     except Exception:
         pass
     return resp
+
+
+@router.get(
+    "/{workflow_id}/context",
+    response_model=WorkflowContextResponse,
+    summary="Get full context snapshot, provenance hashes and staleness report",
+)
+async def get_workflow_context_endpoint(
+    workflow_id: uuid.UUID,
+    user: CurrentUser,
+    uow: UowDep,
+) -> WorkflowContextResponse:
+    from app.application.workflow_context import resolve_current_workflow_context
+
+    ctx = await resolve_current_workflow_context(workflow_id, user.id, uow)
+    return WorkflowContextResponse(
+        workflow_id=ctx.workflow_id,
+        workflow_name=ctx.workflow_name,
+        workflow_state=ctx.workflow_state,
+        workflow_version=ctx.workflow_version,
+        active_concept_id=ctx.concept.id if ctx.concept else None,
+        active_concept_title=ctx.concept.title if ctx.concept else None,
+        approved_artwork_asset_id=ctx.artwork.asset_id if ctx.artwork else None,
+        production_master_asset_id=ctx.production.master_asset_id if ctx.production else None,
+        active_mockup_count=ctx.mockups.mockup_count,
+        buyer_package_asset_id=ctx.package.package_asset_id if ctx.package else None,
+        etsy_listing_id=ctx.etsy_draft.etsy_listing_id if ctx.etsy_draft else None,
+        hashes=ContextHashesResponse(
+            concept_context_hash=ctx.hashes.concept_context_hash,
+            artwork_context_hash=ctx.hashes.artwork_context_hash,
+            production_context_hash=ctx.hashes.production_context_hash,
+            variant_set_hash=ctx.hashes.variant_set_hash,
+            mockup_set_hash=ctx.hashes.mockup_set_hash,
+            listing_context_hash=ctx.hashes.listing_context_hash,
+            etsy_sync_hash=ctx.hashes.etsy_sync_hash,
+        ),
+        staleness=StalenessReportResponse(
+            concept_status=ctx.staleness.concept_status.value,
+            artwork_status=ctx.staleness.artwork_status.value,
+            production_status=ctx.staleness.production_status.value,
+            variants_status=ctx.staleness.variants_status.value,
+            mockups_status=ctx.staleness.mockups_status.value,
+            listing_status=ctx.staleness.listing_status.value,
+            package_status=ctx.staleness.package_status.value,
+            etsy_sync_status=ctx.staleness.etsy_sync_status.value,
+            is_any_stale=ctx.staleness.is_any_stale,
+            stale_reasons=ctx.staleness.stale_reasons,
+        ),
+    )
 
 
 @router.post(
